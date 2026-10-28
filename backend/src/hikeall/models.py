@@ -45,3 +45,20 @@ class Source(BaseModel):
     url: str
     license: str
     retrieved_at: date
+
+
+class StageSpec(BaseModel):
+    seq: int
+    start_name: str
+    end_name: str
+    start: tuple[float, float]
+    end: tuple[float, float]
+
+
+class TrailSpec(BaseModel):
+    id: str
+    name: str
+    kind: str
+    osm_relation_ids: list[int]
+    source: Source
+    stages: list[StageSpec]

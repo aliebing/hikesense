@@ -24,3 +24,13 @@ class GapError(HikeAllError):
         super().__init__(f"gap of {gap_m:.0f} m at {at}")
         self.gap_m = gap_m
         self.at = at
+
+
+class StageOffsetError(HikeAllError):
+    """A stage start/end place lies too far from the trail line."""
+
+    def __init__(self, seq: int, name: str, offset_m: float) -> None:
+        super().__init__(f"stage {seq}: '{name}' is {offset_m:.0f} m away from the trail line")
+        self.seq = seq
+        self.name = name
+        self.offset_m = offset_m
