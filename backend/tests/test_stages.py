@@ -85,3 +85,20 @@ def test_out_and_back_second_stage_snaps_to_second_pass():
     assert len(parts[0]) == 51
     assert len(parts[1]) == 31  # idx 50..80, not a wrong snap to the first pass
     assert parts[1][-1] == pytest.approx((48.0, 8.02), abs=1e-5)
+
+
+def test_trails_yaml_names_both_sources():
+    for t in load_trail_specs(TRAILS_YAML):
+        assert t.geometry_source.id == "osm" and t.geometry_source.license == "ODbL"
+        assert t.source.id != t.geometry_source.id
+
+
+def test_unknown_source_id_is_a_clear_error(tmp_path):
+    bad = tmp_path / "trails.yaml"
+    bad.write_text(
+        "sources: []\ntrails:\n  - {id: x, name: X, kind: long_distance, osm_relation_ids: [1],"
+        " source: nope, geometry_source: nope, stages: []}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="'nope' is not listed under sources"):
+        load_trail_specs(bad)

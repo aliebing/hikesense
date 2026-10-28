@@ -20,10 +20,12 @@ class ImageFetchError(HikeAllError):
 class GapError(HikeAllError):
     """Two route segments cannot be connected within the allowed gap."""
 
-    def __init__(self, gap_m: float, at: tuple[float, float]) -> None:
-        super().__init__(f"gap of {gap_m:.0f} m at {at}")
+    def __init__(self, gap_m: float, at: tuple[float, float], context: str = "") -> None:
+        msg = f"gap of {gap_m:.0f} m at {at}"
+        super().__init__(f"{context}: {msg}" if context else msg)
         self.gap_m = gap_m
         self.at = at
+        self.context = context
 
 
 class StageOffsetError(HikeAllError):
@@ -43,3 +45,7 @@ class StageOrderError(HikeAllError):
         super().__init__(f"stage {seq}: '{name}' {reason}")
         self.seq = seq
         self.name = name
+
+
+class OutsideRegionError(HikeAllError):
+    """Imported geometry leaves the Black Forest import bounding box."""

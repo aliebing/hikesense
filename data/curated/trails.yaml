@@ -5,6 +5,8 @@
 # Pforzheim = OSM 'start' node of relation 48073; Basel = Badischer Bahnhof end of the OSM variant;
 # Hinterzarten = vertex of relation 62897 nearest to the village (trail passes ~1 km from centre).
 # East variant Basel = end vertex of OSM relation 130310 (its ways stop ~1 km short of the Badischer Bahnhof).
+# kind uses the DB values (long_distance | day_hike). source = stage division, geometry_source =
+# line geometry. A stage may carry `km:` (official length) once it is curated; none is set yet.
 # Uncertain: east variant stage 9 end (Bärental vs Hinterzarten, source page is inconsistent).
 sources:
   - id: stages-schwarzwald-tourismus
@@ -20,9 +22,10 @@ sources:
 trails:
   - id: westweg-west
     name: Westweg (Westvariante)
-    kind: fernwanderweg
+    kind: long_distance
     osm_relation_ids: [48073, 905947, 905949, 905948, 905950, 905955, 542317, 907520, 907521, 62897]
     source: stages-schwarzwald-tourismus
+    geometry_source: osm
     stages:
       - seq: 1
         start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}
@@ -62,9 +65,10 @@ trails:
         end: {name: Basel, lat: 47.5673, lon: 7.6069}
   - id: westweg-ost
     name: Westweg (Ostvariante)
-    kind: fernwanderweg
+    kind: long_distance
     osm_relation_ids: [48073, 905947, 905949, 905948, 905950, 905955, 542317, 907520, 907521, 130310]
     source: stages-schwarzwald-tourismus
+    geometry_source: osm
     stages:
       - seq: 1
         start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}

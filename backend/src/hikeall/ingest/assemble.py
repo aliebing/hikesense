@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from hikeall.errors import GapError
-from hikeall.geo import Point, haversine_km
+from hikeall.geo import Point, distance_point_to_path_km, haversine_km
 
 
 def assemble(segments: list[list[Point]], max_gap_m: float = 200) -> list[Point]:
     """Greedy chaining: start at the segment end farthest from all other ends, then
     repeatedly append the remaining segment whose start or end is nearest the chain end.
-    Raises GapError if the nearest candidate is farther than `max_gap_m`."""
+    Raises GapError if the nearest candidate is farther than `max_gap_m`, unless every
+    remaining segment lies entirely within `max_gap_m` of the chain: such leftovers are tiny
+    spurs or closed outlines (e.g. a shelter tagged as a route member) that add no route and
+    are dropped. Nothing is ever bridged across a gap."""
     segs = [list(s) for s in segments if s]
     if not segs:
         raise ValueError("no segments to assemble")
@@ -37,9 +40,15 @@ def assemble(segments: list[list[Point]], max_gap_m: float = 200) -> list[Point]
                 if d < dist:
                     k, rev, dist = idx, r, d
         if dist * 1000 > max_gap_m:
+            if _all_near(segs, chain, max_gap_m):
+                break
             raise GapError(dist * 1000, tail)
         nxt = segs.pop(k)
         if rev:
             nxt = nxt[::-1]
         chain.extend(nxt[1:] if dist == 0 else nxt)
     return chain
+
+
+def _all_near(segs: list[list[Point]], chain: list[Point], max_gap_m: float) -> bool:
+    return all(distance_point_to_path_km(p, [chain]) * 1000 <= max_gap_m for s in segs for p in s)

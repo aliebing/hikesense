@@ -32,6 +32,10 @@ class BBox(BaseModel):
         return self.south <= point.lat <= self.north and self.west <= point.lon <= self.east
 
 
+# Global import area (Black Forest only).
+BLACK_FOREST_BBOX = BBox(south=47.55, west=7.55, north=48.95, east=8.75)
+
+
 class HikingTime(BaseModel):
     hours: float
     horizontal_h: float
@@ -53,6 +57,7 @@ class StageSpec(BaseModel):
     end_name: str
     start: tuple[float, float]
     end: tuple[float, float]
+    official_km: float | None = None  # published stage length, if curated; never estimated
 
 
 class TrailSpec(BaseModel):
@@ -60,5 +65,6 @@ class TrailSpec(BaseModel):
     name: str
     kind: str
     osm_relation_ids: list[int]
-    source: Source
+    source: Source  # stage division
+    geometry_source: Source  # line geometry (OSM, ODbL)
     stages: list[StageSpec]

@@ -1,0 +1,144 @@
+{
+ "version": 0.6,
+ "generator": "hand-made test fixture (shape of Overpass 'out geom')",
+ "elements": [
+  {
+   "type": "relation",
+   "id": 1001,
+   "tags": {
+    "route": "hiking",
+    "name": "Test Etappe 1"
+   },
+   "members": [
+    {
+     "type": "node",
+     "ref": 9,
+     "role": "start",
+     "lat": 48.0,
+     "lon": 8.0
+    },
+    {
+     "type": "way",
+     "ref": 11,
+     "role": "",
+     "geometry": [
+      {
+       "lat": 48.0,
+       "lon": 8.0
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.01
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.02
+      }
+     ]
+    },
+    {
+     "type": "way",
+     "ref": 12,
+     "role": "",
+     "geometry": [
+      {
+       "lat": 48.0,
+       "lon": 8.04
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.03
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.02
+      }
+     ]
+    },
+    {
+     "type": "way",
+     "ref": 13,
+     "role": "alternative",
+     "geometry": [
+      {
+       "lat": 48.1,
+       "lon": 8.0
+      },
+      {
+       "lat": 48.1,
+       "lon": 8.01
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "relation",
+   "id": 1002,
+   "tags": {
+    "route": "hiking",
+    "name": "Test Etappe 2"
+   },
+   "members": [
+    {
+     "type": "way",
+     "ref": 21,
+     "role": "",
+     "geometry": [
+      {
+       "lat": 48.0,
+       "lon": 8.08
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.07
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.06
+      }
+     ]
+    },
+    {
+     "type": "way",
+     "ref": 22,
+     "role": "",
+     "geometry": [
+      {
+       "lat": 48.0,
+       "lon": 8.04
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.05
+      },
+      {
+       "lat": 48.0,
+       "lon": 8.06
+      }
+     ]
+    },
+    {
+     "type": "way",
+     "ref": 23,
+     "role": "excursion",
+     "geometry": [
+      {
+       "lat": 47.9,
+       "lon": 8.05
+      },
+      {
+       "lat": 47.9,
+       "lon": 8.06
+      }
+     ]
+    },
+    {
+     "type": "relation",
+     "ref": 99,
+     "role": ""
+    }
+   ]
+  }
+ ]
+}

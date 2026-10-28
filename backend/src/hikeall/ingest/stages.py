@@ -14,13 +14,23 @@ from hikeall.models import Source, StageSpec, TrailSpec
 def load_trail_specs(path: Path) -> list[TrailSpec]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     sources = {s["id"]: Source(**s) for s in data["sources"]}
+
+    def source(trail: dict, key: str) -> Source:
+        try:
+            return sources[trail[key]]
+        except KeyError:
+            raise ValueError(
+                f"trail {trail.get('id')!r}: {key} {trail.get(key)!r} is not listed under sources"
+            ) from None
+
     return [
         TrailSpec(
             id=t["id"],
             name=t["name"],
             kind=t["kind"],
             osm_relation_ids=t["osm_relation_ids"],
-            source=sources[t["source"]],
+            source=source(t, "source"),
+            geometry_source=source(t, "geometry_source"),
             stages=[
                 StageSpec(
                     seq=s["seq"],
@@ -28,6 +38,7 @@ def load_trail_specs(path: Path) -> list[TrailSpec]:
                     end_name=s["end"]["name"],
                     start=(s["start"]["lat"], s["start"]["lon"]),
                     end=(s["end"]["lat"], s["end"]["lon"]),
+                    official_km=s.get("km"),
                 )
                 for s in t["stages"]
             ],
