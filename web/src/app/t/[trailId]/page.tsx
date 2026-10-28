@@ -5,7 +5,7 @@ import Panorama from "../../../components/Panorama";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
 import { getTrail, type TrailDetail } from "../../../lib/data";
-import { din33466Hours, duration, hm, hmDown, km } from "../../../lib/format";
+import { hm, hmDown, km, walkingTime } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +33,9 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
     km(trail.length_km),
     hm(trail.ascent_m),
     hmDown(trail.descent_m),
-    ...(longDistance ? [] : [duration(din33466Hours(trail.length_km, trail.ascent_m, trail.descent_m))]),
   ];
+  const time = longDistance ? null : walkingTime(trail);
+  if (time) meta.push(time);
 
   return (
     <Panorama back>
@@ -48,7 +49,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
           intro={
             longDistance
               ? `Der ${trail.name} hat ${trail.stages.length} Etappen. Bald kannst du hier fragen, z. B. „3 Tage ab Hausach, etwa 15 km pro Tag“.`
-              : `${trail.name}: ${km(trail.length_km)}. Bald kannst du hier fragen, ob die Tour zu dir und zum Wetter passt.`
+              : `${trail.name}${trail.length_km === null ? "" : `: ${km(trail.length_km)}`}. Bald kannst du hier fragen, ob die Tour zu dir und zum Wetter passt.`
           }
         />
         {/* Slot for the trail map (Task 11): trail.geom / stage.geom are loaded as GeoJSON. */}

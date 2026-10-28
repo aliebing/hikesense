@@ -14,9 +14,10 @@ export type TrailSummary = {
   id: string;
   name: string;
   kind: "long_distance" | "day_hike";
-  length_km: number;
-  ascent_m: number;
-  descent_m: number;
+  /** null when the source has no value — never replaced by 0 */
+  length_km: number | null;
+  ascent_m: number | null;
+  descent_m: number | null;
   stage_count: number;
   /** latitude of the line's centroid, used to spread the home selection */
   center_lat: number | null;
@@ -30,9 +31,9 @@ export type Stage = {
   name: string;
   start_name: string;
   end_name: string;
-  length_km: number;
-  ascent_m: number;
-  descent_m: number;
+  length_km: number | null;
+  ascent_m: number | null;
+  descent_m: number | null;
   geom: LineString | null;
   /** photos taken along this stage (Westweg); empty for day hikes */
   photos: Photo[];
@@ -47,7 +48,7 @@ export type TrailDetail = TrailSummary & {
   sources: Source[];
 };
 
-type OverviewRow = {
+export type OverviewRow = {
   id: string;
   name: string;
   kind: TrailSummary["kind"];
@@ -70,7 +71,7 @@ const OVERVIEW_COLUMNS =
   "cover_url,cover_thumb_url,cover_author,cover_license,cover_license_url,cover_page_url";
 const PHOTO_COLUMNS = "url,thumb_url,author,license,license_url,page_url,stage_id";
 
-function toSummary(r: OverviewRow): TrailSummary {
+export function toSummary(r: OverviewRow): TrailSummary {
   const cover =
     r.cover_url && r.cover_author && r.cover_license
       ? {
@@ -86,13 +87,20 @@ function toSummary(r: OverviewRow): TrailSummary {
     id: r.id,
     name: r.name,
     kind: r.kind,
-    length_km: Number(r.length_km ?? 0),
-    ascent_m: r.ascent_m ?? 0,
-    descent_m: r.descent_m ?? 0,
+    length_km: num(r.length_km),
+    ascent_m: num(r.ascent_m),
+    descent_m: num(r.descent_m),
     stage_count: r.stage_count ?? 0,
     center_lat: r.center_lat,
     cover,
   };
+}
+
+/** numeric columns may arrive as string; missing stays null */
+function num(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 function fail(what: string, error: { message: string }): never {
@@ -172,13 +180,18 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
       name: s.name,
       start_name: s.start_name,
       end_name: s.end_name,
-      length_km: Number(s.length_km ?? 0),
-      ascent_m: s.ascent_m ?? 0,
-      descent_m: s.descent_m ?? 0,
+      length_km: num(s.length_km),
+      ascent_m: num(s.ascent_m),
+      descent_m: num(s.descent_m),
       geom: geomById.get(s.id) ?? null,
       photos: photoRows.filter((p) => p.stage_id === s.id).map(toPhoto),
     })),
   };
+}
+
+/** Day hikes eligible for the home selection: with a photo and a known position. */
+export function photoPool(trails: TrailSummary[]): TrailSummary[] {
+  return trails.filter((t) => t.kind === "day_hike" && t.cover !== null && t.center_lat !== null);
 }
 
 /**
@@ -187,9 +200,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
  * so the selection covers the whole Black Forest and is deterministic.
  */
 export function pickSpread(trails: TrailSummary[], n: number): TrailSummary[] {
-  const pool = trails
-    .filter((t) => t.kind === "day_hike" && t.cover && t.center_lat !== null)
-    .sort((a, b) => b.center_lat! - a.center_lat! || a.id.localeCompare(b.id));
+  const pool = photoPool(trails).sort((a, b) => b.center_lat! - a.center_lat! || a.id.localeCompare(b.id));
   if (pool.length <= n) return pool;
   if (n <= 1) return pool.slice(0, n);
   return Array.from({ length: n }, (_, i) => pool[Math.round((i * (pool.length - 1)) / (n - 1))]);

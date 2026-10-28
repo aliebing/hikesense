@@ -1,19 +1,22 @@
 const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const de0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 
-/** 14.83 → "14,8 km" */
-export function km(n: number): string {
-  return `${de1.format(n)} km`;
+/** Shown instead of a number that is missing in the data (never 0). */
+export const MISSING = "–";
+
+/** 14.83 → "14,8 km"; null → "– km" */
+export function km(n: number | null): string {
+  return `${n === null ? MISSING : de1.format(n)} km`;
 }
 
-/** 720 → "↑ 720 m" */
-export function hm(n: number): string {
-  return `↑ ${de0.format(n)} m`;
+/** 720 → "↑ 720 m"; null → "↑ – m" */
+export function hm(n: number | null): string {
+  return `↑ ${n === null ? MISSING : de0.format(n)} m`;
 }
 
-/** 700 → "↓ 700 m" */
-export function hmDown(n: number): string {
-  return `↓ ${de0.format(n)} m`;
+/** 700 → "↓ 700 m"; null → "↓ – m" */
+export function hmDown(n: number | null): string {
+  return `↓ ${n === null ? MISSING : de0.format(n)} m`;
 }
 
 /** 5.17 → "5:10 h" (rounded to whole minutes) */
@@ -37,4 +40,14 @@ export function din33466Hours(distanceKm: number, ascentM: number, descentM: num
   const vertical = ascentM / 300 + descentM / 500;
   const hours = Math.max(horizontal, vertical) + Math.min(horizontal, vertical) / 2;
   return Math.round(hours * 100) / 100;
+}
+
+/** DIN walking time as text, or null when distance, ascent or descent is missing. */
+export function walkingTime(x: {
+  length_km: number | null;
+  ascent_m: number | null;
+  descent_m: number | null;
+}): string | null {
+  if (x.length_km === null || x.ascent_m === null || x.descent_m === null) return null;
+  return duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m));
 }

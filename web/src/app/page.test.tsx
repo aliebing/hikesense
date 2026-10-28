@@ -55,3 +55,10 @@ test("home lists long-distance trails and day hikes with attribution", async () 
   expect(screen.getByRole("link", { name: /Weg day-1/ })).toHaveAttribute("href", "/t/day-1");
   expect(screen.getAllByText(/Autor day-1/).length).toBeGreaterThan(0);
 });
+
+test("home counts only day hikes that have a photo", async () => {
+  const noPhoto = { ...trail("day-2", "day_hike", 48.2), cover: null };
+  mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1), noPhoto]);
+  render(await Home());
+  expect(screen.getByText(/1 von 1 Tagestouren mit Foto/)).toBeInTheDocument();
+});

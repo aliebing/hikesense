@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Photo, TrailDetail, TrailSummary } from "../lib/data";
-import { din33466Hours, duration, hm, hmDown, km } from "../lib/format";
+import { hm, hmDown, km, walkingTime } from "../lib/format";
 import Attribution from "./Attribution";
 
 /** Key figures separated by " · "; each figure stays on one line. */
@@ -53,9 +53,13 @@ export function ImageCard({ eyebrow, title, href, photo, facts }: CardProps) {
   );
 }
 
-function figures(x: { length_km: number; ascent_m: number; descent_m: number }, withTime = true): string[] {
+type Figures = { length_km: number | null; ascent_m: number | null; descent_m: number | null };
+
+/** km, ↑, ↓ ("–" when missing) and the DIN walking time, omitted unless all inputs are known. */
+function figures(x: Figures, withTime = true): string[] {
   const f = [km(x.length_km), hm(x.ascent_m), hmDown(x.descent_m)];
-  if (withTime) f.push(duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m)));
+  const time = withTime ? walkingTime(x) : null;
+  if (time) f.push(time);
   return f;
 }
 

@@ -3,7 +3,7 @@ import Notice from "../components/Notice";
 import Panorama from "../components/Panorama";
 import PhotoSwitcher from "../components/PhotoSwitcher";
 import { CardRow, TrailCard } from "../components/StageCards";
-import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
+import { getTrails, photoPool, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export default async function Home() {
   }
 
   const longDistance = trails.filter((t) => t.kind === "long_distance");
-  const dayHikes = trails.filter((t) => t.kind === "day_hike");
+  const withPhoto = photoPool(trails).length;
   const selection = pickSpread(trails, DAY_HIKE_SELECTION);
   const backgrounds = [...longDistance, ...selection]
     .map((t) => t.cover)
@@ -86,7 +86,7 @@ export default async function Home() {
           Tagestouren – eine Auswahl
         </h2>
         <p className="text-xs text-papier/80">
-          {selection.length} von {dayHikes.length} Tagestouren mit Foto, von Nord nach Süd verteilt.
+          {selection.length} von {withPhoto} Tagestouren mit Foto, von Nord nach Süd verteilt.
         </p>
         <CardRow label="Tagestouren">
           {selection.map((t) => (
