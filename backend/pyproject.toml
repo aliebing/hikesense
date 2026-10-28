@@ -31,6 +31,7 @@ packages = ["src/hikeall"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["db: needs a running Supabase/Postgres (SUPABASE_DB_URL)"]
 
 [tool.ruff]
 line-length = 100
