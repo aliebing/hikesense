@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import psycopg
 from psycopg.types.json import Jsonb
 
-from hikeall.models import Source
+from hikeall.models import Lodging, Source
 
 
 def connect(url: str) -> psycopg.Connection:
@@ -139,3 +139,17 @@ def delete_day_hike(conn: psycopg.Connection, trail_id: str) -> bool:
     )
     cur = conn.execute("delete from trails where id = %s and kind = 'day_hike'", [trail_id])
     return cur.rowcount > 0
+
+
+def upsert_lodging(conn: psycopg.Connection, lodging: Lodging, source_id: str) -> None:
+    conn.execute(
+        """
+        insert into lodgings (id, name, kind, website, geom, source_id)
+        values (%(id)s, %(name)s, %(kind)s, %(website)s,
+                st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326), %(src)s)
+        on conflict (id) do update set
+            name = excluded.name, kind = excluded.kind, website = excluded.website,
+            geom = excluded.geom, source_id = excluded.source_id
+        """,
+        {**lodging.model_dump(), "src": source_id},
+    )

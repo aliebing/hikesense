@@ -21,6 +21,7 @@ from hikeall.ingest.day_hikes import (
     scan,
     write_candidates,
 )
+from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
 from hikeall.models import BLACK_FOREST_BBOX
@@ -149,11 +150,61 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
     return 1 if rep.failed else 0
 
 
+STAGE_COUNT_SQL = """
+    select s.id, s.trail_id, s.seq, count(l.id)
+    from stages s
+    left join lodgings l on st_dwithin(s.geom::geography, l.geom::geography, 1000)
+    where s.trail_id like 'westweg%%'
+    group by s.id, s.trail_id, s.seq
+    order by s.trail_id, s.seq
+"""
+
+
+def import_lodgings_cmd() -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    source = load_trail_sources(TRAILS_YAML)[OSM_SOURCE_ID]
+    with (
+        make_http_client(240) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        overpass = OverpassClient(http, url=settings.overpass_url)
+        try:
+            lodgings = fetch_lodgings(overpass, BLACK_FOREST_BBOX)
+            links = import_lodgings(conn, lodgings, source)
+        except BaseException as e:
+            conn.rollback()
+            if isinstance(e, (HikeAllError, ValueError)):
+                print(f"Import abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+                return 1
+            raise
+        conn.commit()
+        total = conn.execute("select count(*) from lodgings").fetchone()[0]
+        rows = conn.execute(STAGE_COUNT_SQL).fetchall()
+    print(
+        f"{len(lodgings)} Unterkünfte in OSM gefunden, {total} innerhalb 2 km eines Wegs "
+        f"importiert, {links} Weg-Verknüpfungen"
+    )
+    print(
+        "Westweg-Etappen: Unterkünfte mit Abstand <= 1000 m zur Etappe (ST_DWithin auf stages.geom)"
+    )
+    for sid, _trail, _seq, n in rows:
+        print(f"  {sid}: {n}")
+    for sid, _trail, _seq, n in rows:
+        if n == 0:
+            print(f"  Warnung: {sid} hat keine Unterkunft im Umkreis von 1 km")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("import-trails", help="Fernwege aus OSM importieren (trails.yaml)")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
+    sub.add_parser(
+        "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
+    )
     for name, help_text in (
         ("scan-day-hikes", "Tagestour-Kandidaten aus OSM in die Kurations-CSV schreiben"),
         ("import-day-hikes", "akzeptierte Tagestouren aus der CSV importieren"),
@@ -163,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "import-trails":
         return import_trails(args.only)
+    if args.command == "import-lodgings":
+        return import_lodgings_cmd()
     if args.command == "scan-day-hikes":
         return scan_day_hikes(_repo_path(args.csv))
     if args.command == "import-day-hikes":

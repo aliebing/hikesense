@@ -68,3 +68,12 @@ class TrailSpec(BaseModel):
     source: Source  # stage division
     geometry_source: Source  # line geometry (OSM, ODbL)
     stages: list[StageSpec]
+
+
+class Lodging(BaseModel):
+    id: int  # OSM id; ways are negative
+    name: str
+    kind: str
+    website: str | None = None
+    lat: float
+    lon: float
