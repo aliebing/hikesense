@@ -34,3 +34,12 @@ class StageOffsetError(HikeAllError):
         self.seq = seq
         self.name = name
         self.offset_m = offset_m
+
+
+class StageOrderError(HikeAllError):
+    """Stage boundaries are not in trail order (reversed, empty or overlapping stage)."""
+
+    def __init__(self, seq: int, name: str, reason: str) -> None:
+        super().__init__(f"stage {seq}: '{name}' {reason}")
+        self.seq = seq
+        self.name = name

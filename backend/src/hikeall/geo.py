@@ -24,11 +24,11 @@ def haversine_km(a: Point, b: Point) -> float:
     return 2 * EARTH_RADIUS_KM * math.asin(math.sqrt(h))
 
 
-def locate(line: Sequence[Point], p: Point) -> tuple[int, float]:
-    """Index of the vertex of `line` nearest to `p` and its distance in metres."""
-    if not line:
+def locate(line: Sequence[Point], p: Point, start: int = 0) -> tuple[int, float]:
+    """Absolute index of the vertex of `line[start:]` nearest to `p` and its distance in metres."""
+    if not line[start:]:
         raise ValueError("empty line")
-    idx = min(range(len(line)), key=lambda i: haversine_km(line[i], p))
+    idx = min(range(start, len(line)), key=lambda i: haversine_km(line[i], p))
     return idx, haversine_km(line[idx], p) * 1000
 
 

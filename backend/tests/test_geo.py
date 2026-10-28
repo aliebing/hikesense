@@ -62,8 +62,8 @@ def test_straight_line_collapses_to_its_endpoints():
 
 def test_small_wiggles_go_and_real_bends_stay():
     a, b = (47.9, 8.0), (47.9, 8.01)
-    wiggle = _north(47.9, 8.005, 5)      # 5 m off the line: removed
-    bend = _north(47.9, 8.005, 50)       # 50 m off the line: kept
+    wiggle = _north(47.9, 8.005, 5)  # 5 m off the line: removed
+    bend = _north(47.9, 8.005, 50)  # 50 m off the line: kept
     assert simplify_segments([[a, wiggle, b]]) == [[a, b]]
     assert simplify_segments([[a, bend, b]]) == [[a, bend, b]]
 
@@ -89,3 +89,11 @@ def test_locate_returns_nearest_vertex_and_distance_m():
     idx, dist_m = locate(line, (48.0005, 8.0101))
     assert idx == 1
     assert 50 < dist_m < 60
+
+
+def test_locate_start_index_searches_only_forward():
+    from hikeall.geo import locate
+
+    line = [(48.0, 8.0), (48.0, 8.01), (48.0, 8.02), (48.0, 8.01), (48.0, 8.0)]
+    assert locate(line, (48.0, 8.01))[0] == 1
+    assert locate(line, (48.0, 8.01), start=2)[0] == 3  # absolute index

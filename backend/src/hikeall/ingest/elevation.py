@@ -52,6 +52,8 @@ def elevation_stats(
 ) -> ElevationStats:
     if len(line) < 2:
         raise ValueError("line needs at least two points")
+    if step_m <= 0:
+        raise ValueError("step_m must be positive")
     samples = _resample(line, step_m)
     raw = provider.elevations([LatLon(lat=p[0], lon=p[1]) for p, _ in samples])
     if len(raw) != len(samples) or any(v is None for v in raw):

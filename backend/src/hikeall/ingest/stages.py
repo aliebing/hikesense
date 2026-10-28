@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from hikeall.errors import StageOffsetError
+from hikeall.errors import StageOffsetError, StageOrderError
 from hikeall.geo import Point, locate
 from hikeall.models import Source, StageSpec, TrailSpec
 
@@ -36,17 +36,33 @@ def load_trail_specs(path: Path) -> list[TrailSpec]:
     ]
 
 
+def _locate_forward(
+    line: list[Point], p: Point, start: int, seq: int, name: str, max_offset_m: float
+) -> int:
+    """Nearest vertex at or after `start`; a place that only lies behind it is an order error."""
+    idx, dist = locate(line, p, start)
+    if dist <= max_offset_m:
+        return idx
+    back, back_dist = locate(line, p)
+    if back_dist <= max_offset_m and back < start:
+        raise StageOrderError(seq, name, "lies before the previous point of the trail")
+    raise StageOffsetError(seq, name, dist)
+
+
 def cut_stages(
     line: list[Point], specs: list[StageSpec], max_offset_m: float = 500
 ) -> list[list[Point]]:
-    """Split `line` at the vertices nearest to each stage's start and end point."""
+    """Split `line` at the vertices nearest to each stage's start and end point.
+
+    Stages must follow the line in order: each search runs forward from the previous cut.
+    """
     parts: list[list[Point]] = []
+    prev_end = 0
     for spec in specs:
-        i0, d0 = locate(line, spec.start)
-        if d0 > max_offset_m:
-            raise StageOffsetError(spec.seq, spec.start_name, d0)
-        i1, d1 = locate(line, spec.end)
-        if d1 > max_offset_m:
-            raise StageOffsetError(spec.seq, spec.end_name, d1)
-        parts.append(list(line[min(i0, i1) : max(i0, i1) + 1]))
+        i0 = _locate_forward(line, spec.start, prev_end, spec.seq, spec.start_name, max_offset_m)
+        i1 = _locate_forward(line, spec.end, i0, spec.seq, spec.end_name, max_offset_m)
+        if i1 == i0:
+            raise StageOrderError(spec.seq, spec.end_name, "ends where the stage starts")
+        parts.append(list(line[i0 : i1 + 1]))
+        prev_end = i1
     return parts
