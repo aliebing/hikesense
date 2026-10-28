@@ -19,9 +19,19 @@ def test_schema_has_tables_and_postgis(conn):
 
 
 @pytest.mark.db
-def test_anon_can_read_trails(conn):
+def test_anon_sees_trail_and_only_public_photos(conn):
+    conn.execute("insert into sources (id) values ('rls')")
+    conn.execute("insert into trails (id, source_id) values ('rls-t', 'rls')")
+    for src in ("commons", "upload"):
+        conn.execute(
+            "insert into photos (trail_id, source, url, author, license)"
+            " values ('rls-t', %s, %s, 'a', 'l')",
+            (src, f"http://x/{src}"),
+        )
     conn.execute("set role anon")
-    conn.execute("select count(*) from trails")  # must not raise
+    assert conn.execute("select count(*) from trails where id='rls-t'").fetchone()[0] == 1
+    rows = conn.execute("select source from photos where trail_id='rls-t'").fetchall()
+    assert rows == [("commons",)]
 
 
 @pytest.mark.db

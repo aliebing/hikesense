@@ -59,7 +59,7 @@ create table photos (
   id bigserial primary key,
   trail_id text references trails (id),
   stage_id text references stages (id),
-  source text check (source in ('commons', 'upload')),
+  source text not null check (source in ('commons', 'upload')),
   url text,
   thumb_url text,
   author text not null,
