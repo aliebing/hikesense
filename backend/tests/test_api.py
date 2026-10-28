@@ -23,3 +23,18 @@ def test_health_reports_db_true(conn):
     r = TestClient(app).get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok", "db": True}
+
+
+def test_health_reports_db_false_when_url_unset(monkeypatch):
+    monkeypatch.delenv("SUPABASE_DB_URL", raising=False)
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    r = TestClient(create_app()).get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "db": False}
+
+
+def test_health_reports_db_false_for_malformed_url():
+    app = create_app(Settings(supabase_db_url="not a url ::"))
+    r = TestClient(app).get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "db": False}
