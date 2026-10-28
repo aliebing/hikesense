@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -349,8 +350,9 @@ def import_day_hikes(
     batch_size: int = 25,
 ) -> DayHikeImport:
     """Import every candidate whose final decision is `accepted`; remove day hikes whose final
-    decision is `rejected`. Each relation runs in its own savepoint, so one failure is
-    reported (with its relation id) and the others continue. Does not commit."""
+    decision is `rejected`. Each import and each delete runs in its own savepoint, so one
+    failure (e.g. a photo still referencing a rejected trail) is reported with its relation
+    id and the others continue. Does not commit."""
     result = DayHikeImport()
     upsert_source(conn, source)
     accepted = sorted(
@@ -358,10 +360,11 @@ def import_day_hikes(
         key=lambda c: c.osm_relation_id,
     )
     for c in sorted(candidates, key=lambda c: c.osm_relation_id):
-        if final_decision(c)[0] == "rejected" and delete_day_hike(
-            conn, trail_id(c.osm_relation_id)
-        ):
-            result.removed.append(trail_id(c.osm_relation_id))
+        if final_decision(c)[0] != "rejected":
+            continue
+        tid = trail_id(c.osm_relation_id)
+        if _isolated(conn, result, c.osm_relation_id, delete_day_hike, conn, tid):
+            result.removed.append(tid)
     for batch in _batches(accepted, batch_size):
         try:
             data = overpass.run(relations_query([c.osm_relation_id for c in batch]))
@@ -369,13 +372,36 @@ def import_day_hikes(
             result.failed.extend((c.osm_relation_id, f"{type(e).__name__}: {e}") for c in batch)
             continue
         for c in batch:
-            conn.execute("savepoint day_hike")
-            try:
-                rep = import_day_hike(conn, c, data, dem, source)
-            except (HikeAllError, ValueError, psycopg.Error) as e:
-                conn.execute("rollback to savepoint day_hike")
-                result.failed.append((c.osm_relation_id, f"{type(e).__name__}: {e}"))
-                continue
-            conn.execute("release savepoint day_hike")
-            result.imported.append(rep)
+            rep = _isolated(
+                conn,
+                result,
+                c.osm_relation_id,
+                import_day_hike,
+                conn,
+                c,
+                data,
+                dem,
+                source,
+            )
+            if rep is not None:
+                result.imported.append(rep)
     return result
+
+
+def _isolated[T](
+    conn: psycopg.Connection,
+    result: DayHikeImport,
+    relation_id: int,
+    step: Callable[..., T],
+    *args: Any,
+) -> T | None:
+    """Run one relation's DB step in a savepoint; on failure roll it back, record it, None."""
+    conn.execute("savepoint day_hike")
+    try:
+        value = step(*args)
+    except (HikeAllError, ValueError, psycopg.Error) as e:
+        conn.execute("rollback to savepoint day_hike")
+        result.failed.append((relation_id, f"{type(e).__name__}: {e}"))
+        return None
+    conn.execute("release savepoint day_hike")
+    return value

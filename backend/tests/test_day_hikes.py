@@ -393,3 +393,21 @@ def test_cli_import_reports_failed_relation_and_exits_1(conn, monkeypatch, capsy
     assert cli.main(["import-day-hikes", "--csv", str(csv)]) == 1
     err = capsys.readouterr().err
     assert "2001" in err and "GapError" in err
+
+
+@pytest.mark.db
+def test_failed_delete_of_rejected_day_hike_is_reported_and_rest_continues(conn, overpass):
+    _, client = overpass
+    import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)
+    conn.execute(
+        "insert into photos (trail_id, source, url, author, license) "
+        "values ('day-2003', 'commons', 'https://example.org/p.jpg', 'Tester', 'CC BY 4.0')"
+    )
+    rep = import_day_hikes(
+        conn, _cands({2003: ("rejected", "Weg gesperrt")}), client, Ramp(), source=OSM
+    )
+    assert [r.trail_id for r in rep.imported] == ["day-2001"]
+    assert rep.removed == []
+    assert len(rep.failed) == 1 and rep.failed[0][0] == 2003
+    assert "ForeignKeyViolation" in rep.failed[0][1]
+    assert [r[0] for r in _day_hikes(conn)] == ["day-2001", "day-2003"]  # trail stays
