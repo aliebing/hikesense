@@ -30,3 +30,39 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgb(244 241 234 / 0.4) transparent;
 }
+
+/* Trail map (MapPanel): lodging markers and popups. */
+.map-lodging {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  background: var(--color-wald);
+  font-size: 0.85rem;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+.map-lodging:focus-visible {
+  outline: 2px solid #d62839;
+  outline-offset: 2px;
+}
+.map-popup {
+  display: grid;
+  gap: 0.15rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--color-wald-dunkel);
+}
+.map-popup a {
+  color: var(--color-wald);
+  text-decoration: underline;
+}
+.map-lodging-dots .map-lodging {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-width: 1.5px;
+  font-size: 0;
+}

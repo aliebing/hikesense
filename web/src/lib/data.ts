@@ -189,6 +189,40 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
   };
 }
 
+export type LodgingOnTrail = {
+  id: number;
+  name: string | null;
+  kind: string | null;
+  website: string | null;
+  /** distance to the trail in metres as imported (trail_lodgings.dist_m); null if unknown */
+  dist_m: number | null;
+  along_km: number | null;
+  lon: number;
+  lat: number;
+};
+
+/** Lodgings linked to a trail, with coordinates (view trail_lodgings_geo), ordered along the trail. */
+export async function getLodgings(trailId: string): Promise<LodgingOnTrail[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("trail_lodgings_geo")
+    .select("id,name,kind,website,dist_m,along_km,lon,lat")
+    .eq("trail_id", trailId)
+    .order("along_km", { nullsFirst: false })
+    .order("id");
+  if (error) fail("trail_lodgings_geo", error);
+  return (data ?? []).map((r) => ({
+    id: Number(r.id),
+    name: r.name,
+    kind: r.kind,
+    website: r.website,
+    dist_m: num(r.dist_m),
+    along_km: num(r.along_km),
+    lon: Number(r.lon),
+    lat: Number(r.lat),
+  }));
+}
+
 /** Day hikes eligible for the home selection: with a photo and a known position. */
 export function photoPool(trails: TrailSummary[]): TrailSummary[] {
   return trails.filter((t) => t.kind === "day_hike" && t.cover !== null && t.center_lat !== null);

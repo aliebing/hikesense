@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import ChatShell from "../../../components/ChatShell";
+import MapPanel from "../../../components/MapPanel";
 import Notice from "../../../components/Notice";
 import Panorama from "../../../components/Panorama";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
-import { getTrail, type TrailDetail } from "../../../lib/data";
+import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
+import { mapTrail } from "../../../lib/map";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,14 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
     );
   }
   if (!trail) notFound();
+
+  // Lodgings only feed the map; without them the map still shows the trail.
+  let lodgings: LodgingOnTrail[] = [];
+  try {
+    lodgings = await getLodgings(trailId);
+  } catch (e) {
+    console.error(`getLodgings(${trailId}) failed:`, e);
+  }
 
   const longDistance = trail.kind === "long_distance";
   const meta = [
@@ -52,8 +62,9 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
               : `${trail.name}${trail.length_km === null ? "" : `: ${km(trail.length_km)}`}. Bald kannst du hier fragen, ob die Tour zu dir und zum Wetter passt.`
           }
         />
-        {/* Slot for the trail map (Task 11): trail.geom / stage.geom are loaded as GeoJSON. */}
-        <div data-slot="map" />
+        <div data-slot="map" className="grid">
+          <MapPanel trail={mapTrail(trail)} lodgings={lodgings} />
+        </div>
       </div>
 
       <div className="flex-1" />
