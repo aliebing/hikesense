@@ -10,7 +10,13 @@ from conftest import Ramp
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
 from hikeall.errors import GapError
-from hikeall.ingest.trails import chain_lines, import_trail, relation_segments, trail_query
+from hikeall.ingest.trails import (
+    chain_lines,
+    import_trail,
+    relation_segments,
+    trail_line,
+    trail_query,
+)
 from hikeall.models import Source, StageSpec, TrailSpec
 
 FIXTURE = Path(__file__).parent / "fixtures" / "overpass_relation_small.json"
@@ -147,3 +153,14 @@ def test_stage_deviating_over_5_percent_from_official_km_is_warned(
     small_spec.stages[1].official_km = 3.05  # within 5 %
     rep = import_trail(conn, small_spec, overpass_fixture, Ramp())
     assert len(rep.warnings) == 1 and "Etappe 1" in rep.warnings[0]
+
+
+def test_dropped_leftovers_become_warnings(small_spec):
+    data = _fixture()
+    ring = [(48.0003, 8.015), (48.0004, 8.015), (48.0004, 8.0151), (48.0003, 8.015)]
+    data["elements"][0]["members"].append(
+        {"type": "way", "ref": 14, "role": "", "geometry": [{"lat": a, "lon": b} for a, b in ring]}
+    )
+    line, warnings = trail_line(small_spec, data)
+    assert len(line) == 9
+    assert len(warnings) == 1 and "Relation 1001" in warnings[0] and "1 Teilstück" in warnings[0]

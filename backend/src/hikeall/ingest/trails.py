@@ -5,13 +5,12 @@ from __future__ import annotations
 from typing import Any, NamedTuple
 
 import psycopg
-from psycopg.types.json import Jsonb
 
 from hikeall.adapters.overpass import OverpassClient
-from hikeall.db import upsert_source
+from hikeall.db import delete_stages_after, upsert_source, upsert_stage, upsert_trail
 from hikeall.errors import GapError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
-from hikeall.ingest.assemble import assemble
+from hikeall.ingest.assemble import assemble_with_report
 from hikeall.ingest.elevation import ElevationProvider, elevation_stats
 from hikeall.ingest.stages import cut_stages
 from hikeall.models import BLACK_FOREST_BBOX, LatLon, TrailSpec
@@ -82,14 +81,22 @@ def chain_lines(lines: list[list[Point]], max_gap_m: float = MAX_GAP_M) -> list[
     return chain
 
 
-def trail_line(spec: TrailSpec, data: dict[str, Any]) -> list[Point]:
-    """Assemble each listed relation on its own, then chain them in trails.yaml order."""
-    lines = []
+def trail_line(spec: TrailSpec, data: dict[str, Any]) -> tuple[list[Point], list[str]]:
+    """Assemble each listed relation on its own, then chain them in trails.yaml order.
+
+    Returns the line and warnings about small leftover segments that assembly dropped."""
+    lines, warnings = [], []
     for rid in spec.osm_relation_ids:
         try:
-            lines.append(assemble(relation_segments(data, rid), max_gap_m=MAX_GAP_M))
+            res = assemble_with_report(relation_segments(data, rid), max_gap_m=MAX_GAP_M)
         except GapError as e:
             raise GapError(e.gap_m, e.at, f"{spec.id}: relation {rid}") from e
+        lines.append(res.line)
+        if res.dropped_count:
+            warnings.append(
+                f"Relation {rid}: {res.dropped_count} Teilstück(e), zusammen {res.dropped_m:.0f} m,"
+                " neben dem Weg verworfen"
+            )
     try:
         line = chain_lines(lines)
     except GapError as e:
@@ -99,11 +106,7 @@ def trail_line(spec: TrailSpec, data: dict[str, Any]) -> list[Point]:
         raise OutsideRegionError(
             f"{spec.id}: {len(outside)} points outside the Black Forest bbox, e.g. {outside[0]}"
         )
-    return line
-
-
-def _wkt(line: list[Point]) -> str:
-    return "LINESTRING(" + ",".join(f"{lon} {lat}" for lat, lon in line) + ")"
+    return line, warnings
 
 
 def import_trail(
@@ -112,43 +115,30 @@ def import_trail(
     """Fetch, assemble, cut and store one trail with its stages. Idempotent (upserts).
 
     Does not commit: the caller decides, so a failing trail leaves nothing half written."""
-    line = trail_line(spec, overpass.run(trail_query(spec)))
+    line, warnings = trail_line(spec, overpass.run(trail_query(spec)))
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
 
     upsert_source(conn, spec.geometry_source)
     upsert_source(conn, spec.source)
-    conn.execute(
-        """
-        insert into trails (id, name, kind, roundtrip, osm_relation_id, length_km, ascent_m,
-                            descent_m, profile, geom, source_id)
-        values (%(id)s, %(name)s, %(kind)s, %(roundtrip)s, %(rel)s, %(len)s, %(asc)s, %(desc)s,
-                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s)
-        on conflict (id) do update set
-            name = excluded.name, kind = excluded.kind, roundtrip = excluded.roundtrip,
-            osm_relation_id = excluded.osm_relation_id, length_km = excluded.length_km,
-            ascent_m = excluded.ascent_m, descent_m = excluded.descent_m,
-            profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id
-        """,
-        {
-            "id": spec.id,
-            "name": spec.name,
-            "kind": spec.kind,
-            "roundtrip": haversine_km(line[0], line[-1]) < ROUNDTRIP_KM,
-            # one relation id only when the trail is exactly one relation; otherwise see trails.yaml
-            "rel": spec.osm_relation_ids[0] if len(spec.osm_relation_ids) == 1 else None,
-            "len": length_km,
-            "asc": stats.ascent_m,
-            "desc": stats.descent_m,
-            "profile": Jsonb(stats.profile),
-            "wkt": _wkt(line),
-            "src": spec.geometry_source.id,
-        },
+    upsert_trail(
+        conn,
+        id=spec.id,
+        name=spec.name,
+        kind=spec.kind,
+        roundtrip=haversine_km(line[0], line[-1]) < ROUNDTRIP_KM,
+        # one relation id only when the trail is exactly one relation; otherwise see trails.yaml
+        osm_relation_id=spec.osm_relation_ids[0] if len(spec.osm_relation_ids) == 1 else None,
+        length_km=length_km,
+        ascent_m=stats.ascent_m,
+        descent_m=stats.descent_m,
+        profile=stats.profile,
+        line=line,
+        source_id=spec.geometry_source.id,
     )
 
     stage_km: list[float] = []
-    warnings: list[str] = []
     for stage, part in zip(spec.stages, parts, strict=True):
         km = round(path_length_km([part]), 2)
         stage_km.append(km)
@@ -158,34 +148,20 @@ def import_trail(
                 f"statt offiziell {stage.official_km:.1f} km"
             )
         s = elevation_stats(part, dem)
-        conn.execute(
-            """
-            insert into stages (id, trail_id, seq, name, start_name, end_name, length_km,
-                                ascent_m, descent_m, profile, geom, source_id)
-            values (%(id)s, %(trail)s, %(seq)s, %(name)s, %(start)s, %(end)s, %(len)s, %(asc)s,
-                    %(desc)s, %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s)
-            on conflict (id) do update set
-                trail_id = excluded.trail_id, seq = excluded.seq, name = excluded.name,
-                start_name = excluded.start_name, end_name = excluded.end_name,
-                length_km = excluded.length_km, ascent_m = excluded.ascent_m,
-                descent_m = excluded.descent_m, profile = excluded.profile, geom = excluded.geom,
-                source_id = excluded.source_id
-            """,
-            {
-                "id": f"{spec.id}-{stage.seq:02d}",
-                "trail": spec.id,
-                "seq": stage.seq,
-                "name": f"{stage.start_name} – {stage.end_name}",
-                "start": stage.start_name,
-                "end": stage.end_name,
-                "len": km,
-                "asc": s.ascent_m,
-                "desc": s.descent_m,
-                "profile": Jsonb(s.profile),
-                "wkt": _wkt(part),
-                "src": spec.source.id,
-            },
+        upsert_stage(
+            conn,
+            id=f"{spec.id}-{stage.seq:02d}",
+            trail_id=spec.id,
+            seq=stage.seq,
+            name=f"{stage.start_name} – {stage.end_name}",
+            start_name=stage.start_name,
+            end_name=stage.end_name,
+            length_km=km,
+            ascent_m=s.ascent_m,
+            descent_m=s.descent_m,
+            profile=s.profile,
+            line=part,
+            source_id=spec.source.id,
         )
-    # A shortened stage list must not leave old stages behind.
-    conn.execute("delete from stages where trail_id = %s and seq > %s", [spec.id, len(spec.stages)])
+    delete_stages_after(conn, spec.id, len(spec.stages))
     return ImportReport(spec.id, length_km, len(spec.stages), stage_km, warnings)

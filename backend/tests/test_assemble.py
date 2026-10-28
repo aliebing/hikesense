@@ -1,7 +1,7 @@
 import pytest
 
 from hikeall.errors import GapError, HikeAllError
-from hikeall.ingest.assemble import assemble
+from hikeall.ingest.assemble import assemble, assemble_with_report
 
 
 def test_reversed_and_shuffled_segments_become_one_line():
@@ -56,3 +56,29 @@ def test_leftover_far_from_the_line_still_raises():
     far = [(48.01, 8.005), (48.011, 8.005)]  # ~1.1 km off the line
     with pytest.raises(GapError):
         assemble([a, far])
+
+
+def test_small_closed_ring_is_dropped_and_reported():
+    a = [(48.0, 8.00), (48.0, 8.01)]
+    b = [(48.0, 8.01), (48.0, 8.02)]
+    ring = [(48.0005, 8.005), (48.0006, 8.005), (48.0006, 8.0051), (48.0005, 8.005)]  # ~30 m
+    res = assemble_with_report([a, ring, b])
+    assert len(res.line) == 3
+    assert res.dropped_count == 1
+    assert 20 < res.dropped_m < 40
+
+
+def test_nothing_dropped_reports_zero():
+    res = assemble_with_report([[(48.0, 8.00), (48.0, 8.01)], [(48.0, 8.01), (48.0, 8.02)]])
+    assert (res.dropped_count, res.dropped_m) == (0, 0.0)
+
+
+def test_gap_followed_by_parallel_return_leg_still_raises():
+    # Out-and-back or dual carriageway: after the chain end there is a >200 m gap, and the
+    # remaining leg runs ~170 m beside the chain. It is real route (~1.5 km), not a stray
+    # outline, so it must raise instead of being thrown away.
+    out = [(48.0, 8.00), (48.0, 8.01), (48.0, 8.02), (48.0, 8.03)]
+    back = [(48.0015, 8.025), (48.0015, 8.015), (48.0015, 8.008)]
+    with pytest.raises(GapError) as e:
+        assemble([out, back])
+    assert e.value.gap_m > 300
