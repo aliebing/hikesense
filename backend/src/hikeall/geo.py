@@ -74,8 +74,14 @@ def distance_point_to_path_km(p: Point, segments: Segments) -> float:
     return best
 
 
-def sample_points(segments: Segments, step_km: float = 0.2, max_points: int = 300) -> list[Point]:
-    """Pick vertices roughly every `step_km`, always keeping first and last point."""
+def sample_points(
+    segments: Segments, step_km: float = 0.2, max_points: int = 300, keep_last: bool = True
+) -> list[Point]:
+    """Pick vertices roughly every `step_km`, always keeping the first and (by default) the
+    last point. Empty geometry gives an empty list."""
+    segments = [s for s in segments if s]
+    if not segments:
+        return []
     samples: list[Point] = []
     prev: Point | None = None
     since = 0.0
@@ -90,7 +96,7 @@ def sample_points(segments: Segments, step_km: float = 0.2, max_points: int = 30
                     since = 0.0
             prev = q
     last = segments[-1][-1]
-    if samples[-1] != last:
+    if keep_last and samples[-1] != last:
         samples.append(last)
     if len(samples) > max_points:
         idx = [round(i * (len(samples) - 1) / (max_points - 1)) for i in range(max_points)]

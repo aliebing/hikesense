@@ -153,3 +153,55 @@ def upsert_lodging(conn: psycopg.Connection, lodging: Lodging, source_id: str) -
         """,
         {**lodging.model_dump(), "src": source_id},
     )
+
+
+def upsert_photo(
+    conn: psycopg.Connection,
+    *,
+    trail_id: str,
+    stage_id: str | None,
+    url: str,
+    thumb_url: str,
+    author: str,
+    license: str,
+    license_url: str | None,
+    page_url: str,
+) -> None:
+    """Commons photo, keyed by unique(trail_id, url); author and licence are mandatory."""
+    if not author or not license:
+        raise ValueError(f"photo {url}: author and license are required")
+    conn.execute(
+        """
+        insert into photos (trail_id, stage_id, source, url, thumb_url, author, license,
+                            license_url, page_url)
+        values (%(trail)s, %(stage)s, 'commons', %(url)s, %(thumb)s, %(author)s, %(license)s,
+                %(license_url)s, %(page)s)
+        on conflict (trail_id, url) do update set
+            stage_id = excluded.stage_id, thumb_url = excluded.thumb_url,
+            author = excluded.author, license = excluded.license,
+            license_url = excluded.license_url, page_url = excluded.page_url
+        """,
+        {
+            "trail": trail_id,
+            "stage": stage_id,
+            "url": url,
+            "thumb": thumb_url,
+            "author": author,
+            "license": license,
+            "license_url": license_url,
+            "page": page_url,
+        },
+    )
+
+
+def delete_stale_commons_photos(
+    conn: psycopg.Connection, trail_id: str, stage_id: str | None, keep_urls: Sequence[str]
+) -> int:
+    """Drop Commons photos of one stage (or of a day hike, stage_id None) that a fresh import
+    no longer returns; other stages of the trail are left alone."""
+    cur = conn.execute(
+        "delete from photos where trail_id = %s and stage_id is not distinct from %s"
+        " and source = 'commons' and url <> all(%s)",
+        [trail_id, stage_id, list(keep_urls)],
+    )
+    return cur.rowcount

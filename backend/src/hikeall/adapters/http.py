@@ -22,9 +22,9 @@ def _retry_after_s(response: httpx.Response) -> float | None:
         return None
 
 
-def make_http_client(timeout_s: float) -> httpx.Client:
+def make_http_client(timeout_s: float, user_agent: str = USER_AGENT) -> httpx.Client:
     return httpx.Client(
-        timeout=timeout_s, headers={"User-Agent": USER_AGENT}, follow_redirects=True
+        timeout=timeout_s, headers={"User-Agent": user_agent}, follow_redirects=True
     )
 
 

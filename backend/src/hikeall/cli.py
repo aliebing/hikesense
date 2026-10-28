@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 from pydantic import ValidationError
 
+from hikeall.adapters.commons import CommonsClient
 from hikeall.adapters.dem import CopernicusDem
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.overpass import OverpassClient
@@ -22,6 +24,7 @@ from hikeall.ingest.day_hikes import (
     write_candidates,
 )
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
+from hikeall.ingest.photos import import_photos, load_targets
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
 from hikeall.models import BLACK_FOREST_BBOX
@@ -197,6 +200,85 @@ def import_lodgings_cmd() -> int:
     return 0
 
 
+# Wikimedia rejects (403) user agents without a usable contact URL.
+COMMONS_USER_AGENT = os.environ.get(
+    "HIKEALL_USER_AGENT",
+    "HikeAllAbout/0.1 (student project; https://github.com/aliebing/HikeAllAbout)",
+)
+
+
+def import_photos_cmd(only: str | None) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    with (
+        make_http_client(60, COMMONS_USER_AGENT) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        client = CommonsClient(
+            http, backoff_s=1.0, api_error_retries=25
+        )  # Commons search is often busy
+        targets = load_targets(conn)
+        if not targets:
+            print(
+                "Fehler: keine Etappen/Tagestouren in der DB (erst import-trails).",
+                file=sys.stderr,
+            )
+            return 2
+        if only:
+            targets = [t for t in targets if t.trail_id == only]
+            if not targets:
+                print(
+                    f"Fehler: Weg '{only}' hat keine Etappen/Tagestour in der DB.", file=sys.stderr
+                )
+                return 2
+        by_trail: dict[str, list] = {}
+        for t in targets:
+            by_trail.setdefault(t.trail_id, []).append(t)
+        counts: dict[str, int] = {}
+        empty: list[str] = []
+        failed: list[str] = []
+        done = 0
+        # One transaction per trail: a trail is replaced completely or not at all, and a failing
+        # Commons request never leaves a half-written trail. Re-running is idempotent.
+        for tid, group in by_trail.items():
+
+            def progress(_n, _total, t, photos):
+                print(f"{t.stage_id or t.trail_id}: {len(photos)}", file=sys.stderr)
+
+            try:
+                rep = import_photos(conn, client, group, on_progress=progress)
+            except (HikeAllError, ValueError) as e:
+                conn.rollback()
+                print(
+                    f"{tid}: Import abgebrochen, nichts geschrieben – {type(e).__name__}: {e}",
+                    file=sys.stderr,
+                )
+                failed.append(tid)
+                continue
+            except BaseException:
+                conn.rollback()
+                raise
+            conn.commit()
+            done += 1
+            counts.update(rep.counts)
+            empty += rep.empty
+    westweg = {k: v for k, v in counts.items() if k.startswith("westweg")}
+    for tid, n in sorted(westweg.items()):
+        print(f"{tid}: {n} Bilder")
+    hikes = len(counts) - len(westweg)
+    print(
+        f"{sum(counts.values())} Bilder, {len(westweg)} Fernwege, {hikes} Tagestouren "
+        f"({sum(v for k, v in counts.items() if k not in westweg)} Bilder an Tagestouren)"
+    )
+    if empty:
+        print("Ohne Bild: " + ", ".join(empty))
+    if failed:
+        print("Fehlgeschlagen (nichts geschrieben): " + ", ".join(failed), file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -205,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
+    p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
+    p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
     for name, help_text in (
         ("scan-day-hikes", "Tagestour-Kandidaten aus OSM in die Kurations-CSV schreiben"),
         ("import-day-hikes", "akzeptierte Tagestouren aus der CSV importieren"),
@@ -216,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
         return import_trails(args.only)
     if args.command == "import-lodgings":
         return import_lodgings_cmd()
+    if args.command == "import-photos":
+        return import_photos_cmd(args.only)
     if args.command == "scan-day-hikes":
         return scan_day_hikes(_repo_path(args.csv))
     if args.command == "import-day-hikes":
