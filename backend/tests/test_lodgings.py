@@ -150,7 +150,7 @@ def trail_on_line_48_8(conn):
 
 def _links(conn):
     return conn.execute(
-        "select lodging_id, dist_m, along_km from trail_lodgings where trail_id = %s order by 1",
+        "select lodging_id, dist_m, along_km from trail_lodgings where trail_id = %s\n and abs(lodging_id) between 9000000 and 9000999 order by 1",
         [TRAIL],
     ).fetchall()
 

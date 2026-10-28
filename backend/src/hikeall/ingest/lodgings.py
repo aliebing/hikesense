@@ -90,7 +90,8 @@ def link_trail_lodgings(conn: psycopg.Connection) -> int:
                round(st_distance(t.geom::geography, l.geom::geography))::int,
                (st_linelocatepoint(t.geom, l.geom) * t.length_km)::numeric(8, 3)
         from trails t
-        join lodgings l on st_dwithin(t.geom::geography, l.geom::geography, %s)
+        join lodgings l on t.geom && st_expand(l.geom, 0.03)  -- index prefilter, > 2 km
+          and st_dwithin(t.geom::geography, l.geom::geography, %s)
         """,
         [BUFFER_M],
     )
