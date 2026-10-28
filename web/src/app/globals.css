@@ -1,26 +1,32 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-wald: #2f5d3a;
+  --color-wald-dunkel: #1f3f27;
+  --color-papier: #f4f1ea;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: #1f3f27;
+  color: var(--color-papier);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Backdrop for missing or broken photos (also used behind every photo). */
+.wald-verlauf {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgb(244 241 234 / 0.18), transparent 55%),
+    linear-gradient(160deg, #6f8f62 0%, #2f5d3a 45%, #16301d 100%);
+}
+
+.scrollbar-schmal {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(244 241 234 / 0.4) transparent;
 }

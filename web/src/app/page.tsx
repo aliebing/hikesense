@@ -1,103 +1,106 @@
-import Image from "next/image";
+import ChatShell from "../components/ChatShell";
+import Notice from "../components/Notice";
+import Panorama from "../components/Panorama";
+import PhotoSwitcher from "../components/PhotoSwitcher";
+import { CardRow, TrailCard } from "../components/StageCards";
+import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
+import { MissingConfigError } from "../lib/supabase";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const DAY_HIKE_SELECTION = 12;
+
+export default async function Home() {
+  let trails: TrailSummary[];
+  try {
+    trails = await getTrails();
+  } catch (e) {
+    console.error("getTrails failed:", e);
+    return (
+      <Panorama>
+        <PhotoSwitcher photos={[]} />
+        <Notice title="Daten konnten nicht geladen werden.">
+          {e instanceof MissingConfigError ? (
+            <p>{e.message}</p>
+          ) : (
+            <p>
+              Die Datenbank ist nicht erreichbar. Läuft Supabase? Starten mit <code>npx supabase start</code> bzw.{" "}
+              <code>make up</code>.
+            </p>
+          )}
+        </Notice>
+      </Panorama>
+    );
+  }
+
+  if (trails.length === 0) {
+    return (
+      <Panorama>
+        <PhotoSwitcher photos={[]} />
+        <Notice title="Noch keine Wege in der Datenbank.">
+          <p>
+            Die Datenbank ist erreichbar, aber leer. Daten importieren mit <code>make import</code>.
+          </p>
+        </Notice>
+      </Panorama>
+    );
+  }
+
+  const longDistance = trails.filter((t) => t.kind === "long_distance");
+  const dayHikes = trails.filter((t) => t.kind === "day_hike");
+  const selection = pickSpread(trails, DAY_HIKE_SELECTION);
+  const backgrounds = [...longDistance, ...selection]
+    .map((t) => t.cover)
+    .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <Panorama>
+      <section className="max-w-2xl pt-6 sm:pt-12">
+        <h1 className="font-serif text-4xl leading-tight drop-shadow-md sm:text-6xl">Wandern im Schwarzwald</h1>
+        <p className="mt-3 max-w-lg text-base text-papier/90 drop-shadow sm:text-lg">
+          Westweg-Etappen und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – bald im Gespräch geplant.
+        </p>
+      </section>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      <ChatShell intro="Hallo! Hier planst du bald deine Wanderung im Gespräch – zum Beispiel „3 Tage Westweg ab Hausach, etwa 15 km pro Tag“. Bis dahin: Wähle unten einen Weg." />
+
+      <div className="flex-1" />
+
+      <div className="flex justify-end">
+        <PhotoSwitcher photos={backgrounds} />
+      </div>
+
+      <section aria-labelledby="fernwege" className="flex flex-col gap-2">
+        <h2 id="fernwege" className="font-serif text-xl drop-shadow">Fernwege</h2>
+        <CardRow label="Fernwege">
+          {longDistance.map((t) => (
+            <li key={t.id}>
+              <TrailCard trail={t} />
+            </li>
+          ))}
+        </CardRow>
+      </section>
+
+      <section aria-labelledby="tagestouren" className="flex flex-col gap-2">
+        <h2 id="tagestouren" className="font-serif text-xl drop-shadow">
+          Tagestouren – eine Auswahl
+        </h2>
+        <p className="text-xs text-papier/80">
+          {selection.length} von {dayHikes.length} Tagestouren mit Foto, von Nord nach Süd verteilt.
+        </p>
+        <CardRow label="Tagestouren">
+          {selection.map((t) => (
+            <li key={t.id}>
+              <TrailCard trail={t} />
+            </li>
+          ))}
+        </CardRow>
+      </section>
+
+      <footer className="text-[11px] text-papier/75">
+        Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos:
+        Wikimedia Commons, Urheber und Lizenz am Bild.
       </footer>
-    </div>
+    </Panorama>
   );
 }

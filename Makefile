@@ -2,9 +2,11 @@
 
 test:
 	cd backend && uv run pytest -q
+	cd web && npm test
 
 lint:
 	cd backend && uv run ruff check
+	cd web && npm run lint
 
 up:
 	npx supabase start

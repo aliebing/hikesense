@@ -1,4 +1,3 @@
-# The web service (port 3000) is added with the frontend (Task 10).
 services:
   api:
     build: ./backend
@@ -14,3 +13,25 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend/src:/app/src
+
+  # Next.js dev server. Server components fetch Supabase via SUPABASE_URL
+  # (host.docker.internal, resolvable only inside the container); anything
+  # running in the browser must use NEXT_PUBLIC_SUPABASE_URL (localhost).
+  web:
+    build: ./web
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SUPABASE_URL: http://host.docker.internal:54321
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      NEXT_TELEMETRY_DISABLED: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.next
