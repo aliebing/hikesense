@@ -11,9 +11,15 @@ from hikeall.geo import Point, locate
 from hikeall.models import Source, StageSpec, TrailSpec
 
 
+def load_trail_sources(path: Path) -> dict[str, Source]:
+    """The `sources` list of trails.yaml by id (e.g. `osm` for OSM geometry, ODbL)."""
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return {s["id"]: Source(**s) for s in data["sources"]}
+
+
 def load_trail_specs(path: Path) -> list[TrailSpec]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    sources = {s["id"]: Source(**s) for s in data["sources"]}
+    sources = load_trail_sources(path)
 
     def source(trail: dict, key: str) -> Source:
         try:

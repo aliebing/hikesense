@@ -126,3 +126,16 @@ def upsert_stage(
 def delete_stages_after(conn: psycopg.Connection, trail_id: str, last_seq: int) -> None:
     """Remove stages beyond `last_seq`, so a shortened stage list leaves nothing behind."""
     conn.execute("delete from stages where trail_id = %s and seq > %s", [trail_id, last_seq])
+
+
+def delete_day_hike(conn: psycopg.Connection, trail_id: str) -> bool:
+    """Remove a day hike and its lodging links; True if a trail was deleted.
+
+    Long-distance trails (with stages) are never touched here."""
+    conn.execute(
+        "delete from trail_lodgings where trail_id = %s"
+        " and exists (select 1 from trails where id = %s and kind = 'day_hike')",
+        [trail_id, trail_id],
+    )
+    cur = conn.execute("delete from trails where id = %s and kind = 'day_hike'", [trail_id])
+    return cur.rowcount > 0

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from hikeall.errors import GapError
-from hikeall.geo import Point, distance_point_to_path_km, haversine_km, path_length_km
+from hikeall.geo import Point, distance_point_to_path_km, haversine_km, locate, path_length_km
 
 
 class Assembly(NamedTuple):
@@ -69,3 +69,34 @@ def assemble_with_report(segments: list[list[Point]], max_gap_m: float = 200) ->
 
 def _all_near(segs: list[list[Point]], chain: list[Point], max_gap_m: float) -> bool:
     return all(distance_point_to_path_km(p, [chain]) * 1000 <= max_gap_m for s in segs for p in s)
+
+
+CLOSED_M = 1.0  # a line whose ends are this close is a closed loop that can be rotated
+
+
+def orient_by_members(line: list[Point], segments: list[list[Point]]) -> list[Point]:
+    """Orient an assembled line in OSM member order (the first member way is walked first).
+
+    `assemble` picks its start by geometry only, so a route can come out backwards. A closed
+    loop is also rotated to start at the end of the first member that does not touch the
+    second one (the trailhead, by OSM convention). With fewer than two members the line is
+    returned unchanged: a single way's drawing direction says nothing about walking order."""
+    out = list(line)
+    if len(segments) < 2 or len(out) < 3:
+        return out
+    first, second = segments[0], segments[1]
+    if haversine_km(out[0], out[-1]) * 1000 <= CLOSED_M:
+        ends2 = (second[0], second[-1])
+        start = max((first[0], first[-1]), key=lambda e: min(haversine_km(e, o) for o in ends2))
+        k, _ = locate(out, start)
+        out = out[k:] + out[1 : k + 1]
+    if _position(out, first) > _position(out, second):
+        out.reverse()
+    return out
+
+
+def _position(line: list[Point], seg: list[Point]) -> float:
+    """Mean index of the line vertices nearest to (up to ten of) the segment's vertices."""
+    n = min(len(seg), 10)
+    pts = [seg[round(i * (len(seg) - 1) / (n - 1))] for i in range(n)] if n > 1 else seg
+    return sum(locate(line, p)[0] for p in pts) / len(pts)

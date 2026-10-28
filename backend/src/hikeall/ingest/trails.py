@@ -10,7 +10,7 @@ from hikeall.adapters.overpass import OverpassClient
 from hikeall.db import delete_stages_after, upsert_source, upsert_stage, upsert_trail
 from hikeall.errors import GapError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
-from hikeall.ingest.assemble import assemble_with_report
+from hikeall.ingest.assemble import assemble_with_report, orient_by_members
 from hikeall.ingest.elevation import ElevationProvider, elevation_stats
 from hikeall.ingest.stages import cut_stages
 from hikeall.models import BLACK_FOREST_BBOX, LatLon, TrailSpec
@@ -32,9 +32,13 @@ class ImportReport(NamedTuple):
     warnings: list[str]
 
 
-def trail_query(spec: TrailSpec) -> str:
-    ids = ",".join(str(i) for i in spec.osm_relation_ids)
+def relations_query(relation_ids: list[int]) -> str:
+    ids = ",".join(str(i) for i in relation_ids)
     return f"[out:json][timeout:180];\nrelation(id:{ids});\nout geom;"
+
+
+def trail_query(spec: TrailSpec) -> str:
+    return relations_query(spec.osm_relation_ids)
 
 
 def relation_segments(data: dict[str, Any], relation_id: int | None = None) -> list[list[Point]]:
@@ -87,26 +91,45 @@ def trail_line(spec: TrailSpec, data: dict[str, Any]) -> tuple[list[Point], list
     Returns the line and warnings about small leftover segments that assembly dropped."""
     lines, warnings = [], []
     for rid in spec.osm_relation_ids:
-        try:
-            res = assemble_with_report(relation_segments(data, rid), max_gap_m=MAX_GAP_M)
-        except GapError as e:
-            raise GapError(e.gap_m, e.at, f"{spec.id}: relation {rid}") from e
-        lines.append(res.line)
-        if res.dropped_count:
-            warnings.append(
-                f"Relation {rid}: {res.dropped_count} Teilstück(e), zusammen {res.dropped_m:.0f} m,"
-                " neben dem Weg verworfen"
-            )
+        line, warns = relation_line(data, rid, context=f"{spec.id}: relation {rid}")
+        lines.append(line)
+        warnings.extend(warns)
     try:
         line = chain_lines(lines)
     except GapError as e:
         raise GapError(e.gap_m, e.at, f"{spec.id}: between child relations") from e
+    check_in_region(line, spec.id)
+    return line, warnings
+
+
+def relation_line(
+    data: dict[str, Any], relation_id: int, context: str, oriented: bool = False
+) -> tuple[list[Point], list[str]]:
+    """One relation's route members assembled into a line, plus warnings about dropped
+    leftovers. GapError carries `context`. With `oriented`, the line follows OSM member order
+    (see `orient_by_members`); otherwise it keeps the direction `assemble` chose."""
+    segments = relation_segments(data, relation_id)
+    try:
+        res = assemble_with_report(segments, max_gap_m=MAX_GAP_M)
+    except GapError as e:
+        raise GapError(e.gap_m, e.at, context) from e
+    warnings = []
+    if res.dropped_count:
+        warnings.append(
+            f"Relation {relation_id}: {res.dropped_count} Teilstück(e), zusammen "
+            f"{res.dropped_m:.0f} m, neben dem Weg verworfen"
+        )
+    line = orient_by_members(res.line, segments) if oriented else res.line
+    return line, warnings
+
+
+def check_in_region(line: list[Point], context: str) -> None:
+    """Raise OutsideRegionError if any point leaves the Black Forest import bbox."""
     outside = [p for p in line if not BLACK_FOREST_BBOX.contains(LatLon(lat=p[0], lon=p[1]))]
     if outside:
         raise OutsideRegionError(
-            f"{spec.id}: {len(outside)} points outside the Black Forest bbox, e.g. {outside[0]}"
+            f"{context}: {len(outside)} points outside the Black Forest bbox, e.g. {outside[0]}"
         )
-    return line, warnings
 
 
 def import_trail(
