@@ -1,5 +1,6 @@
-.superpowers/brainstorm/
 .env
 node_modules/
 __pycache__/
+.superpowers/
+.superpowers/brainstorm/
 .venv/
