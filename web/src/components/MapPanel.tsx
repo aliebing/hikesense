@@ -21,7 +21,17 @@ import {
 /** Two alternating reds so neighbouring stages stay distinguishable. */
 const STAGE_RED = ["#d62839", "#8a1526"] as const;
 
-type Status = "loading" | "ready" | "error";
+type Status = "loading" | "ready" | "error" | "no-webgl";
+
+const STATUS_TEXT: Record<Exclude<Status, "ready">, string> = {
+  loading: "Karte wird geladen …",
+  error: "Die Karte konnte nicht geladen werden.",
+  "no-webgl":
+    "Die Karte braucht WebGL2, das in diesem Browser nicht verfügbar ist. Bitte Hardwarebeschleunigung in den Browser-Einstellungen aktivieren oder einen anderen Browser verwenden.",
+};
+
+/** maplibre throws (or fires) this when no WebGL2 context can be created. */
+const isNoWebGL = (e: unknown) => (e as { name?: unknown } | null)?.name === "GPUInitializationError";
 
 /** Below this zoom lodgings are drawn as small dots. */
 const LODGING_FULL_ZOOM = 11;
@@ -31,7 +41,14 @@ const LODGING_FULL_ZOOM = 11;
  * (basemap.de vector tiles, OSM raster as fallback). maplibre-gl is loaded
  * only in the browser, when the overlay opens.
  */
-export default function MapPanel({ trail, lodgings }: { trail: MapTrail; lodgings: LodgingOnTrail[] }) {
+export default function MapPanel({
+  trail,
+  lodgings,
+}: {
+  trail: MapTrail;
+  /** null when the lodgings could not be loaded — then the legend says so instead of „0“ */
+  lodgings: LodgingOnTrail[] | null;
+}) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const closer = useRef<HTMLButtonElement>(null);
@@ -79,14 +96,14 @@ function MapOverlay({
   onClose,
 }: {
   trail: MapTrail;
-  lodgings: LodgingOnTrail[];
+  lodgings: LodgingOnTrail[] | null;
   closer: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
   const features = useMemo(() => trailToFeatures(trail), [trail]);
-  const nearby = useMemo(() => lodgingsNearby(lodgings), [lodgings]);
+  const nearby = useMemo(() => (lodgings ? lodgingsNearby(lodgings) : []), [lodgings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,11 +137,21 @@ function MapOverlay({
           setStatus("ready");
         });
         map.on("error", (e) => {
-          // A failing basemap.de style: switch to OSM raster tiles once.
-          if (!styleLoaded && !fellBack) {
+          if (isNoWebGL(e.error)) {
+            // WebGL context lost and not recreated: nothing can be drawn any more.
+            console.error("map failed:", e.error);
+            setStatus("no-webgl");
+          } else if (styleLoaded) {
+            // A single tile or image failing later: the map stays usable.
+          } else if (!fellBack) {
+            // A failing basemap.de style: switch to OSM raster tiles once.
             fellBack = true;
             console.warn("basemap.de style failed, using OSM raster tiles:", e.error?.message);
             map!.setStyle(OSM_RASTER_STYLE);
+          } else {
+            // The OSM fallback failed as well: say so instead of loading forever.
+            console.error("map failed (OSM fallback):", e.error);
+            setStatus("error");
           }
         });
         map.on("click", "trail-boundaries", (e) => {
@@ -153,7 +180,7 @@ function MapOverlay({
       })
       .catch((e) => {
         console.error("map failed:", e);
-        if (!cancelled) setStatus("error");
+        if (!cancelled) setStatus(isNoWebGL(e) ? "no-webgl" : "error");
       });
 
     return () => {
@@ -193,9 +220,15 @@ function MapOverlay({
             <div ref={container} data-map-status={status} className="h-full w-full bg-[#eef0ea]" />
           </div>
           {status !== "ready" && (
-            <p className="absolute inset-0 grid place-items-center p-4 text-center text-sm text-papier/85" role="status">
-              {status === "loading" ? "Karte wird geladen …" : "Die Karte konnte nicht geladen werden."}
-            </p>
+            // Dark box on the light map background, so the text stays readable.
+            <div className="absolute inset-0 grid place-items-center p-4">
+              <p
+                role={status === "loading" ? "status" : "alert"}
+                className="max-w-md rounded-xl bg-wald-dunkel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
+              >
+                {STATUS_TEXT[status]}
+              </p>
+            </div>
           )}
         </div>
 
@@ -206,7 +239,9 @@ function MapOverlay({
           </span>
           <span>
             <span aria-hidden="true">🛏 </span>
-            {nearby.length} Unterkünfte ≤ {LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg
+            {lodgings === null
+              ? "Unterkünfte konnten nicht geladen werden"
+              : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
           </span>
           <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
         </div>

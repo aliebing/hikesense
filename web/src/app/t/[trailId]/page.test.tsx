@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { TrailDetail } from "../../../lib/data";
 
 const mockGetTrail = vi.fn();
@@ -7,6 +8,16 @@ vi.mock("../../../lib/data", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/data")>();
   return { ...actual, getTrail: () => mockGetTrail(), getLodgings: () => mockGetLodgings() };
 });
+
+// The map itself is not under test here; no WebGL in jsdom.
+vi.mock("maplibre-gl", () => ({
+  setWorkerUrl() {},
+  Map: class {
+    constructor() {
+      throw new Error("no map in tests");
+    }
+  },
+}));
 
 import TrailPage from "./page";
 
@@ -40,4 +51,15 @@ test("trail footer credits the elevation data (Copernicus GLO-30)", async () => 
   const footer = screen.getByRole("contentinfo");
   expect(footer).toHaveTextContent("OpenStreetMap (ODbL)");
   expect(footer).toHaveTextContent("Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA");
+});
+
+test("when lodgings fail to load, the map legend says so instead of „0 Unterkünfte“", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  mockGetTrail.mockResolvedValue(detail);
+  mockGetLodgings.mockRejectedValue(new Error("db down"));
+  render(await page());
+  await userEvent.setup().click(screen.getByRole("button", { name: /Karte/ }));
+  const dialog = screen.getByRole("dialog", { name: /Karte/ });
+  expect(dialog).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
+  expect(dialog).not.toHaveTextContent("0 Unterkünfte");
 });

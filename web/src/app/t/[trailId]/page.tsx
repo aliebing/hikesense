@@ -29,8 +29,9 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
   }
   if (!trail) notFound();
 
-  // Lodgings only feed the map; without them the map still shows the trail.
-  let lodgings: LodgingOnTrail[] = [];
+  // Lodgings only feed the map; without them the map still shows the trail
+  // and its legend says they could not be loaded (null, never „0“).
+  let lodgings: LodgingOnTrail[] | null = null;
   try {
     lodgings = await getLodgings(trailId);
   } catch (e) {
