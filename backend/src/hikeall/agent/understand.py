@@ -111,15 +111,19 @@ def resolve(
         start = resolved
 
     preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes)
-    constraints, invalid = _constraints(raw)
+    nums = _user_numbers(message)
+    constraints, invalid, discarded = _constraints(raw, nums)
     unmatched += invalid
     for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
         if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
             constraints.append(Constraint(kind="roundtrip", required=required))
     pace = raw.pace_min_per_km
+    if pace is not None and not _written(pace, nums):
+        pace, discarded = None, discarded + 1
     if pace is not None and pace <= 0:
         unmatched.append(_invalid("Tempo", pace))
         pace = None
+    unmatched = list(dict.fromkeys(unmatched))
     delta = HikeRequest(
         intent=raw.intent,
         activity=raw.activity or "hike",
@@ -130,6 +134,7 @@ def resolve(
         pace_min_per_km=pace,
         unmatched=unmatched,
         question=(raw.question or message) if raw.intent == "knowledge" else raw.question,
+        discarded_model_numbers=discarded,
     )
     overflow = preferences[MAX_PREFERENCES:]
     if overflow:  # never drop a wish silently
@@ -147,9 +152,58 @@ def _invalid(label: str, value: float) -> str:
     return f"{label}: {_num(value)} ist kein gültiger Wert"
 
 
-def _constraints(raw: RawRequest) -> tuple[list[Constraint], list[str]]:
+_WORD_NUMBERS = {
+    "eins": 1, "zwei": 2, "drei": 3, "vier": 4, "funf": 5, "fuenf": 5, "sechs": 6,
+    "sieben": 7, "acht": 8, "neun": 9, "zehn": 10, "elf": 11, "zwolf": 12, "zwoelf": 12,
+    "dreizehn": 13, "vierzehn": 14, "funfzehn": 15, "fuenfzehn": 15, "sechzehn": 16,
+    "siebzehn": 17, "achtzehn": 18, "neunzehn": 19, "zwanzig": 20, "dreissig": 30,
+    "vierzig": 40, "funfzig": 50, "fuenfzig": 50, "sechzig": 60, "hundert": 100,
+    "halb": 0.5, "halbe": 0.5, "anderthalb": 1.5,
+}  # fmt: skip
+_ONE_UNIT = re.compile(
+    r"\b(?:ein|eine|einen|einem)\s+(?:km|kilometer|stunde|std|h|hm|hohenmeter|minute)\b"
+)
+_THOUSANDS = re.compile(r"\b\d{1,3}(?:\.\d{3})+\b")
+_CLOCK = re.compile(r"\b(\d{1,2}):(\d{2})\b")
+_DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
+_WORDS = re.compile(r"[a-z]+")
+
+
+def _plain(text: str) -> str:
+    return text.casefold().replace("ß", "ss").replace("ä", "a").replace("ö", "o").replace("ü", "u")
+
+
+def _user_numbers(message: str) -> set[float]:
+    """Every number the user wrote: digits (ranges "10–14", comma or dot decimals, "1.000",
+    "5:30"), German number words and "ein/eine <Einheit>"."""
+    text = _plain(message)
+    nums: set[float] = set()
+    for m in _THOUSANDS.finditer(text):
+        nums.add(float(m.group().replace(".", "")))
+    text = _THOUSANDS.sub(" ", text)
+    for m in _CLOCK.finditer(text):
+        nums.add(int(m.group(1)) + int(m.group(2)) / 60)
+    for m in _DIGITS.finditer(text):
+        nums.add(float(m.group().replace(",", ".")))
+    for w in _WORDS.findall(text):
+        if w in _WORD_NUMBERS:
+            nums.add(float(_WORD_NUMBERS[w]))
+    if _ONE_UNIT.search(text):
+        nums.add(1.0)
+    return nums
+
+
+def _written(value: float, nums: set[float], scale: float = 1.0) -> bool:
+    """Did the user write this number? (sign ignored: "-5" is invalid, not invented; a duration
+    may also be written in minutes.)"""
+    wanted = {abs(value)} | ({abs(value) * scale} if scale != 1.0 else set())
+    return any(abs(n - w) < 1e-6 for n in nums for w in wanted)
+
+
+def _constraints(raw: RawRequest, nums: set[float]) -> tuple[list[Constraint], list[str], int]:
     out: list[Constraint] = []
     invalid: list[str] = []
+    discarded = 0
     if raw.roundtrip is not None:
         out.append(Constraint(kind="roundtrip", required=raw.roundtrip))
     for kind, lo, hi, approx in (
@@ -160,6 +214,10 @@ def _constraints(raw: RawRequest) -> tuple[list[Constraint], list[str]]:
     ):
         bounds = []
         for value in (lo, hi, approx):
+            if value is not None and not _written(
+                value, nums, 60.0 if kind == "duration_h" else 1.0
+            ):
+                value, discarded = None, discarded + 1  # R27: invented by the model
             if value is not None and value <= 0:
                 invalid.append(_invalid(_LABELS[kind][0].strip(), value))
                 value = None
@@ -171,7 +229,7 @@ def _constraints(raw: RawRequest) -> tuple[list[Constraint], list[str]]:
             out.append(_approx(kind, approx))
         elif lo is not None or hi is not None:  # explicit bound words win over a single value
             out.append(Constraint(kind=kind, min=lo, max=hi))
-    return out, invalid
+    return out, invalid, discarded
 
 
 def _approx(kind: str, value: float) -> Constraint:
@@ -212,6 +270,7 @@ def _merge(
         ),
         unmatched=unmatched,
         question=previous.question,
+        discarded_model_numbers=delta.discarded_model_numbers,
     )
 
 

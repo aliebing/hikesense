@@ -20,6 +20,7 @@ class ChatLogEntry(BaseModel):
     calls_without_cost: int = 0
     grounding_unsupported: int = 0
     guard: str | None = None
+    discarded_model_numbers: int = 0
     error: str | None = None
 
 

@@ -68,7 +68,7 @@ def test_settings_defaults():
     s = Settings(supabase_db_url="x", _env_file=None)
     assert s.hikeall_model == "openai/gpt-4o-mini"
     assert s.max_tool_calls == 8 and s.max_cost_usd == 0.05
-    assert str(s.chat_log_path) == "data/logs/chat.jsonl"
+    assert s.chat_log_path.name == "chat.jsonl" and s.chat_log_path.parent.name == "logs"
 
 
 def test_gateway_from_settings_configures_openrouter():
@@ -123,7 +123,7 @@ def test_chatlog_has_no_message_text(tmp_path):
     assert set(row) == {
         "ts", "request_id", "intent", "activity", "tool_calls", "input_tokens",
         "output_tokens", "cost_usd", "calls_without_cost", "grounding_unsupported",
-        "guard", "error",
+        "guard", "discarded_model_numbers", "error",
     }  # fmt: skip
     assert not any(k in row for k in ("message", "text", "content", "answer"))
     assert row["request_id"] == "r1"

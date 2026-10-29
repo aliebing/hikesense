@@ -59,6 +59,8 @@ class HikeRequest(BaseModel):
     pace_min_per_km: float | None = None
     unmatched: list[str] = Field(default_factory=list)
     question: str | None = None
+    # numbers the model filled in that the user never wrote (discarded, R27); for the log only
+    discarded_model_numbers: int = Field(default=0, exclude=True)
 
 
 class Clarify(BaseModel):

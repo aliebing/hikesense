@@ -9,6 +9,11 @@ from hikeall.config import Settings
 DEFAULT_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 
 
+@pytest.fixture(autouse=True)
+def _empty_data_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("HIKEALL_DATA_DIR", str(tmp_path))  # no knowledge index here
+
+
 def test_health_reports_db_false_without_db():
     app = create_app(Settings(supabase_db_url="postgresql://x:x@127.0.0.1:1/none", openrouter_api_key=None))
     r = TestClient(app).get("/health")

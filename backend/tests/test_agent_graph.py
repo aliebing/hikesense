@@ -486,6 +486,17 @@ def test_log_has_no_message_text_and_counts(vocab, settings):
     assert line["intent"] == "day_hike" and line["tool_calls"] == 1 and line["error"] is None
 
 
+def test_log_counts_discarded_model_numbers(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw(duration_h_max=3)]},
+        answers=["Gut."],
+    )
+    run(deps, FELDBERG_MSG)  # the user never wrote a duration
+    assert log_lines(settings)[-1]["discarded_model_numbers"] == 1
+
+
 def test_code_sentences_survive_grounding(vocab, settings):
     # the model repeats the code-built deviation and the user's bound: both are evidence
     model_text = (

@@ -61,7 +61,7 @@ def test_feldberg_case_keeps_all_three_constraints(vocab):
 
 
 def test_explicit_radius_is_kept(vocab):
-    req = understand(gw_of(start_text="Todtnau", radius_km_max=8), vocab, "x", None)
+    req = understand(gw_of(start_text="Todtnau", radius_km_max=8), vocab, "Radius 8 km", None)
     assert kinds(req)["radius_km"].max == 8
 
 
@@ -140,7 +140,7 @@ def test_hike_gets_no_surface_preference(vocab):
 
 def test_run_duration_without_pace_asks(vocab):
     res = understand(
-        gw_of(activity="run", start_text="Todtnau", duration_h_max=1), vocab, "x", None
+        gw_of(activity="run", start_text="Todtnau", duration_h_max=1), vocab, "1 h", None
     )
     assert res == Clarify(question="Welches Tempo läufst du ungefähr (min/km)?", options=[])
 
@@ -149,7 +149,7 @@ def test_run_duration_with_pace_is_fine(vocab):
     res = understand(
         gw_of(activity="run", start_text="Todtnau", duration_h_max=1, pace_min_per_km=6),
         vocab,
-        "x",
+        "1 h bei 6 min/km",
         None,
     )
     assert isinstance(res, HikeRequest) and res.pace_min_per_km == 6
@@ -159,14 +159,14 @@ def _previous(vocab) -> HikeRequest:
     return understand(
         gw_of(start_text="Todtnau", roundtrip=True, length_km_max=10, ascent_m_max=400),
         vocab,
-        "x",
+        "Rundweg unter 10 km und 400 Hm",
         None,
     )
 
 
 def test_change_replaces_only_same_kind(vocab):
     prev = _previous(vocab)
-    res = understand(gw_of(intent="change", length_km_max=6), vocab, "kürzer bitte", prev)
+    res = understand(gw_of(intent="change", length_km_max=6), vocab, "höchstens 6 km", prev)
     assert isinstance(res, HikeRequest)
     c = kinds(res)
     assert c["length_km"].max == 6
@@ -292,7 +292,7 @@ def test_change_overflow_reports_label_not_id(vocab):
     ],
 )
 def test_non_positive_value_is_reported_not_applied(vocab, field, label):
-    req = understand(gw_of(start_text="Todtnau", **{field: -5}), vocab, "x", None)
+    req = understand(gw_of(start_text="Todtnau", **{field: -5}), vocab, "-5", None)
     assert f"{label}: -5 ist kein gültiger Wert" in req.unmatched
     kind = field.rsplit("_", 1)[0]
     kind = {"length_km": "length_km", "ascent_m": "ascent_m", "duration_h": "duration_h"}.get(
@@ -306,18 +306,18 @@ def test_zero_pace_is_invalid_and_run_asks_again(vocab):
     res = understand(
         gw_of(activity="run", start_text="Todtnau", duration_h_max=1, pace_min_per_km=0),
         vocab,
-        "x",
+        "1 h, Tempo 0",
         None,
     )
     assert isinstance(res, Clarify) and "Tempo" in res.question
-    req = understand(gw_of(start_text="Todtnau", pace_min_per_km=0), vocab, "x", None)
+    req = understand(gw_of(start_text="Todtnau", pace_min_per_km=0), vocab, "Tempo 0", None)
     assert req.pace_min_per_km is None
     assert "Tempo: 0 ist kein gültiger Wert" in req.unmatched
 
 
 def test_min_greater_than_max_stays_a_constraint(vocab):
     req = understand(
-        gw_of(start_text="Todtnau", length_km_min=10, length_km_max=5), vocab, "x", None
+        gw_of(start_text="Todtnau", length_km_min=10, length_km_max=5), vocab, "10 bis 5 km", None
     )
     c = kinds(req)["length_km"]
     assert (c.min, c.max) == (10, 5)
@@ -390,7 +390,7 @@ def test_decorated_and_plain_option_both_resolve(vocab, answer, tag_id):
     ],
 )
 def test_single_value_becomes_visible_band(vocab, kw, lo, hi, approx):
-    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "x", None)
+    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "8 km oder 2 h", None)
     c = next(c for c in req.constraints if c.kind in ("length_km", "duration_h"))
     assert (c.min, c.max, c.approx) == (lo, hi, approx)
     unit = "km" if c.kind == "length_km" else "h"
@@ -403,7 +403,7 @@ def test_single_value_becomes_visible_band(vocab, kw, lo, hi, approx):
     "kw", [{"ascent_m_approx": 400}, {"ascent_m_min": 400, "ascent_m_max": 400}]
 )
 def test_single_ascent_value_is_a_maximum(vocab, kw):
-    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "x", None)
+    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "400 Hm", None)
     c = kinds(req)["ascent_m"]
     assert (c.min, c.max) == (None, 400)
     assert "Anstieg höchstens 400 Hm" in echo(req, vocab)
@@ -533,3 +533,93 @@ def test_lake_alone_resolves(vocab):
     res = understand(gw_of(start_text="Schluchsee"), v, "x", None)
     assert not isinstance(res, Clarify)
     assert res.start.tag_id == "place:schluchsee"
+
+
+# --- R27: numbers the model invented are discarded, numbers the user wrote are kept ----------
+
+
+def test_model_invented_numbers_are_discarded(vocab):
+    gw = gw_of(
+        activity="run",
+        start_text="Titisee",
+        length_km_approx=8,
+        ascent_m_max=0,
+        duration_h_approx=1.0,
+        pace_min_per_km=0,
+    )
+    req = understand(gw, vocab, "Laufrunde 8 km ab Titisee, wenig Asphalt", None)
+    assert isinstance(req, HikeRequest)  # no Clarify for the pace
+    assert set(kinds(req)) == {"length_km", "radius_km"}
+    assert kinds(req)["length_km"].approx == 8
+    assert req.pace_min_per_km is None
+    assert not any("kein gültiger Wert" in u for u in req.unmatched)
+    assert req.discarded_model_numbers == 3
+
+
+@pytest.mark.parametrize(
+    "message,field,value",
+    [
+        ("Tour über 10–14 km", "length_km_min", 14),
+        ("Tour 10-14 km", "length_km_min", 10),
+        ("etwa 2,5 Stunden", "duration_h_approx", 2.5),
+        ("etwa 2.5 Stunden", "duration_h_approx", 2.5),
+        ("drei Stunden", "duration_h_approx", 3),
+        ("zwölf Kilometer", "length_km_approx", 12),
+        ("zwanzig km", "length_km_approx", 20),
+        ("eine Stunde", "duration_h_approx", 1),
+        ("30 Minuten", "duration_h_approx", 0.5),
+        ("unter 1.000 Hm", "ascent_m_max", 1000),
+    ],
+)
+def test_numbers_the_user_wrote_are_accepted(vocab, message, field, value):
+    req = understand(gw_of(start_text="Todtnau", **{field: value}), vocab, message, None)
+    assert isinstance(req, HikeRequest)
+    assert req.discarded_model_numbers == 0
+    assert any(c.kind == field.rsplit("_", 1)[0] for c in req.constraints)
+
+
+def test_number_not_in_message_is_discarded_even_if_positive(vocab):
+    req = understand(gw_of(start_text="Todtnau", ascent_m_max=500), vocab, "Rundweg Todtnau", None)
+    assert "ascent_m" not in kinds(req)
+    assert req.discarded_model_numbers == 1 and req.unmatched == []
+
+
+def test_user_written_zero_still_reports_invalid_value(vocab):
+    req = understand(gw_of(start_text="Todtnau", ascent_m_max=0), vocab, "unter 0 Hm", None)
+    assert "Anstieg: 0 ist kein gültiger Wert" in req.unmatched
+    assert req.discarded_model_numbers == 0
+
+
+def test_invalid_value_reported_once(vocab):
+    req = understand(
+        gw_of(start_text="Todtnau", ascent_m_min=0, ascent_m_max=0, ascent_m_approx=0),
+        vocab,
+        "0 Hm",
+        None,
+    )
+    assert req.unmatched == ["Anstieg: 0 ist kein gültiger Wert"]
+
+
+def test_change_turn_with_number_in_message_still_works(vocab):
+    prev = _previous(vocab)
+    res = understand(
+        gw_of(intent="change", ascent_m_max=300, duration_h_max=2),
+        vocab,
+        "und höchstens 300 Hm",
+        prev,
+    )
+    c = kinds(res)
+    assert c["ascent_m"].max == 300
+    assert "duration_h" not in c  # invented, discarded
+    assert c["length_km"].max == 10 and res.start == prev.start
+    assert res.discarded_model_numbers == 1
+
+
+def test_pace_written_by_user_is_kept(vocab):
+    req = understand(
+        gw_of(activity="run", start_text="Todtnau", duration_h_max=1, pace_min_per_km=6),
+        vocab,
+        "Laufrunde unter 1 Stunde, Tempo 6 min/km, Todtnau",
+        None,
+    )
+    assert req.pace_min_per_km == 6 and req.discarded_model_numbers == 0

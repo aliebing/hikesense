@@ -205,6 +205,7 @@ class State(TypedDict, total=False):
     tool_calls: int
     guard: str | None
     unsupported: int
+    discarded_numbers: int
 
 
 def _turn(message: str) -> State:
@@ -225,6 +226,7 @@ def _turn(message: str) -> State:
         tool_calls=0,
         guard=None,
         unsupported=0,
+        discarded_numbers=0,
     )
 
 
@@ -535,6 +537,7 @@ def build_graph(deps: AgentDeps) -> Any:
         out: State = {"pending": None, "intent": raw.intent, "activity": raw.activity}
         if isinstance(res, HikeRequest):
             out.update(intent=res.intent, activity=res.activity)
+            out["discarded_numbers"] = res.discarded_model_numbers
             if res.intent in TOUR_INTENTS and res.start is None:
                 res = Clarify(question=CLARIFY_START)
         if isinstance(res, Clarify):
@@ -762,6 +765,7 @@ def _write_log(
             calls_without_cost=usage.calls_without_cost,
             grounding_unsupported=state.get("unsupported", 0),
             guard=state.get("guard"),
+            discarded_model_numbers=state.get("discarded_numbers", 0),
             error=error,  # exception class name only, never a message text
         ),
     )
