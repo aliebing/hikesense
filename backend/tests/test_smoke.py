@@ -260,13 +260,12 @@ def test_no_pace_expectation():
     assert sm.check([], {"no_pace": True})  # no understood event: not met
 
 
-def test_case_three_expects_results_and_no_pace():
+def test_case_three_expects_run_and_no_pace():
     case = sm.load_cases(PROMPTS)[2]
     assert case.turns[0].expect == {
         "activity": "run",
         "no_duration_without_pace": True,
         "no_pace": True,
-        "min_results": 1,
     }
 
 
