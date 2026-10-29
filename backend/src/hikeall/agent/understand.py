@@ -111,15 +111,20 @@ def resolve(
         start = resolved
 
     preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes)
-    nums = _user_numbers(message)
-    constraints, invalid, discarded = _constraints(raw, nums)
+    nums, unread = _scan(message)
+    constraints, invalid, discarded = _constraints(raw, nums, unread)
     unmatched += invalid
     for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
         if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
             constraints.append(Constraint(kind="roundtrip", required=required))
     pace = raw.pace_min_per_km
     if pace is not None and not _written(pace, nums):
-        pace, discarded = None, discarded + 1
+        fixed = _pace_from_clock(message, pace)
+        if fixed is None:
+            discarded += 1
+            if unread:
+                unmatched.append(_UNSURE.format("Tempo"))
+        pace = fixed
     if pace is not None and pace <= 0:
         unmatched.append(_invalid("Tempo", pace))
         pace = None
@@ -157,25 +162,63 @@ _WORD_NUMBERS = {
     "sieben": 7, "acht": 8, "neun": 9, "zehn": 10, "elf": 11, "zwolf": 12, "zwoelf": 12,
     "dreizehn": 13, "vierzehn": 14, "funfzehn": 15, "fuenfzehn": 15, "sechzehn": 16,
     "siebzehn": 17, "achtzehn": 18, "neunzehn": 19, "zwanzig": 20, "dreissig": 30,
-    "vierzig": 40, "funfzig": 50, "fuenfzig": 50, "sechzig": 60, "hundert": 100,
+    "vierzig": 40, "funfzig": 50, "fuenfzig": 50, "sechzig": 60, "siebzig": 70,
+    "achtzig": 80, "neunzig": 90, "hundert": 100,
     "halb": 0.5, "halbe": 0.5, "anderthalb": 1.5,
 }  # fmt: skip
+_ARTICLES = {"ein", "eine", "einen", "einem", "einer", "eines"}  # only a number inside compounds
+_UNITS = {k: v for k, v in _WORD_NUMBERS.items() if v in range(1, 10) and k != "eins"} | {
+    "ein": 1,
+    "eine": 1,
+}
+_TENS = {k: v for k, v in _WORD_NUMBERS.items() if v in range(20, 100) and v % 10 == 0}
 _ONE_UNIT = re.compile(
     r"\b(?:ein|eine|einen|einem)\s+(?:km|kilometer|stunde|std|h|hm|hohenmeter|minute)\b"
 )
 _THOUSANDS = re.compile(r"\b\d{1,3}(?:\.\d{3})+\b")
 _CLOCK = re.compile(r"\b(\d{1,2}):(\d{2})\b")
+_HOURS_MINUTES = re.compile(r"\b(\d{1,2})\s*(?:h|std|stunden?)\s*(\d{1,2})(?!\d)")
+_FRACTION = re.compile(
+    r"(?<![\d/])(?:(\d+)\s+)?(\d+)\s*/\s*(\d+)(?![\d/])(\s*(?:stunden?|std|h)\b)?"
+)
+_PART_HOUR = re.compile(r"\b(drei)?viertel\s*(?:stunden?|std|h)\b|\bhalbe?\s+(?:stunden?|std)\b")
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
 _WORDS = re.compile(r"[a-z]+")
+# looks like a number word (compound, tens, fraction) that _word_value could not read
+_NUMBERISH = re.compile(
+    r"[a-z]*(?:einhalb|zig|ssig|zehn|hundert|tausend)|[a-z]*(?:viertel|drittel|achtel)"
+)
 
 
 def _plain(text: str) -> str:
     return text.casefold().replace("ß", "ss").replace("ä", "a").replace("ö", "o").replace("ü", "u")
 
 
-def _user_numbers(message: str) -> set[float]:
-    """Every number the user wrote: digits (ranges "10–14", comma or dot decimals, "1.000",
-    "5:30"), German number words and "ein/eine <Einheit>"."""
+def _word_value(w: str) -> float | None:
+    """Value of a German number word incl. compounds ("fünfundzwanzig", "einhundert",
+    "zweieinhalb", "tausend"); None if it is not one."""
+    if w in _WORD_NUMBERS or w in _UNITS:
+        return float(_WORD_NUMBERS.get(w, _UNITS.get(w)))  # type: ignore[arg-type]
+    if w.endswith("einhalb"):
+        head = _word_value(w[: -len("einhalb")]) if len(w) > len("einhalb") else None
+        return None if head is None else head + 0.5
+    for sep, mult in (("tausend", 1000), ("hundert", 100)):
+        if sep in w:
+            head, _, tail = w.partition(sep)
+            tail = tail.removeprefix("und")
+            h = 1.0 if head == "" else _word_value(head)
+            t = 0.0 if tail == "" else _word_value(tail)
+            return None if h is None or t is None else h * mult + t
+    unit, _, tens = w.partition("und")
+    if unit in _UNITS and tens in _TENS:
+        return float(_UNITS[unit] + _TENS[tens])
+    return None
+
+
+def _scan(message: str) -> tuple[set[float], bool]:
+    """Every number the user wrote -- digits (ranges "10–14", comma or dot decimals, "1.000",
+    "5:30", "2h30", fractions "2 1/2"), German number words (compounds, "zweieinhalb", "viertel
+    Stunde") and "ein/eine <Einheit>" -- and whether a number-like word was left unread."""
     text = _plain(message)
     nums: set[float] = set()
     for m in _THOUSANDS.finditer(text):
@@ -183,24 +226,58 @@ def _user_numbers(message: str) -> set[float]:
     text = _THOUSANDS.sub(" ", text)
     for m in _CLOCK.finditer(text):
         nums.add(int(m.group(1)) + int(m.group(2)) / 60)
+    for m in _HOURS_MINUTES.finditer(text):
+        h, mi = int(m.group(1)), int(m.group(2))
+        nums |= {h + mi / 60, h * 60 + mi}
+    for m in _FRACTION.finditer(text):
+        den = int(m.group(3))
+        if den:
+            value = int(m.group(1) or 0) + int(m.group(2)) / den
+            nums.add(value)
+            if m.group(4):
+                nums.add(value * 60)
+    for m in _PART_HOUR.finditer(text):
+        hours = 0.75 if m.group(1) else 0.25 if m.group().startswith("viertel") else 0.5
+        nums |= {hours, hours * 60}
+    text = _PART_HOUR.sub(" ", text)
     for m in _DIGITS.finditer(text):
         nums.add(float(m.group().replace(",", ".")))
+    unread = False
     for w in _WORDS.findall(text):
-        if w in _WORD_NUMBERS:
-            nums.add(float(_WORD_NUMBERS[w]))
+        value = None if w in _ARTICLES else _word_value(w)
+        if value is not None:
+            nums.add(value)
+        elif _NUMBERISH.fullmatch(w):
+            unread = True
     if _ONE_UNIT.search(text):
         nums.add(1.0)
-    return nums
+    return nums, unread
+
+
+def _user_numbers(message: str) -> set[float]:
+    return _scan(message)[0]
+
+
+def _pace_from_clock(message: str, model_pace: float) -> float | None:
+    """ "5:30" is 5.5 min/km; a model value close to it (5.3) is a wrong conversion."""
+    clocks = [int(m) + int(s) / 60 for m, s in _CLOCK.findall(message)]
+    near = [c for c in clocks if abs(c - model_pace) < 0.5]
+    return min(near, key=lambda c: abs(c - model_pace)) if near else None
 
 
 def _written(value: float, nums: set[float], scale: float = 1.0) -> bool:
     """Did the user write this number? (sign ignored: "-5" is invalid, not invented; a duration
     may also be written in minutes.)"""
     wanted = {abs(value)} | ({abs(value) * scale} if scale != 1.0 else set())
-    return any(abs(n - w) < 1e-6 for n in nums for w in wanted)
+    return any(abs(n - w) < 0.01 for n in nums for w in wanted)
 
 
-def _constraints(raw: RawRequest, nums: set[float]) -> tuple[list[Constraint], list[str], int]:
+_UNSURE = "{}: Angabe nicht sicher erkannt – bitte als Zahl angeben"
+
+
+def _constraints(
+    raw: RawRequest, nums: set[float], unread: bool = False
+) -> tuple[list[Constraint], list[str], int]:
     out: list[Constraint] = []
     invalid: list[str] = []
     discarded = 0
@@ -218,6 +295,8 @@ def _constraints(raw: RawRequest, nums: set[float]) -> tuple[list[Constraint], l
                 value, nums, 60.0 if kind == "duration_h" else 1.0
             ):
                 value, discarded = None, discarded + 1  # R27: invented by the model
+                if unread:  # ... or written in a form the parser could not read: never silent
+                    invalid.append(_UNSURE.format(_LABELS[kind][0].strip()))
             if value is not None and value <= 0:
                 invalid.append(_invalid(_LABELS[kind][0].strip(), value))
                 value = None

@@ -569,6 +569,23 @@ def test_model_invented_numbers_are_discarded(vocab):
         ("eine Stunde", "duration_h_approx", 1),
         ("30 Minuten", "duration_h_approx", 0.5),
         ("unter 1.000 Hm", "ascent_m_max", 1000),
+        ("zweieinhalb Stunden", "duration_h_approx", 2.5),
+        ("eineinhalb Stunden", "duration_h_approx", 1.5),
+        ("dreieinhalb Stunden", "duration_h_approx", 3.5),
+        ("anderthalb Stunden", "duration_h_approx", 1.5),
+        ("fünfundzwanzig km", "length_km_approx", 25),
+        ("einundzwanzig km", "length_km_approx", 21),
+        ("einhundert km", "length_km_approx", 100),
+        ("zweihundert Hm", "ascent_m_approx", 200),
+        ("tausend Hm", "ascent_m_approx", 1000),
+        ("2h30", "duration_h_approx", 2.5),
+        ("2 h 30", "duration_h_approx", 2.5),
+        ("2 1/2 Stunden", "duration_h_approx", 2.5),
+        ("1/2 Stunde", "duration_h_approx", 0.5),
+        ("3/4 Stunde", "duration_h_approx", 0.75),
+        ("viertel Stunde", "duration_h_approx", 0.25),
+        ("halbe Stunde", "duration_h_approx", 0.5),
+        ("dreiviertel Stunde", "duration_h_approx", 0.75),
     ],
 )
 def test_numbers_the_user_wrote_are_accepted(vocab, message, field, value):
@@ -576,6 +593,32 @@ def test_numbers_the_user_wrote_are_accepted(vocab, message, field, value):
     assert isinstance(req, HikeRequest)
     assert req.discarded_model_numbers == 0
     assert any(c.kind == field.rsplit("_", 1)[0] for c in req.constraints)
+
+
+def test_unreadable_number_expression_is_reported_not_silent(vocab):
+    req = understand(
+        gw_of(start_text="Todtnau", duration_h_approx=7),
+        vocab,
+        "etwa eine drittel Stunde",
+        None,
+    )
+    assert "duration_h" not in kinds(req)
+    assert req.discarded_model_numbers == 1
+    assert "Dauer: Angabe nicht sicher erkannt – bitte als Zahl angeben" in req.unmatched
+
+
+def test_pace_5_30_wrong_model_conversion_uses_parsed_value(vocab):
+    gw = gw_of(start_text="Titisee", activity="run", duration_h_approx=1, pace_min_per_km=5.3)
+    req = understand(gw, vocab, "Laufrunde 1 Stunde ab Titisee, Tempo 5:30", None)
+    assert isinstance(req, HikeRequest)
+    assert req.pace_min_per_km == 5.5
+    assert req.discarded_model_numbers == 0
+
+
+def test_pace_5_30_model_value_55_is_accepted(vocab):
+    gw = gw_of(start_text="Titisee", activity="run", duration_h_approx=1, pace_min_per_km=5.5)
+    req = understand(gw, vocab, "Laufrunde 1 Stunde ab Titisee, 5:30 min/km", None)
+    assert req.pace_min_per_km == 5.5 and req.discarded_model_numbers == 0
 
 
 def test_number_not_in_message_is_discarded_even_if_positive(vocab):
@@ -623,3 +666,12 @@ def test_pace_written_by_user_is_kept(vocab):
         None,
     )
     assert req.pace_min_per_km == 6 and req.discarded_model_numbers == 0
+
+
+def test_minute_forms_of_part_hours_are_read():
+    from hikeall.agent.understand import _user_numbers
+
+    assert {15, 0.25} <= _user_numbers("eine viertel Stunde")
+    assert {45, 0.75} <= _user_numbers("dreiviertel Stunde")
+    assert {150, 2.5} <= _user_numbers("2h30")
+    assert {45, 0.75} <= _user_numbers("3/4 Stunde")
