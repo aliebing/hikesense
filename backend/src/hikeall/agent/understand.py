@@ -20,7 +20,16 @@ from hikeall.agent.request import (
 from hikeall.llm.gateway import LLMGateway
 from hikeall.tags.vocabulary import Area, NearPlace, Tag, TagVocabulary, fold
 
-__all__ = ["Clarify", "RawRequest", "Understood", "echo", "understand"]
+__all__ = [
+    "Clarify",
+    "RawRequest",
+    "Understood",
+    "echo",
+    "parse",
+    "resolve",
+    "resolve_option",
+    "understand",
+]
 
 MAX_OPTIONS = 3
 RUN_SURFACE_TAG = "surface:gut_laufbar"
@@ -58,18 +67,37 @@ _CLARIFY_PACE = Clarify(question="Welches Tempo läufst du ungefähr (min/km)?")
 def understand(
     gw: LLMGateway, vocab: TagVocabulary, message: str, previous: HikeRequest | None
 ) -> Understood:
+    return resolve(vocab, parse(gw, vocab, message, previous), message, previous)
+
+
+def parse(
+    gw: LLMGateway, vocab: TagVocabulary, message: str, previous: HikeRequest | None
+) -> RawRequest:
+    """The one model call of understand(): message -> RawRequest (free-text place and wishes)."""
     user = message
     if previous is not None:
         user = f"Bisherige Anfrage: {echo(previous, vocab)}\nNeue Nachricht: {message}"
-    raw = gw.structured(RawRequest, SYSTEM_PROMPT, user)
+    return gw.structured(RawRequest, SYSTEM_PROMPT, user)
+
+
+def resolve(
+    vocab: TagVocabulary,
+    raw: RawRequest,
+    message: str,
+    previous: HikeRequest | None,
+    start: ResolvedStart | None = None,
+) -> Understood:
+    """Everything after the model call, in code. `start` (already resolved, e.g. the option the
+    user picked after a clarify question) skips resolving raw.start_text."""
     is_change = raw.intent == "change"
     if is_change and previous is None:
         return _CLARIFY_CHANGE
 
     wants_tour = raw.intent in ("day_hike", "multiday", "change")
-    start: ResolvedStart | None = None
     start_text = raw.start_text.strip() if raw.start_text else None
-    if wants_tour and start_text:
+    if start is not None:
+        start_text = start.label
+    elif wants_tour and start_text:
         resolved = _resolve_start(vocab, start_text)
         if isinstance(resolved, Clarify):
             return resolved
@@ -292,6 +320,17 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     else:
         msg += " Nenne bitte einen Ort oder eine Gegend im Schwarzwald."
     return Clarify(question=msg, options=close)
+
+
+def resolve_option(vocab: TagVocabulary, option: str) -> ResolvedStart | None:
+    """The start behind one clarify option (exact display name or label), if unique."""
+    cands = [t for t in vocab.all() if t.category in ("place", "area")]
+    shown = _display_names(cands)
+    needle = fold(option)
+    hits = [t for t in cands if fold(shown[t.id]) == needle]
+    if not hits:
+        hits = [t for t in cands if fold(t.label) == needle]
+    return _to_start(hits[0]) if len(hits) == 1 else None
 
 
 _KIND_NAMES = {"peak": "Gipfel", "town": "Ort", "village": "Ort", "lake": "See"}

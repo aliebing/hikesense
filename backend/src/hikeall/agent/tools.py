@@ -52,6 +52,7 @@ class SourceBrief(BaseModel):
     name: str | None
     url: str | None
     license: str | None
+    status: str | None = None  # own knowledge texts: "entwurf" | "geprüft"
 
 
 class TrailDetails(BaseModel):
