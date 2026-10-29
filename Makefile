@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan
+.PHONY: test lint up down import scan knowledge
 
 test:
 	cd backend && uv run pytest -q
@@ -28,3 +28,7 @@ import:
 
 scan:
 	cd backend && uv run hikeall scan-day-hikes
+
+# Wissensindex (Wikipedia/Wikivoyage + eigene Texte); lädt beim ersten Lauf das Embedding-Modell.
+knowledge:
+	cd backend && uv run hikeall build-knowledge

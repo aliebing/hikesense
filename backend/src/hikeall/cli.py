@@ -29,12 +29,16 @@ from hikeall.ingest.places import fetch_places, fetch_pois, import_places
 from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
+from hikeall.knowledge.corpus import chunk, fetch_articles, load_own_texts, load_sources
+from hikeall.knowledge.search import FastEmbedder, KnowledgeIndex
 from hikeall.models import BLACK_FOREST_BBOX
 from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_tags
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAILS_YAML = REPO_ROOT / "data" / "curated" / "trails.yaml"
 DAY_HIKES_CSV = REPO_ROOT / "data" / "curated" / "day_hikes.csv"
+KNOWLEDGE_DIR = REPO_ROOT / "data" / "knowledge"
+CHROMA_DIR = REPO_ROOT / "data" / "chroma"
 OSM_SOURCE_ID = "osm"
 
 
@@ -385,6 +389,32 @@ def import_photos_cmd(only: str | None) -> int:
     return 0
 
 
+def build_knowledge_cmd() -> int:
+    missing = []
+    try:
+        with make_http_client(60, COMMONS_USER_AGENT) as http:
+            articles = fetch_articles(
+                http, load_sources(KNOWLEDGE_DIR / "sources.yaml"), on_missing=missing.append
+            )
+        own = load_own_texts(KNOWLEDGE_DIR)
+    except HikeAllError as e:
+        print(f"Wissensindex abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    for src in missing:
+        print(f"Warnung: Artikel fehlt: {src.site} / {src.title}", file=sys.stderr)
+    chunks = [c for doc in [*articles, *own] for c in chunk(doc)]
+    try:
+        KnowledgeIndex.build(chunks, CHROMA_DIR, FastEmbedder())
+    except HikeAllError as e:
+        print(f"Wissensindex abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    print(
+        f"{len(articles)} Artikel, {len(own)} eigene Texte, {len(chunks)} Chunks, "
+        f"{len(missing)} Artikel fehlen -> {CHROMA_DIR}"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -399,6 +429,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub.add_parser(
         "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
+    )
+    sub.add_parser(
+        "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
@@ -418,6 +451,8 @@ def main(argv: list[str] | None = None) -> int:
         return import_lodgings_cmd()
     if args.command == "import-places":
         return import_places_cmd()
+    if args.command == "build-knowledge":
+        return build_knowledge_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":

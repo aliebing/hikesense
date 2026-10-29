@@ -49,3 +49,11 @@ class StageOrderError(HikeAllError):
 
 class OutsideRegionError(HikeAllError):
     """Imported geometry leaves the Black Forest import bounding box."""
+
+
+class KnowledgeError(HikeAllError):
+    """Knowledge corpus is invalid (e.g. own text without sources) or the index is missing."""
+
+
+class KnowledgeFetchError(HikeAllError):
+    """MediaWiki request for a knowledge article failed."""

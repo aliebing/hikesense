@@ -79,17 +79,22 @@ class LodgingBrief(BaseModel):
     source_id: str | None = None
 
 
+KNOWLEDGE_MISSING = "Wissensindex fehlt – `make knowledge` ausführen"
+
+
 class KnowledgeHit(BaseModel):
-    """One passage from the knowledge index (Task 9 fills the index)."""
+    """One passage from the knowledge index."""
 
     text: str
     source_id: str | None = None
     title: str | None = None
     url: str | None = None
+    license: str | None = None
+    score: float | None = None
 
 
 class KnowledgeIndex(Protocol):
-    """Implemented by Task 9 (ChromaDB)."""
+    """Implemented by hikeall.knowledge.search.KnowledgeIndex (ChromaDB + BM25)."""
 
     def search(self, query: str, k: int = 5) -> list[KnowledgeHit]: ...
 
@@ -300,10 +305,6 @@ class AgentTools(Protocol):
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]: ...
 
 
-def search_knowledge(query: str, k: int = 5) -> list[KnowledgeHit]:
-    raise NotImplementedError("Task 9")
-
-
 class DbTools:
     """AgentTools on Postgres. conn_factory must return a FRESH connection per call; every
     tool call runs inside `with conn_factory() as conn:`, which closes it afterwards."""
@@ -335,7 +336,7 @@ class DbTools:
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]:
         if self._knowledge is None:
-            return [KnowledgeHit(text="Wissensindex fehlt: Hintergrundwissen ist nicht verfügbar.")]
+            return [KnowledgeHit(text=KNOWLEDGE_MISSING)]
         return self._knowledge.search(query, k)
 
 
