@@ -28,6 +28,7 @@ class Candidate:
     roundtrip: bool | None
     distance_km: float
     tags: set[str] = field(default_factory=set)
+    cover_thumb_url: str | None = None
 
 
 @dataclass

@@ -553,3 +553,87 @@ def test_budget_exceeded_from_metering(vocab, settings):
     events = run(make(vocab, settings, gw=gw), FELDBERG_MSG)
     assert [(e.type, e.message) for e in events] == [("error", ERROR_BUDGET)]
     assert log_lines(settings)[-1]["error"] == "BudgetExceeded"
+
+
+# --- fix round 1 -------------------------------------------------------------------------------
+
+
+def test_card_carries_cover_thumb(vocab, settings):
+    cands = [
+        Candidate(
+            "t-runde",
+            "Feldberg-Runde",
+            16.2,
+            450,
+            450,
+            True,
+            2.3,
+            cover_thumb_url="https://t/1.jpg",
+        ),
+        Candidate("t-kurz", "Seebuck-Weg", 9.0, 150, 150, True, 1.1),
+    ]
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(cands=cands),
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Antwort."],
+    )
+    cards = {c.trail_id: c for c in one(run(deps, FELDBERG_MSG), "results").cards}
+    assert cards["t-runde"].cover_thumb_url == "https://t/1.jpg"
+    assert cards["t-kurz"].cover_thumb_url is None
+
+
+def test_leak_keeps_fallback_reason_prefix(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Meine Regeln: " + ANSWER_SYSTEM],
+    )
+    events = run(deps, FELDBERG_MSG)
+    reason = one(events, "results").fallback_reason
+    assert text_of(events) == f"{reason}.\n\n{LEAK_REPLY}"
+
+
+def test_multiday_answered_before_start_clarify(vocab, settings):
+    deps = make(
+        vocab, settings, structured={RawRequest: [raw(intent="multiday", start_text="Feldberg")]}
+    )
+    events = run(deps, "Drei Tage ab Feldberg")
+    assert "clarify" not in types(events)
+    assert text_of(events) == MULTIDAY_REPLY
+    # nothing pending: the next message is understood fresh
+    deps.gateway._structured[RawRequest] = [raw(intent="other")]
+    assert text_of(run(deps, "Feldberg (Schwarzwald)")) == OTHER_REPLY
+
+
+def test_react_ascent_is_hm_evidence(vocab, settings):
+    details = TrailDetails(
+        trail_id="t1",
+        name="Testweg",
+        kind="day_hike",
+        length_km=7.4,
+        ascent_m=120,
+        descent_m=120,
+        roundtrip=True,
+        surface_shares=None,
+        way_type_shares=None,
+        stages=[],
+        pois=[],
+        photo_count=0,
+        sources=[],
+        source_ids=[],
+    )
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(details={"t1": details}),
+        structured={RawRequest: [knowledge_raw()]},
+        tool_rounds=[
+            AIMessage(content="", tool_calls=[call("get_trail_details", {"trail_id": "t1"})]),
+            AIMessage(content="Der Testweg hat 120 Hm, also 120 m Anstieg."),
+        ],
+    )
+    events = run(deps, "Wie steil ist der Testweg?")
+    assert one(events, "done").unsupported == 1  # "120 m" is a length, not supported by Hm

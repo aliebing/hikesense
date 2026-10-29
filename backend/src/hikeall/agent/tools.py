@@ -96,7 +96,11 @@ def search_radius_km(req: HikeRequest) -> float:
     return min(radius * SEARCH_FACTOR, MAX_SEARCH_KM)
 
 
-_COLS = "t.id, t.name, t.length_km, t.ascent_m, t.descent_m, t.roundtrip, t.source_id"
+# The cover photo: the first Commons photo of the trail (lowest id) with a thumbnail, else null.
+_COLS = """t.id, t.name, t.length_km, t.ascent_m, t.descent_m, t.roundtrip, t.source_id,
+       (select p.thumb_url from photos p
+        where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
+        order by p.id limit 1) as cover_thumb_url"""
 
 
 def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResult:
@@ -150,8 +154,9 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
             ascent_m=r[3],
             descent_m=r[4],
             roundtrip=r[5],
-            distance_km=float(r[7]),
+            distance_km=float(r[8]),
             tags=tags[r[0]],
+            cover_thumb_url=r[7],
         )
         for r in rows
     ]

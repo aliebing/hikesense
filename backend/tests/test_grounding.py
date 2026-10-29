@@ -1,3 +1,5 @@
+import pytest
+
 from hikeall.agent.grounding import Evidence, grounding_check, numbers_in_text
 
 
@@ -65,3 +67,64 @@ def test_percent_and_minutes_patterns():
 
 def test_speed_is_not_a_length():
     assert numbers_in_text("mit 10 km/h") == []
+
+
+# --- fix round 1 -------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("text", ["25 Kilometer", "500 Meter", "30 Prozent", "800 Höhenmeter"])
+def test_german_long_unit_words_are_checked(text):
+    r = grounding_check(f"Die Tour hat {text}.", ev(numbers=["12.4 km", "40 %", "450 Hm"]))
+    assert r.unsupported == [text]
+
+
+@pytest.mark.parametrize(
+    "text", ["12 Kilometer", "12.400 Metern", "40 Prozent", "450 Höhenmetern", "3 Stunden"]
+)
+def test_german_long_unit_words_supported(text):
+    e = ev(numbers=["12.4 km", "40 %", "450 Hm", "2.9 h"])
+    assert grounding_check(f"Etwa {text}.", e).unsupported == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["2,9 h", "3 h", "knapp 3 Stunden", "2 h 54 min", "2:54 h", "174 min", "2 Std. 54 Minuten"],
+)
+def test_duration_supported_only_as_a_whole(text):
+    assert grounding_check(f"Sie dauert {text}.", ev(numbers=["2.9 h"])).unsupported == []
+
+
+@pytest.mark.parametrize("text", ["2 h", "54 min", "2 h 50 min", "2:50 h"])
+def test_duration_parts_are_not_supported(text):
+    r = grounding_check(f"Sie dauert {text}.", ev(numbers=["2.9 h"]))
+    assert r.unsupported == [text]
+    assert "2" not in r.text.split("\n")[0].replace("Sie dauert", "")
+
+
+@pytest.mark.parametrize(
+    ("text", "bad"),
+    [
+        ("10 bis 15 km", ["10 km"]),
+        ("10–15 km", ["10 km"]),
+        ("10-15 km", ["10 km"]),
+        ("zwischen 10 und 15 km", ["10 km"]),
+        ("15 bis 20 km", ["20 km"]),
+    ],
+)
+def test_both_numbers_of_a_range_are_checked(text, bad):
+    r = grounding_check(f"Touren mit {text}.", ev(numbers=["15 km"]))
+    assert r.unsupported == bad and "?" in r.text
+
+
+def test_range_fully_supported():
+    assert not grounding_check("10 bis 15 km", ev(numbers=["10 km", "15 km"])).unsupported
+
+
+@pytest.mark.parametrize("text", ["450 m", "0,45 km", "450 Meter"])
+def test_ascent_never_supports_length(text):
+    assert grounding_check(f"Sie ist {text} lang.", ev(numbers=["450 Hm"])).unsupported == [text]
+
+
+def test_length_never_supports_ascent():
+    r = grounding_check("Sie hat 1200 Hm.", ev(numbers=["1.2 km", "1200 m"]))
+    assert r.unsupported == ["1200 Hm"]

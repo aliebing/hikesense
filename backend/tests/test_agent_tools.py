@@ -13,7 +13,7 @@ from hikeall.agent.tools import (
     hiking_time,
     search_day_hikes,
 )
-from hikeall.db import upsert_lodging, upsert_source, upsert_trail
+from hikeall.db import upsert_lodging, upsert_photo, upsert_source, upsert_trail
 from hikeall.models import BBox, Lodging, Source
 
 SRC = Source(
@@ -267,3 +267,31 @@ def test_dbtools_knowledge_delegates():
             return [KnowledgeHit(text=f"{q}{k}")]
 
     assert DbTools(lambda: None, Idx()).search_knowledge("a", 2)[0].text == "a2"
+
+
+def _photo(conn, trail_id, n):
+    upsert_photo(
+        conn,
+        trail_id=trail_id,
+        stage_id=None,
+        url=f"https://commons.example/test-p2-{trail_id}-{n}.jpg",
+        thumb_url=f"https://commons.example/thumb/test-p2-{trail_id}-{n}.jpg",
+        author="A",
+        license="CC BY-SA 4.0",
+        license_url=None,
+        page_url=f"https://commons.example/page/{n}",
+    )
+
+
+@pytest.mark.db
+def test_search_cards_get_first_commons_thumb(db):
+    add_trail(db, "test-p2-photo")
+    add_trail(db, "test-p2-nophoto", dlat=0.01)
+    _photo(db, "test-p2-photo", 1)
+    _photo(db, "test-p2-photo", 2)
+    res = search_day_hikes(db, req())
+    by_id = {s.candidate.trail_id: s.candidate for s in res.selection.matches}
+    assert by_id["test-p2-photo"].cover_thumb_url == (
+        "https://commons.example/thumb/test-p2-test-p2-photo-1.jpg"
+    )
+    assert by_id["test-p2-nophoto"].cover_thumb_url is None

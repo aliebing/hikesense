@@ -238,6 +238,7 @@ def _card(s: Scored) -> TourCard:
         ascent_m=c.ascent_m,
         duration_h=s.duration_h,
         distance_km=c.distance_km,
+        cover_thumb_url=c.cover_thumb_url,
         results=[_as_float(r) for r in s.results],
         deviation_text=format_deviation(s.violated) if s.violated else None,
         preference=s.preference,
@@ -347,6 +348,8 @@ def _dump(result: Any) -> Any:
 
 
 def _unit(key: str) -> str | None:
+    if key in ("ascent_m", "descent_m"):
+        return "Hm"
     if key.endswith("_km"):
         return "km"
     if key.endswith("_m"):
@@ -445,7 +448,7 @@ def build_graph(deps: AgentDeps) -> Any:
         without a model call; anything else goes to the model with the earlier message."""
         if pending.get("raw"):
             raw = RawRequest.model_validate(pending["raw"])
-            if raw.intent in (*TOUR_INTENTS, "multiday"):
+            if raw.intent in TOUR_INTENTS:
                 start = resolve_option(vocab, message)
                 if start is not None:
                     res = resolve(vocab, raw, pending["message"], previous, start=start)
@@ -465,6 +468,14 @@ def build_graph(deps: AgentDeps) -> Any:
             raw, res, base = _continue_pending(state["pending"], message, previous)
         if res is None:
             raw = parse(gw, vocab, base, previous)
+            if raw.intent == "multiday":  # not offered yet: say so before any place question
+                return {
+                    "pending": None,
+                    "intent": raw.intent,
+                    "activity": raw.activity,
+                    "reply": MULTIDAY_REPLY,
+                    "route": "reply",
+                }
             res = resolve(vocab, raw, base, previous)
         out: State = {"pending": None, "intent": raw.intent, "activity": raw.activity}
         if isinstance(res, HikeRequest):
@@ -486,7 +497,7 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"request": out["current"], "route": "search"}
         if req.intent == "knowledge":
             return out | {"route": "react"}
-        reply = MULTIDAY_REPLY if req.intent == "multiday" else OTHER_REPLY
+        reply = MULTIDAY_REPLY if req.intent == "multiday" else OTHER_REPLY  # multiday is answered above
         return out | {"reply": reply, "route": "reply"}
 
     def clarify(state: State) -> State:
@@ -585,14 +596,14 @@ def build_graph(deps: AgentDeps) -> Any:
     def ground(state: State) -> State:
         draft, out = state.get("draft"), {}
         reason = state.get("reason")
+        body = state.get("fixed") or ""
         if draft and any(leaks_system_prompt(draft, p) for p in _PROMPTS):
-            text, out = LEAK_REPLY, {"guard": "leak"}
-        else:
-            body = state.get("fixed") or ""
-            if draft:
-                g = grounding_check(draft, Evidence(**state["evidence"]))
-                body, out = g.text, {"unsupported": len(g.unsupported)}
-            text = "\n\n".join(x for x in (f"{reason}." if reason else "", body) if x)
+            body, out = LEAK_REPLY, {"guard": "leak"}
+        elif draft:
+            g = grounding_check(draft, Evidence(**state["evidence"]))
+            body, out = g.text, {"unsupported": len(g.unsupported)}
+        # the code's honest sentence comes first, verbatim, whatever the model wrote
+        text = "\n\n".join(x for x in (f"{reason}." if reason else "", body) if x)
         for chunk in _CHUNK.findall(text):
             _emit(TokenEvent(text=chunk))
         if state.get("sources"):
