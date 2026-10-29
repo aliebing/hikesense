@@ -373,7 +373,13 @@ def resolve_option(vocab: TagVocabulary, option: str) -> ResolvedStart | None:
     return _to_start(hits[0]) if len(hits) == 1 else None
 
 
-_KIND_NAMES = {"peak": "Gipfel", "town": "Ort", "village": "Ort", "lake": "See"}
+_KIND_NAMES = {
+    "peak": "Gipfel",
+    "town": "Ort",
+    "village": "Ort",
+    "lake": "See",
+    "municipality": "Gemeinde",
+}
 
 
 def _kind_name(t: Tag) -> str | None:

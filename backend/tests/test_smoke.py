@@ -67,7 +67,7 @@ def test_loader_reads_the_six_cases():
     cases = sm.load_cases(PROMPTS)
     assert len(cases) == 6
     assert len(cases[1].turns) == 2  # Feldberg: clarify, then the answer
-    assert cases[1].turns[1].answer_option_containing == "Ort"
+    assert cases[1].turns[1].answer_option_containing == "Gemeinde"
     assert cases[4].turns[0].expect == {"reply": "injection", "no_model_calls": True}
 
 
@@ -197,19 +197,25 @@ def test_runner_two_turn_feldberg_answers_with_the_place_option(deps):
             category="place",
             rule=NearPlace(place_id=2, radius_km=15, lat=47.86, lon=8.04, kind="village"),
         ),
+        Tag(
+            id="place:feldberg-schwarzwald",
+            label="Feldberg (Schwarzwald)",
+            category="place",
+            rule=NearPlace(place_id=3, radius_km=15, lat=47.85, lon=8.05, kind="municipality"),
+        ),
     ]
     d = deps(
         structured={
             RawRequest: [
                 feldberg_raw().model_copy(update={"start_text": "Feldberg"}),
-                raw(start_text="Feldberg (Ort)", roundtrip=True),
+                raw(start_text="Feldberg (Schwarzwald) – Gemeinde", roundtrip=True),
             ]
         },
         answers=["Antwort."],
     )
     d.vocab = TagVocabulary(TagVocabulary.from_features(FEATURES_YAML).all() + same)
     r = sm.run_case(d, case)
-    assert r.ok, r.errors  # clarify, then the "Ort" option, then a fallback with one violation
+    assert r.ok, r.errors  # clarify, then the "Gemeinde" option, then a fallback with one violation
     assert d.tools.calls["search_day_hikes"] == 1
 
 

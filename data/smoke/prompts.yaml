@@ -14,8 +14,8 @@ cases:
     turns:
       - message: "Rundweg, unter 200 Hm, über 15 km, Feldberg"
         expect:
-          clarify_options_include: ["Gipfel", "Ort"]
-      - answer_option_containing: "Ort"
+          clarify_options_include: ["Gipfel", "Gemeinde"]
+      - answer_option_containing: "Gemeinde"
         expect:
           fallback_single_violation: true
   - id: 3-laufrunde-titisee

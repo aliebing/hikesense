@@ -15,7 +15,13 @@ def _data():
 
 def test_places_kinds_and_ids():
     places = {p.name: p for p in parse_places(_data())}
-    assert set(places) == {"Hinterzarten", "Feldberg", "Titisee", "Schluchsee"}
+    assert set(places) == {
+        "Hinterzarten",
+        "Feldberg",
+        "Titisee",
+        "Schluchsee",
+        "Feldberg (Schwarzwald)",
+    }
     assert (places["Hinterzarten"].kind, places["Hinterzarten"].id) == ("village", 1)
     assert (places["Feldberg"].kind, places["Feldberg"].id) == ("peak", 2)
     assert (places["Titisee"].kind, places["Titisee"].id) == ("lake", -100)
@@ -58,3 +64,12 @@ def test_outside_bbox_and_non_matching_excluded():
 
 def test_timestamp_absent_in_xml_is_none():
     assert pbf_timestamp(FIXTURE) is None
+
+
+def test_municipality_from_admin_level_8_relation():
+    places = {p.name: p for p in parse_places(_data())}
+    m = places["Feldberg (Schwarzwald)"]
+    assert (m.kind, m.id) == ("municipality", -(RELATION_ID_OFFSET + 400))
+    assert m.lat == pytest.approx(47.85, abs=1e-4)
+    assert m.lon == pytest.approx(8.05, abs=1e-4)
+    assert "Landkreis" not in places  # admin_level=6 is not a municipality

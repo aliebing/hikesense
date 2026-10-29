@@ -24,6 +24,14 @@
   <node id="22" lat="47.9300" lon="8.4010"/>
   <node id="23" lat="47.9310" lon="8.4010"/>
   <node id="24" lat="47.9310" lon="8.4000"/>
+  <node id="25" lat="47.8000" lon="8.0000"/>
+  <node id="26" lat="47.8000" lon="8.1000"/>
+  <node id="27" lat="47.9000" lon="8.1000"/>
+  <node id="28" lat="47.9000" lon="8.0000"/>
+  <node id="29" lat="47.5600" lon="7.6000"/>
+  <node id="30" lat="47.5600" lon="7.7000"/>
+  <node id="31" lat="47.5700" lon="7.7000"/>
+  <node id="32" lat="47.5700" lon="7.6000"/>
   <way id="100">
     <nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="9"/>
     <tag k="natural" v="water"/><tag k="water" v="lake"/><tag k="name" v="Titisee"/>
@@ -42,9 +50,19 @@
   <way id="201">
     <nd ref="17"/><nd ref="18"/><nd ref="19"/><nd ref="20"/><nd ref="17"/>
   </way>
+  <way id="202"><nd ref="25"/><nd ref="26"/><nd ref="27"/><nd ref="28"/><nd ref="25"/></way>
+  <way id="203"><nd ref="29"/><nd ref="30"/><nd ref="31"/><nd ref="32"/><nd ref="29"/></way>
   <relation id="300">
     <member type="way" ref="200" role="outer"/>
     <member type="way" ref="201" role="inner"/>
     <tag k="type" v="multipolygon"/><tag k="natural" v="water"/><tag k="water" v="lake"/><tag k="name" v="Schluchsee"/>
+  </relation>
+  <relation id="400">
+    <member type="way" ref="202" role="outer"/>
+    <tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/><tag k="name" v="Feldberg (Schwarzwald)"/>
+  </relation>
+  <relation id="401">
+    <member type="way" ref="203" role="outer"/>
+    <tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="6"/><tag k="name" v="Landkreis"/>
   </relation>
 </osm>

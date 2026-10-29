@@ -20,7 +20,8 @@ from hikeall.models import BBox
 FEATURES_YAML = Path(__file__).resolve().parents[4] / "data" / "tags" / "features.yaml"
 
 TagCategory = Literal["feature", "surface", "place", "area"]
-PLACE_KINDS = ("town", "village", "peak", "lake")
+# municipality last: same-name collisions keep the existing bare ids of towns, peaks and lakes
+PLACE_KINDS = ("town", "village", "peak", "lake", "municipality")
 PLACE_RADIUS_KM = 15.0
 STORED_CATEGORIES = ("feature", "surface")
 

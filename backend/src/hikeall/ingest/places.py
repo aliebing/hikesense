@@ -16,6 +16,7 @@ from hikeall.models import BBox, Place, Poi, Source
 POI_BUFFER_M = 300
 RELATION_ID_OFFSET = 10**12  # relation ids live far below any way id (see _position)
 PLACE_KINDS = ("town", "village", "hamlet")
+MUNICIPALITY_ADMIN_LEVEL = "8"  # Gemeinde
 FOOD_AMENITIES = ("restaurant", "cafe", "biergarten", "pub")
 
 # (tag, value, requires name) -> POI kind; first match wins for multi-tagged elements.
@@ -41,6 +42,7 @@ def places_query(bbox: BBox) -> str:
     parts += f'node["natural"="peak"]["name"]({b});'
     for el in ("way", "relation"):
         parts += f'{el}["natural"="water"]["water"="lake"]["name"]({b});'
+    parts += f'relation["boundary"="administrative"]["admin_level"="8"]["name"]({b});'
     return f"[out:json][timeout:240];({parts});out center;"
 
 
@@ -105,7 +107,7 @@ def parse_pois(data: dict[str, Any]) -> list[Poi]:
 
 
 def parse_places(data: dict[str, Any]) -> list[Place]:
-    """Named towns/villages/hamlets, peaks and lakes (center); unnamed ones are dropped."""
+    """Named towns/villages/hamlets, peaks, lakes and municipalities (center); unnamed ones are dropped."""
     out: list[Place] = []
     for el in data["elements"]:
         tags = el.get("tags") or {}
@@ -116,6 +118,12 @@ def parse_places(data: dict[str, Any]) -> list[Place]:
             kind = "peak"
         elif tags.get("natural") == "water" and tags.get("water") == "lake":
             kind = "lake"
+        elif (
+            el["type"] == "relation"
+            and tags.get("boundary") == "administrative"
+            and tags.get("admin_level") == MUNICIPALITY_ADMIN_LEVEL
+        ):
+            kind = "municipality"
         else:
             continue
         pos = _position(el)

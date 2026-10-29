@@ -10,7 +10,7 @@ from typing import Any
 import osmium
 import osmium.filter
 
-from hikeall.ingest.places import PLACE_KINDS, POI_RULES
+from hikeall.ingest.places import MUNICIPALITY_ADMIN_LEVEL, PLACE_KINDS, POI_RULES
 from hikeall.models import BBox
 
 _POI_TAGS = {(t, v) for t, v, _n, _k in POI_RULES}
@@ -22,6 +22,14 @@ def _named(tags) -> bool:
 
 def _is_lake(tags) -> bool:
     return tags.get("natural") == "water" and tags.get("water") == "lake" and _named(tags)
+
+
+def _is_municipality(tags) -> bool:
+    return (
+        tags.get("boundary") == "administrative"
+        and tags.get("admin_level") == MUNICIPALITY_ADMIN_LEVEL
+        and _named(tags)
+    )
 
 
 def _matches_node(tags) -> bool:
@@ -118,7 +126,9 @@ def read_elements(pbf_path: Path, bbox: BBox) -> dict[str, Any]:
         fp = (
             osmium.FileProcessor(str(pbf_path))
             .with_locations(index)
-            .with_areas(osmium.filter.TagFilter(("natural", "water")))
+            .with_areas(
+                osmium.filter.TagFilter(("natural", "water"), ("boundary", "administrative"))
+            )
         )
         for o in fp:
             if not o.tags:
@@ -129,6 +139,10 @@ def read_elements(pbf_path: Path, bbox: BBox) -> dict[str, Any]:
             elif o.is_way():
                 if _matches_way(o.tags) and (c := _way_center(o.nodes)):
                     add("way", o.id, o.tags, *c)
-            elif o.is_area() and _is_lake(o.tags) and (c := _area_center(o)):
+            elif (
+                o.is_area()
+                and (_is_lake(o.tags) or (not o.from_way() and _is_municipality(o.tags)))
+                and (c := _area_center(o))
+            ):
                 add("way" if o.from_way() else "relation", o.orig_id(), o.tags, *c)
     return {"elements": elements}

@@ -130,3 +130,29 @@ def test_import_places_is_idempotent(conn, trail):
         import_places(conn, places, [], SRC)
     n = conn.execute("select count(*) from places where id = 9100003").fetchone()[0]
     assert n == 1
+
+
+def test_places_query_includes_municipalities():
+    q = places_query(BLACK_FOREST_BBOX)
+    assert 'relation["boundary"="administrative"]["admin_level"="8"]["name"]' in q
+
+
+def test_parse_places_municipality():
+    data = {
+        "elements": [
+            {
+                "type": "relation",
+                "id": 7,
+                "tags": {"boundary": "administrative", "admin_level": "8", "name": "Todtnau"},
+                "center": {"lat": 47.8, "lon": 7.9},
+            },
+            {
+                "type": "relation",
+                "id": 8,
+                "tags": {"boundary": "administrative", "admin_level": "6", "name": "Kreis"},
+                "center": {"lat": 47.8, "lon": 7.9},
+            },
+        ]
+    }
+    (p,) = parse_places(data)
+    assert (p.kind, p.name, p.id) == ("municipality", "Todtnau", -(10**12 + 7))

@@ -443,3 +443,24 @@ def test_roundtrip_wish_and_field_are_not_duplicated(vocab):
 def test_water_is_not_a_waterfall(vocab):
     req = understand(gw_of(start_text="Todtnau", wishes=[RawWish(text="Wasser")]), vocab, "x", None)
     assert req.preferences == [] and req.unmatched == ["Wasser"]
+
+
+def test_feldberg_peak_village_and_municipality_are_distinct_options(vocab):
+    def tag(tid, label, kind, pid):
+        rule = NearPlace(place_id=pid, radius_km=15, lat=47.8, lon=8.0, kind=kind)
+        return Tag(id=tid, label=label, category="place", rule=rule)
+
+    others = [t for t in vocab.all() if not t.id.startswith("place:feldberg")]
+    v = TagVocabulary(
+        others
+        + [
+            tag("place:feldberg", "Feldberg", "peak", 1),
+            tag("place:feldberg-n1", "Feldberg", "village", 2),
+            tag("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", "municipality", 3),
+        ]
+    )
+    res = understand(gw_of(start_text="Feldberg"), v, "Tour am Feldberg", None)
+    assert isinstance(res, Clarify)
+    assert len(res.options) == 3 == len(set(res.options))
+    assert any("Gipfel" in o for o in res.options)
+    assert any("Gemeinde" in o for o in res.options)
