@@ -48,20 +48,27 @@ def upsert_trail(
     profile: list[tuple[float, float]],
     line: Sequence[tuple[float, float]],
     source_id: str,
+    surface_shares: dict | None = None,
+    way_type_shares: dict | None = None,
 ) -> None:
+    """Upsert a trail. Shares left at None keep whatever is stored."""
     conn.execute(
         """
         insert into trails (id, name, kind, roundtrip, osm_relation_id, length_km, ascent_m,
-                            descent_m, profile, geom, source_id)
+                            descent_m, profile, geom, source_id, surface_shares, way_type_shares)
         values (%(id)s, %(name)s, %(kind)s, %(roundtrip)s, %(rel)s, %(len)s, %(asc)s, %(desc)s,
-                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s)
+                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s, %(surf)s, %(wayt)s)
         on conflict (id) do update set
             name = excluded.name, kind = excluded.kind, roundtrip = excluded.roundtrip,
             osm_relation_id = excluded.osm_relation_id, length_km = excluded.length_km,
             ascent_m = excluded.ascent_m, descent_m = excluded.descent_m,
-            profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id
+            profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id,
+            surface_shares = coalesce(excluded.surface_shares, trails.surface_shares),
+            way_type_shares = coalesce(excluded.way_type_shares, trails.way_type_shares)
         """,
         {
+            "surf": Jsonb(surface_shares) if surface_shares is not None else None,
+            "wayt": Jsonb(way_type_shares) if way_type_shares is not None else None,
             "id": id,
             "name": name,
             "kind": kind,

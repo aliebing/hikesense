@@ -138,7 +138,13 @@ def import_trail(
     """Fetch, assemble, cut and store one trail with its stages. Idempotent (upserts).
 
     Does not commit: the caller decides, so a failing trail leaves nothing half written."""
-    line, warnings = trail_line(spec, overpass.run(trail_query(spec)))
+    from hikeall.ingest.shares import fetch_way_tags, trail_shares  # shares imports this module
+
+    data = overpass.run(trail_query(spec))
+    line, warnings = trail_line(spec, data)
+    surface, way_type = trail_shares(
+        data, spec.osm_relation_ids, fetch_way_tags(overpass, spec.osm_relation_ids)
+    )
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
@@ -160,6 +166,8 @@ def import_trail(
         profile=stats.profile,
         line=line,
         source_id=spec.geometry_source.id,
+        surface_shares=surface,
+        way_type_shares=way_type,
     )
 
     stage_km: list[float] = []

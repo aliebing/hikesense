@@ -22,6 +22,7 @@ from hikeall.db import delete_day_hike, upsert_source, upsert_trail
 from hikeall.errors import GapError, HikeAllError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
 from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
+from hikeall.ingest.shares import fetch_way_tags, trail_shares
 from hikeall.ingest.trails import (
     ROUNDTRIP_KM,
     check_in_region,
@@ -305,8 +306,11 @@ def import_day_hike(
     data: dict[str, Any],
     dem: ElevationProvider,
     source: Source,
+    way_tags: dict[int, dict[str, str]] | None = None,
 ) -> DayHikeReport:
-    """Store one relation as a day hike (idempotent upsert). Does not commit."""
+    """Store one relation as a day hike (idempotent upsert). Does not commit.
+
+    With `way_tags` (OSM tags per way id) the surface/way-type shares are stored too."""
     rid = cand.osm_relation_id
     rel = next(
         (el for el in data["elements"] if el.get("type") == "relation" and el.get("id") == rid),
@@ -323,6 +327,7 @@ def import_day_hike(
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
     roundtrip = is_roundtrip(tags, line)
+    surface, way_type = trail_shares(data, [rid], way_tags) if way_tags is not None else (None, None)
     upsert_trail(
         conn,
         id=trail_id(rid),
@@ -336,6 +341,8 @@ def import_day_hike(
         profile=stats.profile,
         line=line,
         source_id=source.id,
+        surface_shares=surface,
+        way_type_shares=way_type,
     )
     return DayHikeReport(trail_id(rid), name, length_km, stats.ascent_m, roundtrip, warnings)
 
@@ -368,7 +375,9 @@ def import_day_hikes(
             result.removed.append(tid)
     for batch in _batches(accepted, batch_size):
         try:
-            data = overpass.run(relations_query([c.osm_relation_id for c in batch]))
+            ids = [c.osm_relation_id for c in batch]
+            data = overpass.run(relations_query(ids))
+            way_tags = fetch_way_tags(overpass, ids)
         except HikeAllError as e:
             result.failed.extend((c.osm_relation_id, f"{type(e).__name__}: {e}") for c in batch)
             continue
@@ -383,6 +392,7 @@ def import_day_hikes(
                 data,
                 dem,
                 source,
+                way_tags,
             )
             if rep is not None:
                 result.imported.append(rep)

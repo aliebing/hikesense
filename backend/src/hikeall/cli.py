@@ -25,6 +25,7 @@ from hikeall.ingest.day_hikes import (
 )
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
+from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
 from hikeall.models import BLACK_FOREST_BBOX
@@ -151,6 +152,53 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
         f"{len(rep.failed)} fehlgeschlagen"
     )
     return 1 if rep.failed else 0
+
+
+def import_shares_cmd(only: str | None) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    long_distance = {s.id: s.osm_relation_ids for s in load_trail_specs(TRAILS_YAML)}
+    with (
+        make_http_client(240) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        rows = conn.execute("select id, kind, osm_relation_id from trails order by id").fetchall()
+        targets: dict[str, list[int]] = {}
+        skipped: list[str] = []
+        for tid, kind, rel in rows:
+            if kind == "long_distance" and tid in long_distance:
+                targets[tid] = long_distance[tid]
+            elif kind == "day_hike" and rel is not None:
+                targets[tid] = [int(rel)]
+            else:
+                skipped.append(tid)
+        if only:
+            if only not in targets:
+                print(f"Fehler: Weg '{only}' nicht in der DB oder ohne Relation.", file=sys.stderr)
+                return 2
+            targets = {only: targets[only]}
+            skipped = []
+        overpass = OverpassClient(http, url=settings.overpass_url)
+        try:
+            rep = import_shares(conn, overpass, targets)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+    for tid, share in sorted(rep.updated.items()):
+        print(f"{tid}: " + ", ".join(f"{k} {v:.0%}" for k, v in sorted(share.items())))
+    for tid, unknown in rep.mostly_unknown():
+        print(f"  Warnung: {tid}: Belag zu {unknown:.0%} unbekannt")
+    for tid in skipped:
+        print(f"{tid}: übersprungen (keine OSM-Relation bekannt)", file=sys.stderr)
+    for tid, err in rep.failed:
+        print(f"{tid}: Anteile fehlgeschlagen – {err}", file=sys.stderr)
+    print(
+        f"{len(rep.updated)} Touren mit Anteilen, {len(rep.mostly_unknown())} mit Belag "
+        f"> 50 % unbekannt, {len(rep.failed)} fehlgeschlagen, {len(skipped)} übersprungen"
+    )
+    return 1 if rep.failed or skipped else 0
 
 
 STAGE_COUNT_SQL = """
@@ -284,6 +332,10 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("import-trails", help="Fernwege aus OSM importieren (trails.yaml)")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
+    p = sub.add_parser(
+        "import-shares", help="Belag- und Wegtyp-Anteile der vorhandenen Touren berechnen"
+    )
+    p.add_argument("--only", metavar="ID", help="nur diese Tour")
     sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
@@ -298,6 +350,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "import-trails":
         return import_trails(args.only)
+    if args.command == "import-shares":
+        return import_shares_cmd(args.only)
     if args.command == "import-lodgings":
         return import_lodgings_cmd()
     if args.command == "import-photos":
