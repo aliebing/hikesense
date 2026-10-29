@@ -44,4 +44,10 @@ Die Kritik an HikeAI betraf stilles Weglassen von Bedingungen, eine reine Ergebn
 - Von Hand gepflegte Liste von Wander-/Laufgruppen (z. B. Schwarzwaldverein-Ortsgruppen, Lauftreffs, DAV-Sektionen): Name, Ort, Link, Prüfdatum; App zeigt „Gruppen in der Nähe, Stand: …“ und verlinkt, keine Termine, keine Einzelpersonen.
 - Ändert die Spec (bisher „keine Community-Funktionen“): nur verlinkte Liste, keine Community-Funktionen in der App selbst.
 - Live-Community/aktuelle Treffen → „Next steps“ in der Präsentation.
-- Offizielle Laufveranstaltungen (10 km, Halbmarathon, Marathon, Anmeldung): Entscheidung nach der Quellen-Recherche (`2026-10-29-laufveranstaltungen-datenquellen.md`).
+### 7. Offizielle Läufe in der Nähe (Plan 3)
+
+- Entscheidung: keine selbst gepflegte Liste und keine gespeicherte Lauf-Datenbank. Quellen-Recherche: `2026-10-29-laufveranstaltungen-datenquellen.md`.
+- A (Hauptweg): Agent-Werkzeug sucht bei Anfrage live im Web (z. B. „Halbmarathon im Juni bei Freiburg“), liest einzelne Veranstalter-/Anmeldeseiten und stellt Läufe vor: Name, Datum, Ort, Distanzen, Anmeldelink, Anmeldeschluss, Startgebühr – jede Angabe mit Quellenlink; fehlt etwas auf der Seite → „nicht angegeben“, nie schätzen. Nichts wird gespeichert.
+- Kein massenhaftes Abrufen von Portalen, deren Bedingungen Weiterverwendung verbieten (laufen.de, marathon.de, DUV, LADV, HDsports).
+- B (Rückfall, wenn die Suche nichts findet): Links auf Laufkalender (z. B. BLV, laufen.de), möglichst nach Region/Monat gefiltert.
+- Stoff für Plan 4: Quellenpflicht und Kosten der Live-Suche in Evaluation und Ethik-Abschnitt.
