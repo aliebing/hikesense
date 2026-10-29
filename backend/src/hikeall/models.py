@@ -77,3 +77,19 @@ class Lodging(BaseModel):
     website: str | None = None
     lat: float
     lon: float
+
+
+class Place(BaseModel):
+    id: int  # OSM id; ways negative
+    name: str
+    kind: str  # town | village | hamlet | peak | lake
+    lat: float
+    lon: float
+
+
+class Poi(BaseModel):
+    id: int  # OSM id; ways negative
+    name: str | None = None
+    kind: str  # viewpoint | peak | waterfall | food | hut | station
+    lat: float
+    lon: float

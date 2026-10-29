@@ -22,6 +22,7 @@ import:
 	cd backend && uv run hikeall import-day-hikes
 	cd backend && uv run hikeall import-shares
 	cd backend && uv run hikeall import-lodgings
+	cd backend && uv run hikeall import-places
 	cd backend && uv run hikeall import-photos
 
 scan:

@@ -25,6 +25,7 @@ from hikeall.ingest.day_hikes import (
 )
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
+from hikeall.ingest.places import fetch_places, fetch_pois, import_places
 from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
@@ -248,6 +249,40 @@ def import_lodgings_cmd() -> int:
     return 0
 
 
+def import_places_cmd() -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    source = load_trail_sources(TRAILS_YAML)[OSM_SOURCE_ID]
+    with (
+        make_http_client(240) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        overpass = OverpassClient(http, url=settings.overpass_url)
+        try:
+            places = fetch_places(overpass, BLACK_FOREST_BBOX)
+            pois = fetch_pois(overpass, BLACK_FOREST_BBOX)
+            links = import_places(conn, places, pois, source)
+        except BaseException as e:
+            conn.rollback()
+            if isinstance(e, (HikeAllError, ValueError)):
+                print(f"Import abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+                return 1
+            raise
+        conn.commit()
+        place_rows = conn.execute(
+            "select kind, count(*) from places group by kind order by kind"
+        ).fetchall()
+        poi_rows = conn.execute(
+            "select kind, count(*) from pois group by kind order by kind"
+        ).fetchall()
+        linked = conn.execute("select count(distinct poi_id) from trail_pois").fetchone()[0]
+    print("Orte: " + ", ".join(f"{k} {n}" for k, n in place_rows))
+    print("POIs (<= 300 m von einem Weg): " + ", ".join(f"{k} {n}" for k, n in poi_rows))
+    print(f"{len(pois)} POIs in OSM, {linked} mit Weg verknüpft, {links} Weg-Verknüpfungen")
+    return 0
+
+
 # Wikimedia rejects (403) user agents without a usable contact URL.
 COMMONS_USER_AGENT = os.environ.get(
     "HIKEALL_USER_AGENT",
@@ -339,6 +374,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
+    sub.add_parser(
+        "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
+    )
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
     for name, help_text in (
@@ -354,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
         return import_shares_cmd(args.only)
     if args.command == "import-lodgings":
         return import_lodgings_cmd()
+    if args.command == "import-places":
+        return import_places_cmd()
     if args.command == "import-photos":
         return import_photos_cmd(args.only)
     if args.command == "scan-day-hikes":
