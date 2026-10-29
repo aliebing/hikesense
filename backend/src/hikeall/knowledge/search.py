@@ -6,11 +6,11 @@ import shutil
 from pathlib import Path
 from typing import Protocol
 
-from hikeall.agent.tools import KnowledgeHit
 from hikeall.errors import KnowledgeError
 from hikeall.knowledge.bm25 import BM25Index
 from hikeall.knowledge.corpus import Chunk
 from hikeall.knowledge.fusion import rrf
+from hikeall.knowledge.models import KnowledgeHit
 
 COLLECTION = "knowledge"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -71,7 +71,16 @@ class KnowledgeIndex:
                 ids=[c.id for c in batch],
                 documents=[c.text for c in batch],
                 embeddings=embedder.embed([c.text for c in batch]),
-                metadatas=[{"title": c.title, "url": c.url, "license": c.license} for c in batch],
+                metadatas=[
+                    {
+                        "title": c.title,
+                        "url": c.url,
+                        "license": c.license,
+                        "source_urls": "\n".join(c.source_urls or (c.url,)),
+                        "status": c.status or "",
+                    }
+                    for c in batch
+                ],
             )
         return cls(collection, embedder)
 
@@ -108,6 +117,8 @@ class KnowledgeIndex:
                     url=meta["url"],
                     license=meta["license"],
                     score=scores[doc_id],
+                    source_urls=meta.get("source_urls", meta["url"]).split("\n"),
+                    status=meta.get("status") or None,
                 )
             )
         return hits
@@ -117,5 +128,5 @@ def try_open(path: Path, embedder: Embedder | None = None) -> KnowledgeIndex | N
     """Open the persisted index, or None if it was never built (`make knowledge`)."""
     try:
         return KnowledgeIndex.open(path, embedder or FastEmbedder())
-    except KnowledgeError:
+    except Exception:  # noqa: BLE001  # missing, empty or corrupt index: the tool reports it, never raises
         return None

@@ -22,6 +22,7 @@ SKIP_SECTIONS = {
     "anmerkungen",
     "fußnoten",
 }
+STATUSES = ("entwurf", "geprüft")
 _HEADING = re.compile(r"^=+\s*(.*?)\s*=+$")
 
 
@@ -38,6 +39,8 @@ class Article:
     url: str
     text: str
     license: str
+    source_urls: tuple[str, ...] = ()
+    status: str | None = None  # own texts only
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,8 @@ class Chunk:
     title: str
     url: str
     license: str
+    source_urls: tuple[str, ...] = ()
+    status: str | None = None
 
 
 def load_sources(path: Path) -> list[Source]:
@@ -91,18 +96,29 @@ def load_own_texts(directory: Path) -> list[Article]:
             raise KnowledgeError(f"{path.name}: Frontmatter fehlt")
         meta = yaml.safe_load(parts[1]) or {}
         sources = meta.get("sources")
-        if not sources or not isinstance(sources, list):
-            raise KnowledgeError(f"{path.name}: Frontmatter braucht sources (Liste von URLs)")
+        if (
+            not isinstance(sources, list)
+            or not sources
+            or not all(
+                isinstance(u, str) and u.startswith(("http://", "https://")) for u in sources
+            )
+        ):
+            raise KnowledgeError(f"{path.name}: sources muss eine nicht leere Liste von URLs sein")
+        status = meta.get("status")
+        if status not in STATUSES:
+            raise KnowledgeError(f"{path.name}: status muss 'entwurf' oder 'geprüft' sein")
         title = str(meta.get("title") or path.stem)
-        if meta.get("status", "entwurf") != "geprüft":
+        if status == "entwurf":
             title += " (Entwurf)"
         docs.append(
             Article(
                 site="own",
                 title=title,
-                url=str(sources[0]),
+                url=sources[0],
                 text=parts[2].strip(),
                 license=WIKI_LICENSE,
+                source_urls=tuple(sources),
+                status=status,
             )
         )
     return docs
@@ -153,7 +169,15 @@ def chunk(doc: Article, max_chars: int = 1200, overlap: int = 150) -> list[Chunk
         def emit(carry: str, cur: str, head: str = head) -> None:
             body = f"{carry}\n{cur}" if carry else cur
             chunks.append(
-                Chunk(f"{slug}-{len(chunks)}", f"{head}\n{body}", doc.title, doc.url, doc.license)
+                Chunk(
+                    f"{slug}-{len(chunks)}",
+                    f"{head}\n{body}",
+                    doc.title,
+                    doc.url,
+                    doc.license,
+                    doc.source_urls,
+                    doc.status,
+                )
             )
 
         for piece in pieces:

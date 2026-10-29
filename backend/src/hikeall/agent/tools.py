@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from hikeall.agent.constraints import Candidate, Selection, select
 from hikeall.agent.request import DEFAULT_RADIUS_KM, HikeRequest
 from hikeall.hiking_time import din33466
+from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikeall.models import HikingTime
 
 MAX_SEARCH_KM = 50.0
@@ -80,23 +81,7 @@ class LodgingBrief(BaseModel):
 
 
 KNOWLEDGE_MISSING = "Wissensindex fehlt – `make knowledge` ausführen"
-
-
-class KnowledgeHit(BaseModel):
-    """One passage from the knowledge index."""
-
-    text: str
-    source_id: str | None = None
-    title: str | None = None
-    url: str | None = None
-    license: str | None = None
-    score: float | None = None
-
-
-class KnowledgeIndex(Protocol):
-    """Implemented by hikeall.knowledge.search.KnowledgeIndex (ChromaDB + BM25)."""
-
-    def search(self, query: str, k: int = 5) -> list[KnowledgeHit]: ...
+__all__ = ["KnowledgeHit", "KnowledgeIndex"]
 
 
 def _f(x: Any) -> float | None:

@@ -1,9 +1,14 @@
+from itertools import pairwise
+from pathlib import Path
+
 import httpx
 import pytest
 
 from hikeall.adapters.http import make_http_client
 from hikeall.agent.tools import DbTools
+from hikeall.agent.tools import KnowledgeHit as ToolsHit
 from hikeall.errors import KnowledgeError
+from hikeall.knowledge.bm25 import BM25Index, tokenize
 from hikeall.knowledge.corpus import (
     Article,
     Chunk,
@@ -13,6 +18,7 @@ from hikeall.knowledge.corpus import (
     load_own_texts,
 )
 from hikeall.knowledge.fusion import rrf
+from hikeall.knowledge.models import KnowledgeHit
 from hikeall.knowledge.search import KnowledgeIndex, try_open
 
 WORDS = ["westweg", "raute", "wasser", "hütte", "feldberg"]
@@ -159,3 +165,63 @@ def test_own_text_loaded_with_draft_marker(tmp_path):
     (doc,) = load_own_texts(tmp_path)
     assert doc.title == "Zeichen (Entwurf)"
     assert doc.url == "https://de.wikipedia.org/wiki/Westweg" and doc.text == "Raute."
+
+
+def test_own_text_hits_keep_all_sources_and_status(tmp_path):
+    (tmp_path / "a.md").write_text(
+        "---\ntitle: Zeichen\nsources:\n  - https://a.example/1\n  - https://b.example/2\n"
+        "status: entwurf\n---\nRote Raute Westweg.",
+        encoding="utf-8",
+    )
+    chunks = [c for d in load_own_texts(tmp_path) for c in chunk(d)]
+    idx = KnowledgeIndex.build([*chunks, *make_chunks()], tmp_path / "chroma", FakeEmbedder())
+    own = next(h for h in idx.search("Raute Westweg", k=5) if h.title.startswith("Zeichen"))
+    assert own.source_urls == ["https://a.example/1", "https://b.example/2"]
+    assert own.status == "entwurf"
+    art = next(h for h in idx.search("Feldberg", k=5) if h.title == "Feldberg")
+    assert art.source_urls == [art.url] and art.status is None
+
+
+def test_knowledge_hit_reexported_from_agent_tools():
+    assert ToolsHit is KnowledgeHit
+
+
+@pytest.mark.parametrize(
+    "front",
+    [
+        "title: A\nstatus: geprueft\nsources:\n  - https://x.example",
+        "title: A\nstatus: entwurf\nsources:\n  - nicht-eine-url",
+        "title: A\nstatus: entwurf\nsources: https://x.example",
+        "title: A\nsources:\n  - https://x.example",
+    ],
+)
+def test_frontmatter_validation(tmp_path, front):
+    (tmp_path / "a.md").write_text(f"---\n{front}\n---\nText", encoding="utf-8")
+    with pytest.raises(KnowledgeError):
+        load_own_texts(tmp_path)
+
+
+def test_try_open_returns_none_on_corrupt_dir(tmp_path):
+    (tmp_path / "chroma.sqlite3").write_text("kein sqlite", encoding="utf-8")
+    assert try_open(tmp_path, FakeEmbedder()) is None
+
+
+def test_bm25_folds_umlauts():
+    assert tokenize("Hütte Straße Müller") == tokenize("Huette Strasse Mueller")
+    idx = BM25Index([("a", "Die Hütte am Berg"), ("b", "Nichts hier")])
+    assert idx.rank("huette") == ["a"]
+
+
+def test_chunk_overlap_repeats_tail_of_previous_chunk():
+    para = " ".join(f"wort{i}" for i in range(400))
+    chunks = chunk(article(para), max_chars=500, overlap=100)
+    assert len(chunks) >= 3
+    for prev, nxt in pairwise(chunks):
+        last_words = prev.text.split()[-3:]
+        assert " ".join(last_words) in nxt.text
+
+
+def test_real_own_texts_load():
+    docs = load_own_texts(Path(__file__).resolve().parents[2] / "data" / "knowledge")
+    assert len(docs) == 4
+    assert all(d.status == "entwurf" and d.source_urls for d in docs)

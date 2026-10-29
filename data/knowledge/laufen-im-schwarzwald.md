@@ -7,7 +7,7 @@ status: entwurf
 ---
 ## Quellenlage dünn
 
-Die abgerufenen Artikel (Wikipedia und Wikivoyage zu Schwarzwald, Westweg und den Bergen) enthalten keine Hinweise zum Trailrunning oder Joggen: keine Streckenempfehlungen, Tempi oder Regeln. Deshalb steht hier bewusst nichts dazu; der Nutzer ergänzt den Text aus geprüften Quellen.
+Die hier ausgewerteten Wikivoyage-Artikel zu Schwarzwald und Westweg enthalten keine Hinweise zum Trailrunning oder Joggen: keine Streckenempfehlungen, Tempi oder Regeln. Deshalb steht hier bewusst nichts dazu; der Nutzer ergänzt den Text aus geprüften Quellen.
 
 ## Was die Quellen zur Region sagen
 

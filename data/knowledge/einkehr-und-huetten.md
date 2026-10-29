@@ -3,6 +3,7 @@ title: Einkehr, Hütten und Übernachtung
 sources:
   - https://de.wikivoyage.org/w/index.php?title=Westweg&oldid=1757397
   - https://de.wikipedia.org/w/index.php?title=Schwarzwaldverein&oldid=260024953
+  - https://de.wikipedia.org/w/index.php?title=Mummelsee&oldid=269509420
 status: entwurf
 ---
 ## Wanderheime des Schwarzwaldvereins
