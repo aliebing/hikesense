@@ -45,7 +45,7 @@ smoke:
 OSM_PBF = data/osm/baden-wuerttemberg-latest.osm.pbf
 osm-extract:
 	mkdir -p data/osm
-	[ -f $(OSM_PBF) ] && [ -z "$(FORCE)" ] || curl -L -f -o $(OSM_PBF) https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf
+	[ -f $(OSM_PBF) ] && [ -z "$(FORCE)" ] || { curl -L -f -o $(OSM_PBF).part https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf && mv $(OSM_PBF).part $(OSM_PBF); }
 
 # Orte und POIs aus dem lokalen Extrakt (statt Overpass), danach Tags neu berechnen.
 places: osm-extract
