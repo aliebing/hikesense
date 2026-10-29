@@ -407,7 +407,11 @@ def test_missing_start_asks_before_search_and_answer_continues(vocab, settings):
 
 @pytest.mark.parametrize(
     ("answer", "tag_id"),
-    [("Feldberg (Schwarzwald)", "place:feldberg-schwarzwald"), ("Feldberg", "place:feldberg")],
+    [
+        ("Feldberg (Schwarzwald) – Ort", "place:feldberg-schwarzwald"),
+        ("Feldberg (Gipfel)", "place:feldberg"),
+        ("Feldberg (Schwarzwald)", "place:feldberg-schwarzwald"),  # plain label typed
+    ],
 )
 def test_clarify_answer_keeps_earlier_constraints(vocab, settings, answer, tag_id):
     deps = make(
@@ -418,7 +422,7 @@ def test_clarify_answer_keeps_earlier_constraints(vocab, settings, answer, tag_i
     )
     events = run(deps, "Rundweg über 15 km am Feldberg")
     clarify = one(events, "clarify")
-    assert answer in clarify.options
+    assert clarify.options == ["Feldberg (Gipfel)", "Feldberg (Schwarzwald) – Ort"]  # I-5
     run(deps, answer)
     req = deps.tools.requests[-1]
     kinds = {c.kind: c for c in req.constraints}

@@ -112,7 +112,8 @@ def test_more_than_ten_wishes_overflow_to_unmatched(vocab):
         for i in range(4)
     ]
     vocab = TagVocabulary(vocab.all() + extra)
-    tags = [t for t in vocab.all() if t.category in ("feature", "surface")]
+    rundweg = "feature:rundweg"  # the roundtrip wish is a fixed condition, not a preference (I-7)
+    tags = [t for t in vocab.all() if t.category in ("feature", "surface") and t.id != rundweg]
     assert len(tags) > 10
     wishes = [RawWish(text=t.label) for t in tags]
     req = understand(gw_of(start_text="Todtnau", wishes=wishes), vocab, "x", None)
@@ -336,3 +337,109 @@ def test_change_surface_wish_removes_run_default(vocab):
     assert any(p.tag_id == "surface:gut_laufbar" for p in prev.preferences)
     res = understand(gw_of(intent="change", wishes=[RawWish(text="Naturweg")]), vocab, "x", prev)
     assert [p.tag_id for p in res.preferences] == ["surface:naturweg"]
+
+
+# --- final fix wave (R20) ----------------------------------------------------------------------
+
+
+def _kind_vocab(vocab):
+    def tag(tid, label, kind, pid):
+        rule = NearPlace(place_id=pid, radius_km=15, lat=47.8, lon=8.0, kind=kind)
+        return Tag(id=tid, label=label, category="place", rule=rule)
+
+    others = [t for t in vocab.all() if not t.id.startswith("place:feldberg")]
+    return TagVocabulary(
+        others
+        + [
+            tag("place:feldberg", "Feldberg", "peak", 1),
+            tag("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", "village", 2),
+        ]
+    )
+
+
+def test_same_base_name_options_name_their_kind(vocab):
+    v = _kind_vocab(vocab)
+    res = understand(gw_of(start_text="Feldberg"), v, "Tour am Feldberg", None)
+    assert isinstance(res, Clarify)
+    assert res.options == ["Feldberg (Gipfel)", "Feldberg (Schwarzwald) – Ort"]
+
+
+@pytest.mark.parametrize(
+    ("answer", "tag_id"),
+    [
+        ("Feldberg (Gipfel)", "place:feldberg"),
+        ("Feldberg (Schwarzwald) – Ort", "place:feldberg-schwarzwald"),
+        ("Feldberg (Schwarzwald)", "place:feldberg-schwarzwald"),
+    ],
+)
+def test_decorated_and_plain_option_both_resolve(vocab, answer, tag_id):
+    from hikeall.agent.understand import resolve_option
+
+    v = _kind_vocab(vocab)
+    assert resolve_option(v, answer).tag_id == tag_id
+    req = understand(gw_of(start_text=answer), v, "x", None)
+    assert req.start.tag_id == tag_id
+
+
+@pytest.mark.parametrize(
+    ("kw", "lo", "hi", "approx"),
+    [
+        ({"length_km_approx": 8}, 6.8, 9.2, 8),
+        ({"length_km_min": 8, "length_km_max": 8}, 6.8, 9.2, 8),
+        ({"duration_h_approx": 2}, 1.7, 2.3, 2),
+    ],
+)
+def test_single_value_becomes_visible_band(vocab, kw, lo, hi, approx):
+    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "x", None)
+    c = next(c for c in req.constraints if c.kind in ("length_km", "duration_h"))
+    assert (c.min, c.max, c.approx) == (lo, hi, approx)
+    unit = "km" if c.kind == "length_km" else "h"
+    label = "Länge" if c.kind == "length_km" else "Dauer"
+    band = f"{str(lo).replace('.', ',')}–{str(hi).replace('.', ',')} {unit}"
+    assert f"{label} {band} (≈ {approx} {unit})" in echo(req, vocab)
+
+
+@pytest.mark.parametrize(
+    "kw", [{"ascent_m_approx": 400}, {"ascent_m_min": 400, "ascent_m_max": 400}]
+)
+def test_single_ascent_value_is_a_maximum(vocab, kw):
+    req = understand(gw_of(start_text="Todtnau", **kw), vocab, "x", None)
+    c = kinds(req)["ascent_m"]
+    assert (c.min, c.max) == (None, 400)
+    assert "Anstieg höchstens 400 Hm" in echo(req, vocab)
+
+
+def test_prompt_defines_single_values():
+    from hikeall.agent.understand import SYSTEM_PROMPT
+
+    assert "length_km_approx" in SYSTEM_PROMPT and "ascent_m_approx" in SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("text", "mode", "required"),
+    [
+        ("Rundweg", "prefer", True),
+        ("Runde", "prefer", True),
+        ("Rundtour", "prefer", True),
+        ("Rundwanderung", "prefer", True),
+        ("Laufrunde", "prefer", True),
+        ("Rundweg", "avoid", False),
+    ],
+)
+def test_roundtrip_wish_is_a_fixed_condition(vocab, text, mode, required):
+    wishes = [RawWish(text=text, mode=mode, weight=2)]
+    req = understand(gw_of(start_text="Todtnau", wishes=wishes), vocab, "x", None)
+    assert kinds(req)["roundtrip"].required is required
+    assert not any(p.tag_id == "feature:rundweg" for p in req.preferences)
+    assert text not in req.unmatched
+
+
+def test_roundtrip_wish_and_field_are_not_duplicated(vocab):
+    wishes = [RawWish(text="Runde")]
+    req = understand(gw_of(start_text="Todtnau", roundtrip=True, wishes=wishes), vocab, "x", None)
+    assert [c.kind for c in req.constraints].count("roundtrip") == 1
+
+
+def test_water_is_not_a_waterfall(vocab):
+    req = understand(gw_of(start_text="Todtnau", wishes=[RawWish(text="Wasser")]), vocab, "x", None)
+    assert req.preferences == [] and req.unmatched == ["Wasser"]

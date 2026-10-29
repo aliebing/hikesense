@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+import psycopg
 from pydantic import ValidationError
 
 from hikeall.adapters.commons import CommonsClient
@@ -428,7 +429,7 @@ def smoke_cmd() -> int:
             REPO_ROOT / "data" / "smoke" / "prompts.yaml",
             REPO_ROOT / "data" / "smoke",
         )
-    except HikeAllError as e:
+    except (HikeAllError, psycopg.Error) as e:  # e.g. database down: a message, no traceback
         print(f"Smoke abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
         return 2
 

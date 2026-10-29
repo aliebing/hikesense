@@ -15,7 +15,7 @@
 - id: "feature:wasserfall"
   label: Wasserfall
   category: feature
-  synonyms: [Wasserfaelle, Wasser, Kaskade]
+  synonyms: [Wasserfaelle, Kaskade]
   rule: {type: poi_near, kinds: [waterfall], within_m: 300}
 - id: "feature:einkehr"
   label: Einkehr

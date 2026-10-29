@@ -33,6 +33,10 @@ __all__ = [
 
 MAX_OPTIONS = 3
 RUN_SURFACE_TAG = "surface:gut_laufbar"
+APPROX_BAND = 0.15  # "8 km" -> 6,8–9,2 km, shown in the echo
+ROUNDTRIP_TAG = "feature:rundweg"
+# wish words that are the fixed roundtrip condition, never a preference (also "Laufrunde")
+_ROUNDTRIP_WORDS = ("rundweg", "runde", "rundtour", "rundwanderung", "rundkurs")
 _PAREN = re.compile(r"\s*\([^)]*\)")
 
 SYSTEM_PROMPT = """\
@@ -48,6 +52,8 @@ zum Schwarzwald), change (Änderung einer vorherigen Suche, z. B. "kürzer bitte
 length_km_min/max (Länge in km), ascent_m_min/max (Anstieg in Höhenmetern), \
 duration_h_min/max (Dauer in Stunden), radius_km_max (Umkreis um den Start in km).
 - "unter/höchstens X" ist ein Maximum, "über/mindestens X" ein Minimum.
+- Eine einzelne Zahl ohne unter/über/höchstens/mindestens (z. B. "8 km", "etwa 3 Stunden", \
+"400 Hm") setzt length_km_approx, duration_h_approx bzw. ascent_m_approx – nicht min oder max.
 - pace_min_per_km: Lauftempo in Minuten pro km, nur wenn genannt.
 - wishes: jeder weitere Wunsch als kurzer Begriff (z. B. "Aussicht", "Wasserfall", \
 "Einkehr", "Kinderwagen"), mode prefer oder avoid, weight 1 bis 5 (3 = normal). \
@@ -103,9 +109,12 @@ def resolve(
             return resolved
         start = resolved
 
-    preferences, unmatched = _resolve_wishes(vocab, raw.wishes)
+    preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes)
     constraints, invalid = _constraints(raw)
     unmatched += invalid
+    for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
+        if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
+            constraints.append(Constraint(kind="roundtrip", required=required))
     pace = raw.pace_min_per_km
     if pace is not None and pace <= 0:
         unmatched.append(_invalid("Tempo", pace))
@@ -142,21 +151,36 @@ def _constraints(raw: RawRequest) -> tuple[list[Constraint], list[str]]:
     invalid: list[str] = []
     if raw.roundtrip is not None:
         out.append(Constraint(kind="roundtrip", required=raw.roundtrip))
-    for kind, lo, hi in (
-        ("length_km", raw.length_km_min, raw.length_km_max),
-        ("ascent_m", raw.ascent_m_min, raw.ascent_m_max),
-        ("duration_h", raw.duration_h_min, raw.duration_h_max),
-        ("radius_km", None, raw.radius_km_max),
+    for kind, lo, hi, approx in (
+        ("length_km", raw.length_km_min, raw.length_km_max, raw.length_km_approx),
+        ("ascent_m", raw.ascent_m_min, raw.ascent_m_max, raw.ascent_m_approx),
+        ("duration_h", raw.duration_h_min, raw.duration_h_max, raw.duration_h_approx),
+        ("radius_km", None, raw.radius_km_max, None),
     ):
         bounds = []
-        for value in (lo, hi):
+        for value in (lo, hi, approx):
             if value is not None and value <= 0:
                 invalid.append(_invalid(_LABELS[kind][0].strip(), value))
                 value = None
             bounds.append(value)
-        if bounds[0] is not None or bounds[1] is not None:
-            out.append(Constraint(kind=kind, min=bounds[0], max=bounds[1]))
+        lo, hi, approx = bounds
+        if lo is not None and lo == hi:  # "min = max = 8" is a single value as well
+            lo, hi, approx = None, None, lo
+        if lo is None and hi is None and approx is not None:
+            out.append(_approx(kind, approx))
+        elif lo is not None or hi is not None:  # explicit bound words win over a single value
+            out.append(Constraint(kind=kind, min=lo, max=hi))
     return out, invalid
+
+
+def _approx(kind: str, value: float) -> Constraint:
+    """A single value without a bound word: length and duration get a ±15 % band (shown in the
+    echo, never loosened silently); an ascent is a maximum."""
+    if kind == "ascent_m":
+        return Constraint(kind=kind, max=value)
+    lo = round(value * (1 - APPROX_BAND), 2)
+    hi = round(value * (1 + APPROX_BAND), 2)
+    return Constraint(kind=kind, min=lo, max=hi, approx=value)
 
 
 def _merge(
@@ -220,17 +244,24 @@ def _terms(tag: Tag) -> list[str]:
     return [t for t in (fold(x) for x in [tag.label, *tag.synonyms]) if t]
 
 
+def _is_roundtrip_wish(needle: str, tag: Tag | None) -> bool:
+    return (tag is not None and tag.id == ROUNDTRIP_TAG) or needle.endswith(_ROUNDTRIP_WORDS)
+
+
 def _resolve_wishes(
     vocab: TagVocabulary, wishes: list[RawWish]
-) -> tuple[list[Preference], list[str]]:
+) -> tuple[list[Preference], list[str], list[bool]]:
     """Exact or whole-word-prefix match -> tag; anything else -> unmatched (R8).
 
     A plain string prefix would map "Kinderwagen" to "kinderwagentauglich" (surface tag), which
     does not check what the user asked for, so the prefix must end at a word boundary.
+    A roundtrip wish ("Runde", "Laufrunde", …) is the fixed roundtrip condition, returned as
+    required True (prefer) or False (avoid), never a preference.
     """
     prefs: dict[str, Preference] = {}
     conflicts: list[str] = []
     unmatched: list[str] = []
+    roundtrips: list[bool] = []
     for wish in wishes:
         needle = fold(wish.text)
         tag = next(
@@ -242,6 +273,9 @@ def _resolve_wishes(
             ),
             None,
         )
+        if _is_roundtrip_wish(needle, tag):
+            roundtrips.append(wish.mode == "prefer")
+            continue
         if tag is None:
             if wish.text.strip() and wish.text.strip() not in unmatched:
                 unmatched.append(wish.text.strip())
@@ -258,7 +292,7 @@ def _resolve_wishes(
             del prefs[tag.id]
             conflicts.append(tag.id)
             unmatched.append(f"{tag.label}: bevorzugen und meiden zugleich")
-    return list(prefs.values()), unmatched
+    return list(prefs.values()), unmatched, roundtrips
 
 
 def _text_for(vocab: TagVocabulary, tag_id: str) -> str:
@@ -287,9 +321,13 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []
     shown = _display_names(cands)
-    if "(" in text:  # user gave the disambiguating suffix: try the full label first
+    if "(" in text or " – " in text:  # user gave the disambiguating suffix: full label first
         full = fold(text)
-        best = [t for t in cands if full in _terms(t) or full == fold(shown[t.id])]
+        best = [
+            t
+            for t in cands
+            if full in _terms(t) or full in (fold(shown[t.id]), fold(_with_kind(t)))
+        ]
     if not best:
         needle = _strip(text)
         tiers: dict[int, list[Tag]] = {}
@@ -301,7 +339,7 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     if len(best) == 1:
         return _to_start(best[0])
     if best:
-        options = [shown[t.id] for t in best][:MAX_OPTIONS]
+        options = _options(best, shown)[:MAX_OPTIONS]
         return Clarify(
             question=f"Meinst du {_join_or(options)}? „{text}“ ist nicht eindeutig.",
             options=options,
@@ -329,11 +367,43 @@ def resolve_option(vocab: TagVocabulary, option: str) -> ResolvedStart | None:
     needle = fold(option)
     hits = [t for t in cands if fold(shown[t.id]) == needle]
     if not hits:
+        hits = [t for t in cands if fold(_with_kind(t)) == needle]
+    if not hits:
         hits = [t for t in cands if fold(t.label) == needle]
     return _to_start(hits[0]) if len(hits) == 1 else None
 
 
 _KIND_NAMES = {"peak": "Gipfel", "town": "Ort", "village": "Ort", "lake": "See"}
+
+
+def _kind_name(t: Tag) -> str | None:
+    if isinstance(t.rule, Area):
+        return "Gebiet"
+    kind = t.rule.kind if isinstance(t.rule, NearPlace) else None
+    return _KIND_NAMES.get(kind or "")
+
+
+def _with_kind(t: Tag) -> str:
+    """Label with kind: "Feldberg (Gipfel)", "Feldberg (Schwarzwald) – Ort"; plain if unknown."""
+    kind = _kind_name(t)
+    if kind is None:
+        return t.label
+    return f"{t.label} – {kind}" if "(" in t.label else f"{t.label} ({kind})"
+
+
+def _options(tags: list[Tag], shown: dict[str, str]) -> list[str]:
+    """Clarify options: places that share a base name (without "(…)") name their kind (R6/R12),
+    so "Feldberg" vs "Feldberg (Schwarzwald)" says which one is the summit."""
+    bases: dict[str, int] = {}
+    for t in tags:
+        bases[_strip(t.label)] = bases.get(_strip(t.label), 0) + 1
+    out = []
+    for t in tags:
+        name = shown[t.id]
+        if bases[_strip(t.label)] > 1 and name == t.label:
+            name = _with_kind(t)
+        out.append(name)
+    return out
 
 
 def _display_names(tags: list[Tag]) -> dict[str, str]:
@@ -373,7 +443,8 @@ def _num(x: float) -> str:
 
 def _range(c: Constraint, unit: str, prefix: str = "") -> str:
     if c.min is not None and c.max is not None:
-        return f"{prefix}{_num(c.min)}–{_num(c.max)} {unit}"
+        about = f" (≈ {_num(c.approx)} {unit})" if c.approx is not None else ""
+        return f"{prefix}{_num(c.min)}–{_num(c.max)} {unit}{about}"
     if c.min is not None:
         return f"{prefix}mindestens {_num(c.min)} {unit}"
     return f"{prefix}höchstens {_num(c.max)} {unit}"  # type: ignore[arg-type]

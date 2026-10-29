@@ -249,3 +249,45 @@ def test_smoke_writes_csv_and_exit_code(deps, tmp_path, capsys):
     assert "Kosten gesamt" in capsys.readouterr().out
     p.write_text(p.read_text().replace("injection", "multiday"))
     assert sm.smoke(deps, p, tmp_path, today=date(2026, 10, 30)) == 1
+
+
+# --- final fix wave (Minor 12, I-6) ------------------------------------------------------------
+
+
+def test_no_pace_expectation():
+    assert sm.check([understood("run")], {"no_pace": True}) == []
+    assert sm.check([understood("run", pace=6)], {"no_pace": True})
+    assert sm.check([], {"no_pace": True})  # no understood event: not met
+
+
+def test_case_three_expects_results_and_no_pace():
+    case = sm.load_cases(PROMPTS)[2]
+    assert case.turns[0].expect == {
+        "activity": "run",
+        "no_duration_without_pace": True,
+        "no_pace": True,
+        "min_results": 1,
+    }
+
+
+def test_summary_line_keeps_the_end_of_an_error(monkeypatch, tmp_path, capsys):
+    p = tmp_path / "p.yaml"
+    p.write_text("cases:\n  - id: a\n    turns:\n      - message: m\n        expect: {}\n")
+    r = sm.CaseResult(case="a", ok=False, errors=["Antwort endet mit: "])
+    monkeypatch.setattr(sm, "run_all", lambda deps, cases: [r])
+    sm.smoke(lambda: None, p, tmp_path, today=date(2026, 10, 30))
+    assert "FAIL a: Antwort endet mit: \n" in capsys.readouterr().out
+
+
+def test_smoke_cmd_reports_db_errors_without_traceback(monkeypatch, capsys):
+    import psycopg
+
+    from hikeall import cli
+
+    def broken(*a, **kw):
+        raise psycopg.OperationalError("connection refused")
+
+    monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
+    monkeypatch.setattr(sm, "smoke", broken)
+    assert cli.smoke_cmd() == 2
+    assert "OperationalError" in capsys.readouterr().err

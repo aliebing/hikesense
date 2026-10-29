@@ -27,6 +27,7 @@ EXPECT_KINDS = {
     "fallback_single_violation",
     "activity",
     "no_duration_without_pace",
+    "no_pace",
     "sources",
     "reply",
     "no_model_calls",
@@ -136,6 +137,11 @@ def check(events: list[ChatEvent], expect: dict[str, Any]) -> list[str]:
                 timed = [c.trail_id for c in cards if c.duration_h is not None]
                 if timed:
                     errors.append(f"Zeit ohne Tempo: {timed}")
+        elif kind == "no_pace":
+            u = _first(events, "understood")
+            if u is None or u.request.pace_min_per_km is not None:
+                got = u.request.pace_min_per_km if u else "keine Meldung"
+                errors.append(f"Tempo gesetzt: {got}")
         elif kind == "sources":
             s = _first(events, "sources")
             if not (s and s.sources):
@@ -206,6 +212,7 @@ def smoke(
     out = out_dir / f"result-{(today or date.today()).isoformat()}.csv"
     write_csv(out, results)
     for r in results:
-        print(f"{'ok  ' if r.ok else 'FAIL'} {r.case}: {'; '.join(r.errors)}".rstrip(": "))
+        errors = "; ".join(r.errors)
+        print(f"{'ok  ' if r.ok else 'FAIL'} {r.case}" + (f": {errors}" if errors else ""))
     print(f"Kosten gesamt: {sum(r.cost_usd for r in results):.4f} USD -> {out}")
     return 0 if all(r.ok for r in results) else 1

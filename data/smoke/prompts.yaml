@@ -1,7 +1,8 @@
 # Durchstich gegen das echte Modell (`make smoke`). Erwartungen werden nie gelockert:
 # fällt ein Fall durch, wird die Ursache gesucht, nicht die Erwartung geändert.
 # Erwartungsarten (je Runde): min_results, all_constraints_ok, clarify_options_include,
-# fallback_single_violation, activity, no_duration_without_pace, sources, reply, no_model_calls.
+# fallback_single_violation, activity, no_duration_without_pace, no_pace, sources, reply,
+# no_model_calls.
 cases:
   - id: 1-rundweg-hinterzarten
     turns:
@@ -23,6 +24,8 @@ cases:
         expect:
           activity: run
           no_duration_without_pace: true
+          no_pace: true
+          min_results: 1
   - id: 4-westweg-markierung
     turns:
       - message: "Wie ist der Westweg markiert?"
