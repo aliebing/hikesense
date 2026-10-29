@@ -13,6 +13,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend/src:/app/src
+      - ./data:/app/data
 
   # Next.js dev server. Server components fetch Supabase via SUPABASE_URL
   # (host.docker.internal, resolvable only inside the container); anything
@@ -28,6 +29,7 @@ services:
       SUPABASE_URL: http://host.docker.internal:54321
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
       NEXT_TELEMETRY_DISABLED: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"

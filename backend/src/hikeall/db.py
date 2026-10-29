@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import psycopg
 from psycopg.types.json import Jsonb
 
-from hikeall.models import Lodging, Source
+from hikeall.models import Lodging, Place, Poi, Source
 
 
 def connect(url: str) -> psycopg.Connection:
@@ -48,20 +48,27 @@ def upsert_trail(
     profile: list[tuple[float, float]],
     line: Sequence[tuple[float, float]],
     source_id: str,
+    surface_shares: dict | None = None,
+    way_type_shares: dict | None = None,
 ) -> None:
+    """Upsert a trail. Shares left at None keep whatever is stored."""
     conn.execute(
         """
         insert into trails (id, name, kind, roundtrip, osm_relation_id, length_km, ascent_m,
-                            descent_m, profile, geom, source_id)
+                            descent_m, profile, geom, source_id, surface_shares, way_type_shares)
         values (%(id)s, %(name)s, %(kind)s, %(roundtrip)s, %(rel)s, %(len)s, %(asc)s, %(desc)s,
-                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s)
+                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s, %(surf)s, %(wayt)s)
         on conflict (id) do update set
             name = excluded.name, kind = excluded.kind, roundtrip = excluded.roundtrip,
             osm_relation_id = excluded.osm_relation_id, length_km = excluded.length_km,
             ascent_m = excluded.ascent_m, descent_m = excluded.descent_m,
-            profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id
+            profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id,
+            surface_shares = coalesce(excluded.surface_shares, trails.surface_shares),
+            way_type_shares = coalesce(excluded.way_type_shares, trails.way_type_shares)
         """,
         {
+            "surf": Jsonb(surface_shares) if surface_shares is not None else None,
+            "wayt": Jsonb(way_type_shares) if way_type_shares is not None else None,
             "id": id,
             "name": name,
             "kind": kind,
@@ -144,6 +151,10 @@ def delete_day_hike(conn: psycopg.Connection, trail_id: str) -> bool:
         "delete from trail_lodgings where trail_id = %s" + is_day_hike,
         [trail_id, trail_id],
     )
+    conn.execute(
+        "delete from trail_pois where trail_id = %s" + is_day_hike,
+        [trail_id, trail_id],
+    )
     cur = conn.execute("delete from trails where id = %s and kind = 'day_hike'", [trail_id])
     return cur.rowcount > 0
 
@@ -159,6 +170,34 @@ def upsert_lodging(conn: psycopg.Connection, lodging: Lodging, source_id: str) -
             geom = excluded.geom, source_id = excluded.source_id
         """,
         {**lodging.model_dump(), "src": source_id},
+    )
+
+
+def upsert_place(conn: psycopg.Connection, place: Place, source_id: str) -> None:
+    conn.execute(
+        """
+        insert into places (id, name, kind, geom, source_id)
+        values (%(id)s, %(name)s, %(kind)s,
+                st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326), %(src)s)
+        on conflict (id) do update set
+            name = excluded.name, kind = excluded.kind,
+            geom = excluded.geom, source_id = excluded.source_id
+        """,
+        {**place.model_dump(), "src": source_id},
+    )
+
+
+def upsert_poi(conn: psycopg.Connection, poi: Poi, source_id: str) -> None:
+    conn.execute(
+        """
+        insert into pois (id, name, kind, geom, source_id)
+        values (%(id)s, %(name)s, %(kind)s,
+                st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326), %(src)s)
+        on conflict (id) do update set
+            name = excluded.name, kind = excluded.kind,
+            geom = excluded.geom, source_id = excluded.source_id
+        """,
+        {**poi.model_dump(), "src": source_id},
     )
 
 

@@ -7,11 +7,13 @@ import os
 import sys
 from pathlib import Path
 
+import psycopg
 from pydantic import ValidationError
 
 from hikeall.adapters.commons import CommonsClient
 from hikeall.adapters.dem import CopernicusDem
 from hikeall.adapters.http import make_http_client
+from hikeall.adapters.osm_pbf import pbf_timestamp, read_elements
 from hikeall.adapters.overpass import OverpassClient
 from hikeall.config import Settings
 from hikeall.db import connect
@@ -25,13 +27,26 @@ from hikeall.ingest.day_hikes import (
 )
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
+from hikeall.ingest.places import (
+    fetch_places,
+    fetch_pois,
+    import_places,
+    parse_places,
+    parse_pois,
+)
+from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
+from hikeall.knowledge.corpus import chunk, fetch_articles, load_own_texts, load_sources
+from hikeall.knowledge.search import FastEmbedder, KnowledgeIndex
 from hikeall.models import BLACK_FOREST_BBOX
+from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_tags
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAILS_YAML = REPO_ROOT / "data" / "curated" / "trails.yaml"
 DAY_HIKES_CSV = REPO_ROOT / "data" / "curated" / "day_hikes.csv"
+KNOWLEDGE_DIR = REPO_ROOT / "data" / "knowledge"
+CHROMA_DIR = REPO_ROOT / "data" / "chroma"
 OSM_SOURCE_ID = "osm"
 
 
@@ -153,6 +168,53 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
     return 1 if rep.failed else 0
 
 
+def import_shares_cmd(only: str | None) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    long_distance = {s.id: s.osm_relation_ids for s in load_trail_specs(TRAILS_YAML)}
+    with (
+        make_http_client(240) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        rows = conn.execute("select id, kind, osm_relation_id from trails order by id").fetchall()
+        targets: dict[str, list[int]] = {}
+        skipped: list[str] = []
+        for tid, kind, rel in rows:
+            if kind == "long_distance" and tid in long_distance:
+                targets[tid] = long_distance[tid]
+            elif kind == "day_hike" and rel is not None:
+                targets[tid] = [int(rel)]
+            else:
+                skipped.append(tid)
+        if only:
+            if only not in targets:
+                print(f"Fehler: Weg '{only}' nicht in der DB oder ohne Relation.", file=sys.stderr)
+                return 2
+            targets = {only: targets[only]}
+            skipped = []
+        overpass = OverpassClient(http, url=settings.overpass_url)
+        try:
+            rep = import_shares(conn, overpass, targets)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+    for tid, share in sorted(rep.updated.items()):
+        print(f"{tid}: " + ", ".join(f"{k} {v:.0%}" for k, v in sorted(share.items())))
+    for tid, unknown in rep.mostly_unknown():
+        print(f"  Warnung: {tid}: Belag zu {unknown:.0%} unbekannt")
+    for tid in skipped:
+        print(f"{tid}: übersprungen (keine OSM-Relation bekannt)", file=sys.stderr)
+    for tid, err in rep.failed:
+        print(f"{tid}: Anteile fehlgeschlagen – {err}", file=sys.stderr)
+    print(
+        f"{len(rep.updated)} Touren mit Anteilen, {len(rep.mostly_unknown())} mit Belag "
+        f"> 50 % unbekannt, {len(rep.failed)} fehlgeschlagen, {len(skipped)} übersprungen"
+    )
+    return 1 if rep.failed or skipped else 0
+
+
 STAGE_COUNT_SQL = """
     select s.id, s.trail_id, s.seq, count(l.id)
     from stages s
@@ -197,6 +259,71 @@ def import_lodgings_cmd() -> int:
     for sid, _trail, _seq, n in rows:
         if n == 0:
             print(f"  Warnung: {sid} hat keine Unterkunft im Umkreis von 1 km")
+    return 0
+
+
+def import_places_cmd(pbf: Path | None = None) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    source = load_trail_sources(TRAILS_YAML)[OSM_SOURCE_ID]
+    with (
+        make_http_client(240) as http,
+        connect(settings.supabase_db_url) as conn,
+    ):
+        overpass = OverpassClient(http, url=settings.overpass_url)
+        try:
+            if pbf is not None:
+                pbf = _repo_path(pbf)
+                if not pbf.is_file():
+                    print(f"Fehler: OSM-Extrakt nicht gefunden: {pbf}", file=sys.stderr)
+                    return 2
+                data = read_elements(pbf, BLACK_FOREST_BBOX)
+                places, pois = parse_places(data), parse_pois(data)
+                print(f"OSM-Extrakt {pbf.name}, Stand {pbf_timestamp(pbf) or 'unbekannt'}")
+            else:
+                places = fetch_places(overpass, BLACK_FOREST_BBOX)
+                pois = fetch_pois(overpass, BLACK_FOREST_BBOX)
+            links = import_places(conn, places, pois, source)
+        except BaseException as e:
+            conn.rollback()
+            if isinstance(e, (HikeAllError, ValueError)):
+                print(f"Import abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+                return 1
+            raise
+        conn.commit()
+        place_rows = conn.execute(
+            "select kind, count(*) from places group by kind order by kind"
+        ).fetchall()
+        poi_rows = conn.execute(
+            "select kind, count(*) from pois group by kind order by kind"
+        ).fetchall()
+        linked = conn.execute("select count(distinct poi_id) from trail_pois").fetchone()[0]
+    print("Orte: " + ", ".join(f"{k} {n}" for k, n in place_rows))
+    print("POIs (<= 300 m von einem Weg): " + ", ".join(f"{k} {n}" for k, n in poi_rows))
+    print(f"{len(pois)} POIs in OSM, {linked} mit Weg verknüpft, {links} Weg-Verknüpfungen")
+    return 0
+
+
+def build_tags_cmd() -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    with connect(settings.supabase_db_url) as conn:
+        vocab = TagVocabulary.load(conn, FEATURES_YAML)
+        rows = compute_trail_tags(conn, vocab)
+        conn.commit()
+        counts = dict(
+            conn.execute("select tag_id, count(*) from trail_tags group by tag_id").fetchall()
+        )
+        trails = conn.execute("select count(*) from trails").fetchone()[0]
+    stored = [t for t in vocab.all() if t.category in ("feature", "surface")]
+    print(f"{trails} Touren, {rows} Tag-Zuordnungen, {len(vocab)} Tags im Vokabular")
+    for t in stored:
+        print(f"{t.id}: {counts.get(t.id, 0)} Touren")
+    for t in stored:
+        if counts.get(t.id, 0) == 0:
+            print(f"  Warnung: {t.id} hat 0 Touren")
     return 0
 
 
@@ -279,14 +406,71 @@ def import_photos_cmd(only: str | None) -> int:
     return 0
 
 
+def build_knowledge_cmd() -> int:
+    missing = []
+    try:
+        with make_http_client(60, COMMONS_USER_AGENT) as http:
+            articles = fetch_articles(
+                http, load_sources(KNOWLEDGE_DIR / "sources.yaml"), on_missing=missing.append
+            )
+        own = load_own_texts(KNOWLEDGE_DIR)
+    except HikeAllError as e:
+        print(f"Wissensindex abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    for src in missing:
+        print(f"Warnung: Artikel fehlt: {src.site} / {src.title}", file=sys.stderr)
+    chunks = [c for doc in [*articles, *own] for c in chunk(doc)]
+    try:
+        KnowledgeIndex.build(chunks, CHROMA_DIR, FastEmbedder())
+    except HikeAllError as e:
+        print(f"Wissensindex abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    print(
+        f"{len(articles)} Artikel, {len(own)} eigene Texte, {len(chunks)} Chunks, "
+        f"{len(missing)} Artikel fehlen -> {CHROMA_DIR}"
+    )
+    return 0
+
+
+def smoke_cmd() -> int:
+    from hikeall.api.chat import default_deps_factory
+    from hikeall.smoke import smoke
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        return smoke(
+            default_deps_factory(settings),
+            REPO_ROOT / "data" / "smoke" / "prompts.yaml",
+            REPO_ROOT / "data" / "smoke",
+        )
+    except (HikeAllError, psycopg.Error) as e:  # e.g. database down: a message, no traceback
+        print(f"Smoke abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("import-trails", help="Fernwege aus OSM importieren (trails.yaml)")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
+    p = sub.add_parser(
+        "import-shares", help="Belag- und Wegtyp-Anteile der vorhandenen Touren berechnen"
+    )
+    p.add_argument("--only", metavar="ID", help="nur diese Tour")
     sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
+    p = sub.add_parser(
+        "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
+    )
+    p.add_argument("--pbf", type=Path, help="lokaler Geofabrik-Extrakt statt Overpass")
+    sub.add_parser(
+        "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
+    )
+    sub.add_parser("smoke", help="6 Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
     for name, help_text in (
@@ -298,8 +482,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "import-trails":
         return import_trails(args.only)
+    if args.command == "import-shares":
+        return import_shares_cmd(args.only)
     if args.command == "import-lodgings":
         return import_lodgings_cmd()
+    if args.command == "import-places":
+        return import_places_cmd(args.pbf)
+    if args.command == "build-knowledge":
+        return build_knowledge_cmd()
+    if args.command == "smoke":
+        return smoke_cmd()
+    if args.command == "build-tags":
+        return build_tags_cmd()
     if args.command == "import-photos":
         return import_photos_cmd(args.only)
     if args.command == "scan-day-hikes":

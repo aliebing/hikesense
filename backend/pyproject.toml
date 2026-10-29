@@ -13,6 +13,14 @@ dependencies = [
     "uvicorn>=0.30",
     "tifffile>=2026.9.20",
     "imagecodecs>=2026.8.16",
+    "langchain-core>=1.7.1",
+    "langchain-openai>=1.7.3",
+    "langgraph>=1.2.18",
+    "chromadb>=1.5.9",
+    "fastembed>=0.9.1",
+    "rank-bm25>=0.2.2",
+    "sse-starlette>=3.6.0",
+    "osmium>=4.3.2",
 ]
 
 [dependency-groups]

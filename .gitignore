@@ -5,3 +5,6 @@ __pycache__/
 .superpowers/brainstorm/
 .venv/
 data/dem/
+data/chroma/
+data/osm/
+data/logs/

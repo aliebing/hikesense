@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="hand">
+  <node id="1" lat="47.9000" lon="8.1000"><tag k="place" v="village"/><tag k="name" v="Hinterzarten"/></node>
+  <node id="2" lat="47.8740" lon="8.0040"><tag k="natural" v="peak"/><tag k="name" v="Feldberg"/><tag k="ele" v="1493"/></node>
+  <node id="3" lat="47.9100" lon="8.1200"><tag k="tourism" v="viewpoint"/></node>
+  <node id="4" lat="47.8800" lon="8.0300"><tag k="waterway" v="waterfall"/><tag k="name" v="Fall"/></node>
+  <node id="5" lat="47.9050" lon="8.1050"><tag k="amenity" v="restaurant"/><tag k="name" v="Adler"/></node>
+  <node id="6" lat="47.9020" lon="8.1020"><tag k="railway" v="station"/><tag k="name" v="Bahnhof"/></node>
+  <node id="7" lat="52.5200" lon="13.4000"><tag k="place" v="village"/><tag k="name" v="Berlin-Dorf"/></node>
+  <node id="8" lat="47.9200" lon="8.1300"><tag k="amenity" v="bench"/></node>
+  <node id="9" lat="47.9000" lon="8.2000"/>
+  <node id="10" lat="47.9000" lon="8.2100"/>
+  <node id="11" lat="47.9100" lon="8.2100"/>
+  <node id="12" lat="47.9100" lon="8.2000"/>
+  <node id="13" lat="47.8000" lon="8.3000"/>
+  <node id="14" lat="47.8000" lon="8.3100"/>
+  <node id="15" lat="47.8100" lon="8.3100"/>
+  <node id="16" lat="47.8100" lon="8.3000"/>
+  <node id="17" lat="47.8020" lon="8.3020"/>
+  <node id="18" lat="47.8020" lon="8.3040"/>
+  <node id="19" lat="47.8040" lon="8.3040"/>
+  <node id="20" lat="47.8040" lon="8.3020"/>
+  <node id="21" lat="47.9300" lon="8.4000"/>
+  <node id="22" lat="47.9300" lon="8.4010"/>
+  <node id="23" lat="47.9310" lon="8.4010"/>
+  <node id="24" lat="47.9310" lon="8.4000"/>
+  <node id="25" lat="47.8000" lon="8.0000"/>
+  <node id="26" lat="47.8000" lon="8.1000"/>
+  <node id="27" lat="47.9000" lon="8.1000"/>
+  <node id="28" lat="47.9000" lon="8.0000"/>
+  <node id="29" lat="47.5600" lon="7.6000"/>
+  <node id="30" lat="47.5600" lon="7.7000"/>
+  <node id="31" lat="47.5700" lon="7.7000"/>
+  <node id="32" lat="47.5700" lon="7.6000"/>
+  <way id="100">
+    <nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="9"/>
+    <tag k="natural" v="water"/><tag k="water" v="lake"/><tag k="name" v="Titisee"/>
+  </way>
+  <way id="101">
+    <nd ref="21"/><nd ref="22"/><nd ref="23"/><nd ref="24"/><nd ref="21"/>
+    <tag k="tourism" v="alpine_hut"/><tag k="name" v="Huette"/>
+  </way>
+  <way id="102">
+    <nd ref="9"/><nd ref="10"/>
+    <tag k="highway" v="path"/>
+  </way>
+  <way id="200">
+    <nd ref="13"/><nd ref="14"/><nd ref="15"/><nd ref="16"/><nd ref="13"/>
+  </way>
+  <way id="201">
+    <nd ref="17"/><nd ref="18"/><nd ref="19"/><nd ref="20"/><nd ref="17"/>
+  </way>
+  <way id="202"><nd ref="25"/><nd ref="26"/><nd ref="27"/><nd ref="28"/><nd ref="25"/></way>
+  <way id="203"><nd ref="29"/><nd ref="30"/><nd ref="31"/><nd ref="32"/><nd ref="29"/></way>
+  <relation id="300">
+    <member type="way" ref="200" role="outer"/>
+    <member type="way" ref="201" role="inner"/>
+    <tag k="type" v="multipolygon"/><tag k="natural" v="water"/><tag k="water" v="lake"/><tag k="name" v="Schluchsee"/>
+  </relation>
+  <relation id="400">
+    <member type="way" ref="202" role="outer"/>
+    <tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/><tag k="name" v="Feldberg (Schwarzwald)"/>
+  </relation>
+  <relation id="401">
+    <member type="way" ref="203" role="outer"/>
+    <tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="6"/><tag k="name" v="Landkreis"/>
+  </relation>
+</osm>
