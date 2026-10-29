@@ -129,12 +129,19 @@ def delete_stages_after(conn: psycopg.Connection, trail_id: str, last_seq: int) 
 
 
 def delete_day_hike(conn: psycopg.Connection, trail_id: str) -> bool:
-    """Remove a day hike and its lodging links; True if a trail was deleted.
+    """Remove a day hike, its lodging links and its Commons photos; True if a
+    trail was deleted.
 
-    Long-distance trails (with stages) are never touched here."""
+    Long-distance trails (with stages) are never touched here. Own uploads
+    (non-Commons photos) are user data: they are kept, so the trail delete
+    fails loudly on the photos FK instead of silently dropping them."""
+    is_day_hike = " and exists (select 1 from trails where id = %s and kind = 'day_hike')"
     conn.execute(
-        "delete from trail_lodgings where trail_id = %s"
-        " and exists (select 1 from trails where id = %s and kind = 'day_hike')",
+        "delete from photos where trail_id = %s and source = 'commons'" + is_day_hike,
+        [trail_id, trail_id],
+    )
+    conn.execute(
+        "delete from trail_lodgings where trail_id = %s" + is_day_hike,
         [trail_id, trail_id],
     )
     cur = conn.execute("delete from trails where id = %s and kind = 'day_hike'", [trail_id])

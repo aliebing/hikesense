@@ -396,7 +396,7 @@ def test_cli_import_reports_failed_relation_and_exits_1(conn, monkeypatch, capsy
 
 
 @pytest.mark.db
-def test_failed_delete_of_rejected_day_hike_is_reported_and_rest_continues(conn, overpass):
+def test_rejected_day_hike_with_commons_photos_is_removed_with_its_photos(conn, overpass):
     _, client = overpass
     import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)
     conn.execute(
@@ -406,8 +406,28 @@ def test_failed_delete_of_rejected_day_hike_is_reported_and_rest_continues(conn,
     rep = import_day_hikes(
         conn, _cands({2003: ("rejected", "Weg gesperrt")}), client, Ramp(), source=OSM
     )
+    assert rep.failed == []
+    assert rep.removed == ["day-2003"]
+    assert [r[0] for r in _day_hikes(conn)] == ["day-2001"]
+    assert conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 0
+
+
+@pytest.mark.db
+def test_rejected_day_hike_with_own_upload_fails_loudly_and_rest_continues(conn, overpass):
+    _, client = overpass
+    import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)
+    conn.execute(
+        "insert into photos (trail_id, source, url, author, license) values "
+        "('day-2003', 'commons', 'https://example.org/c.jpg', 'Tester', 'CC BY 4.0'),"
+        "('day-2003', 'upload', 'https://example.org/u.jpg', 'Ali', 'privat')"
+    )
+    rep = import_day_hikes(
+        conn, _cands({2003: ("rejected", "Weg gesperrt")}), client, Ramp(), source=OSM
+    )
     assert [r.trail_id for r in rep.imported] == ["day-2001"]
     assert rep.removed == []
     assert len(rep.failed) == 1 and rep.failed[0][0] == 2003
     assert "ForeignKeyViolation" in rep.failed[0][1]
     assert [r[0] for r in _day_hikes(conn)] == ["day-2001", "day-2003"]  # trail stays
+    # The savepoint rolled back, so the Commons photo is not lost either.
+    assert conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 2
