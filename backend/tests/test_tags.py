@@ -207,6 +207,18 @@ def test_load_adds_places_and_areas(conn):
 
 
 @pytest.mark.db
+def test_place_tags_carry_coordinates(conn):
+    upsert_source(conn, SRC)
+    conn.execute(
+        "insert into places (id, name, kind, geom, source_id) "
+        "values (-9000031, 'Zzzkoord', 'town', st_setsrid(st_makepoint(8.25, 47.75), 4326), %s)",
+        (SRC.id,),
+    )
+    rule = TagVocabulary.load(conn, FEATURES_YAML).get("place:zzzkoord").rule
+    assert (rule.lat, rule.lon) == (pytest.approx(47.75), pytest.approx(8.25))
+
+
+@pytest.mark.db
 def test_duplicate_place_names_get_unambiguous_ids(conn):
     upsert_source(conn, SRC)
     for pid, kind in ((-9_000_021, "town"), (9_000_022, "peak"), (-(10**12 + 9_000_023), "lake")):

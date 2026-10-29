@@ -74,6 +74,8 @@ class NearPlace(BaseModel):
     type: Literal["near_place"] = "near_place"
     place_id: int
     radius_km: float = Field(gt=0)
+    lat: float | None = None
+    lon: float | None = None
 
 
 class Area(BaseModel):
@@ -178,7 +180,7 @@ def _area_tags() -> list[Tag]:
 def _place_tags(conn: psycopg.Connection) -> list[Tag]:
     rows = conn.execute(
         """
-        select id, name, kind from places
+        select id, name, kind, st_y(geom), st_x(geom) from places
         where kind = any(%s)
         order by array_position(%s::text[], kind), id
         """,
@@ -186,7 +188,7 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
     ).fetchall()
     tags: list[Tag] = []
     used: set[str] = set()
-    for pid, name, _kind in rows:
+    for pid, name, _kind, lat, lon in rows:
         slug = slugify(name)
         if not slug:
             continue
@@ -199,7 +201,7 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
                 id=tid,
                 label=name,
                 category="place",
-                rule=NearPlace(place_id=pid, radius_km=PLACE_RADIUS_KM),
+                rule=NearPlace(place_id=pid, radius_km=PLACE_RADIUS_KM, lat=lat, lon=lon),
             )
         )
     return tags
