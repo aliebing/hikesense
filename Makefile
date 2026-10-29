@@ -10,7 +10,7 @@ lint:
 
 up:
 	npx supabase start
-	docker compose up -d --build
+	docker compose up -d --build --renew-anon-volumes
 
 down:
 	docker compose down
