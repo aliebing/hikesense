@@ -415,6 +415,24 @@ def build_knowledge_cmd() -> int:
     return 0
 
 
+def smoke_cmd() -> int:
+    from hikeall.api.chat import default_deps_factory
+    from hikeall.smoke import smoke
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        return smoke(
+            default_deps_factory(settings),
+            REPO_ROOT / "data" / "smoke" / "prompts.yaml",
+            REPO_ROOT / "data" / "smoke",
+        )
+    except HikeAllError as e:
+        print(f"Smoke abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -433,6 +451,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
+    sub.add_parser("smoke", help="6 Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
@@ -453,6 +472,8 @@ def main(argv: list[str] | None = None) -> int:
         return import_places_cmd()
     if args.command == "build-knowledge":
         return build_knowledge_cmd()
+    if args.command == "smoke":
+        return smoke_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":

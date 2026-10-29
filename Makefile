@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags
+.PHONY: test lint up down import scan knowledge tags smoke
 
 test:
 	cd backend && uv run pytest -q
@@ -36,3 +36,7 @@ knowledge:
 # Merkmal- und Belag-Tags je Tour neu berechnen.
 tags:
 	cd backend && uv run hikeall build-tags
+
+# Durchstich gegen das echte Modell (OPENROUTER_API_KEY in .env; kostet wenige Cent).
+smoke:
+	cd backend && uv run hikeall smoke
