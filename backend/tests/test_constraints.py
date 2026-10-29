@@ -1,0 +1,176 @@
+from hikeall.agent.constraints import (
+    Candidate,
+    check,
+    contradiction,
+    duration_h,
+    format_deviation,
+    preference_score,
+    select,
+)
+from hikeall.agent.request import Constraint, HikeRequest, Preference
+
+
+def cand(**kw) -> Candidate:
+    base = {
+        "trail_id": "t1",
+        "name": "Tour",
+        "length_km": 12.0,
+        "ascent_m": 300,
+        "descent_m": 300,
+        "roundtrip": True,
+        "distance_km": 2.0,
+        "tags": set(),
+    }
+    base.update(kw)
+    return Candidate(**base)
+
+
+def req(*constraints, radius_max=None, prefs=(), activity="hike", pace=None) -> HikeRequest:
+    cs = list(constraints)
+    if radius_max is not None:
+        cs.append(Constraint(kind="radius_km", max=radius_max))
+    return HikeRequest(
+        intent="day_hike",
+        activity=activity,
+        constraints=cs,
+        preferences=list(prefs),
+        pace_min_per_km=pace,
+    )
+
+
+def test_unknown_value_never_satisfies():
+    c = cand(ascent_m=None)
+    [r] = check(c, [Constraint(kind="ascent_m", max=400)], "hike", None)
+    assert r.ok is None
+    assert r.deviation_rel == 1.0
+    assert format_deviation(r) == "Höhenmeter unbekannt"
+
+
+def test_check_ok_and_deviation():
+    c = cand(ascent_m=340, length_km=18)
+    rs = check(
+        c,
+        [
+            Constraint(kind="ascent_m", max=200),
+            Constraint(kind="length_km", min=10, max=20),
+            Constraint(kind="roundtrip", required=True),
+        ],
+        "hike",
+        None,
+    )
+    assert [r.ok for r in rs] == [False, True, True]
+    assert rs[0].deviation_rel == 0.7
+    assert format_deviation(rs[0]) == "340 Hm statt höchstens 200"
+
+
+def test_roundtrip_violation():
+    [r] = check(cand(roundtrip=False), [Constraint(kind="roundtrip", required=True)], "hike", None)
+    assert r.ok is False and r.deviation_rel == 1.0
+    assert format_deviation(r) == "kein Rundweg"
+
+
+def test_fallback_has_exactly_one_violation_each():
+    cands = [
+        cand(trail_id="a", ascent_m=340),
+        cand(trail_id="b", ascent_m=500),
+        cand(trail_id="c", length_km=30.0),
+        cand(trail_id="d", length_km=30.0, ascent_m=900),  # two violations
+    ]
+    r = req(
+        Constraint(kind="ascent_m", max=200),
+        Constraint(kind="length_km", max=20),
+    )
+    # every candidate violates ascent (300 > 200) except none; make ascent ok for c
+    cands[2] = cand(trail_id="c", length_km=30.0, ascent_m=100)
+    sel = select(cands, r)
+    assert not sel.matches and sel.reason.startswith("Keine Tour erfüllt alle Wünsche, weil")
+    assert sel.fallbacks
+    for f in sel.fallbacks:
+        assert sum(1 for x in f.results if x.ok is not True) == 1
+    assert len({f.violated.kind for f in sel.fallbacks}) == len(sel.fallbacks)
+    assert "d" not in {f.candidate.trail_id for f in sel.fallbacks}
+
+
+def test_fallback_sorted_by_smallest_deviation():
+    cands = [
+        cand(trail_id="a", ascent_m=500, length_km=10),  # ascent dev 1.5 (max 200)
+        cand(trail_id="b", ascent_m=100, length_km=22),  # length dev 0.1
+        cand(trail_id="c", ascent_m=300, length_km=10),  # ascent dev 0.5
+    ]
+    sel = select(
+        cands,
+        req(Constraint(kind="ascent_m", max=200), Constraint(kind="length_km", max=20)),
+    )
+    assert [f.candidate.trail_id for f in sel.fallbacks] == ["b", "c"]
+    devs = [f.violated.deviation_rel for f in sel.fallbacks]
+    assert devs == sorted(devs)
+
+
+def test_matches_capped_at_5_and_ordered_by_preferences():
+    cands = [
+        cand(trail_id=str(i), tags={"wald"} if i % 2 else set(), distance_km=float(i))
+        for i in range(8)
+    ]
+    sel = select(cands, req(prefs=[Preference(tag_id="wald", mode="prefer", weight=3)]))
+    assert len(sel.matches) == 5
+    assert [m.candidate.trail_id for m in sel.matches] == ["1", "3", "5", "7", "0"]
+    assert sel.fallbacks == [] and sel.reason is None
+
+
+def test_avoid_lowers_score():
+    p = [
+        Preference(tag_id="wald", mode="avoid", weight=2),
+        Preference(tag_id="see", mode="prefer", weight=4),
+    ]
+    m = preference_score(cand(tags={"wald", "see"}), p)
+    assert m.score == 2 and m.met == ["see"] and m.avoided_hit == ["wald"] and m.missing == []
+    m2 = preference_score(cand(tags=set()), p)
+    assert m2.score == 0 and m2.missing == ["see"]
+
+
+def test_contradictory_bounds():
+    msg = contradiction([Constraint(kind="length_km", min=10, max=5)])
+    assert msg == "Länge: mindestens 10 km und höchstens 5 km schließen sich aus"
+    sel = select([cand()], req(Constraint(kind="length_km", min=10, max=5)))
+    assert sel.contradiction == msg
+    assert not sel.matches and not sel.fallbacks
+    assert sel.reason.startswith("Keine Tour erfüllt alle Wünsche, weil")
+
+
+def test_no_contradiction():
+    assert contradiction([Constraint(kind="length_km", min=5, max=10)]) is None
+
+
+def test_radius_fallback():
+    sel = select([cand(distance_km=18)], req(radius_max=15))
+    assert format_deviation(sel.fallbacks[0].violated) == "18 km entfernt statt höchstens 15"
+
+
+def test_no_candidates_has_reason():
+    sel = select([], req(radius_max=15))
+    assert (
+        sel.reason
+        == "Keine Tour erfüllt alle Wünsche, weil im Umkreis von 15 km keine passende Tour liegt"
+    )
+
+
+def test_run_without_pace_has_no_duration():
+    assert duration_h(cand(), "run", None) is None
+    assert duration_h(cand(length_km=10), "run", 6.0) == 1.0
+
+
+def test_hike_duration_din_and_missing():
+    assert duration_h(cand(length_km=12, ascent_m=300, descent_m=300), "hike", None) == 3.8
+    assert duration_h(cand(ascent_m=None), "hike", None) is None
+
+
+def test_duration_constraint_unknown_for_run_without_pace():
+    [r] = check(cand(), [Constraint(kind="duration_h", max=2)], "run", None)
+    assert r.ok is None
+    assert format_deviation(r) == "Dauer unbekannt"
+
+
+def test_decimal_format():
+    c = cand(length_km=12.5)
+    [r] = check(c, [Constraint(kind="length_km", max=10)], "hike", None)
+    assert format_deviation(r) == "12,5 km statt höchstens 10"
