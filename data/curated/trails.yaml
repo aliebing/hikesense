@@ -1,0 +1,111 @@
+# Curated trail definitions. Facts only (place names, order); no text copied.
+# Coordinates: town centres from OSM Nominatim; Hark and Wilhelmshöhe from the stage join nodes
+# of the OSM stage relations. osm_relation_ids are in walking order (stages 1-9 are shared,
+# then the variant relation) and carry the ways directly (relation 62900 is the superroute).
+# Pforzheim = OSM 'start' node of relation 48073; Basel = Badischer Bahnhof end of the OSM variant;
+# Hinterzarten = vertex of relation 62897 nearest to the village (trail passes ~1 km from centre).
+# East variant Basel = end vertex of OSM relation 130310 (its ways stop ~1 km short of the Badischer Bahnhof).
+# kind uses the DB values (long_distance | day_hike). source = stage division, geometry_source =
+# line geometry. A stage may carry `km:` (official length) once it is curated; none is set yet.
+# Uncertain: east variant stage 9 end (Bärental vs Hinterzarten, source page is inconsistent).
+sources:
+  - id: stages-schwarzwald-tourismus
+    name: Schwarzwald Tourismus - Westweg Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.schwarzwald-tourismus.info/erleben/wandern/fernwandern/westweg
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-10-28
+  - id: osm
+    name: OpenStreetMap contributors (Overpass API)
+    url: https://www.openstreetmap.org/relation/62900
+    license: ODbL
+    retrieved_at: 2026-10-28
+trails:
+  - id: westweg-west
+    name: Westweg (Westvariante)
+    kind: long_distance
+    osm_relation_ids: [48073, 905947, 905949, 905948, 905950, 905955, 542317, 907520, 907521, 62897]
+    source: stages-schwarzwald-tourismus
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}
+        end: {name: Dobel, lat: 48.79699, lon: 8.49363}
+      - seq: 2
+        start: {name: Dobel, lat: 48.79699, lon: 8.49363}
+        end: {name: Forbach, lat: 48.68034, lon: 8.36149}
+      - seq: 3
+        start: {name: Forbach, lat: 48.68034, lon: 8.36149}
+        end: {name: Unterstmatt, lat: 48.62904, lon: 8.20689}
+      - seq: 4
+        start: {name: Unterstmatt, lat: 48.62904, lon: 8.20689}
+        end: {name: Alexanderschanze, lat: 48.48006, lon: 8.27614}
+      - seq: 5
+        start: {name: Alexanderschanze, lat: 48.48006, lon: 8.27614}
+        end: {name: Hark, lat: 48.37542, lon: 8.18749}
+      - seq: 6
+        start: {name: Hark, lat: 48.37542, lon: 8.18749}
+        end: {name: Hausach, lat: 48.28363, lon: 8.17497}
+      - seq: 7
+        start: {name: Hausach, lat: 48.28363, lon: 8.17497}
+        end: {name: Wilhelmshöhe, lat: 48.14497, lon: 8.17343}
+      - seq: 8
+        start: {name: Wilhelmshöhe, lat: 48.14497, lon: 8.17343}
+        end: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+      - seq: 9
+        start: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+        end: {name: Hinterzarten, lat: 47.8968863, lon: 8.1020267}
+      - seq: 10
+        start: {name: Hinterzarten, lat: 47.8968863, lon: 8.1020267}
+        end: {name: Wiedener Eck, lat: 47.84486, lon: 7.867}
+      - seq: 11
+        start: {name: Wiedener Eck, lat: 47.84486, lon: 7.867}
+        end: {name: Kandern, lat: 47.71469, lon: 7.66109}
+      - seq: 12
+        start: {name: Kandern, lat: 47.71469, lon: 7.66109}
+        end: {name: Basel, lat: 47.5673, lon: 7.6069}
+  - id: westweg-ost
+    name: Westweg (Ostvariante)
+    kind: long_distance
+    osm_relation_ids: [48073, 905947, 905949, 905948, 905950, 905955, 542317, 907520, 907521, 130310]
+    source: stages-schwarzwald-tourismus
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}
+        end: {name: Dobel, lat: 48.79699, lon: 8.49363}
+      - seq: 2
+        start: {name: Dobel, lat: 48.79699, lon: 8.49363}
+        end: {name: Forbach, lat: 48.68034, lon: 8.36149}
+      - seq: 3
+        start: {name: Forbach, lat: 48.68034, lon: 8.36149}
+        end: {name: Unterstmatt, lat: 48.62904, lon: 8.20689}
+      - seq: 4
+        start: {name: Unterstmatt, lat: 48.62904, lon: 8.20689}
+        end: {name: Alexanderschanze, lat: 48.48006, lon: 8.27614}
+      - seq: 5
+        start: {name: Alexanderschanze, lat: 48.48006, lon: 8.27614}
+        end: {name: Hark, lat: 48.37542, lon: 8.18749}
+      - seq: 6
+        start: {name: Hark, lat: 48.37542, lon: 8.18749}
+        end: {name: Hausach, lat: 48.28363, lon: 8.17497}
+      - seq: 7
+        start: {name: Hausach, lat: 48.28363, lon: 8.17497}
+        end: {name: Wilhelmshöhe, lat: 48.14497, lon: 8.17343}
+      - seq: 8
+        start: {name: Wilhelmshöhe, lat: 48.14497, lon: 8.17343}
+        end: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+      - seq: 9
+        start: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+        end: {name: Bärental, lat: 47.86986, lon: 8.09548}
+      - seq: 10
+        start: {name: Bärental, lat: 47.86986, lon: 8.09548}
+        end: {name: Weißenbachsattel, lat: 47.76278, lon: 7.97722}
+      - seq: 11
+        start: {name: Weißenbachsattel, lat: 47.76278, lon: 7.97722}
+        end: {name: Schweigmatt, lat: 47.68148, lon: 7.88257}
+      - seq: 12
+        start: {name: Schweigmatt, lat: 47.68148, lon: 7.88257}
+        end: {name: Oberminseln, lat: 47.60854, lon: 7.78431}
+      - seq: 13
+        start: {name: Oberminseln, lat: 47.60854, lon: 7.78431}
+        end: {name: Basel, lat: 47.5589549, lon: 7.6127482}

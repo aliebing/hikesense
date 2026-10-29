@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-wald: #2f5d3a;
+  --color-wald-dunkel: #1f3f27;
+  --color-papier: #f4f1ea;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body {
+  background: #1f3f27;
+  color: var(--color-papier);
+}
+
+body {
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Backdrop for missing or broken photos (also used behind every photo). */
+.wald-verlauf {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgb(244 241 234 / 0.18), transparent 55%),
+    linear-gradient(160deg, #6f8f62 0%, #2f5d3a 45%, #16301d 100%);
+}
+
+.scrollbar-schmal {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(244 241 234 / 0.4) transparent;
+}
+
+/* Trail map (MapPanel): lodging markers and popups. */
+.map-lodging {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  background: var(--color-wald);
+  font-size: 0.85rem;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+.map-lodging:focus-visible {
+  outline: 2px solid #d62839;
+  outline-offset: 2px;
+}
+.map-popup {
+  display: grid;
+  gap: 0.15rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--color-wald-dunkel);
+}
+.map-popup a {
+  color: var(--color-wald);
+  text-decoration: underline;
+}
+.map-lodging-dots .map-lodging {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-width: 1.5px;
+  font-size: 0;
+}
