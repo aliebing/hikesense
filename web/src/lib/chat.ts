@@ -7,6 +7,8 @@ export type Constraint = {
   min: number | null;
   max: number | null;
   required: boolean | null;
+  /** a single value without bound word ("8 km"); min/max are the visible band around it */
+  approx?: number | null;
 };
 
 export type Preference = { tag_id: string; mode: "prefer" | "avoid"; weight: number };
@@ -40,7 +42,8 @@ export type TourCard = {
   length_km: number | null;
   ascent_m: number | null;
   duration_h: number | null;
-  distance_km: number;
+  /** null: area start, the tour lies in the area */
+  distance_km: number | null;
   cover_thumb_url: string | null;
   cover_author: string | null;
   cover_license: string | null;
@@ -72,6 +75,9 @@ export type ChatEvent =
   | { type: "error"; message: string };
 
 export const ERROR_INTERRUPTED = "Die Antwort wurde unterbrochen. Bitte stelle die Frage noch einmal.";
+
+export const ERROR_REJECTED =
+  "Die Nachricht konnte nicht verarbeitet werden. Bitte formuliere sie neu oder kürzer.";
 
 export const ERROR_UNREACHABLE =
   "Der Planungs-Dienst ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.";
@@ -120,8 +126,10 @@ export async function streamChat(
       body: JSON.stringify({ thread_id: threadId, message }),
       signal,
     });
+    // a rejected request (e.g. 422, 413) answers with JSON, not with events
+    const rejected = res.status >= 400 && res.status < 500 ? ERROR_REJECTED : ERROR_UNREACHABLE;
     if (!res.body) {
-      onEvent({ type: "error", message: ERROR_UNREACHABLE });
+      onEvent({ type: "error", message: res.ok ? ERROR_UNREACHABLE : rejected });
       return;
     }
     const reader = res.body.getReader();
@@ -144,7 +152,7 @@ export async function streamChat(
       emit(parsed.events);
     }
     emit(parseSse("\n\n", rest).events); // an event the server did not terminate
-    if (!finished) onEvent({ type: "error", message: got || res.ok ? ERROR_INTERRUPTED : ERROR_UNREACHABLE });
+    if (!finished) onEvent({ type: "error", message: got || res.ok ? ERROR_INTERRUPTED : rejected });
   } catch (e) {
     if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
     onEvent({ type: "error", message: ERROR_UNREACHABLE });

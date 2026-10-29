@@ -204,3 +204,59 @@ it("clarify buttons are disabled while an answer is running; history is a polite
   await screen.findByRole("button", { name: "Abbrechen" });
   expect(screen.getByRole("button", { name: "Gipfel" })).toBeDisabled();
 });
+
+it("ascent chip says Hm; a single value shows its band and the value", async () => {
+  const r = {
+    ...request,
+    constraints: [
+      { kind: "ascent_m", min: null, max: 400, required: null },
+      { kind: "length_km", min: 6.8, max: 9.2, required: null, approx: 8 },
+    ],
+  };
+  mockStream(sse([{ ...understood, request: r }, DONE]));
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  expect(await screen.findByText("Höhenmeter ≤ 400 Hm")).toBeInTheDocument();
+  expect(screen.getByText("Länge 6,8–9,2 km (≈ 8 km)")).toBeInTheDocument();
+});
+
+it("shows the fallback sentence once, not again at the start of the answer", async () => {
+  const reason = "Keine Tour erfüllt alle Wünsche, weil jede Tour zu lang ist";
+  mockStream(
+    sse([
+      { type: "results", cards: [tour], fallback_reason: reason },
+      { type: "token", text: `${reason}.` },
+      { type: "token", text: "\n\nDie Feldsee-Runde ist am nächsten dran." },
+      DONE,
+    ]),
+  );
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  expect(await screen.findByText("Die Feldsee-Runde ist am nächsten dran.")).toBeInTheDocument();
+  expect(screen.getAllByText(new RegExp(reason))).toHaveLength(1);
+});
+
+it("flags a source without name and URL instead of 'unbekannt'; same id twice is fine", async () => {
+  mockStream(
+    sse([
+      { type: "token", text: "Antwort." },
+      {
+        type: "sources",
+        sources: [
+          { id: "osm", name: null, url: null, license: null, status: null },
+          { id: "own:a", name: "A", url: "https://a/1", license: "CC BY-SA", status: null },
+          { id: "own:a", name: "A", url: "https://a/2", license: "CC BY-SA", status: null },
+        ],
+      },
+      DONE,
+    ]),
+  );
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  const list = await screen.findByRole("list", { name: "Quellen" });
+  expect(list).toHaveTextContent("Quelle: osm (Angaben fehlen)");
+  expect(list).not.toHaveTextContent("unbekannt");
+  expect(errors).not.toHaveBeenCalled();
+  errors.mockRestore();
+});

@@ -15,7 +15,8 @@ const num = (n: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigit
 
 /** null when the constraint has no bound at all: nothing is invented. */
 function range(label: string, unit: string, c: Constraint): string | null {
-  if (c.min !== null && c.max !== null) return `${label} ${num(c.min)}–${num(c.max)} ${unit}`;
+  const about = c.approx != null ? ` (≈ ${num(c.approx)} ${unit})` : "";
+  if (c.min !== null && c.max !== null) return `${label} ${num(c.min)}–${num(c.max)} ${unit}${about}`;
   if (c.min !== null) return `${label} ≥ ${num(c.min)} ${unit}`;
   if (c.max !== null) return `${label} ≤ ${num(c.max)} ${unit}`;
   return null;
@@ -28,7 +29,7 @@ function constraintChip(c: Constraint): string | null {
     case "length_km":
       return range("Länge", "km", c);
     case "ascent_m":
-      return range("Höhenmeter", "m", c);
+      return range("Höhenmeter", "Hm", c);
     case "duration_h":
       return range("Dauer", "h", c);
     case "radius_km":
@@ -53,6 +54,24 @@ export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?:
 
 const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
 
+/**
+ * The backend starts the answer with the honest fallback sentence (the contract for the text);
+ * the note above the cards already shows it, so the bubble leaves it out (also while streaming).
+ */
+function withoutFallback(items: ChatItem[], i: number, text: string): string {
+  for (let j = i - 1; j >= 0; j--) {
+    const it = items[j];
+    if (it.kind === "user") break;
+    if (it.kind !== "results") continue;
+    if (!it.fallback) break;
+    const sentence = `${it.fallback}.`;
+    if (text.startsWith(sentence)) return text.slice(sentence.length).trimStart();
+    if (sentence.startsWith(text)) return "";
+    break;
+  }
+  return text;
+}
+
 export default function ChatMessages({
   items,
   onOption,
@@ -69,8 +88,10 @@ export default function ChatMessages({
           {it.kind === "user" && (
             <p className={`${bubble} self-end rounded-tr-sm bg-wald text-papier`}>{it.text}</p>
           )}
-          {it.kind === "assistant" && (
-            <p className={`${bubble} rounded-tl-sm bg-papier/90 whitespace-pre-wrap text-wald-dunkel`}>{it.text}</p>
+          {it.kind === "assistant" && withoutFallback(items, i, it.text) && (
+            <p className={`${bubble} rounded-tl-sm bg-papier/90 whitespace-pre-wrap text-wald-dunkel`}>
+              {withoutFallback(items, i, it.text)}
+            </p>
           )}
           {it.kind === "understood" && (
             <div className="flex flex-col gap-1">
@@ -120,14 +141,14 @@ export default function ChatMessages({
           {it.kind === "sources" && (
             <ul aria-label="Quellen" className="flex flex-col gap-0.5 text-xs text-papier/90">
               {it.sources.map((s) => (
-                <li key={s.id}>
+                <li key={`${s.id}|${s.url ?? ""}`}>
                   Quelle:{" "}
                   {s.url ? (
                     <a href={s.url} target="_blank" rel="noreferrer" className="underline">
                       {s.name ?? s.url}
                     </a>
                   ) : (
-                    (s.name ?? "unbekannt")
+                    (s.name ?? `${s.id} (Angaben fehlen)`)
                   )}
                   {s.license ? ` · Lizenz: ${s.license}` : ""}
                   {s.status === "entwurf" && (

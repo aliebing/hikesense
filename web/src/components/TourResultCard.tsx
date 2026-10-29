@@ -14,25 +14,28 @@ const LABEL: Record<string, string> = {
   roundtrip: "Rundweg",
 };
 
+const UNIT: Record<string, string> = { length_km: "km", ascent_m: "Hm", duration_h: "h", radius_km: "km" };
+
 function Row({ r, deviation }: { r: ConstraintResult; deviation: string | null }) {
   const label = LABEL[r.kind] ?? r.kind;
+  const bound = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
   if (r.ok === true) {
     return (
       <li>
-        <span aria-label="erfüllt">✓</span> {label}: {r.bound}
+        <span aria-label="erfüllt">✓</span> {label}: {bound}
       </li>
     );
   }
   if (r.ok === false) {
     return (
       <li className="text-red-800">
-        <span aria-label="verletzt">✗</span> {label}: {deviation ?? `nicht erfüllt (${r.bound})`}
+        <span aria-label="verletzt">✗</span> {label}: {deviation ?? `nicht erfüllt (${bound})`}
       </li>
     );
   }
   return (
     <li className="text-wald-dunkel/80">
-      <span aria-label="unbekannt">?</span> {label}: unbekannt, nicht prüfbar ({r.bound})
+      <span aria-label="unbekannt">?</span> {label}: unbekannt, nicht prüfbar ({bound})
     </li>
   );
 }
@@ -68,7 +71,7 @@ export default function TourResultCard({
     card.length_km === null ? "Länge: unbekannt" : `${nf1.format(card.length_km)} km`,
     card.ascent_m === null ? "Höhenmeter: unbekannt" : `↑ ${nf0.format(card.ascent_m)} m`,
     ...(time ? [time] : []),
-    `Entfernung: ${nf1.format(card.distance_km)} km`,
+    card.distance_km === null ? "im Gebiet" : `Entfernung: ${nf1.format(card.distance_km)} km`,
   ];
   return (
     <article className="flex flex-col gap-1 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel">

@@ -14,7 +14,7 @@ const card = (over: Partial<TourCard> = {}): TourCard => ({
   cover_license: null,
   cover_license_url: null,
   cover_page_url: null,
-  results: [{ kind: "length_km", ok: true, actual: 12.3, bound: "≤ 15 km", deviation_rel: 0, bound_value: 15 }],
+  results: [{ kind: "length_km", ok: true, actual: 12.3, bound: "höchstens 15", deviation_rel: 0, bound_value: 15 }],
   deviation_text: null,
   preference: { score: 1, met: ["aussicht"], missing: ["see"], avoided_hit: [] },
   ...over,
@@ -83,4 +83,23 @@ it("run without pace shows no walking time, only the pace hint", () => {
 it("shows nothing about time when it is unknown (hike)", () => {
   const { container } = render(<TourResultCard card={card({ duration_h: null })} />);
   expect(container).not.toHaveTextContent("Zeit");
+});
+
+it("area start: says 'im Gebiet' instead of a distance", () => {
+  const { container } = render(<TourResultCard card={card({ distance_km: null })} />);
+  expect(container).toHaveTextContent("im Gebiet");
+  expect(container).not.toHaveTextContent("Entfernung");
+});
+
+it("verdict rows carry the unit of the bound", () => {
+  const results = [
+    { kind: "length_km", ok: true, actual: 12, bound: "mindestens 10 und höchstens 14", deviation_rel: 0, bound_value: null },
+    { kind: "ascent_m", ok: null, actual: null, bound: "höchstens 400", deviation_rel: 1, bound_value: null },
+    { kind: "roundtrip", ok: true, actual: true, bound: "Rundweg", deviation_rel: 0, bound_value: null },
+  ];
+  const { container } = render(<TourResultCard card={card({ results })} />);
+  expect(container).toHaveTextContent("Länge: mindestens 10 und höchstens 14 km");
+  expect(container).toHaveTextContent("Höhenmeter: unbekannt, nicht prüfbar (höchstens 400 Hm)");
+  expect(container).toHaveTextContent("Rundweg: Rundweg");
+  expect(container).not.toHaveTextContent("Rundweg km");
 });

@@ -1,4 +1,4 @@
-import { parseSse, streamChat, type ChatEvent } from "./chat";
+import { ERROR_REJECTED, parseSse, streamChat, type ChatEvent } from "./chat";
 
 const ev = (type: string, extra: object = {}) => `event: ${type}\ndata: ${JSON.stringify({ type, ...extra })}\n\n`;
 
@@ -78,5 +78,16 @@ it("is silent when aborted", async () => {
   ctrl.abort();
   await streamChat("http://x", "t", "hi", (e) => got.push(e), ctrl.signal);
   expect(got).toEqual([]);
+  vi.unstubAllGlobals();
+});
+
+it("a rejected request (4xx without events) gets its own message, not 'nicht erreichbar'", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response('{"detail":[]}', { status: 422, headers: { "Content-Type": "application/json" } })),
+  );
+  const got: ChatEvent[] = [];
+  await streamChat("http://api", "t", "x", (e) => got.push(e));
+  expect(got).toEqual([{ type: "error", message: ERROR_REJECTED }]);
   vi.unstubAllGlobals();
 });
