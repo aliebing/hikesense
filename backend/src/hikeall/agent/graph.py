@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextvars
 import json
+import logging
 import re
 import uuid
 from collections.abc import Iterator
@@ -32,7 +33,7 @@ from hikeall.agent.constraints import (
     contradiction,
     format_deviation,
 )
-from hikeall.agent.grounding import Evidence, grounding_check
+from hikeall.agent.grounding import Evidence, grounding_check, has_number
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
     CLARIFY_START,
@@ -41,15 +42,17 @@ from hikeall.agent.prompts import (
     ERROR_UNAVAILABLE,
     LEAK_REPLY,
     MULTIDAY_REPLY,
+    NO_SOURCE_REPLY,
     NO_TOURS_HINT,
     OTHER_REPLY,
     REACT_SYSTEM,
+    REACT_TOURS,
     TOOL_ERROR,
     TOOL_LIMIT,
     TOOL_UNKNOWN,
     TRAIL_NOT_FOUND,
 )
-from hikeall.agent.request import Clarify, HikeRequest, RawRequest
+from hikeall.agent.request import Clarify, Constraint, HikeRequest, RawRequest
 from hikeall.agent.tools import (
     TOOL_SPECS,
     AgentTools,
@@ -66,6 +69,8 @@ from hikeall.guard import INJECTION_REPLY, leaks_system_prompt, looks_like_injec
 from hikeall.llm.gateway import LLMGateway
 from hikeall.llm.usage import BudgetExceeded, LLMError, LLMUsage, metered
 from hikeall.tags.vocabulary import TagVocabulary
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "AgentDeps",
@@ -103,7 +108,7 @@ class TourCard(BaseModel):
     length_km: float | None
     ascent_m: int | None
     duration_h: float | None  # None: unknown, or a run without pace
-    distance_km: float
+    distance_km: float | None  # None: area start (the tour lies in the area, no distance)
     cover_thumb_url: str | None = None
     cover_author: str | None = None
     cover_license: str | None = None
@@ -172,6 +177,7 @@ class AgentDeps:
     vocab: TagVocabulary
     settings: Settings
     checkpointer: MemorySaver = field(default_factory=MemorySaver)
+    trail_names: list[str] = field(default_factory=list)  # all tour names, for grounding (R21)
 
     @cached_property
     def graph(self) -> Any:
@@ -182,6 +188,7 @@ class State(TypedDict, total=False):
     message: str
     request: dict | None  # last tour request (for "change"), persists per thread
     pending: dict | None  # open clarify question with the partial request, persists per thread
+    last_tours: list[dict] | None  # trail_id + name of the last result cards, persists per thread
     # per message:
     route: str
     intent: str | None
@@ -235,7 +242,7 @@ def _de(x: float, decimals: int = 1) -> str:
 # --- search: cards, facts for the model, evidence -----------------------------------------
 
 
-def _card(s: Scored) -> TourCard:
+def _card(s: Scored, area: bool) -> TourCard:
     c = s.candidate
     return TourCard(
         trail_id=c.trail_id,
@@ -243,7 +250,7 @@ def _card(s: Scored) -> TourCard:
         length_km=c.length_km,
         ascent_m=c.ascent_m,
         duration_h=s.duration_h,
-        distance_km=c.distance_km,
+        distance_km=None if area else c.distance_km,
         cover_thumb_url=c.cover_thumb_url,
         cover_author=c.cover_author,
         cover_license=c.cover_license,
@@ -299,8 +306,9 @@ def _search_data(
             f"{time_word} {_de(card.duration_h)} h"
             if card.duration_h is not None
             else "Zeit: keine Angabe",
-            f"Entfernung zum Start {_de(card.distance_km)} km",
         ]
+        if card.distance_km is not None:  # area start: the tour lies in the area
+            facts.append(f"Entfernung zum Start {_de(card.distance_km)} km")
         line = f"{i}. {card.name} – {', '.join(facts)}; Bedingungen: " + "; ".join(
             _result_text(r) for r in card.results
         )
@@ -317,18 +325,32 @@ def _search_data(
     return "\n".join(lines)
 
 
-def _card_evidence(ev: Evidence, scored: list[Scored]) -> None:
+def _card_evidence(ev: Evidence, scored: list[Scored], area: bool) -> None:
     for s in scored:
         c = s.candidate
         ev.add_name(c.name)
         ev.add(c.length_km, "km")
         ev.add(c.ascent_m, "Hm")
         ev.add(c.descent_m, "Hm")
-        ev.add(c.distance_km, "km")
+        if not area:
+            ev.add(c.distance_km, "km")
         ev.add(s.duration_h, "h")
         for r in s.results:
             if r.ok is not True:
                 ev.numbers.append(format_deviation(r))
+
+
+_BOUND_UNIT = {"length_km": "km", "ascent_m": "Hm", "duration_h": "h", "radius_km": "km"}
+
+
+def _bound_evidence(ev: Evidence, constraints: list[Constraint]) -> None:
+    """The user's own bounds (structured), never the free echo text: an unmatched wish such as
+    "max. 3 km Asphalt" must not make "3 km" a supported number."""
+    for c in constraints:
+        unit = _BOUND_UNIT.get(c.kind)
+        if unit:
+            for value in (c.min, c.max, c.approx):
+                ev.add(value, unit)
 
 
 # --- react: tools for knowledge questions --------------------------------------------------
@@ -355,6 +377,16 @@ def _call_tool(tools: AgentTools, name: str, args: dict) -> Any:
 
 class _UnknownTool(Exception):
     pass
+
+
+_HIKING_TIME_UNITS = {"length_km": "km", "ascent_m": "Hm", "descent_m": "Hm"}
+
+
+def _inputs_in_evidence(args: dict, ev: Evidence) -> bool:
+    try:
+        return all(has_number(ev, float(args[k]), u) for k, u in _HIKING_TIME_UNITS.items())
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def _dump(result: Any) -> Any:
@@ -427,11 +459,16 @@ def _sources_of(result: Any) -> list[SourceBrief]:
 
 
 def _add_sources(have: list[dict], new: list[SourceBrief]) -> list[dict]:
-    seen = {(s["id"], s.get("url")) for s in have}
+    """One entry per URL (several chunks of one article are one source); without URL per id."""
+
+    def key(url: str | None, id_: str) -> str:
+        return url or f"id:{id_}"
+
+    seen = {key(s.get("url"), s["id"]) for s in have}
     out = list(have)
     for s in new:
-        if (s.id, s.url) not in seen:
-            seen.add((s.id, s.url))
+        if key(s.url, s.id) not in seen:
+            seen.add(key(s.url, s.id))
             out.append(s.model_dump(mode="json"))
     return out
 
@@ -536,7 +573,8 @@ def build_graph(deps: AgentDeps) -> Any:
 
     def search(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
-        ev = Evidence(numbers=[echo(req, vocab)])
+        ev = Evidence()
+        _bound_evidence(ev, req.constraints)
         contra = contradiction(req.constraints)
         if contra:  # no search, no fallback tours
             reason = f"Keine Tour erfüllt alle Wünsche, weil {contra}"
@@ -545,21 +583,31 @@ def build_graph(deps: AgentDeps) -> Any:
         result = tools.search_day_hikes(req)
         sel = result.selection
         scored = sel.matches or sel.fallbacks
-        cards = [_card(s) for s in scored]
+        area = req.start is not None and req.start.kind == "area"
+        cards = [_card(s, area) for s in scored]
         reason = None if sel.matches else sel.reason
         _emit(
             ResultsEvent(
                 cards=cards, fallback_reason=reason, labels=_labels(vocab, _card_tags(cards))
             )
         )
-        sources = [SourceBrief(id=s, name=None, url=None, license=None) for s in result.source_ids]
-        out: State = {"tool_calls": 1, "reason": reason, "sources": _add_sources([], sources)}
+        briefs = {s.id: s for s in result.sources}
+        sources = [
+            briefs.get(i) or SourceBrief(id=i, name=None, url=None, license=None)
+            for i in result.source_ids
+        ] + [s for s in result.sources if s.id not in result.source_ids]
+        out: State = {
+            "tool_calls": 1,
+            "reason": reason,
+            "sources": _add_sources([], sources),
+            "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in cards],
+        }
         if not cards:
             return out | {"fixed": NO_TOURS_HINT}
         data = _search_data(req, cards, not sel.matches, vocab)
-        _card_evidence(ev, scored)
+        _card_evidence(ev, scored, area)
         ev.add(result.searched_radius_km, "km")
-        ev.numbers += [data, reason or ""]
+        ev.numbers.append(reason or "")
         if req.start is not None:
             ev.add_name(req.start.label)
         return out | {"data": data, "evidence": vars(ev)}
@@ -567,11 +615,29 @@ def build_graph(deps: AgentDeps) -> Any:
     def react(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
         question = req.question or state["message"]
-        messages: list[BaseMessage] = [SystemMessage(REACT_SYSTEM), HumanMessage(question)]
+        last_tours = state.get("last_tours") or []
+        messages: list[BaseMessage] = [SystemMessage(REACT_SYSTEM)]
         ev = Evidence()
+        if last_tours:  # follow-up questions about suggested tours need their ids (I-8)
+            lines = [f"- {t['trail_id']}: {t['name']}" for t in last_tours]
+            messages.append(SystemMessage(REACT_TOURS + "\n" + "\n".join(lines)))
+            for t in last_tours:
+                ev.add_name(t["name"])
+        messages.append(HumanMessage(question))
         sources: list[dict] = []
         results: list[str] = []
-        executed = 0
+        # the knowledge index is searched in code first, so an answer can rest on a source (I-3)
+        pre = {"name": "search_knowledge", "args": {"query": question, "k": 5}, "id": "vorab"}
+        content = _run_tool(pre, ev, results)
+        if content[1] is not None:
+            sources = _add_sources(sources, _sources_of(content[1]))
+        executed = 1
+        if not sources and not last_tours:  # nothing to stand on: no model free-answer
+            return {"tool_calls": executed, "fixed": NO_SOURCE_REPLY}
+        messages += [
+            AIMessage(content="", tool_calls=[pre | {"type": "tool_call"}]),
+            ToolMessage(content[0], tool_call_id=pre["id"]),
+        ]
         limit_hit = False
         draft = ""
         for _ in range(settings.max_tool_calls + 2):
@@ -593,6 +659,8 @@ def build_graph(deps: AgentDeps) -> Any:
                     sources = _add_sources(sources, _sources_of(content[1]))
                 messages.append(ToolMessage(content[0], tool_call_id=call["id"]))
         out: State = {"tool_calls": executed, "evidence": vars(ev), "sources": sources}
+        if not sources:  # the model answered without any sourced tool result
+            return {"tool_calls": executed, "fixed": NO_SOURCE_REPLY}
         if draft:
             return out | {"draft": draft}
         data = f"Frage: {question}\nWerkzeug-Ergebnisse:\n" + "\n".join(results)
@@ -600,8 +668,11 @@ def build_graph(deps: AgentDeps) -> Any:
 
     def _run_tool(call: dict, ev: Evidence, results: list[str]) -> tuple[str, Any]:
         name = call["name"]
+        args = call.get("args") or {}
+        # a walking time counts as evidence only if its inputs are evidence themselves (I-8)
+        trusted = name != "hiking_time" or _inputs_in_evidence(args, ev)
         try:
-            result = _call_tool(tools, name, call.get("args") or {})
+            result = _call_tool(tools, name, args)
         except LLMError:
             raise
         except _UnknownTool:
@@ -611,7 +682,8 @@ def build_graph(deps: AgentDeps) -> Any:
         if result is None:
             return TRAIL_NOT_FOUND, None
         dumped = _dump(result)
-        _walk(dumped, ev)
+        if trusted:
+            _walk(dumped, ev)
         content = json.dumps(dumped, ensure_ascii=False)
         results.append(f"{name}: {content}")
         return content, result
@@ -628,8 +700,9 @@ def build_graph(deps: AgentDeps) -> Any:
         if draft and any(leaks_system_prompt(draft, p) for p in _PROMPTS):
             body, out = LEAK_REPLY, {"guard": "leak"}
         elif draft:
-            g = grounding_check(draft, Evidence(**state["evidence"]))
-            body, out = g.text, {"unsupported": len(g.unsupported)}
+            g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
+            # numbers are replaced, unknown tour names only counted (R21)
+            body, out = g.text, {"unsupported": len(g.unsupported) + len(g.unsupported_names)}
         # the code's honest sentence comes first, verbatim, whatever the model wrote
         text = "\n\n".join(x for x in (f"{reason}." if reason else "", body) if x)
         for chunk in _CHUNK.findall(text):
@@ -700,13 +773,32 @@ def _run(deps: AgentDeps, thread_id: str, message: str) -> Iterator[ChatEvent]:
         config: RunnableConfig = {
             "configurable": {"thread_id": thread_id, "usage": usage, "request_id": request_id}
         }
+        stream = deps.graph.stream(_turn(message), config, stream_mode="custom")
+        logged = False  # the log node writes the line and then emits "done"
         try:
-            yield from deps.graph.stream(_turn(message), config, stream_mode="custom")
+            for event in stream:
+                logged = logged or event.type == "done"
+                yield event
         except LLMError as exc:
+            logged = True
             state = deps.graph.get_state(config).values
             _write_log(deps.settings, request_id, state, usage, type(exc).__name__)
             msg = ERROR_BUDGET if isinstance(exc, BudgetExceeded) else ERROR_UNAVAILABLE
             yield ErrorEvent(message=msg)
+        except GeneratorExit:  # client went away: model cost may already be spent (best effort)
+            if not logged:
+                _abort_log(deps, config, request_id, usage)
+            raise
+        finally:
+            stream.close()
+
+
+def _abort_log(deps: AgentDeps, config: RunnableConfig, request_id: str, usage: LLMUsage) -> None:
+    try:
+        state = deps.graph.get_state(config).values
+        _write_log(deps.settings, request_id, state, usage, "ClientDisconnected")
+    except Exception:  # never mask the disconnect with a logging error
+        log.exception("chat log after disconnect failed")
 
 
 def run_chat(deps: AgentDeps, thread_id: str, message: str) -> Iterator[ChatEvent]:

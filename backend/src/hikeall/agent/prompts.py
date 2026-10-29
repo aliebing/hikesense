@@ -50,3 +50,11 @@ NO_TOURS_HINT = (
     "Versuch es mit einem größeren Umkreis, einem anderen Startort oder weniger Bedingungen."
 )
 CONTRADICTION_HINT = "Bitte passe eine der Angaben an."
+NO_SOURCE_REPLY = (
+    "Dazu habe ich in meinen Quellen nichts gefunden – und ohne Quelle antworte ich lieber nicht. "
+    "Frag gern anders oder nach einer Tour."
+)
+REACT_TOURS = (
+    "Zuletzt vorgeschlagene Touren in diesem Gespräch (trail_id: Name) – nutze die trail_id "
+    "für get_trail_details und find_accommodation:"
+)

@@ -89,6 +89,9 @@ class OpenRouterGateway:
         return text
 
     def tool_round(self, messages: Sequence[BaseMessage], tools: Sequence[Any]) -> AIMessage:
+        # Uses the structured model (temperature 0), so a knowledge answer the model writes in a
+        # tool round is generated at 0, not at the 0.3 of answer(). Deliberate: same facts, less
+        # variation (final review Minor 11).
         model = self._structured_model.bind_tools(list(tools))
         return self._invoke(model, list(messages))
 

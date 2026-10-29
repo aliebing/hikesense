@@ -301,3 +301,27 @@ def test_search_cards_get_first_commons_thumb(db):
     assert c.cover_page_url == "https://commons.example/page/1"
     n = by_id["test-p2-nophoto"]
     assert (n.cover_author, n.cover_license, n.cover_license_url, n.cover_page_url) == (None,) * 4
+
+
+# --- final fix wave ---------------------------------------------------------------------------
+
+
+@pytest.mark.db
+def test_search_returns_full_source_briefs(db):
+    add_trail(db, "test-p2-src-brief")
+    result = search_day_hikes(db, req())
+    assert [(s.id, s.name, s.url, s.license) for s in result.sources] == [
+        (SRC.id, SRC.name, SRC.url, SRC.license)
+    ]
+
+
+def test_dbtools_reopens_a_missing_knowledge_index_lazily():
+    class Idx:
+        def search(self, q, k=5):
+            return [KnowledgeHit(text="gefunden")]
+
+    built: list = [None]
+    tools = DbTools(lambda: None, None, knowledge_opener=lambda: built[0])
+    assert "Wissensindex fehlt" in tools.search_knowledge("a")[0].text
+    built[0] = Idx()  # `make knowledge` ran while the API was up
+    assert tools.search_knowledge("a")[0].text == "gefunden"

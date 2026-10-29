@@ -9,7 +9,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
 from sse_starlette.sse import EventSourceResponse
@@ -31,6 +31,8 @@ from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary
 log = logging.getLogger(__name__)
 
 MAX_CHARS = 1000
+MAX_BODY_BYTES = 64 * 1024
+TRAIL_NAMES_SQL = "select distinct name from trails where name is not null"
 
 
 class ChatRequest(BaseModel):
@@ -50,11 +52,20 @@ def default_deps_factory(settings: Settings) -> Callable[[], AgentDeps]:
                 gateway = OpenRouterGateway.from_settings(settings)
                 with connect(settings.supabase_db_url) as conn:
                     vocab = TagVocabulary.load(conn, FEATURES_YAML)
+                    names = [r[0] for r in conn.execute(TRAIL_NAMES_SQL)]
                 tools = DbTools(
-                    lambda: connect(settings.supabase_db_url), try_open(settings.chroma_dir)
+                    lambda: connect(settings.supabase_db_url),
+                    try_open(settings.chroma_dir),
+                    knowledge_opener=lambda: try_open(settings.chroma_dir),
                 )
                 cache.append(
-                    AgentDeps(tools=tools, gateway=gateway, vocab=vocab, settings=settings)
+                    AgentDeps(
+                        tools=tools,
+                        gateway=gateway,
+                        vocab=vocab,
+                        settings=settings,
+                        trail_names=names,
+                    )
                 )
             return cache[0]
 
@@ -103,8 +114,14 @@ def make_router(
                 status_code=429,
                 headers={"Retry-After": str(decision.retry_after_s)},
             )
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+            raise HTTPException(status_code=413, detail="Nachricht zu groß")
+        data = await request.body()
+        if len(data) > MAX_BODY_BYTES:
+            raise HTTPException(status_code=413, detail="Nachricht zu groß")
         try:
-            body = ChatRequest.model_validate(json.loads(await request.body()))
+            body = ChatRequest.model_validate(json.loads(data))
         except json.JSONDecodeError as exc:
             raise RequestValidationError(
                 [{"type": "json_invalid", "loc": ("body",), "msg": str(exc)}]

@@ -1,5 +1,6 @@
 """Deterministic grounding check: every number with a unit in a model answer must come from the
-round's tool results (or the code's own sentences); unsupported numbers become "?"."""
+round's tool results (or the code's own sentences); unsupported numbers become "?". Tour names
+from the database that the round's evidence does not mention are counted (never removed)."""
 
 from __future__ import annotations
 
@@ -9,11 +10,22 @@ from decimal import ROUND_HALF_UP, Decimal
 
 # Adapted from HikeAI pipeline/grounding.py::_NUMBER_WITH_UNIT for German answers:
 # decimal comma, dot as thousands separator ("1.200 Hm"), German unit words; "km/h" is no length.
-_NUM = r"\d{1,3}(?:\.\d{3})+(?![.,]?\d)|\d+(?:[.,]\d+)?"
+# German number words (1–12, halves) count like digits: "zwei Stunden" is a claim as well.
+_WORDS = {
+    "eins": 1, "ein": 1, "eine": 1, "einen": 1, "einem": 1, "einer": 1, "zwei": 2, "drei": 3,
+    "vier": 4, "fünf": 5, "sechs": 6, "sieben": 7, "acht": 8, "neun": 9, "zehn": 10, "elf": 11,
+    "zwölf": 12,
+}  # fmt: skip
+_HALVES = {"anderthalb": "1.5", "eineinhalb": "1.5", "halbe": "0.5", "eine halbe": "0.5"}
+_NUM_WORD = r"eine\shalbe|halbe|anderthalb|eineinhalb|eins|eine[nmr]?|ein|zwei|drei|vier|fünf"
+_NUM_WORD += r"|sechs|sieben|acht|neun|zehn|elf|zwölf"
+_NUM = rf"\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?|(?:{_NUM_WORD})(?!\w)"
 _UNIT_RE = r"Kilometern?|km|Höhenmetern?|hm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min|Prozent|%"
 _HOURS = r"(?:Stunden?|Std\.?|h)"
 _MINUTES = r"(?:Minuten?|min)"
-_START = r"(?<![\w.,:])"
+# no start inside a word or a number ("12.5", "1.200"); an abbreviation dot ("ca.18 km") is fine
+_START = r"(?<![\w,:])(?<!\d\.)"
+_SEP = r"[\s-]?"  # "15 km", "15km", "15-km-Runde"
 _END = r"(?![\w/²³])"
 _NUMBER_WITH_UNIT = re.compile(
     # "2 h 54 min" / "2 Std. 54 Minuten": one duration
@@ -22,7 +34,7 @@ _NUMBER_WITH_UNIT = re.compile(
     rf"|{_START}(?P<kh>\d+):(?P<km>\d{{2}})\s?{_HOURS}{_END}"
     # "10 bis 15 km", "10–15 km", "zwischen 10 und 15 km": both numbers carry the unit
     rf"|{_START}(?:(?P<lo>{_NUM})\s?(?:–|—|-|bis\s|und\s)\s?)?"
-    rf"(?P<num>{_NUM})\s?(?P<unit>{_UNIT_RE}){_END}",
+    rf"(?P<num>{_NUM}){_SEP}(?P<unit>{_UNIT_RE}){_END}",
     re.IGNORECASE,
 )
 
@@ -69,7 +81,8 @@ class Evidence:
 @dataclass
 class GroundingResult:
     text: str
-    unsupported: list[str]
+    unsupported: list[str]  # numbers, replaced by "?"
+    unsupported_names: list[str] = field(default_factory=list)  # tour names, counted only
 
 
 @dataclass(frozen=True)
@@ -90,6 +103,11 @@ class _Found:
 
 
 def _value(raw: str) -> tuple[Decimal, int]:
+    word = re.sub(r"\s+", " ", raw.lower())
+    if word in _HALVES:
+        return Decimal(_HALVES[word]), 1
+    if word in _WORDS:
+        return Decimal(_WORDS[word]), 0
     if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw):  # German thousands separator
         return Decimal(raw.replace(".", "")), 0
     raw = raw.replace(",", ".")
@@ -138,7 +156,36 @@ def _supported(n: _Number, known: list[_Number]) -> bool:
     )
 
 
-def grounding_check(answer: str, evidence: Evidence) -> GroundingResult:
+def has_number(evidence: Evidence, value: float, unit: str) -> bool:
+    """Exactly this value (after unit conversion, no rounding) is in the evidence."""
+    probe = _found(f"{float(value):.6f}".rstrip("0").rstrip(".").replace(".", ",") + f" {unit}")
+    if len(probe) != 1:
+        return False
+    n = probe[0].number
+    return any(
+        k.dim == n.dim and k.value * k.factor == n.value * n.factor
+        for k in _evidence_numbers(evidence)
+    )
+
+
+def _unsupported_names(answer: str, evidence: Evidence, tour_names: list[str]) -> list[str]:
+    """Known tour names in the answer that no evidence text or name mentions (R21)."""
+    said = " \n".join(evidence.names + evidence.numbers).casefold()
+    taken: list[tuple[int, int]] = []
+    out: list[str] = []
+    for name in sorted({n for n in tour_names if n and n.strip()}, key=lambda n: (-len(n), n)):
+        for m in re.finditer(rf"(?<!\w){re.escape(name)}(?!\w)", answer):
+            if any(a < m.end() and m.start() < b for a, b in taken):
+                continue
+            taken.append(m.span())
+            if name.casefold() not in said and name not in out:
+                out.append(name)
+    return out
+
+
+def grounding_check(
+    answer: str, evidence: Evidence, tour_names: list[str] | tuple[str, ...] = ()
+) -> GroundingResult:
     known = _evidence_numbers(evidence)
     unsupported: list[str] = []
     spans: list[tuple[int, int]] = []
@@ -154,4 +201,5 @@ def grounding_check(answer: str, evidence: Evidence) -> GroundingResult:
     text = "".join(parts) + answer[pos:]
     if unsupported:
         text = text.rstrip() + "\n\n" + HINT.format(n=len(unsupported))
-    return GroundingResult(text=text, unsupported=unsupported)
+    names = _unsupported_names(answer, evidence, list(tour_names))
+    return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)

@@ -128,3 +128,75 @@ def test_ascent_never_supports_length(text):
 def test_length_never_supports_ascent():
     r = grounding_check("Sie hat 1200 Hm.", ev(numbers=["1.2 km", "1200 m"]))
     assert r.unsupported == ["1200 Hm"]
+
+
+# --- final wave: compounds, abbreviations, number words (I-2), tour names (I-4/R21) -------
+
+
+@pytest.mark.parametrize(
+    ("text", "bad"),
+    [
+        ("Eine 15-km-Runde mit 900-Hm-Anstieg.", ["15-km", "900-Hm"]),
+        ("Das sind ca.18 km.", ["18 km"]),
+        ("Rund 3-Stunden-Tour.", ["3-Stunden"]),
+        ("zwei Stunden und fünf Kilometer", ["zwei Stunden", "fünf Kilometer"]),
+        ("Nach einer Stunde und elf Kilometern.", ["einer Stunde", "elf Kilometern"]),
+        ("Anderthalb Stunden Gehzeit.", ["Anderthalb Stunden"]),
+        ("Nur eine halbe Stunde.", ["eine halbe Stunde"]),
+        ("zwei bis drei Stunden", ["zwei Stunden", "drei Stunden"]),
+    ],
+)
+def test_compounds_abbreviations_and_number_words_are_checked(text, bad):
+    r = grounding_check(text, ev(numbers=["12.4 km", "350 Hm", "4 h"]))
+    assert r.unsupported == bad
+    assert "?" in r.text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Eine 12-km-Runde mit 350-Hm-Anstieg.",
+        "ca.12 km",
+        "zwölf Kilometer und vier Stunden",
+        "anderthalb Stunden",
+        "eine halbe Stunde",
+    ],
+)
+def test_compounds_and_number_words_supported_by_evidence(text):
+    r = grounding_check(text, ev(numbers=["12 km", "350 Hm", "4 h", "1,5 h", "0,5 h"]))
+    assert r.unsupported == []
+
+
+def test_number_words_without_unit_are_not_checked():
+    assert grounding_check("Zwei Touren und eine Einkehr.", ev()).unsupported == []
+
+
+def test_decimal_dot_is_still_one_number():
+    # "12.5 km" must not be read as "5 km" after an abbreviation dot
+    assert grounding_check("12.5 km", ev(numbers=["12,5 km"])).unsupported == []
+
+
+def test_unknown_tour_name_is_counted_not_removed():
+    known = ["Feldberg-Runde", "Seebuck-Weg", "Wutachschlucht-Pfad"]
+    r = grounding_check(
+        "Die Feldberg-Runde passt; probier auch den Wutachschlucht-Pfad.",
+        ev(names=["Feldberg-Runde"]),
+        tour_names=known,
+    )
+    assert r.unsupported == []
+    assert r.unsupported_names == ["Wutachschlucht-Pfad"]
+    assert "Wutachschlucht-Pfad" in r.text  # counted, never removed
+
+
+def test_tour_name_in_evidence_text_is_supported():
+    r = grounding_check(
+        "Der Westweg ist mit roter Raute markiert.",
+        ev(numbers=["Der Westweg ist mit einer roten Raute markiert."]),
+        tour_names=["Westweg"],
+    )
+    assert r.unsupported_names == []
+
+
+def test_tour_name_needs_whole_word():
+    r = grounding_check("Ein Panoramawegweiser.", ev(), tour_names=["Panoramaweg"])
+    assert r.unsupported_names == []

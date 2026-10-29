@@ -13,11 +13,18 @@ from hikeall.agent.prompts import (
     ERROR_UNAVAILABLE,
     LEAK_REPLY,
     MULTIDAY_REPLY,
+    NO_SOURCE_REPLY,
     OTHER_REPLY,
     TOOL_LIMIT,
 )
 from hikeall.agent.request import RawRequest, RawWish
-from hikeall.agent.tools import DayHikeResult, KnowledgeHit, TrailDetails, search_radius_km
+from hikeall.agent.tools import (
+    DayHikeResult,
+    KnowledgeHit,
+    SourceBrief,
+    TrailDetails,
+    search_radius_km,
+)
 from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY
 from hikeall.hiking_time import din33466
@@ -285,7 +292,7 @@ def test_knowledge_answer_emits_sources(vocab, settings):
     sources = one(events, "sources").sources
     assert [s.url for s in sources] == ["https://a.example/wegegebot", "https://b.example/nsg"]
     assert all(s.status == "entwurf" and s.name == "Wegegebot am Feldberg" for s in sources)
-    assert deps.tools.calls["search_knowledge"] == 1
+    assert deps.tools.calls["search_knowledge"] == 2  # once in code first (I-3), once by the model
     assert deps.gateway.calls["answer"] == 0  # the react model already answered
 
 
@@ -334,21 +341,22 @@ def test_tool_call_cap(vocab, settings):
     )
     rounds = [
         AIMessage(content="", tool_calls=[call("get_trail_details", {"trail_id": "t1"}, i)])
-        for i in range(9)
+        for i in range(8)
     ] + [AIMessage(content="Der Testweg hat 7,4 km und 120 Hm.")]
     deps = make(
         vocab,
         settings,
-        tools=FakeTools(details={"t1": details}),
+        tools=FakeTools(details={"t1": details}, hits=[HIT]),
         structured={RawRequest: [knowledge_raw()]},
         tool_rounds=rounds,
     )
     events = run(deps, "Wie lang ist der Testweg?")
-    assert deps.tools.calls["get_trail_details"] == settings.max_tool_calls == 8
+    assert settings.max_tool_calls == 8  # the knowledge search in code counts as one (I-3)
+    assert deps.tools.calls["search_knowledge"] + deps.tools.calls["get_trail_details"] == 8
     last_msgs = deps.gateway.tool_messages[-1]
     tool_msgs = [m for m in last_msgs if isinstance(m, ToolMessage)]
     assert len(tool_msgs) == 9 and tool_msgs[-1].content == TOOL_LIMIT
-    assert tool_msgs[-1].tool_call_id == "c8"
+    assert tool_msgs[-1].tool_call_id == "c7"
     assert text_of(events) == "Der Testweg hat 7,4 km und 120 Hm."
     assert log_lines(settings)[-1]["tool_calls"] == 8
 
@@ -448,6 +456,7 @@ def test_tool_errors_become_tool_messages(vocab, settings):
     deps = make(
         vocab,
         settings,
+        tools=FakeTools(hits=[HIT]),
         structured={RawRequest: [knowledge_raw()]},
         tool_rounds=[
             AIMessage(content="", tool_calls=calls),
@@ -456,7 +465,7 @@ def test_tool_errors_become_tool_messages(vocab, settings):
     )
     events = run(deps, "Unterkünfte am Testweg?")
     assert "error" not in types(events)
-    tool_msgs = [m for m in deps.gateway.tool_messages[-1] if isinstance(m, ToolMessage)]
+    tool_msgs = [m for m in deps.gateway.tool_messages[-1] if isinstance(m, ToolMessage)][1:]
     assert [m.tool_call_id for m in tool_msgs] == ["c1", "c2", "c3", "c4"]
     assert tool_msgs[0].content.startswith("Fehler")
     assert "Keine Tour" in tool_msgs[1].content
@@ -655,7 +664,7 @@ def test_react_ascent_is_hm_evidence(vocab, settings):
     deps = make(
         vocab,
         settings,
-        tools=FakeTools(details={"t1": details}),
+        tools=FakeTools(details={"t1": details}, hits=[HIT]),
         structured={RawRequest: [knowledge_raw()]},
         tool_rounds=[
             AIMessage(content="", tool_calls=[call("get_trail_details", {"trail_id": "t1"})]),
@@ -664,3 +673,228 @@ def test_react_ascent_is_hm_evidence(vocab, settings):
     )
     events = run(deps, "Wie steil ist der Testweg?")
     assert one(events, "done").unsupported == 1  # "120 m" is a length, not supported by Hm
+
+
+# --- final fix wave (R20/R21) --------------------------------------------------------------
+
+OSM = SourceBrief(
+    id="osm-test",
+    name="OpenStreetMap contributors",
+    url="https://www.openstreetmap.org/copyright",
+    license="ODbL",
+)
+
+
+class SourcedTools(FakeTools):
+    """search_day_hikes returns full SourceBriefs, as DbTools does (I-1)."""
+
+    def search_day_hikes(self, req):
+        result = super().search_day_hikes(req)
+        return result.model_copy(update={"sources": [OSM]})
+
+
+def test_tour_search_sources_have_name_url_and_licence(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=SourcedTools(),
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Antwort."],
+    )
+    sources = one(run(deps, FELDBERG_MSG), "sources").sources
+    assert [(s.id, s.name, s.url, s.license) for s in sources] == [
+        ("osm-test", OSM.name, OSM.url, "ODbL")
+    ]
+
+
+def test_knowledge_is_searched_in_code_before_the_model(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(hits=[HIT]),
+        structured={RawRequest: [knowledge_raw()]},
+        tool_rounds=[AIMessage(content="Nein, im Naturschutzgebiet gilt ein Wegegebot.")],
+    )
+    events = run(deps, "Darf man am Feldberg querfeldein gehen?")
+    assert deps.tools.calls["search_knowledge"] == 1
+    first = deps.gateway.tool_messages[0]
+    assert any(isinstance(m, ToolMessage) and "Wegegebot" in m.content for m in first)
+    assert [s.url for s in one(events, "sources").sources] == [
+        "https://a.example/wegegebot",
+        "https://b.example/nsg",
+    ]
+    assert text_of(events) == "Nein, im Naturschutzgebiet gilt ein Wegegebot."
+    assert log_lines(settings)[-1]["tool_calls"] == 1
+
+
+def test_knowledge_without_hits_is_honest_and_skips_the_model(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [knowledge_raw()]})
+    events = run(deps, "Darf man am Feldberg querfeldein gehen?")
+    assert text_of(events) == NO_SOURCE_REPLY
+    assert deps.gateway.calls["tool_round"] == 0 and deps.gateway.calls["answer"] == 0
+    assert "sources" not in types(events)
+
+
+def test_knowledge_answer_without_any_source_is_not_shown(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=SourcedTools(),
+        structured={RawRequest: [feldberg_raw(), knowledge_raw()]},
+        answers=["Antwort."],
+        tool_rounds=[AIMessage(content="Klar, dort ist es wunderschön.")],
+    )
+    run(deps, FELDBERG_MSG)
+    events = run(deps, "Ist es dort schön?")
+    assert text_of(events) == NO_SOURCE_REPLY
+    assert "wunderschön" not in text_of(events)
+
+
+def test_react_knows_the_last_tours_of_the_thread(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(hits=[HIT]),
+        structured={RawRequest: [feldberg_raw(), knowledge_raw()]},
+        answers=["Antwort."],
+        tool_rounds=[AIMessage(content="Dazu habe ich nichts.")],
+    )
+    run(deps, FELDBERG_MSG)
+    run(deps, "Gibt es auf der zweiten Tour Einkehr?")
+    context = "\n".join(str(m.content) for m in deps.gateway.tool_messages[0])
+    assert "t-kurz" in context and "Seebuck-Weg" in context
+    assert "t-runde" in context and "Feldberg-Runde" in context
+
+
+def _details(**kw) -> TrailDetails:
+    base = {
+        "trail_id": "t1",
+        "name": "Testweg",
+        "kind": "day_hike",
+        "length_km": 7.4,
+        "ascent_m": 120,
+        "descent_m": 120,
+        "roundtrip": True,
+        "surface_shares": None,
+        "way_type_shares": None,
+        "stages": [],
+        "pois": [],
+        "photo_count": 0,
+        "sources": [OSM],
+        "source_ids": ["osm-test"],
+    }
+    return TrailDetails(**(base | kw))
+
+
+def _hours(length, up, down) -> str:
+    h = din33466(length, up, down).hours
+    return f"{h:.6f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+def test_hiking_time_from_invented_inputs_is_no_evidence(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(hits=[HIT]),
+        structured={RawRequest: [knowledge_raw()]},
+        tool_rounds=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    call("hiking_time", {"length_km": 20, "ascent_m": 800, "descent_m": 800})
+                ],
+            ),
+            AIMessage(content=f"Das dauert {_hours(20, 800, 800)} h."),
+        ],
+    )
+    events = run(deps, "Wie lange dauert das?")
+    assert one(events, "done").unsupported == 1
+
+
+def test_hiking_time_from_evidenced_inputs_is_evidence(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(hits=[HIT], details={"t1": _details()}),
+        structured={RawRequest: [knowledge_raw()]},
+        tool_rounds=[
+            AIMessage(content="", tool_calls=[call("get_trail_details", {"trail_id": "t1"})]),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    call("hiking_time", {"length_km": 7.4, "ascent_m": 120, "descent_m": 120}, 2)
+                ],
+            ),
+            AIMessage(content=f"Der Testweg dauert {_hours(7.4, 120, 120)} h."),
+        ],
+    )
+    events = run(deps, "Wie lange dauert der Testweg?")
+    assert one(events, "done").unsupported == 0
+
+
+def test_unknown_tour_name_is_counted_not_removed(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Die Feldberg-Runde passt, probier auch den Wutach-Pfad."],
+    )
+    deps.trail_names = ["Feldberg-Runde", "Seebuck-Weg", "Wutach-Pfad"]
+    events = run(deps, FELDBERG_MSG)
+    assert "Wutach-Pfad" in text_of(events)
+    assert one(events, "done").unsupported == 1
+    assert log_lines(settings)[-1]["grounding_unsupported"] == 1
+
+
+def test_area_start_shows_no_distance(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [raw(start_text="Nordschwarzwald")]},
+        answers=["Antwort."],
+    )
+    events = run(deps, "Tour im Nordschwarzwald")
+    assert all(c.distance_km is None for c in one(events, "results").cards)
+    assert "Entfernung" not in deps.gateway.answer_users[-1]
+
+
+def test_unmatched_wish_text_is_no_evidence(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw(wishes=[RawWish(text="max. 3 km Asphalt")])]},
+        answers=["Leider gibt es keine Angabe zu 3 km Asphalt."],
+    )
+    events = run(deps, FELDBERG_MSG + ", max. 3 km Asphalt")
+    assert one(events, "done").unsupported == 1
+
+
+def test_knowledge_sources_are_deduplicated_by_url(vocab, settings):
+    second = HIT.model_copy(update={"source_id": "own:wegegebot#2", "text": "Teil zwei."})
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(hits=[HIT, second]),
+        structured={RawRequest: [knowledge_raw()]},
+        tool_rounds=[AIMessage(content="Ja.")],
+    )
+    sources = one(run(deps, "Wegegebot?"), "sources").sources
+    assert [s.url for s in sources] == ["https://a.example/wegegebot", "https://b.example/nsg"]
+
+
+def test_aborted_stream_still_writes_a_log_line(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Antwort."])
+    stream = run_chat(deps, "t1", FELDBERG_MSG)
+    assert next(stream).type == "understood"
+    stream.close()
+    line = log_lines(settings)[-1]
+    assert line["error"] == "ClientDisconnected"
+
+
+def test_done_stream_is_logged_once(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Antwort."])
+    stream = run_chat(deps, "t1", FELDBERG_MSG)
+    for e in stream:
+        if e.type == "done":
+            stream.close()
+    assert len(log_lines(settings)) == 1

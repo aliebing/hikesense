@@ -22,6 +22,7 @@ class Constraint(BaseModel):
     min: float | None = None
     max: float | None = None
     required: bool | None = None
+    approx: float | None = None  # "8 km" without a bound word: the value the band is built around
 
     @model_validator(mode="after")
     def _check(self) -> Constraint:
@@ -89,6 +90,10 @@ class RawRequest(BaseModel):
     ascent_m_max: float | None = None
     duration_h_min: float | None = None
     duration_h_max: float | None = None
+    # a single value without a bound word ("8 km"); the code turns it into a visible band
+    length_km_approx: float | None = None
+    ascent_m_approx: float | None = None
+    duration_h_approx: float | None = None
     radius_km_max: float | None = None
     pace_min_per_km: float | None = None
     wishes: list[RawWish] = Field(default_factory=list)

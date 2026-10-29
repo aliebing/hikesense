@@ -21,6 +21,14 @@ MAX_LODGINGS = 10
 MAX_LODGING_DIST_M = 5000
 
 
+class SourceBrief(BaseModel):
+    id: str
+    name: str | None
+    url: str | None
+    license: str | None
+    status: str | None = None  # own knowledge texts: "entwurf" | "geprüft"
+
+
 class DayHikeResult(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
@@ -28,6 +36,7 @@ class DayHikeResult(BaseModel):
     searched_radius_km: float
     total_in_area: int
     source_ids: list[str] = Field(default_factory=list)
+    sources: list[SourceBrief] = Field(default_factory=list)  # name, url, licence per source id
 
 
 class StageBrief(BaseModel):
@@ -45,14 +54,6 @@ class PoiBrief(BaseModel):
     kind: str
     dist_m: int | None
     along_km: float | None
-
-
-class SourceBrief(BaseModel):
-    id: str
-    name: str | None
-    url: str | None
-    license: str | None
-    status: str | None = None  # own knowledge texts: "entwurf" | "geprüft"
 
 
 class TrailDetails(BaseModel):
@@ -176,7 +177,23 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
         searched_radius_km=radius,
         total_in_area=len(cands),
         source_ids=source_ids,
+        sources=_source_briefs(conn, source_ids),
     )
+
+
+def _source_briefs(conn: psycopg.Connection, ids: list[str]) -> list[SourceBrief]:
+    """Name, URL and licence of each source; an id without a row stays visible (fields null)."""
+    if not ids:
+        return []
+    rows = {
+        r[0]: SourceBrief(id=r[0], name=r[1], url=r[2], license=r[3])
+        for r in conn.execute(
+            "select id, name, url, license from sources where id = any(%s)", (sorted(ids),)
+        )
+    }
+    return [
+        rows.get(i) or SourceBrief(id=i, name=None, url=None, license=None) for i in sorted(ids)
+    ]
 
 
 def get_trail_details(conn: psycopg.Connection, trail_id: str) -> TrailDetails | None:
@@ -312,9 +329,12 @@ class DbTools:
         self,
         conn_factory: Callable[[], psycopg.Connection],
         knowledge: KnowledgeIndex | None = None,
+        knowledge_opener: Callable[[], KnowledgeIndex | None] | None = None,
     ) -> None:
         self._conn_factory = conn_factory
         self._knowledge = knowledge
+        # a missing index is opened again on the next question (built while the API was up)
+        self._knowledge_opener = knowledge_opener
 
     def search_day_hikes(self, req: HikeRequest) -> DayHikeResult:
         with self._conn_factory() as conn:
@@ -334,6 +354,8 @@ class DbTools:
         return hiking_time(length_km, ascent_m, descent_m)
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]:
+        if self._knowledge is None and self._knowledge_opener is not None:
+            self._knowledge = self._knowledge_opener()
         if self._knowledge is None:
             return [KnowledgeHit(text=KNOWLEDGE_MISSING)]
         return self._knowledge.search(query, k)

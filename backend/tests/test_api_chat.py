@@ -141,3 +141,10 @@ def test_deps_factory_failure_becomes_error_event(settings, seen):
     events = parse_sse(post(client).text)
     assert events == [("error", {"type": "error", "message": ERROR_UNAVAILABLE})]
     assert json.loads(settings.chat_log_path.read_text())["error"] == "ValueError"
+
+
+def test_oversized_body_is_rejected_before_parsing(client, seen):
+    big = {"thread_id": str(uuid.uuid4()), "message": "a" * (70 * 1024)}
+    r = client.post("/chat", json=big)
+    assert r.status_code == 413
+    assert seen == []
