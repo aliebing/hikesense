@@ -55,3 +55,25 @@ def test_rate_limit_per_day(fake_clock):
     assert decision.retry_after_s > 60
     fake_clock.advance(86400)
     assert rl.acquire("ip").allowed
+
+
+def test_rejected_call_does_not_count(fake_clock):
+    rl = RateLimiter(clock=fake_clock)
+    for _ in range(10):
+        rl.acquire("ip")
+    for _ in range(5):
+        assert not rl.acquire("ip").allowed
+    fake_clock.advance(60)
+    assert all(rl.acquire("ip").allowed for _ in range(10))
+
+
+def test_retry_after_is_max_of_blocking_windows(fake_clock):
+    rl = RateLimiter(per_minute=2, per_day=3, clock=fake_clock)
+    assert rl.acquire("ip").allowed
+    fake_clock.advance(100)
+    assert rl.acquire("ip").allowed
+    assert rl.acquire("ip").allowed
+    # minute window (2 in last 60 s) and day window (3 in 24 h) both block
+    decision = rl.acquire("ip")
+    assert not decision.allowed
+    assert decision.retry_after_s == 86400 - 100
