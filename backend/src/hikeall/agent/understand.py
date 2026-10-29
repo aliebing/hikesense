@@ -321,24 +321,28 @@ def _tier(needle: str, terms: list[str]) -> int | None:
 SAME_PLACE_KM = 5.0
 
 
-def _drop_shadowed_municipalities(tags: list[Tag]) -> list[Tag]:
-    """R25: a municipality and a town/village with the same name (ignoring "(…)") within 5 km
-    are one place; keep the town/village point."""
-    settlements = [
-        t for t in tags if isinstance(t.rule, NearPlace) and t.rule.kind in ("town", "village")
+_MERGE_RANK = {"town": 0, "village": 0, "municipality": 1, "lake": 2}  # peaks never merge
+
+
+def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
+    """R25/R26: same-name (ignoring "(…)") town/village, municipality and lake within 5 km are
+    one place; keep the highest-priority one (town/village > municipality > lake)."""
+    ranked = [
+        (t, _MERGE_RANK[t.rule.kind])
+        for t in tags
+        if isinstance(t.rule, NearPlace) and t.rule.kind in _MERGE_RANK
     ]
 
-    def shadowed(t: Tag) -> bool:
-        rule = t.rule
-        if not (isinstance(rule, NearPlace) and rule.kind == "municipality"):
-            return False
+    def shadowed(t: Tag, rank: int) -> bool:
         return any(
-            _strip(t.label) == _strip(o.label)
-            and haversine_km((rule.lat, rule.lon), (o.rule.lat, o.rule.lon)) <= SAME_PLACE_KM
-            for o in settlements
+            r < rank
+            and _strip(t.label) == _strip(o.label)
+            and haversine_km((t.rule.lat, t.rule.lon), (o.rule.lat, o.rule.lon)) <= SAME_PLACE_KM
+            for o, r in ranked
         )
 
-    return [t for t in tags if not shadowed(t)]
+    dropped = {id(t) for t, r in ranked if shadowed(t, r)}
+    return [t for t in tags if id(t) not in dropped]
 
 
 def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
@@ -360,7 +364,7 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
             if tier is not None:
                 tiers.setdefault(tier, []).append(t)
         best = tiers[min(tiers)] if tiers else []
-    best = _drop_shadowed_municipalities(best)
+    best = _drop_shadowed_places(best)
     if len(best) == 1:
         return _to_start(best[0])
     if best:

@@ -515,3 +515,21 @@ def test_municipality_alone_resolves(vocab):
     res = understand(gw_of(start_text="Titisee-Neustadt"), v, "x", None)
     assert not isinstance(res, Clarify)
     assert res.start.tag_id == "place:titisee-neustadt"
+
+
+def test_lake_next_to_same_name_village_is_one_start(vocab):
+    v = _places_vocab(
+        vocab,
+        ("place:titisee-n1", "Titisee", "village", 47.901, 8.150),
+        ("place:titisee", "Titisee", "lake", 47.894, 8.145),
+    )
+    res = understand(gw_of(start_text="Titisee"), v, "x", None)
+    assert not isinstance(res, Clarify)
+    assert res.start.tag_id == "place:titisee-n1"
+
+
+def test_lake_alone_resolves(vocab):
+    v = _places_vocab(vocab, ("place:schluchsee", "Schluchsee", "lake", 47.82, 8.17))
+    res = understand(gw_of(start_text="Schluchsee"), v, "x", None)
+    assert not isinstance(res, Clarify)
+    assert res.start.tag_id == "place:schluchsee"
