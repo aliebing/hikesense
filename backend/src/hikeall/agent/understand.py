@@ -17,6 +17,7 @@ from hikeall.agent.request import (
     ResolvedStart,
     Understood,
 )
+from hikeall.geo import haversine_km
 from hikeall.llm.gateway import LLMGateway
 from hikeall.tags.vocabulary import Area, NearPlace, Tag, TagVocabulary, fold
 
@@ -317,6 +318,29 @@ def _tier(needle: str, terms: list[str]) -> int | None:
     return None
 
 
+SAME_PLACE_KM = 5.0
+
+
+def _drop_shadowed_municipalities(tags: list[Tag]) -> list[Tag]:
+    """R25: a municipality and a town/village with the same name (ignoring "(…)") within 5 km
+    are one place; keep the town/village point."""
+    settlements = [
+        t for t in tags if isinstance(t.rule, NearPlace) and t.rule.kind in ("town", "village")
+    ]
+
+    def shadowed(t: Tag) -> bool:
+        rule = t.rule
+        if not (isinstance(rule, NearPlace) and rule.kind == "municipality"):
+            return False
+        return any(
+            _strip(t.label) == _strip(o.label)
+            and haversine_km((rule.lat, rule.lon), (o.rule.lat, o.rule.lon)) <= SAME_PLACE_KM
+            for o in settlements
+        )
+
+    return [t for t in tags if not shadowed(t)]
+
+
 def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []
@@ -336,6 +360,7 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
             if tier is not None:
                 tiers.setdefault(tier, []).append(t)
         best = tiers[min(tiers)] if tiers else []
+    best = _drop_shadowed_municipalities(best)
     if len(best) == 1:
         return _to_start(best[0])
     if best:

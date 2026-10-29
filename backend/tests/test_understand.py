@@ -446,17 +446,17 @@ def test_water_is_not_a_waterfall(vocab):
 
 
 def test_feldberg_peak_village_and_municipality_are_distinct_options(vocab):
-    def tag(tid, label, kind, pid):
-        rule = NearPlace(place_id=pid, radius_km=15, lat=47.8, lon=8.0, kind=kind)
+    def tag(tid, label, kind, pid, lat):
+        rule = NearPlace(place_id=pid, radius_km=15, lat=lat, lon=8.0, kind=kind)
         return Tag(id=tid, label=label, category="place", rule=rule)
 
     others = [t for t in vocab.all() if not t.id.startswith("place:feldberg")]
     v = TagVocabulary(
         others
         + [
-            tag("place:feldberg", "Feldberg", "peak", 1),
-            tag("place:feldberg-n1", "Feldberg", "village", 2),
-            tag("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", "municipality", 3),
+            tag("place:feldberg", "Feldberg", "peak", 1, 47.87),
+            tag("place:feldberg-n1", "Feldberg", "village", 2, 47.5),  # far away village
+            tag("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", "municipality", 3, 47.86),
         ]
     )
     res = understand(gw_of(start_text="Feldberg"), v, "Tour am Feldberg", None)
@@ -464,3 +464,54 @@ def test_feldberg_peak_village_and_municipality_are_distinct_options(vocab):
     assert len(res.options) == 3 == len(set(res.options))
     assert any("Gipfel" in o for o in res.options)
     assert any("Gemeinde" in o for o in res.options)
+
+
+# --- R25: same-name municipality and village are one start ---------------------------------
+
+
+def _places_vocab(vocab, *places):
+    others = [t for t in vocab.all() if t.category != "place"]
+    tags = [
+        Tag(
+            id=tid,
+            label=label,
+            category="place",
+            rule=NearPlace(place_id=i, radius_km=15, lat=lat, lon=lon, kind=kind),
+        )
+        for i, (tid, label, kind, lat, lon) in enumerate(places, 1)
+    ]
+    return TagVocabulary(others + tags)
+
+
+def test_municipality_next_to_same_name_village_is_one_start(vocab):
+    v = _places_vocab(
+        vocab,
+        ("place:hinterzarten", "Hinterzarten", "village", 47.906, 8.104),
+        ("place:hinterzarten-r1", "Hinterzarten", "municipality", 47.893, 8.090),
+    )
+    res = understand(gw_of(start_text="Hinterzarten"), v, "um Hinterzarten", None)
+    assert not isinstance(res, Clarify)
+    assert res.start.tag_id == "place:hinterzarten"
+
+
+def test_far_same_name_places_stay_ambiguous(vocab):
+    v = _places_vocab(
+        vocab,
+        ("place:feldberg", "Feldberg", "peak", 47.874, 8.005),
+        ("place:feldberg-n1", "Feldberg", "village", 47.773, 7.641),
+        ("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", "municipality", 47.865, 8.067),
+    )
+    res = understand(gw_of(start_text="Feldberg"), v, "x", None)
+    assert isinstance(res, Clarify)
+    assert len(res.options) == 3
+    assert any("Gipfel" in o for o in res.options)
+    assert any("Gemeinde" in o for o in res.options)
+
+
+def test_municipality_alone_resolves(vocab):
+    v = _places_vocab(
+        vocab, ("place:titisee-neustadt", "Titisee-Neustadt", "municipality", 47.9, 8.2)
+    )
+    res = understand(gw_of(start_text="Titisee-Neustadt"), v, "x", None)
+    assert not isinstance(res, Clarify)
+    assert res.start.tag_id == "place:titisee-neustadt"

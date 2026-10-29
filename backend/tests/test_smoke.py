@@ -195,7 +195,7 @@ def test_runner_two_turn_feldberg_answers_with_the_place_option(deps):
             id="place:f-town",
             label="Feldberg",
             category="place",
-            rule=NearPlace(place_id=2, radius_km=15, lat=47.86, lon=8.04, kind="village"),
+            rule=NearPlace(place_id=2, radius_km=15, lat=47.77, lon=7.64, kind="village"),
         ),
         Tag(
             id="place:feldberg-schwarzwald",
