@@ -20,3 +20,4 @@ class Settings(BaseSettings):
     max_tool_calls: int = 8
     max_cost_usd: float = 0.05
     chat_log_path: Path = Path("data/logs/chat.jsonl")
+    chroma_dir: Path = Path("data/chroma")

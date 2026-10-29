@@ -13,6 +13,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend/src:/app/src
+      - ./data:/app/data
 
   # Next.js dev server. Server components fetch Supabase via SUPABASE_URL
   # (host.docker.internal, resolvable only inside the container); anything

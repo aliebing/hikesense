@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge
+.PHONY: test lint up down import scan knowledge tags
 
 test:
 	cd backend && uv run pytest -q
@@ -32,3 +32,7 @@ scan:
 # Wissensindex (Wikipedia/Wikivoyage + eigene Texte); lädt beim ersten Lauf das Embedding-Modell.
 knowledge:
 	cd backend && uv run hikeall build-knowledge
+
+# Merkmal- und Belag-Tags je Tour neu berechnen.
+tags:
+	cd backend && uv run hikeall build-tags
