@@ -146,18 +146,20 @@ class TagVocabulary:
         return list(self._tags.values())
 
     def search(self, text: str, limit: int = 20) -> list[Tag]:
-        """Folded match against labels and synonyms; prefix matches before inner matches."""
+        """Folded match against labels and synonyms; exact, then prefix, then inner matches."""
         needle = fold(text)
         if not needle:
             return []
-        prefix, inner = [], []
+        exact, prefix, inner = [], [], []
         for t in self._tags.values():
             terms = self._terms[t.id]
-            if any(x.startswith(needle) for x in terms):
+            if needle in terms:
+                exact.append(t)
+            elif any(x.startswith(needle) for x in terms):
                 prefix.append(t)
             elif any(needle in x for x in terms):
                 inner.append(t)
-        return (prefix + inner)[:limit]
+        return (exact + prefix + inner)[:limit]
 
 
 def _area_tags() -> list[Tag]:
@@ -190,7 +192,7 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
             continue
         tid = f"place:{slug}"
         if tid in used:  # same name twice (e.g. Feldberg peak and town): keep both, id-suffixed
-            tid = f"place:{slug}-{abs(pid)}"
+            tid = f"place:{slug}-{_osm_ref(pid)}"
         used.add(tid)
         tags.append(
             Tag(
@@ -203,6 +205,18 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
     return tags
 
 
+def _osm_ref(pid: int) -> str:
+    """Unambiguous OSM reference from the signed id scheme: n<node>, w<way>, r<relation>."""
+    if pid > 0:
+        return f"n{pid}"
+    if -pid >= 10**12:
+        return f"r{-pid - 10**12}"
+    return f"w{-pid}"
+
+
+MAX_UNKNOWN_SHARE = 0.5  # more unknown than this: the share says nothing, no tag
+
+
 def _share(shares: dict | None, keys: list[str]) -> float | None:
     if shares is None:
         return None
@@ -212,7 +226,8 @@ def _share(shares: dict | None, keys: list[str]) -> float | None:
 def compute_trail_tags(conn: psycopg.Connection, vocab: TagVocabulary) -> int:
     """Rewrite `trail_tags` (feature and surface tags only); returns the number of rows.
 
-    A tag whose data is missing (shares or roundtrip null) is never granted.
+    A tag whose data is missing (shares or roundtrip null) or mostly unknown (> 50 % of a
+    share field) is never granted.
     """
     trails = conn.execute(
         "select id, roundtrip, surface_shares, way_type_shares from trails"
@@ -240,8 +255,9 @@ def compute_trail_tags(conn: psycopg.Connection, vocab: TagVocabulary) -> int:
             elif isinstance(rule, Attribute):
                 ok = roundtrip is not None and roundtrip == rule.roundtrip
             elif isinstance(rule, (ShareAtLeast, ShareAtMost)):
-                value = _share(shares[rule.field], rule.keys)
-                if value is not None:
+                data = shares[rule.field]
+                value = _share(data, rule.keys)
+                if value is not None and _share(data, ["unknown"]) <= MAX_UNKNOWN_SHARE:
                     ok = (
                         value >= rule.share
                         if isinstance(rule, ShareAtLeast)

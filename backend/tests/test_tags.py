@@ -138,7 +138,7 @@ def test_share_tags_from_shares(conn):
     _shares(
         conn,
         "test-tags-shares",
-        {"paved": 0.1, "gravel": 0.5, "unknown": 0.4},
+        {"paved": 0.1, "gravel": 0.5, "unknown": 0.5},
         {"path": 0.45, "track": 0.55},
     )
     n = compute_trail_tags(conn, feature_vocab())
@@ -152,6 +152,19 @@ def test_share_tags_from_shares(conn):
     _shares(conn, "test-tags-shares", {"paved": 0.4, "gravel": 0.1}, {"path": 0.1})
     compute_trail_tags(conn, feature_vocab())
     assert _tags(conn, "test-tags-shares") == {"feature:rundweg"}
+
+
+@pytest.mark.db
+def test_mostly_unknown_shares_grant_no_tag(conn):
+    upsert_source(conn, SRC)
+    _trail(conn, "test-tags-unk")
+    _shares(conn, "test-tags-unk", {"unknown": 0.9, "paved": 0.1}, {"unknown": 0.6, "path": 0.4})
+    compute_trail_tags(conn, feature_vocab())
+    assert _tags(conn, "test-tags-unk") == set()
+    # unknown exactly 0.5 is still allowed (wenig_asphalt, naturweg)
+    _shares(conn, "test-tags-unk", {"unknown": 0.5, "paved": 0.1}, {"unknown": 0.5, "path": 0.5})
+    compute_trail_tags(conn, feature_vocab())
+    assert _tags(conn, "test-tags-unk") == {"surface:wenig_asphalt", "surface:naturweg"}
 
 
 @pytest.mark.db
@@ -191,4 +204,24 @@ def test_load_adds_places_and_areas(conn):
     assert v.get("place:zzzhamlet") is None  # hamlets are not tags
     assert v.search("zzzortstadt")[0].id == "place:zzzortstadt"
     assert isinstance(v.get("area:mitte").rule, Area)
-    assert isinstance(Tag, type)
+
+
+@pytest.mark.db
+def test_duplicate_place_names_get_unambiguous_ids(conn):
+    upsert_source(conn, SRC)
+    for pid, kind in ((-9_000_021, "town"), (9_000_022, "peak"), (-(10**12 + 9_000_023), "lake")):
+        conn.execute(
+            "insert into places (id, name, kind, geom, source_id) "
+            "values (%s, 'Zzzdup', %s, st_setsrid(st_makepoint(8.0, 48.0), 4326), %s)",
+            (pid, kind, SRC.id),
+        )
+    v = TagVocabulary.load(conn, FEATURES_YAML)
+    assert v.get("place:zzzdup").rule.place_id == -9_000_021  # town ranks first
+    assert v.get("place:zzzdup-n9000022").rule.place_id == 9_000_022
+    assert v.get("place:zzzdup-r9000023").rule.place_id == -(10**12 + 9_000_023)
+    assert isinstance(v.get("place:zzzdup-r9000023"), Tag)
+
+
+def test_search_exact_match_ranks_first(vocab):
+    assert vocab.search("Gipfel")[0].id == "feature:gipfel"
+    assert vocab.search("Bahn")[0].id == "feature:bahnhof"  # synonym "Bahn" beats prefix "Bahnhof"

@@ -290,11 +290,7 @@ def build_tags_cmd() -> int:
         return 2
     with connect(settings.supabase_db_url) as conn:
         vocab = TagVocabulary.load(conn, FEATURES_YAML)
-        try:
-            rows = compute_trail_tags(conn, vocab)
-        except BaseException:
-            conn.rollback()
-            raise
+        rows = compute_trail_tags(conn, vocab)
         conn.commit()
         counts = dict(
             conn.execute("select tag_id, count(*) from trail_tags group by tag_id").fetchall()
