@@ -119,6 +119,15 @@ def test_fetch_lodgings_raises_on_overpass_failure():
         fetch_lodgings(OverpassClient(http, backoff_s=0), BLACK_FOREST_BBOX, pause_s=0)
 
 
+@respx.mock
+def test_fetch_lodgings_raises_on_200_with_timeout_remark():
+    """A tile that timed out server-side must not count as 'no lodgings here'."""
+    body = {"elements": [], "remark": "runtime error: Query timed out in \"query\" at line 1."}
+    respx.post(OVERPASS_URL).mock(return_value=httpx.Response(200, json=body))
+    with make_http_client(5) as http, pytest.raises(OverpassError):
+        fetch_lodgings(OverpassClient(http, backoff_s=0), BLACK_FOREST_BBOX, pause_s=0)
+
+
 def _trail(conn):
     upsert_source(conn, SRC)
     upsert_trail(

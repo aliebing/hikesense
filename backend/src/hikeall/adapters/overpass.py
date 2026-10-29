@@ -25,4 +25,10 @@ class OverpassClient:
         )
         if not isinstance(data, dict) or "elements" not in data:
             raise OverpassError("Overpass response has no 'elements'")
+        # Timeouts and memory aborts come back as 200 with a remark and a
+        # truncated element list. Overpass only sets a remark in such cases, so
+        # any remark means the result may be incomplete: never act on it.
+        remark = data.get("remark")
+        if remark:
+            raise OverpassError(f"Overpass result incomplete (remark): {remark}")
         return data
