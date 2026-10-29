@@ -17,6 +17,7 @@ MAX_SEARCH_KM = 50.0
 SEARCH_FACTOR = 3.0
 MAX_POIS = 10
 MAX_LODGINGS = 10
+MAX_LODGING_DIST_M = 5000
 
 
 class DayHikeResult(BaseModel):
@@ -203,23 +204,22 @@ def get_trail_details(conn: psycopg.Connection, trail_id: str) -> TrailDetails |
             (trail_id,),
         )
     ]
-    pois = [
-        PoiBrief(name=r[0], kind=r[1], dist_m=r[2], along_km=_f(r[3]))
-        for r in conn.execute(
-            """
-            select p.name, p.kind, tp.dist_m, tp.along_km
-            from trail_pois tp join pois p on p.id = tp.poi_id
-            where tp.trail_id = %s
-            order by tp.along_km nulls last, p.id
-            limit %s
-            """,
-            (trail_id, MAX_POIS),
-        )
-    ]
+    poi_rows = conn.execute(
+        """
+        select p.name, p.kind, tp.dist_m, tp.along_km, p.source_id
+        from trail_pois tp join pois p on p.id = tp.poi_id
+        where tp.trail_id = %s
+        order by tp.along_km nulls last, p.id
+        limit %s
+        """,
+        (trail_id, MAX_POIS),
+    ).fetchall()
+    pois = [PoiBrief(name=r[0], kind=r[1], dist_m=r[2], along_km=_f(r[3])) for r in poi_rows]
     photo_count = conn.execute(
         "select count(*) from photos where trail_id = %s", (trail_id,)
     ).fetchone()[0]
     src_ids = {t[9]} if t[9] else set()
+    src_ids |= {r[4] for r in poi_rows if r[4]}
     src_ids |= {
         r[0]
         for r in conn.execute(
@@ -258,7 +258,9 @@ def find_accommodation(
     near_km: float | None = None,
     max_dist_m: int = 1000,
 ) -> list[LodgingBrief]:
-    """Lodgings within max_dist_m of the trail; ordered by distance to near_km if given."""
+    """Lodgings within max_dist_m (1..5000) of the trail; ordered by distance to near_km."""
+    if not 1 <= max_dist_m <= MAX_LODGING_DIST_M:
+        raise ValueError(f"max_dist_m must be between 1 and {MAX_LODGING_DIST_M}")
     rows = conn.execute(
         """
         select l.name, l.kind, tl.dist_m, tl.along_km, l.website, l.source_id
@@ -303,6 +305,9 @@ def search_knowledge(query: str, k: int = 5) -> list[KnowledgeHit]:
 
 
 class DbTools:
+    """AgentTools on Postgres. conn_factory must return a FRESH connection per call; every
+    tool call runs inside `with conn_factory() as conn:`, which closes it afterwards."""
+
     def __init__(
         self,
         conn_factory: Callable[[], psycopg.Connection],
@@ -312,15 +317,18 @@ class DbTools:
         self._knowledge = knowledge
 
     def search_day_hikes(self, req: HikeRequest) -> DayHikeResult:
-        return search_day_hikes(self._conn_factory(), req)
+        with self._conn_factory() as conn:
+            return search_day_hikes(conn, req)
 
     def get_trail_details(self, trail_id: str) -> TrailDetails | None:
-        return get_trail_details(self._conn_factory(), trail_id)
+        with self._conn_factory() as conn:
+            return get_trail_details(conn, trail_id)
 
     def find_accommodation(
         self, trail_id: str, near_km: float | None = None, max_dist_m: int = 1000
     ) -> list[LodgingBrief]:
-        return find_accommodation(self._conn_factory(), trail_id, near_km, max_dist_m)
+        with self._conn_factory() as conn:
+            return find_accommodation(conn, trail_id, near_km, max_dist_m)
 
     def hiking_time(self, length_km: float, ascent_m: float, descent_m: float) -> HikingTime:
         return hiking_time(length_km, ascent_m, descent_m)
@@ -353,16 +361,16 @@ TOOL_SPECS: list[dict] = [
     ),
     _spec(
         "find_accommodation",
-        "Findet Unterkünfte nahe einer Tour (höchstens 10), optional nahe einem Tourkilometer.",
+        "Findet Unterkünfte nahe einer Tour (höchstens 10), optional sortiert nach Nähe zu einem Tourkilometer.",
         {
             "trail_id": {"type": "string", "description": "ID der Tour"},
             "near_km": {
                 "type": "number",
-                "description": "Tourkilometer, in dessen Nähe gesucht wird",
+                "description": "Ergebnisse sortiert nach Nähe zu km X der Tour (kein Filter)",
             },
             "max_dist_m": {
                 "type": "integer",
-                "description": "Maximaler Abstand zur Tour in Metern",
+                "description": "Maximaler Abstand zur Tour in Metern (1 bis 5000, Standard 1000)",
             },
         },
         ["trail_id"],

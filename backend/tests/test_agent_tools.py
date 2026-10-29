@@ -5,7 +5,9 @@ from conftest import LINE
 
 from hikeall.agent.request import Constraint, HikeRequest, ResolvedStart
 from hikeall.agent.tools import (
+    TOOL_SPECS,
     DbTools,
+    KnowledgeHit,
     find_accommodation,
     get_trail_details,
     hiking_time,
@@ -144,3 +146,124 @@ def test_hiking_time_is_din33466():
 def test_search_knowledge_without_index_reports_missing():
     hits = DbTools(lambda: None).search_knowledge("Wasser")
     assert len(hits) == 1 and "Wissensindex fehlt" in hits[0].text
+
+
+def add_poi(db, id, kind="viewpoint", source="test-p2-src"):
+    db.execute(
+        "insert into pois (id, name, kind, geom, source_id) "
+        "values (%s, %s, %s, st_setsrid(st_makepoint(8.0, 40.0), 4326), %s)",
+        (id, f"poi{id}", kind, source),
+    )
+
+
+@pytest.mark.db
+def test_details_pois_limited_ordered_and_sources_complete(db):
+    add_trail(db, "test-p2-poi")
+    upsert_source(
+        db,
+        Source(id="test-p2-src2", name="p", url="u", license="l", retrieved_at=date(2026, 10, 29)),
+    )
+    for i in range(12):
+        add_poi(db, -9200000 - i, source="test-p2-src2" if i == 11 else "test-p2-src")
+        db.execute(
+            "insert into trail_pois (trail_id, poi_id, dist_m, along_km) values (%s, %s, 10, %s)",
+            ("test-p2-poi", -9200000 - i, 12 - i),  # higher i = smaller along_km
+        )
+    d = get_trail_details(db, "test-p2-poi")
+    assert len(d.pois) == 10
+    assert [p.along_km for p in d.pois] == sorted(p.along_km for p in d.pois)
+    assert d.pois[0].along_km == 1  # i=11 (source 2) is first
+    assert d.source_ids == ["test-p2-src", "test-p2-src2"]
+    assert [s.id for s in d.sources] == d.source_ids
+
+
+@pytest.mark.db
+def test_details_include_stages(db):
+    add_trail(db, "test-p2-stg")
+    db.execute(
+        "insert into stages (id, trail_id, seq, name, length_km, source_id) values "
+        "('test-p2-stg-2', 'test-p2-stg', 2, 'B', 5, 'test-p2-src'), "
+        "('test-p2-stg-1', 'test-p2-stg', 1, 'A', 3, 'test-p2-src')"
+    )
+    d = get_trail_details(db, "test-p2-stg")
+    assert [(s.seq, s.name, s.length_km, s.ascent_m) for s in d.stages] == [
+        (1, "A", 3.0, None),
+        (2, "B", 5.0, None),
+    ]
+
+
+@pytest.mark.db
+def test_accommodation_limited_to_10(db):
+    add_trail(db, "test-p2-many")
+    for i in range(12):
+        upsert_lodging(
+            db, Lodging(id=-9300000 - i, name=f"L{i}", kind="hotel", lat=BASE_LAT, lon=8.0), SRC.id
+        )
+        db.execute(
+            "insert into trail_lodgings values ('test-p2-many', %s, 100, %s)", (-9300000 - i, i)
+        )
+    assert len(find_accommodation(db, "test-p2-many")) == 10
+
+
+@pytest.mark.parametrize("bad", [0, -1, 5001])
+def test_accommodation_rejects_bad_max_dist(bad):
+    with pytest.raises(ValueError):
+        find_accommodation(None, "x", max_dist_m=bad)
+
+
+@pytest.mark.db
+def test_candidate_tags_come_from_trail_tags(db):
+    add_trail(db, "test-p2-tag")
+    db.execute(
+        "insert into trail_tags values ('test-p2-tag', 'surface:paved'), ('test-p2-tag', 'view')"
+    )
+    res = search_day_hikes(db, req())
+    m = [s for s in res.selection.matches if s.candidate.trail_id == "test-p2-tag"]
+    assert m[0].candidate.tags == {"surface:paved", "view"}
+
+
+def test_tool_specs_exactly_four_without_day_hike_search():
+    names = [s["function"]["name"] for s in TOOL_SPECS]
+    assert names == ["get_trail_details", "find_accommodation", "hiking_time", "search_knowledge"]
+    spec = next(s for s in TOOL_SPECS if s["function"]["name"] == "find_accommodation")
+    assert (
+        "sortiert nach Nähe"
+        in spec["function"]["parameters"]["properties"]["near_km"]["description"]
+    )
+
+
+class CountingFactory:
+    """Hands out a wrapper around the test connection and records close-on-exit."""
+
+    def __init__(self, conn):
+        self.conn, self.opened, self.closed = conn, 0, 0
+
+    def __call__(self):
+        self.opened += 1
+        return self
+
+    def __enter__(self):
+        return self.conn
+
+    def __exit__(self, *exc):
+        self.closed += 1
+
+
+@pytest.mark.db
+def test_dbtools_delegates_and_closes_each_call(db):
+    add_trail(db, "test-p2-del")
+    f = CountingFactory(db)
+    tools = DbTools(f)
+    assert tools.search_day_hikes(req()).total_in_area == 1
+    assert tools.get_trail_details("test-p2-del").name == "test-p2-del"
+    assert tools.find_accommodation("test-p2-del") == []
+    assert tools.hiking_time(10, 600, 600).hours == 4.45
+    assert f.opened == f.closed == 3  # hiking_time needs no connection
+
+
+def test_dbtools_knowledge_delegates():
+    class Idx:
+        def search(self, q, k=5):
+            return [KnowledgeHit(text=f"{q}{k}")]
+
+    assert DbTools(lambda: None, Idx()).search_knowledge("a", 2)[0].text == "a2"
