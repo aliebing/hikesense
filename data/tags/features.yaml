@@ -1,0 +1,49 @@
+# Controlled feature tags (Plan 2, Task 3). Each tag has a rule that derives it from data.
+# poi_near: a POI of one of `kinds` within `within_m` of the trail (trail_pois).
+# share_at_least / share_at_most: share of trail length per surface/way_type class.
+# A missing share (null) never grants a tag.
+- id: "feature:aussicht"
+  label: Aussicht
+  category: feature
+  synonyms: [Ausblick, Panorama, Fernsicht, Aussichtspunkt, Weitblick]
+  rule: {type: poi_near, kinds: [viewpoint], within_m: 300}
+- id: "feature:gipfel"
+  label: Gipfel
+  category: feature
+  synonyms: [Berg, Bergspitze, Gipfelkreuz, Gipfelblick]
+  rule: {type: poi_near, kinds: [peak], within_m: 300}
+- id: "feature:wasserfall"
+  label: Wasserfall
+  category: feature
+  synonyms: [Wasserfaelle, Wasser, Kaskade]
+  rule: {type: poi_near, kinds: [waterfall], within_m: 300}
+- id: "feature:einkehr"
+  label: Einkehr
+  category: feature
+  synonyms: [Gasthaus, Huette, Wirtschaft, Restaurant, Gaststaette, Rast, Vesper]
+  rule: {type: poi_near, kinds: [food, hut], within_m: 300}
+- id: "feature:bahnhof"
+  label: Bahnhof
+  category: feature
+  synonyms: [Bahn, Zug, Oepnv, Anreise mit der Bahn, Haltestelle]
+  rule: {type: poi_near, kinds: [station], within_m: 300}
+- id: "feature:rundweg"
+  label: Rundweg
+  category: feature
+  synonyms: [Rundtour, Rundwanderung, Rundkurs, Runde]
+  rule: {type: attribute, roundtrip: true}
+- id: "surface:wenig_asphalt"
+  label: Wenig Asphalt
+  category: surface
+  synonyms: [kaum Asphalt, ohne Asphalt, wenig Teer, abseits von Strassen]
+  rule: {type: share_at_most, field: surface, keys: [paved], share: 0.2}
+- id: "surface:naturweg"
+  label: Naturweg
+  category: surface
+  synonyms: [Pfad, Wanderpfad, Trampelpfad, Naturpfad, schmale Wege]
+  rule: {type: share_at_least, field: way_type, keys: [path], share: 0.4}
+- id: "surface:gut_laufbar"
+  label: Gut laufbar
+  category: surface
+  synonyms: [gut begehbar, bequem, fester Untergrund, kinderwagentauglich, leicht zu gehen]
+  rule: {type: share_at_least, field: surface, keys: [paved, gravel], share: 0.6}

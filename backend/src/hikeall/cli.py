@@ -30,6 +30,7 @@ from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
 from hikeall.models import BLACK_FOREST_BBOX
+from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_tags
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAILS_YAML = REPO_ROOT / "data" / "curated" / "trails.yaml"
@@ -283,6 +284,32 @@ def import_places_cmd() -> int:
     return 0
 
 
+def build_tags_cmd() -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    with connect(settings.supabase_db_url) as conn:
+        vocab = TagVocabulary.load(conn, FEATURES_YAML)
+        try:
+            rows = compute_trail_tags(conn, vocab)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+        counts = dict(
+            conn.execute("select tag_id, count(*) from trail_tags group by tag_id").fetchall()
+        )
+        trails = conn.execute("select count(*) from trails").fetchone()[0]
+    stored = [t for t in vocab.all() if t.category in ("feature", "surface")]
+    print(f"{trails} Touren, {rows} Tag-Zuordnungen, {len(vocab)} Tags im Vokabular")
+    for t in stored:
+        print(f"{t.id}: {counts.get(t.id, 0)} Touren")
+    for t in stored:
+        if counts.get(t.id, 0) == 0:
+            print(f"  Warnung: {t.id} hat 0 Touren")
+    return 0
+
+
 # Wikimedia rejects (403) user agents without a usable contact URL.
 COMMONS_USER_AGENT = os.environ.get(
     "HIKEALL_USER_AGENT",
@@ -377,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
     )
+    sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
     for name, help_text in (
@@ -394,6 +422,8 @@ def main(argv: list[str] | None = None) -> int:
         return import_lodgings_cmd()
     if args.command == "import-places":
         return import_places_cmd()
+    if args.command == "build-tags":
+        return build_tags_cmd()
     if args.command == "import-photos":
         return import_photos_cmd(args.only)
     if args.command == "scan-day-hikes":
