@@ -92,6 +92,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
             {s.license && ` (${s.license})`}
           </span>
         ))}
+        {" · "}Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA
         {" · "}Gehzeit nach DIN 33466 (Richtwert, ohne Pausen)
       </footer>
     </Panorama>

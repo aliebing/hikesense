@@ -56,6 +56,14 @@ test("home lists long-distance trails and day hikes with attribution", async () 
   expect(screen.getAllByText(/Autor day-1/).length).toBeGreaterThan(0);
 });
 
+test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
+  mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1)]);
+  render(await Home());
+  expect(screen.getByRole("contentinfo")).toHaveTextContent(
+    "Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA",
+  );
+});
+
 test("home counts only day hikes that have a photo", async () => {
   const noPhoto = { ...trail("day-2", "day_hike", 48.2), cover: null };
   mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1), noPhoto]);

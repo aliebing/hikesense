@@ -132,6 +132,15 @@ def test_import_stores_sources_geometry_and_stage_ids(conn, small_spec, overpass
 
 
 @pytest.mark.db
+def test_import_records_the_elevation_source(conn, small_spec, overpass_fixture):
+    import_trail(conn, small_spec, overpass_fixture, Ramp())
+    row = conn.execute(
+        "select name, license from sources where id = 'copernicus-glo30'"
+    ).fetchone()
+    assert row and "Copernicus" in row[0] and "DLR" in row[1]
+
+
+@pytest.mark.db
 def test_cli_reports_gap_with_trail_and_relation_and_exits_1(conn, monkeypatch, capsys):
     from hikeall import cli
 

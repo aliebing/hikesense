@@ -396,6 +396,13 @@ def test_cli_import_reports_failed_relation_and_exits_1(conn, monkeypatch, capsy
 
 
 @pytest.mark.db
+def test_import_records_the_elevation_source(conn, overpass):
+    _, client = overpass
+    import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)
+    assert conn.execute("select 1 from sources where id = 'copernicus-glo30'").fetchone()
+
+
+@pytest.mark.db
 def test_rejected_day_hike_with_commons_photos_is_removed_with_its_photos(conn, overpass):
     _, client = overpass
     import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)

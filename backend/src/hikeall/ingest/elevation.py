@@ -2,14 +2,33 @@
 
 from __future__ import annotations
 
+from datetime import date
 from itertools import pairwise
 from typing import NamedTuple, Protocol
 
 from hikeall.geo import Point, haversine_km
-from hikeall.models import LatLon
+from hikeall.models import LatLon, Source
 
 SMOOTH_WINDOW = 5
 MAX_PROFILE_POINTS = 300
+
+ELEVATION_SOURCE_ID = "copernicus-glo30"
+
+
+def elevation_source() -> Source:
+    """Where every Hm figure comes from in Plan 1 (adapters.dem.CopernicusDem).
+
+    Free to use with attribution; the importers store it like the other sources."""
+    return Source(
+        id=ELEVATION_SOURCE_ID,
+        name="Copernicus DEM GLO-30",
+        url="https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model",
+        license=(
+            "© DLR e.V. 2010–2014 und © Airbus Defence and Space GmbH 2014–2018, "
+            "bereitgestellt unter COPERNICUS von der Europäischen Union und ESA"
+        ),
+        retrieved_at=date.today(),
+    )
 
 
 class ElevationProvider(Protocol):

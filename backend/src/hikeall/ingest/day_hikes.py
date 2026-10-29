@@ -21,7 +21,7 @@ from hikeall.adapters.overpass import OverpassClient
 from hikeall.db import delete_day_hike, upsert_source, upsert_trail
 from hikeall.errors import GapError, HikeAllError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
-from hikeall.ingest.elevation import ElevationProvider, elevation_stats
+from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
 from hikeall.ingest.trails import (
     ROUNDTRIP_KM,
     check_in_region,
@@ -355,6 +355,7 @@ def import_day_hikes(
     id and the others continue. Does not commit."""
     result = DayHikeImport()
     upsert_source(conn, source)
+    upsert_source(conn, elevation_source())
     accepted = sorted(
         (c for c in candidates if final_decision(c)[0] == "accepted"),
         key=lambda c: c.osm_relation_id,

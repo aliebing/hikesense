@@ -11,7 +11,7 @@ from hikeall.db import delete_stages_after, upsert_source, upsert_stage, upsert_
 from hikeall.errors import GapError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
 from hikeall.ingest.assemble import assemble_with_report, orient_by_members
-from hikeall.ingest.elevation import ElevationProvider, elevation_stats
+from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
 from hikeall.ingest.stages import cut_stages
 from hikeall.models import BLACK_FOREST_BBOX, LatLon, TrailSpec
 
@@ -145,6 +145,7 @@ def import_trail(
 
     upsert_source(conn, spec.geometry_source)
     upsert_source(conn, spec.source)
+    upsert_source(conn, elevation_source())
     upsert_trail(
         conn,
         id=spec.id,

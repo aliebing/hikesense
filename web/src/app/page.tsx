@@ -98,8 +98,9 @@ export default async function Home() {
       </section>
 
       <footer className="text-[11px] text-papier/75">
-        Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos:
-        Wikimedia Commons, Urheber und Lizenz am Bild.
+        Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
+        von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am
+        Bild.
       </footer>
     </Panorama>
   );
