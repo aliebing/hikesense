@@ -1,10 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { streamChat, type ChatEvent } from "../lib/chat";
+import { useEffect, useRef, useState } from "react";
+import { streamChat, type ChatEvent, type Labels, type TourCard } from "../lib/chat";
+import type { Photo } from "../lib/data";
 import ChatMessages, { type ChatItem } from "./ChatMessages";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+/** The cover of a tour as a Photo; null unless author and licence are known (never shown unattributed). */
+export function coverOf(card: TourCard | undefined): Photo | null {
+  if (!card?.cover_thumb_url || !card.cover_author || !card.cover_license) return null;
+  return {
+    url: card.cover_thumb_url,
+    thumb_url: card.cover_thumb_url,
+    author: card.cover_author,
+    license: card.cover_license,
+    license_url: card.cover_license_url,
+    page_url: card.cover_page_url,
+  };
+}
 
 /** Planning chat of layout A: streams the agent's answer, result cards and sources. */
 export default function ChatShell({
@@ -15,7 +29,7 @@ export default function ChatShell({
   intro: string;
   apiUrl?: string;
   /** Called with the cover of the first tour of a result set (null: no cover). */
-  onCover?: (url: string | null) => void;
+  onCover?: (cover: Photo | null) => void;
 }) {
   const [threadId] = useState(() => crypto.randomUUID());
   const [items, setItems] = useState<ChatItem[]>([]);
@@ -23,22 +37,40 @@ export default function ChatShell({
   const [busy, setBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const runWithoutPace = useRef(false);
+  const labels = useRef<Labels>({});
+  const unmounted = useRef(false);
+
+  useEffect(() => {
+    unmounted.current = false;
+    return () => {
+      unmounted.current = true;
+      abort.current?.abort();
+    };
+  }, []);
 
   const apply = (e: ChatEvent) => {
     switch (e.type) {
       case "understood":
         runWithoutPace.current = e.request.activity === "run" && e.request.pace_min_per_km === null;
-        setItems((l) => [...l, { kind: "understood", text: e.text, request: e.request }]);
+        labels.current = { ...labels.current, ...e.labels };
+        setItems((l) => [...l, { kind: "understood", text: e.text, request: e.request, labels: labels.current }]);
         break;
       case "clarify":
         setItems((l) => [...l, { kind: "clarify", question: e.question, options: e.options }]);
         break;
       case "results":
+        labels.current = { ...labels.current, ...e.labels };
         setItems((l) => [
           ...l,
-          { kind: "results", cards: e.cards, fallback: e.fallback_reason, runWithoutPace: runWithoutPace.current },
+          {
+            kind: "results",
+            cards: e.cards,
+            fallback: e.fallback_reason,
+            runWithoutPace: runWithoutPace.current,
+            labels: labels.current,
+          },
         ]);
-        onCover?.(e.cards[0]?.cover_thumb_url ?? null);
+        onCover?.(coverOf(e.cards[0]));
         break;
       case "token":
         setItems((l) => {
@@ -67,8 +99,9 @@ export default function ChatShell({
     const ctrl = new AbortController();
     abort.current = ctrl;
     await streamChat(apiUrl, threadId, m, apply, ctrl.signal);
-    if (ctrl.signal.aborted) setItems((l) => [...l, { kind: "error", text: "Abgebrochen." }]);
     abort.current = null;
+    if (unmounted.current) return;
+    if (ctrl.signal.aborted) setItems((l) => [...l, { kind: "notice", text: "Abgebrochen." }]);
     setBusy(false);
   };
 

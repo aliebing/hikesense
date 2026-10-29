@@ -29,6 +29,10 @@ class Candidate:
     distance_km: float
     tags: set[str] = field(default_factory=set)
     cover_thumb_url: str | None = None
+    cover_author: str | None = None
+    cover_license: str | None = None
+    cover_license_url: str | None = None
+    cover_page_url: str | None = None
 
 
 @dataclass

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Photo } from "../lib/data";
 import Attribution from "./Attribution";
+import { useCover } from "./CoverContext";
 
 /**
  * Full-bleed background photo with prev/next controls and the attribution of
@@ -13,6 +14,34 @@ import Attribution from "./Attribution";
 export default function PhotoSwitcher({ photos }: { photos: Photo[] }) {
   const [index, setIndex] = useState(0);
   const [broken, setBroken] = useState<Set<string>>(() => new Set());
+  const { cover } = useCover();
+
+  // A suggested tour's cover replaces the whole stage: one background layer, its own credit.
+  if (cover) {
+    const shown = !broken.has(cover.url);
+    return (
+      <>
+        <div data-testid="tour-cover" aria-hidden className="wald-verlauf fixed inset-0 -z-10">
+          {shown && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={cover.url}
+              src={cover.url}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => setBroken((b) => new Set(b).add(cover.url))}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/5 to-black/65" />
+        </div>
+        {shown && (
+          <div className="flex max-w-full items-center rounded-full bg-black/35 px-3 py-1 text-papier backdrop-blur-md">
+            <Attribution photo={cover} />
+          </div>
+        )}
+      </>
+    );
+  }
 
   if (photos.length === 0) {
     return <div data-testid="panorama-fallback" aria-hidden className="wald-verlauf fixed inset-0 -z-10" />;

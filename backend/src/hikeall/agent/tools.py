@@ -98,9 +98,11 @@ def search_radius_km(req: HikeRequest) -> float:
 
 # The cover photo: the first Commons photo of the trail (lowest id) with a thumbnail, else null.
 _COLS = """t.id, t.name, t.length_km, t.ascent_m, t.descent_m, t.roundtrip, t.source_id,
-       (select p.thumb_url from photos p
+       c.thumb_url, c.author, c.license, c.license_url, c.page_url"""
+_COVER_JOIN = """left join lateral (
+        select p.thumb_url, p.author, p.license, p.license_url, p.page_url from photos p
         where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
-        order by p.id limit 1) as cover_thumb_url"""
+        order by p.id limit 1) c on true"""
 
 
 def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResult:
@@ -116,7 +118,8 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
             f"""
             select {_COLS},
                    st_distance(t.geom::geography, p.pt::geography) / 1000.0 as dist_km
-            from trails t,
+            from trails t
+            {_COVER_JOIN},
                  (select st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326) as pt) p
             where t.kind = 'day_hike' and t.geom is not null
               and st_dwithin(t.geom::geography, p.pt::geography, %(m)s)
@@ -130,6 +133,7 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
             f"""
             select {_COLS}, 0.0 as dist_km
             from trails t
+            {_COVER_JOIN}
             where t.kind = 'day_hike' and t.geom is not null
               and st_intersects(t.geom, st_makeenvelope(%(w)s, %(s)s, %(e)s, %(n)s, 4326))
             order by t.id
@@ -154,9 +158,13 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
             ascent_m=r[3],
             descent_m=r[4],
             roundtrip=r[5],
-            distance_km=float(r[8]),
+            distance_km=float(r[12]),
             tags=tags[r[0]],
             cover_thumb_url=r[7],
+            cover_author=r[8],
+            cover_license=r[9],
+            cover_license_url=r[10],
+            cover_page_url=r[11],
         )
         for r in rows
     ]

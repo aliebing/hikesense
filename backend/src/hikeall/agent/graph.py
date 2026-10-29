@@ -105,6 +105,10 @@ class TourCard(BaseModel):
     duration_h: float | None  # None: unknown, or a run without pace
     distance_km: float
     cover_thumb_url: str | None = None
+    cover_author: str | None = None
+    cover_license: str | None = None
+    cover_license_url: str | None = None
+    cover_page_url: str | None = None
     results: list[ConstraintResult]
     deviation_text: str | None = None
     preference: PreferenceMatch
@@ -121,6 +125,7 @@ class UnderstoodEvent(ChatEvent):
     type: Literal["understood"] = "understood"
     text: str
     request: HikeRequest
+    labels: dict[str, str] = {}  # tag_id -> vocabulary label, for every tag the request names
 
 
 class ClarifyEvent(ChatEvent):
@@ -133,6 +138,7 @@ class ResultsEvent(ChatEvent):
     type: Literal["results"] = "results"
     cards: list[TourCard]
     fallback_reason: str | None
+    labels: dict[str, str] = {}  # tag_id -> vocabulary label, for every tag the cards name
 
 
 class TokenEvent(ChatEvent):
@@ -239,10 +245,22 @@ def _card(s: Scored) -> TourCard:
         duration_h=s.duration_h,
         distance_km=c.distance_km,
         cover_thumb_url=c.cover_thumb_url,
+        cover_author=c.cover_author,
+        cover_license=c.cover_license,
+        cover_license_url=c.cover_license_url,
+        cover_page_url=c.cover_page_url,
         results=[_as_float(r) for r in s.results],
         deviation_text=format_deviation(s.violated) if s.violated else None,
         preference=s.preference,
     )
+
+
+def _labels(vocab: TagVocabulary, tag_ids: list[str]) -> dict[str, str]:
+    return {t: (tag.label if (tag := vocab.get(t)) else t) for t in tag_ids}
+
+
+def _card_tags(cards: list[TourCard]) -> list[str]:
+    return [t for c in cards for t in (*c.preference.met, *c.preference.missing, *c.preference.avoided_hit)]
 
 
 def _as_float(r: ConstraintResult) -> ConstraintResult:
@@ -491,7 +509,13 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"pending": pending, "clarify": res.model_dump(), "route": "clarify"}
         req = res
         if req.intent != "other":
-            _emit(UnderstoodEvent(text=echo(req, vocab), request=req))
+            _emit(
+                UnderstoodEvent(
+                    text=echo(req, vocab),
+                    request=req,
+                    labels=_labels(vocab, [p.tag_id for p in req.preferences]),
+                )
+            )
         out["current"] = req.model_dump(mode="json")
         if req.intent in TOUR_INTENTS:
             return out | {"request": out["current"], "route": "search"}
@@ -523,7 +547,11 @@ def build_graph(deps: AgentDeps) -> Any:
         scored = sel.matches or sel.fallbacks
         cards = [_card(s) for s in scored]
         reason = None if sel.matches else sel.reason
-        _emit(ResultsEvent(cards=cards, fallback_reason=reason))
+        _emit(
+            ResultsEvent(
+                cards=cards, fallback_reason=reason, labels=_labels(vocab, _card_tags(cards))
+            )
+        )
         sources = [SourceBrief(id=s, name=None, url=None, license=None) for s in result.source_ids]
         out: State = {"tool_calls": 1, "reason": reason, "sources": _add_sources([], sources)}
         if not cards:

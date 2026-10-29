@@ -16,7 +16,7 @@ from hikeall.agent.prompts import (
     OTHER_REPLY,
     TOOL_LIMIT,
 )
-from hikeall.agent.request import RawRequest
+from hikeall.agent.request import RawRequest, RawWish
 from hikeall.agent.tools import DayHikeResult, KnowledgeHit, TrailDetails, search_radius_km
 from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY
@@ -569,6 +569,10 @@ def test_card_carries_cover_thumb(vocab, settings):
             True,
             2.3,
             cover_thumb_url="https://t/1.jpg",
+            cover_author="Autor",
+            cover_license="CC BY 4.0",
+            cover_license_url="https://l",
+            cover_page_url="https://p",
         ),
         Candidate("t-kurz", "Seebuck-Weg", 9.0, 150, 150, True, 1.1),
     ]
@@ -582,6 +586,29 @@ def test_card_carries_cover_thumb(vocab, settings):
     cards = {c.trail_id: c for c in one(run(deps, FELDBERG_MSG), "results").cards}
     assert cards["t-runde"].cover_thumb_url == "https://t/1.jpg"
     assert cards["t-kurz"].cover_thumb_url is None
+    c = cards["t-runde"]
+    assert (c.cover_author, c.cover_license) == ("Autor", "CC BY 4.0")
+    assert (c.cover_license_url, c.cover_page_url) == ("https://l", "https://p")
+    k = cards["t-kurz"]
+    assert (k.cover_author, k.cover_license, k.cover_license_url, k.cover_page_url) == (None,) * 4
+
+
+def test_events_carry_tag_labels(vocab, settings):
+    wishes = [RawWish(text="Aussicht", mode="prefer", weight=4)]
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(cands=CANDS),
+        structured={RawRequest: [feldberg_raw(wishes=wishes)]},
+        answers=["Antwort."],
+    )
+    events = run(deps, FELDBERG_MSG)
+    understood = one(events, "understood")
+    assert understood.labels == {"feature:aussicht": "Aussicht"}
+    results = one(events, "results")
+    referenced = {t for c in results.cards for t in c.preference.met + c.preference.missing}
+    assert referenced <= set(results.labels)
+    assert results.labels["feature:aussicht"] == "Aussicht"
 
 
 def test_leak_keeps_fallback_reason_prefix(vocab, settings):

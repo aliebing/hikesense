@@ -22,12 +22,17 @@ const request = {
   ], preferences: [{ tag_id: "aussicht", mode: "prefer", weight: 3 }], pace_min_per_km: null,
   unmatched: ["Hundefreundlich"], question: null,
 };
-const understood = { type: "understood", text: "Verstanden: Tagestour, Wandern.", request };
+const understood = {
+  type: "understood", text: "Verstanden: Tagestour, Wandern.", request, labels: { aussicht: "Aussicht" },
+};
 const tour = {
   trail_id: "t1", name: "Feldsee-Runde", length_km: 12, ascent_m: 400, duration_h: 4, distance_km: 2,
-  cover_thumb_url: "https://img/x.jpg", results: [], deviation_text: null,
+  cover_thumb_url: "https://img/x.jpg", cover_author: "Anna", cover_license: "CC BY 4.0",
+  cover_license_url: "https://cc/by", cover_page_url: "https://commons/p", results: [], deviation_text: null,
   preference: { score: 0, met: [], missing: [], avoided_hit: [] },
 };
+
+const DONE = { type: "done", usage: {}, unsupported: 0 };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -40,7 +45,8 @@ it("shows understood chips including 'nicht prüfbar'", async () => {
   render(<ChatShell intro="Hi" apiUrl="http://api" />);
   await ask();
   expect(await screen.findByText("Länge ≤ 15 km")).toBeInTheDocument();
-  expect(screen.getByText(/Vorliebe: aussicht/)).toBeInTheDocument();
+  expect(screen.getByText(/Vorliebe: Aussicht/)).toBeInTheDocument();
+  expect(screen.queryByText(/aussicht \(/)).toBeNull();
   expect(screen.getByText("nicht prüfbar: Hundefreundlich")).toBeInTheDocument();
   expect(screen.getByText("Tour bitte")).toBeInTheDocument();
 });
@@ -59,7 +65,14 @@ it("shows fallback reason above cards and reports the cover of the first tour", 
   const note = await screen.findByRole("note");
   const card = screen.getByRole("link", { name: "Feldsee-Runde" });
   expect(note.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(onCover).toHaveBeenCalledWith("https://img/x.jpg");
+  expect(onCover).toHaveBeenCalledWith({
+    url: "https://img/x.jpg",
+    thumb_url: "https://img/x.jpg",
+    author: "Anna",
+    license: "CC BY 4.0",
+    license_url: "https://cc/by",
+    page_url: "https://commons/p",
+  });
 });
 
 it("streams tokens, shows sources with a draft marker", async () => {
@@ -80,10 +93,10 @@ it("streams tokens, shows sources with a draft marker", async () => {
 });
 
 it("clarify options are buttons that send the answer", async () => {
-  mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel", "Gemeinde"] }]));
+  mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel", "Gemeinde"] }, DONE]));
   render(<ChatShell intro="Hi" apiUrl="http://api" />);
   await ask("Feldberg");
-  mockStream(sse([{ type: "token", text: "ok" }]));
+  mockStream(sse([{ type: "token", text: "ok" }, DONE]));
   await userEvent.click(await screen.findByRole("button", { name: "Gipfel" }));
   await waitFor(() => expect(fetch).toHaveBeenCalled());
   const body = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string);
@@ -97,4 +110,97 @@ it("shows a German error when the API is unreachable and keeps the input usable"
   await ask();
   expect(await screen.findByRole("alert")).toHaveTextContent(/nicht erreichbar/);
   expect(screen.getByLabelText("Nachricht")).toBeEnabled();
+});
+
+it("ignores a condition without any bound and a roundtrip without value", async () => {
+  const odd = {
+    ...request,
+    constraints: [
+      { kind: "length_km", min: null, max: null, required: null },
+      { kind: "roundtrip", min: null, max: null, required: null },
+    ],
+    preferences: [],
+    unmatched: [],
+  };
+  mockStream(sse([{ ...understood, request: odd }, DONE]));
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  await screen.findByText("Verstanden: Tagestour, Wandern.");
+  expect(screen.queryByText(/≤ 0/)).toBeNull();
+  expect(screen.queryByText("kein Rundweg")).toBeNull();
+});
+
+it("run without pace shows the pace hint on cards", async () => {
+  const run = { ...request, activity: "run", pace_min_per_km: null };
+  mockStream(
+    sse([
+      { ...understood, request: run },
+      { type: "results", cards: [{ ...tour, duration_h: null }], fallback_reason: null, labels: {} },
+      DONE,
+    ]),
+  );
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  expect(await screen.findByText(/Zeit: Tempo angeben/)).toBeInTheDocument();
+});
+
+it("shows an error when the stream ends without done", async () => {
+  mockStream(sse([{ type: "token", text: "Halb" }]));
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  expect(await screen.findByRole("alert")).toHaveTextContent(/unterbrochen/);
+});
+
+it("shows the rate-limit message of a 429 answer", async () => {
+  const body = sse([{ type: "error", message: "Zu viele Anfragen. Bitte warte 12 Sekunden." }]);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 429 })));
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Zu viele Anfragen. Bitte warte 12 Sekunden.");
+});
+
+function hangingFetch() {
+  let signal: AbortSignal | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_u: string, init: RequestInit) => {
+      signal = init.signal as AbortSignal;
+      return new Promise((_res, rej) =>
+        signal!.addEventListener("abort", () => rej(new DOMException("aborted", "AbortError"))),
+      );
+    }),
+  );
+  return () => signal;
+}
+
+it("Abbrechen aborts the request, shows 'Abgebrochen.' as a plain note and frees the input", async () => {
+  const getSignal = hangingFetch();
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  await userEvent.click(await screen.findByRole("button", { name: "Abbrechen" }));
+  expect(getSignal()?.aborted).toBe(true);
+  expect(await screen.findByText("Abgebrochen.")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByLabelText("Nachricht")).toBeEnabled();
+});
+
+it("aborts the request on unmount", async () => {
+  const getSignal = hangingFetch();
+  const { unmount } = render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask();
+  await screen.findByRole("button", { name: "Abbrechen" });
+  unmount();
+  expect(getSignal()?.aborted).toBe(true);
+});
+
+it("clarify buttons are disabled while an answer is running; history is a polite live region", async () => {
+  mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel"] }, DONE]));
+  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  await ask("Feldberg");
+  const btn = await screen.findByRole("button", { name: "Gipfel" });
+  expect(screen.getByRole("list", { name: "Verlauf" })).toHaveAttribute("aria-live", "polite");
+  hangingFetch();
+  await userEvent.click(btn);
+  await screen.findByRole("button", { name: "Abbrechen" });
+  expect(screen.getByRole("button", { name: "Gipfel" })).toBeDisabled();
 });

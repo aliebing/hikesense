@@ -42,6 +42,10 @@ export type TourCard = {
   duration_h: number | null;
   distance_km: number;
   cover_thumb_url: string | null;
+  cover_author: string | null;
+  cover_license: string | null;
+  cover_license_url: string | null;
+  cover_page_url: string | null;
   results: ConstraintResult[];
   deviation_text: string | null;
   preference: PreferenceMatch;
@@ -55,14 +59,19 @@ export type SourceBrief = {
   status: string | null;
 };
 
+/** tag_id -> vocabulary label */
+export type Labels = Record<string, string>;
+
 export type ChatEvent =
-  | { type: "understood"; text: string; request: HikeRequest }
+  | { type: "understood"; text: string; request: HikeRequest; labels?: Labels }
   | { type: "clarify"; question: string; options: string[] }
-  | { type: "results"; cards: TourCard[]; fallback_reason: string | null }
+  | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }
   | { type: "error"; message: string };
+
+export const ERROR_INTERRUPTED = "Die Antwort wurde unterbrochen. Bitte stelle die Frage noch einmal.";
 
 export const ERROR_UNREACHABLE =
   "Der Planungs-Dienst ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.";
@@ -72,8 +81,12 @@ export const ERROR_UNREACHABLE =
  * previous call; returns the complete events and the new rest.
  */
 export function parseSse(chunk: string, buffer: string): { events: ChatEvent[]; rest: string } {
-  const parts = (buffer + chunk).replace(/\r\n?/g, "\n").split("\n\n");
-  const rest = parts.pop() ?? "";
+  let text = buffer + chunk;
+  // a trailing "\r" may be the first half of a CRLF split across chunks: carry it over
+  const tail = text.endsWith("\r") ? "\r" : "";
+  if (tail) text = text.slice(0, -1);
+  const parts = text.replace(/\r\n?/g, "\n").split("\n\n");
+  const rest = (parts.pop() ?? "") + tail;
   const events: ChatEvent[] = [];
   for (const block of parts) {
     const data = block
@@ -114,18 +127,24 @@ export async function streamChat(
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let rest = "";
+    let finished = false; // saw "done" or "error"
     let got = false;
+    const emit = (events: ChatEvent[]) => {
+      for (const e of events) {
+        got = true;
+        if (e.type === "done" || e.type === "error") finished = true;
+        onEvent(e);
+      }
+    };
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       const parsed = parseSse(decoder.decode(value, { stream: true }), rest);
       rest = parsed.rest;
-      for (const e of parsed.events) {
-        got = true;
-        onEvent(e);
-      }
+      emit(parsed.events);
     }
-    if (!got && !res.ok) onEvent({ type: "error", message: ERROR_UNREACHABLE });
+    emit(parseSse("\n\n", rest).events); // an event the server did not terminate
+    if (!finished) onEvent({ type: "error", message: got || res.ok ? ERROR_INTERRUPTED : ERROR_UNREACHABLE });
   } catch (e) {
     if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
     onEvent({ type: "error", message: ERROR_UNREACHABLE });

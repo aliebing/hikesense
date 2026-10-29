@@ -10,10 +10,43 @@ const card = (over: Partial<TourCard> = {}): TourCard => ({
   duration_h: 4.5,
   distance_km: 3.2,
   cover_thumb_url: null,
+  cover_author: null,
+  cover_license: null,
+  cover_license_url: null,
+  cover_page_url: null,
   results: [{ kind: "length_km", ok: true, actual: 12.3, bound: "≤ 15 km", deviation_rel: 0, bound_value: 15 }],
   deviation_text: null,
   preference: { score: 1, met: ["aussicht"], missing: ["see"], avoided_hit: [] },
   ...over,
+});
+
+it("missing length shows unbekannt, never 0", () => {
+  const { container } = render(<TourResultCard card={card({ length_km: null })} />);
+  expect(container).toHaveTextContent("Länge: unbekannt");
+  expect(container).not.toHaveTextContent("0 km");
+});
+
+it("uses vocabulary labels for preferences, tag id only as fallback", () => {
+  render(<TourResultCard card={card()} labels={{ aussicht: "Aussicht" }} />);
+  expect(screen.getByText(/Erfüllte Vorlieben: Aussicht/)).toBeInTheDocument();
+  expect(screen.getByText(/Fehlende Vorlieben: see/)).toBeInTheDocument();
+});
+
+it("shows the cover with author and licence, but not without attribution data", () => {
+  const withCover = card({
+    cover_thumb_url: "https://img/t.jpg",
+    cover_author: "Anna",
+    cover_license: "CC BY 4.0",
+    cover_license_url: "https://cc/by",
+    cover_page_url: "https://commons/p",
+  });
+  const { container, unmount } = render(<TourResultCard card={withCover} />);
+  expect(container.querySelector("img")).toHaveAttribute("src", "https://img/t.jpg");
+  expect(screen.getByText(/Anna/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", "https://cc/by");
+  unmount();
+  const noAttr = render(<TourResultCard card={card({ cover_thumb_url: "https://img/t.jpg" })} />);
+  expect(noAttr.container.querySelector("img")).toBeNull();
 });
 
 it("shows figures, verdicts, preferences and the tour link", () => {
@@ -37,8 +70,8 @@ it("shows the deviation text for a violated condition", () => {
 
 it("never renders 0 for missing ascent", () => {
   const { container } = render(<TourResultCard card={card({ ascent_m: null })} />);
-  expect(container).toHaveTextContent("↑ – m");
-  expect(container).not.toHaveTextContent("↑ 0 m");
+  expect(container).toHaveTextContent("Höhenmeter: unbekannt");
+  expect(container).not.toHaveTextContent(/↑ 0|0 m/);
 });
 
 it("run without pace shows no walking time, only the pace hint", () => {

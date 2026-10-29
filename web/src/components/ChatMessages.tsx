@@ -1,27 +1,30 @@
-import type { Constraint, HikeRequest, SourceBrief, TourCard } from "../lib/chat";
+import type { Constraint, HikeRequest, Labels, SourceBrief, TourCard } from "../lib/chat";
 import TourResultCard from "./TourResultCard";
 
 export type ChatItem =
   | { kind: "user"; text: string }
   | { kind: "assistant"; text: string }
-  | { kind: "understood"; text: string; request: HikeRequest }
+  | { kind: "understood"; text: string; request: HikeRequest; labels: Labels }
   | { kind: "clarify"; question: string; options: string[] }
-  | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean }
+  | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels }
   | { kind: "sources"; sources: SourceBrief[] }
+  | { kind: "notice"; text: string }
   | { kind: "error"; text: string };
 
 const num = (n: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(n);
 
-function range(label: string, unit: string, c: Constraint): string {
+/** null when the constraint has no bound at all: nothing is invented. */
+function range(label: string, unit: string, c: Constraint): string | null {
   if (c.min !== null && c.max !== null) return `${label} ${num(c.min)}–${num(c.max)} ${unit}`;
   if (c.min !== null) return `${label} ≥ ${num(c.min)} ${unit}`;
-  return `${label} ≤ ${num(c.max ?? 0)} ${unit}`;
+  if (c.max !== null) return `${label} ≤ ${num(c.max)} ${unit}`;
+  return null;
 }
 
-function constraintChip(c: Constraint): string {
+function constraintChip(c: Constraint): string | null {
   switch (c.kind) {
     case "roundtrip":
-      return c.required ? "Rundweg" : "kein Rundweg";
+      return c.required === true ? "Rundweg" : c.required === false ? "kein Rundweg" : null;
     case "length_km":
       return range("Länge", "km", c);
     case "ascent_m":
@@ -33,12 +36,17 @@ function constraintChip(c: Constraint): string {
   }
 }
 
-export function chipsFor(r: HikeRequest): { text: string; warn?: boolean }[] {
+export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?: boolean }[] {
+  const constraints = r.constraints.flatMap((c) => {
+    const text = constraintChip(c);
+    return text ? [{ text }] : [];
+  });
   return [
-    ...r.constraints.map((c) => ({ text: constraintChip(c) })),
-    ...r.preferences.map((p) => ({
-      text: p.mode === "prefer" ? `Vorliebe: ${p.tag_id} (Gewicht ${p.weight})` : `Vermeiden: ${p.tag_id}`,
-    })),
+    ...constraints,
+    ...r.preferences.map((p) => {
+      const name = labels[p.tag_id] ?? p.tag_id;
+      return { text: p.mode === "prefer" ? `Vorliebe: ${name} (Gewicht ${p.weight})` : `Vermeiden: ${name}` };
+    }),
     ...r.unmatched.map((u) => ({ text: `nicht prüfbar: ${u}`, warn: true })),
   ];
 }
@@ -55,7 +63,7 @@ export default function ChatMessages({
   disabled: boolean;
 }) {
   return (
-    <ol aria-label="Verlauf" className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+    <ol aria-label="Verlauf" aria-live="polite" className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
       {items.map((it, i) => (
         <li key={i} className="flex flex-col gap-1">
           {it.kind === "user" && (
@@ -68,7 +76,7 @@ export default function ChatMessages({
             <div className="flex flex-col gap-1">
               <p className="text-xs text-papier/90">{it.text}</p>
               <ul aria-label="Erkannte Wünsche" className="flex flex-wrap gap-1">
-                {chipsFor(it.request).map((c, j) => (
+                {chipsFor(it.request, it.labels).map((c, j) => (
                   <li
                     key={j}
                     className={`rounded-full px-2 py-0.5 text-xs ${c.warn ? "bg-amber-200 text-amber-950" : "bg-papier/85 text-wald-dunkel"}`}
@@ -105,7 +113,7 @@ export default function ChatMessages({
                 </p>
               )}
               {it.cards.map((c) => (
-                <TourResultCard key={c.trail_id} card={c} runWithoutPace={it.runWithoutPace} />
+                <TourResultCard key={c.trail_id} card={c} runWithoutPace={it.runWithoutPace} labels={it.labels} />
               ))}
             </div>
           )}
@@ -129,6 +137,7 @@ export default function ChatMessages({
               ))}
             </ul>
           )}
+          {it.kind === "notice" && <p className="text-xs text-papier/90">{it.text}</p>}
           {it.kind === "error" && (
             <p role="alert" className={`${bubble} bg-red-100 text-red-900`}>
               {it.text}
