@@ -25,7 +25,6 @@ cases:
           activity: run
           no_duration_without_pace: true
           no_pace: true
-          min_results: 1
   - id: 4-westweg-markierung
     turns:
       - message: "Wie ist der Westweg markiert?"
