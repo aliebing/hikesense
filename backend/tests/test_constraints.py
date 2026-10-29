@@ -7,7 +7,7 @@ from hikeall.agent.constraints import (
     preference_score,
     select,
 )
-from hikeall.agent.request import Constraint, HikeRequest, Preference
+from hikeall.agent.request import Constraint, HikeRequest, Preference, ResolvedStart
 
 
 def cand(**kw) -> Candidate:
@@ -25,7 +25,9 @@ def cand(**kw) -> Candidate:
     return Candidate(**base)
 
 
-def req(*constraints, radius_max=None, prefs=(), activity="hike", pace=None) -> HikeRequest:
+def req(
+    *constraints, radius_max=None, prefs=(), activity="hike", pace=None, start_kind=None
+) -> HikeRequest:
     cs = list(constraints)
     if radius_max is not None:
         cs.append(Constraint(kind="radius_km", max=radius_max))
@@ -35,6 +37,7 @@ def req(*constraints, radius_max=None, prefs=(), activity="hike", pace=None) -> 
         constraints=cs,
         preferences=list(prefs),
         pace_min_per_km=pace,
+        start=ResolvedStart(kind=start_kind, tag_id="x", label="X") if start_kind else None,
     )
 
 
@@ -142,12 +145,12 @@ def test_no_contradiction():
 
 
 def test_radius_fallback():
-    sel = select([cand(distance_km=18)], req(radius_max=15))
+    sel = select([cand(distance_km=18)], req(radius_max=15, start_kind="place"))
     assert format_deviation(sel.fallbacks[0].violated) == "18 km entfernt statt höchstens 15"
 
 
 def test_no_candidates_has_reason():
-    sel = select([], req(radius_max=15))
+    sel = select([], req(radius_max=15, start_kind="place"))
     assert (
         sel.reason
         == "Keine Tour erfüllt alle Wünsche, weil im Umkreis von 15 km keine passende Tour liegt"
@@ -174,3 +177,75 @@ def test_decimal_format():
     c = cand(length_km=12.5)
     [r] = check(c, [Constraint(kind="length_km", max=10)], "hike", None)
     assert format_deviation(r) == "12,5 km statt höchstens 10"
+
+
+def test_unknown_fallback_reason_is_not_called_violation():
+    sel = select([cand(ascent_m=None)], req(Constraint(kind="ascent_m", max=400)))
+    assert "Höhenmeter unbekannt" in sel.reason
+    assert "verletzt" not in sel.reason and "nicht erfüllt" not in sel.reason
+
+
+def test_unknown_fallbacks_rank_after_real_violations():
+    cands = [
+        cand(trail_id="u", length_km=None, ascent_m=50),  # unknown length, dev 1.0
+        cand(trail_id="r", ascent_m=900),  # real ascent dev 8.0
+    ]
+    sel = select(
+        cands, req(Constraint(kind="ascent_m", max=100), Constraint(kind="length_km", max=20))
+    )
+    assert [f.candidate.trail_id for f in sel.fallbacks] == ["r", "u"]
+
+
+def test_contradiction_across_constraints_of_same_kind():
+    cs = [Constraint(kind="length_km", min=10), Constraint(kind="length_km", max=5)]
+    assert contradiction(cs) == "Länge: mindestens 10 km und höchstens 5 km schließen sich aus"
+    sel = select([cand()], req(*cs))
+    assert sel.contradiction and not sel.fallbacks
+    assert contradiction(
+        [Constraint(kind="roundtrip", required=True), Constraint(kind="roundtrip", required=False)]
+    )
+
+
+def test_trail_id_tiebreak_is_deterministic():
+    cands = [cand(trail_id=i) for i in ("c", "a", "b")]
+    assert [m.candidate.trail_id for m in select(cands, req()).matches] == ["a", "b", "c"]
+    fb = [cand(trail_id=i, ascent_m=500) for i in ("z", "m")]
+    sel = select(fb, req(Constraint(kind="ascent_m", max=200)))
+    assert [f.candidate.trail_id for f in sel.fallbacks] == ["m"]
+    sel = select(fb[::-1], req(Constraint(kind="ascent_m", max=200)))
+    assert [f.candidate.trail_id for f in sel.fallbacks] == ["m"]
+
+
+def test_fallback_tie_prefers_higher_score():
+    cands = [cand(trail_id="a", ascent_m=500), cand(trail_id="b", ascent_m=500, tags={"see"})]
+    sel = select(
+        cands,
+        req(Constraint(kind="ascent_m", max=200), prefs=[Preference(tag_id="see", mode="prefer")]),
+    )
+    assert [f.candidate.trail_id for f in sel.fallbacks] == ["b"]
+
+
+def test_small_violation_never_looks_equal_to_bound():
+    [r] = check(cand(distance_km=15.04), [Constraint(kind="radius_km", max=15)], "hike", None)
+    assert format_deviation(r) == "15,04 km entfernt statt höchstens 15"
+
+
+def test_min_bound_deviation():
+    [r] = check(cand(ascent_m=100), [Constraint(kind="ascent_m", min=400)], "hike", None)
+    assert r.deviation_rel == 0.75
+    assert format_deviation(r) == "100 Hm statt mindestens 400"
+
+
+def test_nonpositive_pace_has_no_duration():
+    assert duration_h(cand(), "run", 0.0) is None
+    assert duration_h(cand(), "run", -5.0) is None
+
+
+def test_empty_reason_area_and_place():
+    area = select([], req(radius_max=15, start_kind="area"))
+    assert (
+        area.reason == "Keine Tour erfüllt alle Wünsche, weil im Gebiet keine passende Tour liegt"
+    )
+    assert "15" not in area.reason
+    nostart = select([], req())
+    assert nostart.reason.startswith("Keine Tour erfüllt alle Wünsche, weil")
