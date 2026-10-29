@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke
+.PHONY: test lint up down import scan knowledge tags smoke osm-extract places
 
 test:
 	cd backend && uv run pytest -q
@@ -40,3 +40,14 @@ tags:
 # Durchstich gegen das echte Modell (OPENROUTER_API_KEY in .env; kostet wenige Cent).
 smoke:
 	cd backend && uv run hikeall smoke
+
+# Geofabrik-Extrakt Baden-Württemberg (ODbL, ~700 MB); FORCE=1 lädt neu.
+OSM_PBF = data/osm/baden-wuerttemberg-latest.osm.pbf
+osm-extract:
+	mkdir -p data/osm
+	[ -f $(OSM_PBF) ] && [ -z "$(FORCE)" ] || curl -L -f -o $(OSM_PBF) https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf
+
+# Orte und POIs aus dem lokalen Extrakt (statt Overpass), danach Tags neu berechnen.
+places: osm-extract
+	cd backend && uv run hikeall import-places --pbf $(OSM_PBF)
+	cd backend && uv run hikeall build-tags

@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from hikeall.adapters.commons import CommonsClient
 from hikeall.adapters.dem import CopernicusDem
 from hikeall.adapters.http import make_http_client
+from hikeall.adapters.osm_pbf import pbf_timestamp, read_elements
 from hikeall.adapters.overpass import OverpassClient
 from hikeall.config import Settings
 from hikeall.db import connect
@@ -26,7 +27,13 @@ from hikeall.ingest.day_hikes import (
 )
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
-from hikeall.ingest.places import fetch_places, fetch_pois, import_places
+from hikeall.ingest.places import (
+    fetch_places,
+    fetch_pois,
+    import_places,
+    parse_places,
+    parse_pois,
+)
 from hikeall.ingest.shares import import_shares
 from hikeall.ingest.stages import load_trail_sources, load_trail_specs
 from hikeall.ingest.trails import import_trail
@@ -255,7 +262,7 @@ def import_lodgings_cmd() -> int:
     return 0
 
 
-def import_places_cmd() -> int:
+def import_places_cmd(pbf: Path | None = None) -> int:
     settings = _settings()
     if settings is None:
         return 2
@@ -266,8 +273,17 @@ def import_places_cmd() -> int:
     ):
         overpass = OverpassClient(http, url=settings.overpass_url)
         try:
-            places = fetch_places(overpass, BLACK_FOREST_BBOX)
-            pois = fetch_pois(overpass, BLACK_FOREST_BBOX)
+            if pbf is not None:
+                pbf = _repo_path(pbf)
+                if not pbf.is_file():
+                    print(f"Fehler: OSM-Extrakt nicht gefunden: {pbf}", file=sys.stderr)
+                    return 2
+                data = read_elements(pbf, BLACK_FOREST_BBOX)
+                places, pois = parse_places(data), parse_pois(data)
+                print(f"OSM-Extrakt {pbf.name}, Stand {pbf_timestamp(pbf) or 'unbekannt'}")
+            else:
+                places = fetch_places(overpass, BLACK_FOREST_BBOX)
+                pois = fetch_pois(overpass, BLACK_FOREST_BBOX)
             links = import_places(conn, places, pois, source)
         except BaseException as e:
             conn.rollback()
@@ -446,9 +462,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
-    sub.add_parser(
+    p = sub.add_parser(
         "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
     )
+    p.add_argument("--pbf", type=Path, help="lokaler Geofabrik-Extrakt statt Overpass")
     sub.add_parser(
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
@@ -470,7 +487,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-lodgings":
         return import_lodgings_cmd()
     if args.command == "import-places":
-        return import_places_cmd()
+        return import_places_cmd(args.pbf)
     if args.command == "build-knowledge":
         return build_knowledge_cmd()
     if args.command == "smoke":
