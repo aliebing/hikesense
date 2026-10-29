@@ -76,14 +76,20 @@ def understand(
         start = resolved
 
     preferences, unmatched = _resolve_wishes(vocab, raw.wishes)
+    constraints, invalid = _constraints(raw)
+    unmatched += invalid
+    pace = raw.pace_min_per_km
+    if pace is not None and pace <= 0:
+        unmatched.append(_invalid("Tempo", pace))
+        pace = None
     delta = HikeRequest(
         intent=raw.intent,
         activity=raw.activity or "hike",
         start_text=start_text,
         start=start,
-        constraints=_constraints(raw),
+        constraints=constraints,
         preferences=preferences[:MAX_PREFERENCES],
-        pace_min_per_km=raw.pace_min_per_km,
+        pace_min_per_km=pace,
         unmatched=unmatched,
         question=(raw.question or message) if raw.intent == "knowledge" else raw.question,
     )
@@ -91,7 +97,7 @@ def understand(
     if overflow:  # never drop a wish silently
         delta.unmatched += [_text_for(vocab, p.tag_id) for p in overflow]
 
-    req = _merge(previous, delta, raw.activity) if is_change and previous else delta
+    req = _merge(previous, delta, raw.activity, vocab) if is_change and previous else delta
     if wants_tour:
         req = _finish(req, vocab)
         if req.activity == "run" and _needs_pace(req):
@@ -99,8 +105,13 @@ def understand(
     return req
 
 
-def _constraints(raw: RawRequest) -> list[Constraint]:
+def _invalid(label: str, value: float) -> str:
+    return f"{label}: {_num(value)} ist kein gültiger Wert"
+
+
+def _constraints(raw: RawRequest) -> tuple[list[Constraint], list[str]]:
     out: list[Constraint] = []
+    invalid: list[str] = []
     if raw.roundtrip is not None:
         out.append(Constraint(kind="roundtrip", required=raw.roundtrip))
     for kind, lo, hi in (
@@ -109,20 +120,32 @@ def _constraints(raw: RawRequest) -> list[Constraint]:
         ("duration_h", raw.duration_h_min, raw.duration_h_max),
         ("radius_km", None, raw.radius_km_max),
     ):
-        if lo is not None or hi is not None:
-            out.append(Constraint(kind=kind, min=lo, max=hi))
-    return out
+        bounds = []
+        for value in (lo, hi):
+            if value is not None and value <= 0:
+                invalid.append(_invalid(_LABELS[kind][0].strip(), value))
+                value = None
+            bounds.append(value)
+        if bounds[0] is not None or bounds[1] is not None:
+            out.append(Constraint(kind=kind, min=bounds[0], max=bounds[1]))
+    return out, invalid
 
 
-def _merge(previous: HikeRequest, delta: HikeRequest, activity: str | None) -> HikeRequest:
+def _merge(
+    previous: HikeRequest, delta: HikeRequest, activity: str | None, vocab: TagVocabulary
+) -> HikeRequest:
     new_kinds = {c.kind for c in delta.constraints}
     prefs = {p.tag_id: p for p in previous.preferences}
+    if any(p.tag_id.startswith("surface:") for p in delta.preferences):
+        prefs.pop(RUN_SURFACE_TAG, None)  # the user's own surface wish replaces the run default
     for p in delta.preferences:
         prefs[p.tag_id] = p
     merged_prefs = list(prefs.values())
     unmatched = previous.unmatched + [u for u in delta.unmatched if u not in previous.unmatched]
-    overflow = merged_prefs[MAX_PREFERENCES:]
-    unmatched += [p.tag_id for p in overflow]  # cannot happen in practice; never silent
+    for p in merged_prefs[MAX_PREFERENCES:]:  # limit reached: report, never drop silently
+        label = _text_for(vocab, p.tag_id)
+        if label not in unmatched:
+            unmatched.append(label)
     return HikeRequest(
         intent=previous.intent,
         activity=activity or previous.activity,
@@ -131,7 +154,9 @@ def _merge(previous: HikeRequest, delta: HikeRequest, activity: str | None) -> H
         constraints=[c for c in previous.constraints if c.kind not in new_kinds]
         + delta.constraints,
         preferences=merged_prefs[:MAX_PREFERENCES],
-        pace_min_per_km=delta.pace_min_per_km or previous.pace_min_per_km,
+        pace_min_per_km=(
+            delta.pace_min_per_km if delta.pace_min_per_km is not None else previous.pace_min_per_km
+        ),
         unmatched=unmatched,
         question=previous.question,
     )
@@ -176,6 +201,7 @@ def _resolve_wishes(
     does not check what the user asked for, so the prefix must end at a word boundary.
     """
     prefs: dict[str, Preference] = {}
+    conflicts: list[str] = []
     unmatched: list[str] = []
     for wish in wishes:
         needle = fold(wish.text)
@@ -192,9 +218,18 @@ def _resolve_wishes(
             if wish.text.strip() and wish.text.strip() not in unmatched:
                 unmatched.append(wish.text.strip())
             continue
-        prefs[tag.id] = Preference(
-            tag_id=tag.id, mode=wish.mode, weight=min(5, max(1, wish.weight))
-        )
+        weight = min(5, max(1, wish.weight))
+        if tag.id in conflicts:
+            continue
+        old = prefs.get(tag.id)
+        if old is None:
+            prefs[tag.id] = Preference(tag_id=tag.id, mode=wish.mode, weight=weight)
+        elif old.mode == wish.mode:
+            old.weight = max(old.weight, weight)
+        else:  # prefer and avoid at once: apply neither, say so
+            del prefs[tag.id]
+            conflicts.append(tag.id)
+            unmatched.append(f"{tag.label}: bevorzugen und meiden zugleich")
     return list(prefs.values()), unmatched
 
 
@@ -223,9 +258,10 @@ def _tier(needle: str, terms: list[str]) -> int | None:
 def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []
+    shown = _display_names(cands)
     if "(" in text:  # user gave the disambiguating suffix: try the full label first
         full = fold(text)
-        best = [t for t in cands if full in _terms(t)]
+        best = [t for t in cands if full in _terms(t) or full == fold(shown[t.id])]
     if not best:
         needle = _strip(text)
         tiers: dict[int, list[Tag]] = {}
@@ -237,7 +273,7 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     if len(best) == 1:
         return _to_start(best[0])
     if best:
-        options = [t.label for t in best][:MAX_OPTIONS]
+        options = [shown[t.id] for t in best][:MAX_OPTIONS]
         return Clarify(
             question=f"Meinst du {_join_or(options)}? „{text}“ ist nicht eindeutig.",
             options=options,
@@ -256,6 +292,23 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     else:
         msg += " Nenne bitte einen Ort oder eine Gegend im Schwarzwald."
     return Clarify(question=msg, options=close)
+
+
+_KIND_NAMES = {"peak": "Gipfel", "town": "Ort", "village": "Ort", "lake": "See"}
+
+
+def _display_names(tags: list[Tag]) -> dict[str, str]:
+    """Label per tag id; identical labels get the kind in parentheses to stay distinct."""
+    counts: dict[str, int] = {}
+    for t in tags:
+        counts[t.label] = counts.get(t.label, 0) + 1
+    out = {}
+    for t in tags:
+        out[t.id] = t.label
+        if counts[t.label] > 1:
+            kind = t.rule.kind if isinstance(t.rule, NearPlace) else None
+            out[t.id] = f"{t.label} ({_KIND_NAMES.get(kind or '', t.id)})"
+    return out
 
 
 def _to_start(tag: Tag) -> ResolvedStart:

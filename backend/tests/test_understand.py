@@ -123,7 +123,7 @@ def test_more_than_ten_wishes_overflow_to_unmatched(vocab):
 def test_run_gets_runnable_preference(vocab):
     req = understand(gw_of(activity="run", start_text="Todtnau"), vocab, "x", None)
     assert Preference(tag_id="surface:gut_laufbar", mode="prefer", weight=3) in req.preferences
-    assert "Laufbar" in echo(req, vocab) or "laufbar" in echo(req, vocab)
+    assert "Vorlieben: Gut laufbar (Gewicht 3)" in echo(req, vocab)
 
 
 def test_run_keeps_user_surface_wish(vocab):
@@ -234,3 +234,105 @@ def test_echo_lists_every_constraint_and_unmatched(vocab):
         "nicht prüfbar: Kinderwagen",
     ):
         assert part in text
+
+
+def _dup_vocab(vocab):
+    def tag(tid, kind, pid):
+        return Tag(
+            id=tid,
+            label="Dupberg",
+            category="place",
+            rule=NearPlace(place_id=pid, radius_km=15, lat=47.8, lon=8.0, kind=kind),
+        )
+
+    return TagVocabulary(
+        vocab.all() + [tag("place:dupberg", "peak", 7), tag("place:dupberg-n8", "town", 8)]
+    )
+
+
+def test_same_tag_same_mode_keeps_max_weight(vocab):
+    wishes = [RawWish(text="Aussicht", weight=2), RawWish(text="Panorama", weight=4)]
+    req = understand(gw_of(start_text="Todtnau", wishes=wishes), vocab, "x", None)
+    assert req.preferences == [Preference(tag_id="feature:aussicht", mode="prefer", weight=4)]
+    assert req.unmatched == []
+
+
+def test_same_tag_opposite_modes_applies_neither_and_reports(vocab):
+    wishes = [RawWish(text="Aussicht"), RawWish(text="Panorama", mode="avoid")]
+    req = understand(gw_of(start_text="Todtnau", wishes=wishes), vocab, "x", None)
+    assert req.preferences == []
+    assert req.unmatched == ["Aussicht: bevorzugen und meiden zugleich"]
+
+
+def test_change_overflow_reports_label_not_id(vocab):
+    extra = [
+        Tag(
+            id=f"feature:x{i}", label=f"Xtra{i}", category="feature", rule=Attribute(roundtrip=True)
+        )
+        for i in range(11)
+    ]
+    v = TagVocabulary(vocab.all() + extra)
+    prev = HikeRequest(
+        intent="day_hike",
+        preferences=[Preference(tag_id=f"feature:x{i}", mode="prefer") for i in range(10)],
+    )
+    res = understand(gw_of(intent="change", wishes=[RawWish(text="Xtra10")]), v, "x", prev)
+    assert len(res.preferences) == 10
+    assert res.unmatched == ["Xtra10"]
+
+
+@pytest.mark.parametrize(
+    "field,label",
+    [
+        ("length_km_max", "Länge"),
+        ("ascent_m_max", "Anstieg"),
+        ("duration_h_max", "Dauer"),
+        ("radius_km_max", "Umkreis"),
+    ],
+)
+def test_non_positive_value_is_reported_not_applied(vocab, field, label):
+    req = understand(gw_of(start_text="Todtnau", **{field: -5}), vocab, "x", None)
+    assert f"{label}: -5 ist kein gültiger Wert" in req.unmatched
+    kind = field.rsplit("_", 1)[0]
+    kind = {"length_km": "length_km", "ascent_m": "ascent_m", "duration_h": "duration_h"}.get(
+        kind, "radius_km"
+    )
+    c = kinds(req).get(kind)
+    assert c is None or c.max == 15.0  # only the default radius may exist
+
+
+def test_zero_pace_is_invalid_and_run_asks_again(vocab):
+    res = understand(
+        gw_of(activity="run", start_text="Todtnau", duration_h_max=1, pace_min_per_km=0),
+        vocab,
+        "x",
+        None,
+    )
+    assert isinstance(res, Clarify) and "Tempo" in res.question
+    req = understand(gw_of(start_text="Todtnau", pace_min_per_km=0), vocab, "x", None)
+    assert req.pace_min_per_km is None
+    assert "Tempo: 0 ist kein gültiger Wert" in req.unmatched
+
+
+def test_min_greater_than_max_stays_a_constraint(vocab):
+    req = understand(
+        gw_of(start_text="Todtnau", length_km_min=10, length_km_max=5), vocab, "x", None
+    )
+    c = kinds(req)["length_km"]
+    assert (c.min, c.max) == (10, 5)
+
+
+def test_identical_labels_get_kind_and_answer_resolves(vocab):
+    v = _dup_vocab(vocab)
+    res = understand(gw_of(start_text="Dupberg"), v, "x", None)
+    assert isinstance(res, Clarify)
+    assert set(res.options) == {"Dupberg (Gipfel)", "Dupberg (Ort)"}
+    req = understand(gw_of(start_text="Dupberg (Gipfel)"), v, "x", None)
+    assert req.start.tag_id == "place:dupberg"
+
+
+def test_change_surface_wish_removes_run_default(vocab):
+    prev = understand(gw_of(activity="run", start_text="Todtnau"), vocab, "x", None)
+    assert any(p.tag_id == "surface:gut_laufbar" for p in prev.preferences)
+    res = understand(gw_of(intent="change", wishes=[RawWish(text="Naturweg")]), vocab, "x", prev)
+    assert [p.tag_id for p in res.preferences] == ["surface:naturweg"]

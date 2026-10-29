@@ -76,6 +76,7 @@ class NearPlace(BaseModel):
     radius_km: float = Field(gt=0)
     lat: float | None = None
     lon: float | None = None
+    kind: str | None = None
 
 
 class Area(BaseModel):
@@ -188,7 +189,7 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
     ).fetchall()
     tags: list[Tag] = []
     used: set[str] = set()
-    for pid, name, _kind, lat, lon in rows:
+    for pid, name, kind, lat, lon in rows:
         slug = slugify(name)
         if not slug:
             continue
@@ -201,7 +202,9 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
                 id=tid,
                 label=name,
                 category="place",
-                rule=NearPlace(place_id=pid, radius_km=PLACE_RADIUS_KM, lat=lat, lon=lon),
+                rule=NearPlace(
+                    place_id=pid, radius_km=PLACE_RADIUS_KM, lat=lat, lon=lon, kind=kind
+                ),
             )
         )
     return tags

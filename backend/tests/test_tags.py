@@ -216,6 +216,7 @@ def test_place_tags_carry_coordinates(conn):
     )
     rule = TagVocabulary.load(conn, FEATURES_YAML).get("place:zzzkoord").rule
     assert (rule.lat, rule.lon) == (pytest.approx(47.75), pytest.approx(8.25))
+    assert rule.kind == "town"
 
 
 @pytest.mark.db
