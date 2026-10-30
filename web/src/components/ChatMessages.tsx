@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard } from "../lib/chat";
+import type { CalendarLink, Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard, VerifiedRace } from "../lib/chat";
+import EventCards from "./EventCards";
 import GroupList from "./GroupList";
 
 export type ChatItem =
@@ -10,6 +11,7 @@ export type ChatItem =
   | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels }
   | { kind: "plan"; summary: string }
   | { kind: "groups"; groups: GroupBrief[]; note: string }
+  | { kind: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { kind: "sources"; sources: SourceBrief[] }
   | { kind: "notice"; text: string }
   | { kind: "error"; text: string }
@@ -145,6 +147,7 @@ export default function ChatMessages({
           )}
           {it.kind === "plan" && <p className="text-xs text-papier/90">{it.summary}</p>}
           {it.kind === "groups" && <GroupList groups={it.groups} note={it.note} />}
+          {it.kind === "events" && <EventCards events={it.events} fallback={it.fallback} note={it.note} />}
           {it.kind === "sources" && (
             <ul aria-label="Quellen" className="flex flex-col gap-0.5 text-xs text-papier/90">
               {it.sources.map((s) => (

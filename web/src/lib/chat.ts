@@ -153,6 +153,25 @@ export type GroupBrief = {
   dist_km: number;
 };
 
+/** One race field: the value and the verbatim quote from the source page; value null = „nicht angegeben“. */
+export type RaceField = { value: string | null; quote: string | null };
+
+/** A race found live on the web: every field with a value is quoted on `source_url` (ISO dates). */
+export type VerifiedRace = {
+  name: RaceField;
+  date: RaceField;
+  place: RaceField;
+  distances: RaceField;
+  registration_url: RaceField;
+  registration_deadline: RaceField;
+  fee: RaceField;
+  source_url: string;
+  day: string;
+};
+
+/** A running calendar to search yourself (shown when no race is verified). */
+export type CalendarLink = { name: string; url: string };
+
 /** tag_id -> vocabulary label */
 export type Labels = Record<string, string>;
 
@@ -162,6 +181,7 @@ export type ChatEvent =
   | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
   | ({ type: "plan" } & PlanData)
   | { type: "groups"; groups: GroupBrief[]; checked_note: string }
+  | { type: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }

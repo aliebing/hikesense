@@ -67,7 +67,7 @@ it("parses every backend stream into typed events ending with done or error", ()
   const all = (Object.keys(streams) as (keyof typeof streams)[]).map(events);
   for (const evs of all) expect(["done", "error"]).toContain(evs[evs.length - 1].type);
   const seen = new Set(all.flat().map((e) => e.type));
-  for (const t of ["understood", "clarify", "results", "plan", "groups", "token", "sources", "done", "error"]) expect(seen).toContain(t);
+  for (const t of ["understood", "clarify", "results", "plan", "groups", "events", "token", "sources", "done", "error"]) expect(seen).toContain(t);
 });
 
 it("renders a backend fallback search: one honest sentence, cards, attributed sources", async () => {
@@ -131,5 +131,22 @@ it("renders the backend groups stream inside the chat: names as links, distance,
   expect(items[0]).not.toHaveTextContent("veraltet");
   expect(items[1]).toHaveTextContent("veraltet");
   expect(screen.getAllByText(/Stand: 01\.03\.2026/).length).toBeGreaterThan(0);
+  expect(screen.queryAllByRole("article")).toHaveLength(0);
+});
+
+it("renders the backend events stream inside the chat: fields with source links, „nicht angegeben“, the note", async () => {
+  await chat("events");
+  const card = await screen.findByRole("article", { name: "Dreisamtal-Halbmarathon 2027" });
+  expect(card).toHaveTextContent("18.04.2027");
+  expect(card).toHaveTextContent("nicht angegeben");
+  for (const a of within(card).getAllByRole("link", { name: "Quelle" })) expect(a).toHaveAttribute("href", "https://lauf.example.org/");
+  expect(screen.getByText(/Angaben ohne Gewähr – bitte beim Veranstalter prüfen\. Gesucht am 30\.10\.2026\./)).toBeInTheDocument();
+  expect(screen.getByText(/1 Lauf gefunden/)).toBeInTheDocument();
+});
+
+it("renders the backend events stream without races as calendar links", async () => {
+  await chat("events_none");
+  const list = await screen.findByRole("list", { name: "Laufkalender" });
+  expect(within(list).getByRole("link")).toHaveAttribute("href", "https://www.blv-online.de/laeufe/veranstaltungstermine");
   expect(screen.queryAllByRole("article")).toHaveLength(0);
 });

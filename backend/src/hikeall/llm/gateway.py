@@ -33,6 +33,7 @@ T = TypeVar("T", bound=BaseModel)
 
 _BASE_URL = "https://openrouter.ai/api/v1"
 _TIMEOUT_S = 30
+_WEB_MAX_TOKENS = 300  # the text is not used, only the url_citation annotations
 
 
 class LLMGateway(Protocol):
@@ -94,6 +95,38 @@ class OpenRouterGateway:
         # variation (final review Minor 11).
         model = self._structured_model.bind_tools(list(tools))
         return self._invoke(model, list(messages))
+
+    def web_completion(self, user: str, plugin: dict) -> dict:
+        """One completion with an OpenRouter plugin (the web search). LangChain drops the
+        message annotations that carry the search hits, so this goes through the OpenAI client
+        of the same model; the reported cost (search included) is metered like every call."""
+        model = self._structured_model
+        try:
+            response = model.root_client.chat.completions.create(
+                model=model.model_name,
+                messages=[{"role": "user", "content": user}],
+                temperature=0,
+                max_tokens=_WEB_MAX_TOKENS,
+                extra_body={"plugins": [plugin], "usage": {"include": True}},
+            )
+        except LLMError:
+            raise
+        except Exception as exc:
+            raise LLMUnavailable(f"{type(exc).__name__}") from exc
+        data = response.model_dump()
+        usage = data.get("usage") or {}
+        record_usage(
+            AIMessage(
+                content="",
+                response_metadata={"token_usage": usage},
+                usage_metadata={
+                    "input_tokens": usage.get("prompt_tokens") or 0,
+                    "output_tokens": usage.get("completion_tokens") or 0,
+                    "total_tokens": usage.get("total_tokens") or 0,
+                },
+            )
+        )
+        return data
 
     @staticmethod
     def _invoke(model: Any, messages: list[BaseMessage]) -> AIMessage:

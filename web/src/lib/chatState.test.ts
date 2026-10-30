@@ -165,3 +165,11 @@ it("groups event adds a groups item with its Stand note; an empty list adds noth
   expect(s.items).toEqual([{ kind: "groups", groups: [g], note: "Stand: 02.10.2026" }]);
   expect(reduceEvent(initialState("t"), { type: "groups", groups: [], checked_note: "x" }).items).toEqual([]);
 });
+
+it("events event adds an events item inside the chat (also with only calendar links)", () => {
+  const fallback = [{ name: "BLV", url: "https://www.blv-online.de/x" }];
+  const s = reduceEvent(initialState("t"), { type: "events", events: [], fallback, note: "Angaben ohne Gewähr" });
+  expect(s.items).toEqual([{ kind: "events", events: [], fallback, note: "Angaben ohne Gewähr" }]);
+  expect(s.last).toBeNull();
+  expect(s.plan).toBeNull();
+});

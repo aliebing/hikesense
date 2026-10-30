@@ -1,5 +1,6 @@
-"""Agent tools: day-hike search, trail details, lodgings, walking time, multi-day plans and
-weather (all read-only SQL; weather from Open-Meteo)."""
+"""Agent tools: day-hike search, trail details, lodgings, walking time, multi-day plans,
+weather and running events (read-only SQL; weather from Open-Meteo; events searched live on the
+web, never stored)."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field
 from hikeall.adapters.open_meteo import DayWeather, OpenMeteoClient
 from hikeall.agent import multiday
 from hikeall.agent.constraints import Candidate, Selection, select
+from hikeall.agent.events import EventFinder, EventsResult
 from hikeall.agent.multiday import (
     DayPlan,
     MultidayPlan,
@@ -512,6 +514,10 @@ class AgentTools(Protocol):
 
     def sources(self, ids: list[str]) -> list[SourceBrief]: ...
 
+    def find_events(self, query: str, today: date, max_calls: int = 8) -> EventsResult:
+        """Official running events, searched live; calendar links when none is verified."""
+        ...
+
 
 class DbTools:
     """AgentTools on Postgres. conn_factory must return a FRESH connection per call; every
@@ -523,8 +529,10 @@ class DbTools:
         knowledge: KnowledgeIndex | None = None,
         knowledge_opener: Callable[[], KnowledgeIndex | None] | None = None,
         weather_client: OpenMeteoClient | None = None,
+        event_finder: EventFinder | None = None,
     ) -> None:
         self._conn_factory = conn_factory
+        self._event_finder = event_finder
         self._knowledge = knowledge
         self._weather_client = weather_client
         self._trails: dict[str, TrailData] = {}  # static between imports: loaded once per trail
@@ -637,6 +645,14 @@ class DbTools:
     def sources(self, ids: list[str]) -> list[SourceBrief]:
         with self._conn_factory() as conn:
             return _source_briefs(conn, ids)
+
+    def find_events(self, query: str, today: date, max_calls: int = 8) -> EventsResult:
+        if self._event_finder is None:  # no web search configured: the calendars only
+            return EventsResult(
+                events=[], fallback=EventFinder.default_calendars(), searched_at=today,
+                search_failed=True,
+            )  # fmt: skip
+        return self._event_finder.find_events(query, today, max_calls)
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]:
         if self._knowledge is None and self._knowledge_opener is not None:

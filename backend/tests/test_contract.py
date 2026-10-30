@@ -27,8 +27,11 @@ from test_agent_graph import (  # noqa: F401 (vocab is a fixture)
     vocab,
     westweg_raw,
 )
+from test_events import TODAY as EVENTS_DAY
+from test_events import EventTools, verified
 from test_groups import GroupTools
 
+from hikeall.agent.events import CalendarLink, EventsResult
 from hikeall.agent.request import RawRequest
 from hikeall.agent.tools import GroupBrief
 from hikeall.api.app import create_app
@@ -106,6 +109,22 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         ),
         structured={RawRequest: [raw(intent="groups", start_text="Hausach")]},
     )  # fmt: skip
+    found = EventsResult(
+        events=[verified()], fallback=[], searched_at=EVENTS_DAY, calls=7,
+        pages=["https://lauf.example.org/"],
+    )  # fmt: skip
+    calendars = [
+        CalendarLink(
+            name="BLV „Veranstaltungstermine“ (Baden)",
+            url="https://www.blv-online.de/laeufe/veranstaltungstermine",
+        )
+    ]
+    none = EventsResult(events=[], fallback=calendars, searched_at=EVENTS_DAY, calls=1)
+    events_raw = raw(intent="events", question="Halbmarathon im Frühjahr bei Freiburg")
+    events = make(vocab, settings, tools=EventTools(found), structured={RawRequest: [events_raw]})
+    events_none = make(
+        vocab, settings, tools=EventTools(none), structured={RawRequest: [events_raw]}
+    )
     return {
         "fallback": _stream(settings, fallback, FELDBERG_MSG),
         "area": _stream(settings, area, "Tour im Nordschwarzwald"),
@@ -114,6 +133,8 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         "error": _stream(settings, error, FELDBERG_MSG),
         "multiday": _stream(settings, multiday, "3 Tage Westweg ab Hausach am 2.11.2026"),
         "groups": _stream(settings, groups, "Gibt es eine Wandergruppe in Hausach?"),
+        "events": _stream(settings, events, "Halbmarathon im nächsten Frühjahr bei Freiburg"),
+        "events_none": _stream(settings, events_none, "Halbmarathon im nächsten Frühjahr"),
     }
 
 

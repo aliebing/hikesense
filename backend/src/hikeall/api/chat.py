@@ -9,6 +9,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -19,6 +20,9 @@ from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 from hikeall import chatlog
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.open_meteo import OpenMeteoClient
+from hikeall.adapters.page_fetch import TIMEOUT_S as PAGE_TIMEOUT_S
+from hikeall.adapters.web_search import OpenRouterWebSearch
+from hikeall.agent.events import EventFinder
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
 from hikeall.agent.tools import DbTools
@@ -71,6 +75,13 @@ def default_deps_factory(settings: Settings) -> Callable[[], AgentDeps]:
                     try_open(settings.chroma_dir),
                     knowledge_opener=lambda: try_open(settings.chroma_dir),
                     weather_client=OpenMeteoClient(make_http_client(WEATHER_TIMEOUT_S)),
+                    # redirects are followed by the page fetcher itself (each hop checked)
+                    event_finder=EventFinder(
+                        OpenRouterWebSearch(gateway),
+                        httpx.Client(timeout=PAGE_TIMEOUT_S, follow_redirects=False),
+                        gateway,
+                        ua=settings.hikeall_user_agent,
+                    ),
                 )
                 cache.append(
                     AgentDeps(

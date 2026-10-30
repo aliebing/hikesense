@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     max_cost_usd: float = 0.05
     chat_log_path: Path = Path("logs/chat.jsonl")
     chroma_dir: Path = Path("chroma")
+    hikeall_user_agent: str | None = None  # own User-Agent for event pages (None: neutral default)
 
     @model_validator(mode="after")
     def _resolve_data_paths(self) -> Settings:

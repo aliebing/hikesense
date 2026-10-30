@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from hikeall.adapters.open_meteo import DayWeather
 from hikeall.agent import multiday as md
 from hikeall.agent.constraints import Candidate, select
+from hikeall.agent.events import CalendarLink, EventsResult
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
@@ -189,6 +190,11 @@ class FakeTools:
             PLAN_SOURCES.get(i) or SourceBrief(id=i, name=None, url=None, license=None)
             for i in ids
         ]
+
+    def find_events(self, query, today, max_calls=8):  # nothing verified: calendar links
+        self.calls["find_events"] += 1
+        link = CalendarLink(name="BLV", url="https://www.blv-online.de/laeufe/veranstaltungstermine")
+        return EventsResult(events=[], fallback=[link], searched_at=today, calls=1)
 
 
 class RecordingGateway(FakeGateway):
@@ -1210,7 +1216,8 @@ def test_multiday_start_clarify_option_continues_without_model(vocab, settings):
 def test_events_are_not_invented(vocab, settings):  # groups: tests/test_groups.py
     deps = make(vocab, settings, structured={RawRequest: [raw(intent="events")]})
     events = run(deps, "Gibt es Läufe in Freiburg?")
-    assert "bald" in text_of(events)
+    assert one(events, "events").events == []  # (details: tests/test_events.py)
+    assert "keinen kommenden Lauf" in text_of(events)
     assert deps.gateway.calls["answer"] == 0 and types(events)[-1] == "done"
 
 

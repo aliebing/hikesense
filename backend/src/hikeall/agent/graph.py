@@ -1,9 +1,11 @@
 """Agent flow (LangGraph):
-guard → understand → search | multiday | react | fixed reply → answer → ground → log.
+guard → understand → search | multiday | react | groups | events | fixed reply → answer → ground
+→ log.
 
 Every number shown comes from a tool result of the round: the model only words the answer, the
 grounding check replaces unsupported numbers, and the code prefixes the honest fallback sentence.
 A multi-day plan comes from the deterministic planner (multiday.py); the model only words it.
+Groups and running events get a code-written answer; their items carry the sources.
 Events are streamed with LangGraph's custom stream writer; the conversation state (last request,
 open clarify question, last multi-day plan) lives in a MemorySaver keyed by thread_id and holds
 only plain JSON data.
@@ -39,6 +41,7 @@ from hikeall.agent.constraints import (
     contradiction,
     format_deviation,
 )
+from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace
 from hikeall.agent.grounding import Evidence, grounding_check, has_number
 from hikeall.agent.multiday import NEAR_M, NO_RAIN_VARIANT, DayPlan, MultidayPlan, RainVariant
 from hikeall.agent.prompts import (
@@ -48,7 +51,11 @@ from hikeall.agent.prompts import (
     DAY_UNKNOWN,
     ERROR_BUDGET,
     ERROR_UNAVAILABLE,
-    EVENTS_SOON,
+    EVENTS_FOUND,
+    EVENTS_NONE,
+    EVENTS_NOTE,
+    EVENTS_SEARCH_DOWN,
+    EVENTS_SKIPPED,
     GROUPS_FOUND,
     GROUPS_NO_COORDS,
     GROUPS_NONE,
@@ -97,6 +104,7 @@ __all__ = [
     "ClarifyEvent",
     "DoneEvent",
     "ErrorEvent",
+    "EventsEvent",
     "GroupsEvent",
     "PlanEvent",
     "ResultsEvent",
@@ -123,7 +131,6 @@ _DAYS_PHRASE = re.compile(
     re.IGNORECASE,
 )
 _NEW_START = re.compile(r"\b(?:ab|von|in|nach|bei|[Ss]tart(?:ort)?)\s+[A-ZÄÖÜ]")
-_SOON = {"events": EVENTS_SOON}  # its node comes with task 12
 _GROUP_KINDS = (  # words in the message -> kind filter (first hit wins)
     (re.compile(r"lauftreff|laufgruppe|laufverein", re.IGNORECASE), "lauftreff"),
     (re.compile(r"alpenverein|\bdav\b", re.IGNORECASE), "alpenverein"),
@@ -205,6 +212,17 @@ class GroupsEvent(ChatEvent):
     type: Literal["groups"] = "groups"
     groups: list[GroupBrief]
     checked_note: str
+
+
+class EventsEvent(ChatEvent):
+    """Official running events found live: every field with a value is quoted verbatim on the
+    race's `source_url` (None: „nicht angegeben“); `fallback` are calendar links when no race is
+    shown. Nothing of it is stored."""
+
+    type: Literal["events"] = "events"
+    events: list[VerifiedRace]
+    fallback: list[CalendarLink]
+    note: str
 
 
 class TokenEvent(ChatEvent):
@@ -703,6 +721,25 @@ def _text(message: AIMessage) -> str:
     return "".join(parts).strip()
 
 
+def _events_text(found: EventsResult) -> str:
+    def pages(n: int) -> str:
+        return "Seite" if n == 1 else "Seiten"
+
+    n, read = len(found.events), len(found.pages)
+    if found.search_failed:
+        text = EVENTS_SEARCH_DOWN
+    elif n:
+        noun = "Lauf" if n == 1 else "Läufe"
+        text = EVENTS_FOUND.format(n=n, noun=noun, pages=read, page_noun=pages(read))
+    else:
+        text = EVENTS_NONE.format(pages=read, page_noun=pages(read))
+    if found.skipped:
+        reasons = "; ".join(dict.fromkeys(s.reason for s in found.skipped))
+        k = len(found.skipped)
+        text += EVENTS_SKIPPED.format(n=k, page_noun=pages(k), reasons=reasons)
+    return text
+
+
 # --- graph --------------------------------------------------------------------------------
 
 
@@ -825,7 +862,9 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"route": "react"}
         if req.intent == "groups":
             return out | {"route": "groups"}
-        return out | {"reply": _SOON.get(req.intent, OTHER_REPLY), "route": "reply"}
+        if req.intent == "events":
+            return out | {"route": "events"}
+        return out | {"reply": OTHER_REPLY, "route": "reply"}
 
     def clarify(state: State) -> State:
         c = state["clarify"] or {}
@@ -907,6 +946,15 @@ def build_graph(deps: AgentDeps) -> Any:
         if stale:
             body += GROUPS_STALE.format(n=stale, verb="ist" if stale == 1 else "sind")
         return {"tool_calls": 1, "fixed": body}
+
+    def events(state: State) -> State:
+        """Code-written answer (no model wording): the cards carry every value with its source."""
+        req = HikeRequest.model_validate(state["current"])
+        today = deps.today()
+        found = tools.find_events(req.question or state["message"], today, settings.max_tool_calls)
+        note = EVENTS_NOTE.format(date=f"{today:%d.%m.%Y}")
+        _emit(EventsEvent(events=found.events, fallback=found.fallback, note=note))
+        return {"tool_calls": found.calls, "fixed": _events_text(found)}
 
     def multiday(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
@@ -1113,6 +1161,7 @@ def build_graph(deps: AgentDeps) -> Any:
         ("search", search),
         ("multiday", multiday),
         ("groups", groups),
+        ("events", events),
         ("react", react),
         ("answer", answer),
         ("ground", ground),
@@ -1122,7 +1171,9 @@ def build_graph(deps: AgentDeps) -> Any:
     g.add_edge(START, "guard")
     g.add_conditional_edges("guard", lambda s: s["route"], ["understand", "reply"])
     g.add_conditional_edges(
-        "understand", lambda s: s["route"], ["clarify", "reply", "search", "multiday", "react", "groups"]
+        "understand",
+        lambda s: s["route"],
+        ["clarify", "reply", "search", "multiday", "react", "groups", "events"],
     )
     g.add_edge("clarify", "log")
     g.add_edge("reply", "log")
@@ -1130,6 +1181,7 @@ def build_graph(deps: AgentDeps) -> Any:
     g.add_edge("multiday", "answer")
     g.add_edge("react", "answer")
     g.add_edge("groups", "answer")
+    g.add_edge("events", "answer")
     g.add_edge("answer", "ground")
     g.add_edge("ground", "log")
     g.add_edge("log", END)

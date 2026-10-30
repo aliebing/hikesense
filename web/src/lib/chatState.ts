@@ -102,6 +102,8 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
     }
     case "groups":
       return e.groups.length > 0 ? add(s, { kind: "groups", groups: e.groups, note: e.checked_note }) : s;
+    case "events":
+      return add(s, { kind: "events", events: e.events, fallback: e.fallback, note: e.note });
     case "token": {
       const last = s.items[s.items.length - 1];
       if (last?.kind === "assistant") {
