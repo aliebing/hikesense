@@ -15,9 +15,10 @@ import psycopg
 import yaml
 from pydantic import BaseModel, Field
 
+from hikeall.config import data_root
 from hikeall.models import BBox
 
-FEATURES_YAML = Path(__file__).resolve().parents[4] / "data" / "tags" / "features.yaml"
+FEATURES_YAML = data_root() / "tags" / "features.yaml"
 
 TagCategory = Literal["feature", "surface", "place", "area"]
 # municipality last: same-name collisions keep the existing bare ids of towns, peaks and lakes
