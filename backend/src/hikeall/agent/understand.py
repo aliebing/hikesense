@@ -544,12 +544,12 @@ def _tier(needle: str, terms: list[str]) -> int | None:
 SAME_PLACE_KM = 5.0
 
 
-_MERGE_RANK = {"town": 0, "village": 0, "municipality": 1, "lake": 2}  # peaks never merge
+_MERGE_RANK = {"town": 0, "village": 1, "municipality": 2, "lake": 3}  # peaks never merge
 
 
 def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
-    """R25/R26: same-name (ignoring "(…)") town/village, municipality and lake within 5 km are
-    one place; keep the highest-priority one (town/village > municipality > lake)."""
+    """R25/R26: same-name (ignoring "(…)") town, village, municipality and lake within 5 km are
+    one place; keep the highest-priority one (town > village > municipality > lake; cities are towns)."""
     ranked = [
         (t, _MERGE_RANK[t.rule.kind])
         for t in tags
@@ -568,6 +568,27 @@ def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
     return [t for t in tags if id(t) not in dropped]
 
 
+_CITY_SUFFIX = re.compile(r" (?:im|an der|am) .*$")
+
+
+def _city_for(tags: list[Tag], needle: str) -> list[Tag] | None:
+    """The one town (OSM cities are stored as towns) whose name is `needle` or `needle` plus a
+    suffix like " im Breisgau"; None if there is not exactly one. Only decides between
+    towns and villages: a peak or lake of that name stays a clarify option."""
+    if any(
+        not isinstance(t.rule, NearPlace) or t.rule.kind not in ("town", "village") for t in tags
+    ):
+        return None
+    towns = [
+        t
+        for t in tags
+        if isinstance(t.rule, NearPlace)
+        and t.rule.kind == "town"
+        and needle in (_strip(t.label), _CITY_SUFFIX.sub("", _strip(t.label)))
+    ]
+    return towns if len(towns) == 1 else None
+
+
 def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []
@@ -583,11 +604,16 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
         needle = _strip(text)
         tiers: dict[int, list[Tag]] = {}
         for t in cands:
-            tier = _tier(needle, [_strip(x) for x in [t.label, *t.synonyms] if _strip(x)])
+            terms = [_strip(x) for x in [t.label, *t.synonyms] if _strip(x)]
+            if isinstance(t.rule, NearPlace) and t.rule.kind == "town":  # "Freiburg im Breisgau"
+                terms.append(_CITY_SUFFIX.sub("", _strip(t.label)))
+            tier = _tier(needle, terms)
             if tier is not None:
                 tiers.setdefault(tier, []).append(t)
         best = tiers[min(tiers)] if tiers else []
     best = _drop_shadowed_places(best)
+    if len(best) > 1:  # "Freiburg" = the city "Freiburg im Breisgau" over a same-name village
+        best = _city_for(best, _strip(text)) or best
     if len(best) == 1:
         return _to_start(best[0])
     if best:

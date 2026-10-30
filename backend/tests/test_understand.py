@@ -965,3 +965,43 @@ def test_rejected_day_change_is_reported(vocab):
         day_change_direction="shorter",
     )
     assert req.day_change is None and any("Änderung nicht erkannt" in u for u in req.unmatched)
+
+
+def _kind_tag(tid, label, kind, pid, lat, lon):
+    rule = NearPlace(place_id=pid, radius_km=15, lat=lat, lon=lon, kind=kind)
+    return Tag(id=tid, label=label, category="place", rule=rule)
+
+
+def test_city_wins_over_same_name_village(vocab):
+    v = TagVocabulary(
+        list(vocab.all())
+        + [
+            _kind_tag(
+                "place:freiburg-im-breisgau", "Freiburg im Breisgau", "town", 1, 47.996, 7.849
+            ),
+            _kind_tag("place:freiburg", "Freiburg", "village", 2, 53.8, 9.2),  # far-away village
+        ]
+    )
+    res = understand(gw_of(start_text="Freiburg"), v, "ab Freiburg", None)
+    assert isinstance(res, HikeRequest)
+    assert res.start.label == "Freiburg im Breisgau" and res.start.lat == 47.996
+
+
+def test_exact_name_city_wins_over_same_name_village(vocab):
+    v = TagVocabulary(
+        list(vocab.all())
+        + [
+            _kind_tag("place:pforzheim", "Pforzheim", "town", 1, 48.89, 8.70),
+            _kind_tag("place:pforzheim-n2", "Pforzheim", "village", 2, 50.0, 9.0),
+        ]
+    )
+    res = understand(gw_of(start_text="Pforzheim"), v, "ab Pforzheim", None)
+    assert isinstance(res, HikeRequest) and res.start.lat == 48.89
+
+
+def test_lone_village_still_resolves(vocab):
+    v = TagVocabulary(
+        list(vocab.all()) + [_kind_tag("place:zzdorf", "Zzdorf", "village", 3, 47.9, 8.0)]
+    )
+    res = understand(gw_of(start_text="Zzdorf"), v, "ab Zzdorf", None)
+    assert isinstance(res, HikeRequest) and res.start.label == "Zzdorf"
