@@ -1,5 +1,4 @@
 import type { Constraint, HikeRequest, Labels, SourceBrief, TourCard } from "../lib/chat";
-import TourResultCard from "./TourResultCard";
 
 export type ChatItem =
   | { kind: "user"; text: string }
@@ -51,6 +50,9 @@ export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?:
     ...r.unmatched.map((u) => ({ text: `nicht prüfbar: ${u}`, warn: true })),
   ];
 }
+
+const foundText = (n: number) =>
+  n === 0 ? "Keine passende Tour gefunden." : n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`;
 
 const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
 
@@ -133,9 +135,7 @@ export default function ChatMessages({
                   {it.fallback}
                 </p>
               )}
-              {it.cards.map((c) => (
-                <TourResultCard key={c.trail_id} card={c} runWithoutPace={it.runWithoutPace} labels={it.labels} />
-              ))}
+              <p className="text-xs text-papier/90">{foundText(it.cards.length)}</p>
             </div>
           )}
           {it.kind === "sources" && (

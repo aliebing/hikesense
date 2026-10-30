@@ -4,7 +4,9 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ChatProvider, useChat } from "../components/ChatProvider";
 import ChatShell from "../components/ChatShell";
+import TourResultCard from "../components/TourResultCard";
 import streams from "./__fixtures__/chat-streams.json";
 import { parseSse, type ChatEvent } from "./chat";
 
@@ -20,12 +22,30 @@ function mockStream(body: string) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream, { status: 200 })));
 }
 
+/** The result cards are not part of the chat any more; /vorschlaege renders state.last, so does this. */
+function LastCards() {
+  const { state } = useChat();
+  return (
+    <>
+      {state.last?.cards.map((c) => (
+        <TourResultCard key={c.trail_id} card={c} runWithoutPace={state.last!.runWithoutPace} labels={state.last!.labels} />
+      ))}
+    </>
+  );
+}
+
 async function chat(name: keyof typeof streams) {
   mockStream(streams[name]);
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  render(
+    <ChatProvider apiUrl="http://api">
+      <ChatShell intro="Hi" />
+      <LastCards />
+    </ChatProvider>,
+  );
   await userEvent.type(screen.getByLabelText("Nachricht"), "Frage{Enter}");
 }
 
+beforeEach(() => sessionStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
 it("parses every backend stream into typed events ending with done or error", () => {

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { TrailSummary } from "../lib/data";
+import { ChatProvider } from "../components/ChatProvider";
 
 const mockGetTrails = vi.fn();
 vi.mock("../lib/data", async (importOriginal) => {
@@ -35,13 +36,13 @@ beforeEach(() => {
 test("home shows a clear message when data cannot be loaded", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   mockGetTrails.mockRejectedValue(new Error("no supabase"));
-  render(await Home());
+  render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByText(/Daten konnten nicht geladen werden/)).toBeInTheDocument();
 });
 
 test("home explains an empty database", async () => {
   mockGetTrails.mockResolvedValue([]);
-  render(await Home());
+  render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByText(/Noch keine Wege/)).toBeInTheDocument();
 });
 
@@ -50,7 +51,7 @@ test("home lists long-distance trails and day hikes with attribution", async () 
     trail("westweg-west", "long_distance", 48.5),
     trail("day-1", "day_hike", 48.1),
   ]);
-  render(await Home());
+  render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByRole("link", { name: /Weg westweg-west/ })).toHaveAttribute("href", "/t/westweg-west");
   expect(screen.getByRole("link", { name: /Weg day-1/ })).toHaveAttribute("href", "/t/day-1");
   expect(screen.getAllByText(/Autor day-1/).length).toBeGreaterThan(0);
@@ -58,7 +59,7 @@ test("home lists long-distance trails and day hikes with attribution", async () 
 
 test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
   mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1)]);
-  render(await Home());
+  render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByRole("contentinfo")).toHaveTextContent(
     "Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA",
   );
@@ -67,6 +68,6 @@ test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
 test("home counts only day hikes that have a photo", async () => {
   const noPhoto = { ...trail("day-2", "day_hike", 48.2), cover: null };
   mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1), noPhoto]);
-  render(await Home());
+  render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByText(/1 von 1 Tagestouren mit Foto/)).toBeInTheDocument();
 });

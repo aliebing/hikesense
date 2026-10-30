@@ -1,5 +1,4 @@
-import { CoverProvider } from "../components/CoverContext";
-import ChatStage from "../components/ChatStage";
+import ChatShell from "../components/ChatShell";
 import Notice from "../components/Notice";
 import Panorama from "../components/Panorama";
 import PhotoSwitcher from "../components/PhotoSwitcher";
@@ -56,7 +55,6 @@ export default async function Home() {
 
   return (
     <Panorama>
-      <CoverProvider>
       <section className="max-w-2xl pt-6 sm:pt-12">
         <h1 className="font-serif text-4xl leading-tight drop-shadow-md sm:text-6xl">Wandern im Schwarzwald</h1>
         <p className="mt-3 max-w-lg text-base text-papier/90 drop-shadow sm:text-lg">
@@ -64,7 +62,7 @@ export default async function Home() {
         </p>
       </section>
 
-      <ChatStage intro="Hallo! Beschreibe deine Tagestour – zum Beispiel „Rundweg ab Hinterzarten, 10 bis 15 km, wenig Höhenmeter, mit Aussicht“. Oder wähle unten einen Weg." />
+      <ChatShell intro="Hallo! Beschreibe deine Tagestour – zum Beispiel „Rundweg ab Hinterzarten, 10 bis 15 km, wenig Höhenmeter, mit Aussicht“. Oder wähle unten einen Weg." />
 
       <div className="flex-1" />
 
@@ -98,7 +96,6 @@ export default async function Home() {
           ))}
         </CardRow>
       </section>
-      </CoverProvider>
 
       <footer className="text-[11px] text-papier/75">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
