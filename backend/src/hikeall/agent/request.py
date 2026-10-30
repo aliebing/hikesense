@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, time
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -9,12 +10,16 @@ from pydantic import BaseModel, Field, model_validator
 from hikeall.models import BBox
 
 ConstraintKind = Literal["roundtrip", "length_km", "ascent_m", "duration_h", "radius_km"]
-Intent = Literal["day_hike", "multiday", "knowledge", "change", "other"]
+Intent = Literal["day_hike", "multiday", "knowledge", "change", "events", "groups", "other"]
 Activity = Literal["hike", "run"]
 Mode = Literal["prefer", "avoid"]
 
 DEFAULT_RADIUS_KM = 15.0
 MAX_PREFERENCES = 10
+MIN_DAYS = 1
+MAX_DAYS = 14
+DEFAULT_DAY_KM = 15.0  # daily target without a wish (shown in the echo)
+DEFAULT_START_TIME = time(9, 0)  # start time without a wish (shown in the echo)
 
 
 class Constraint(BaseModel):
@@ -49,6 +54,13 @@ class ResolvedStart(BaseModel):
     bbox: BBox | None = None
 
 
+class DayChange(BaseModel):
+    """ "Tag 3 kürzer": one day of the previous multi-day plan gets shorter or longer."""
+
+    day: int = Field(ge=MIN_DAYS, le=MAX_DAYS)
+    change: Literal["shorter", "longer"]
+
+
 class HikeRequest(BaseModel):
     intent: Intent
     activity: Activity = "hike"
@@ -59,6 +71,14 @@ class HikeRequest(BaseModel):
     pace_min_per_km: float | None = None
     unmatched: list[str] = Field(default_factory=list)
     question: str | None = None
+    # multi-day (values only when the user wrote them, R27; defaults stay None and show in echo)
+    trail_id: str | None = None
+    trail_assumed: bool = False  # "Westweg" without a variant: west variant assumed
+    days: int | None = Field(default=None, ge=MIN_DAYS, le=MAX_DAYS)
+    day_km: float | None = None
+    start_date: date | None = None
+    start_time: time | None = None
+    day_change: DayChange | None = None
     # numbers the model filled in that the user never wrote (discarded, R27); for the log only
     discarded_model_numbers: int = Field(default=0, exclude=True)
 
@@ -98,5 +118,12 @@ class RawRequest(BaseModel):
     duration_h_approx: float | None = None
     radius_km_max: float | None = None
     pace_min_per_km: float | None = None
+    trail_text: str | None = None  # long-distance trail as named ("Westweg", "Westweg Ostvariante")
+    days: int | None = None
+    day_km: float | None = None  # daily target in km ("18 km pro Tag")
+    start_date: str | None = None  # ISO, only what the user wrote; checked against the message
+    start_time: str | None = None  # "HH:MM", only what the user wrote; checked as well
+    day_change_day: int | None = None  # "Tag 3 kürzer" -> 3
+    day_change_direction: Literal["shorter", "longer"] | None = None
     wishes: list[RawWish] = Field(default_factory=list)
     question: str | None = None

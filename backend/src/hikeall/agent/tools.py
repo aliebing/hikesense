@@ -9,6 +9,7 @@ import psycopg
 from pydantic import BaseModel, Field
 
 from hikeall.agent.constraints import Candidate, Selection, select
+from hikeall.agent.multiday import start_km_for
 from hikeall.agent.request import DEFAULT_RADIUS_KM, HikeRequest
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
@@ -303,6 +304,15 @@ def find_accommodation(
     ]
 
 
+def stage_places(conn: psycopg.Connection, trail_id: str) -> list[str]:
+    """Start and end names of the trail's stages, in walking order, without repeats."""
+    rows = conn.execute(
+        "select start_name, end_name from stages where trail_id = %s order by seq", (trail_id,)
+    ).fetchall()
+    names = [n for row in rows for n in row if n]
+    return list(dict.fromkeys(names))
+
+
 def hiking_time(length_km: float, ascent_m: float, descent_m: float) -> HikingTime:
     return din33466(length_km, ascent_m, descent_m)
 
@@ -319,6 +329,10 @@ class AgentTools(Protocol):
     def hiking_time(self, length_km: float, ascent_m: float, descent_m: float) -> HikingTime: ...
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]: ...
+
+    def start_km(self, trail_id: str, lat: float, lon: float) -> float | None: ...
+
+    def stage_places(self, trail_id: str) -> list[str]: ...
 
 
 class DbTools:
@@ -352,6 +366,14 @@ class DbTools:
 
     def hiking_time(self, length_km: float, ascent_m: float, descent_m: float) -> HikingTime:
         return hiking_time(length_km, ascent_m, descent_m)
+
+    def start_km(self, trail_id: str, lat: float, lon: float) -> float | None:
+        with self._conn_factory() as conn:
+            return start_km_for(conn, trail_id, lat, lon)
+
+    def stage_places(self, trail_id: str) -> list[str]:
+        with self._conn_factory() as conn:
+            return stage_places(conn, trail_id)
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]:
         if self._knowledge is None and self._knowledge_opener is not None:
