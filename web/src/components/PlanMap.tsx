@@ -7,8 +7,9 @@ import { daySections, trailLine, type MapTrail } from "../lib/map";
 import MapPanel from "./MapPanel";
 
 /**
- * The trail map with the plan's days (alternating colours, day-end lodgings). Without a plan for this
- * trail it is the plain map. `lengthKm` scales the line's own length to the plan's km.
+ * The trail map with the plan's days (alternating colours, day-end lodgings at their real positions).
+ * Without a plan for this trail it is the plain map. `lengthKm` is the trail length the backend's along_km
+ * refers to; a day-end lodging that is not among the loaded lodgings is named in the legend, never dropped silently.
  */
 export default function PlanMap({
   trail,
@@ -21,7 +22,15 @@ export default function PlanMap({
   plan: MultidayPlan | null;
   lengthKm?: number | null;
 }) {
-  const days = useMemo(() => (plan && plan.days.length > 0 ? daySections(trailLine(trail), plan.days, lengthKm) : undefined), [plan, trail, lengthKm]);
+  const byId = useMemo(() => new Map((lodgings ?? []).map((l) => [l.id, l])), [lodgings]);
+  const days = useMemo(() => {
+    if (!plan || plan.days.length === 0) return undefined;
+    const s = daySections(trailLine(trail), plan.days, lengthKm, (id) => {
+      const l = byId.get(id);
+      return l ? [l.lon, l.lat] : null;
+    });
+    return s.length > 0 ? s : undefined;
+  }, [plan, trail, lengthKm, byId]);
   const stops = useMemo(() => {
     if (!days || !plan || !lodgings) return lodgings;
     const ids = new Set(plan.days.flatMap((d) => (d.stop ? [d.stop.lodging_id] : [])));

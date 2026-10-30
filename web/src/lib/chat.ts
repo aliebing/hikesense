@@ -138,6 +138,8 @@ export type PlanData = {
   weather: Record<string, DayWeather | NoForecast>;
   rain: Record<string, RainVariant | null>;
   labels?: Labels;
+  /** the start place of the request at that moment (added by the web app, not part of the event) */
+  start_name?: string | null;
 };
 
 /** tag_id -> vocabulary label */

@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 it("renders days with arrival and 'ohne Pausen'", () => {
-  render(<PlanDays data={data([day(1), day(2)])} startName="Hausach" />);
+  render(<PlanDays data={{ ...data([day(1), day(2)]), start_name: "Hausach" }} />);
   const cards = screen.getAllByRole("listitem").filter((li) => li.querySelector("h3"));
   expect(cards).toHaveLength(2);
   expect(cards[0]).toHaveTextContent("Tag 1 · Mo., 02.11.2026");
@@ -93,17 +93,39 @@ it("missing numbers say unbekannt", () => {
 });
 
 it("Merken saves the plan unchanged, only when signed in", async () => {
-  const d = data([day(1), day(2), day(3)]);
-  const { unmount } = render(<PlanDays data={d} startName="Hausach" />);
+  const d = { ...data([day(1), day(2), day(3)]), start_name: "Hausach" };
+  const { unmount } = render(<PlanDays data={d} />);
   expect(screen.queryByRole("button", { name: "Merken" })).toBeNull();
   unmount();
   h.session = { user: {} };
   h.savePlan.mockResolvedValue({ error: null });
-  render(<PlanDays data={d} startName="Hausach" />);
+  render(<PlanDays data={d} />);
   await userEvent.click(screen.getByRole("button", { name: "Merken" }));
   expect(h.savePlan).toHaveBeenCalledWith("multiday", "Westweg (Westvariante) ab Hausach, 3 Tage", d);
 });
 
 it("planTitle prefers the trail label", () => {
-  expect(planTitle(data([day(1)], { labels: { "trail:westweg-west": "Westweg" } }), "Hausach")).toBe("Westweg ab Hausach, 1 Tag");
+  expect(planTitle({ ...data([day(1)], { labels: { "trail:westweg-west": "Westweg" } }), start_name: "Hausach" })).toBe("Westweg ab Hausach, 1 Tag");
+});
+
+it("weather fallback says ohne Datum only for an undated day", () => {
+  render(<PlanDays data={data([day(1, { date: null }), day(2)])} />);
+  const cards = screen.getAllByRole("listitem").filter((li) => li.querySelector("h3"));
+  expect(cards[0]).toHaveTextContent("Noch keine Vorhersage (ohne Datum)");
+  expect(cards[1]).not.toHaveTextContent("ohne Datum");
+});
+
+it("links to the map with day sections only when given and days exist", () => {
+  const { unmount } = render(<PlanDays data={data([day(1)])} mapHref="/t/westweg-west?von=vorschlaege" />);
+  expect(screen.getByRole("link", { name: "Karte mit Tagesabschnitten" })).toHaveAttribute("href", "/t/westweg-west?von=vorschlaege");
+  unmount();
+  render(<PlanDays data={data([])} mapHref="/x" />);
+  expect(screen.queryByRole("link", { name: "Karte mit Tagesabschnitten" })).toBeNull();
+});
+
+it("a plan without notes does not crash", () => {
+  const d = data([day(1)]);
+  delete (d.plan as { notes?: string[] }).notes;
+  render(<PlanDays data={d} />);
+  expect(screen.getByRole("list", { name: "Tage" })).toBeInTheDocument();
 });

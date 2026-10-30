@@ -40,7 +40,7 @@ export default function Vorschlaege() {
       <main className="flex flex-1 flex-col gap-5 pb-4">
         <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Vorschläge</h1>
         {!hydrated ? null : plan ? (
-          <PlanDays data={plan} startName={state.request?.request.start?.label ?? null} />
+          <PlanDays data={plan} mapHref={`/t/${encodeURIComponent(plan.plan.trail_id)}?von=vorschlaege`} />
         ) : cards.length === 0 ? (
           <div className="flex flex-col items-start gap-3 text-papier">
             <p>Noch keine Vorschläge.</p>

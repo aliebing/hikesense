@@ -52,6 +52,13 @@ function labelsOf(items: ChatItem[]): Labels {
 
 const add = (s: ChatState, item: ChatItem): ChatState => ({ ...s, items: [...s.items, item] });
 
+/** A plan from the event, storage or the database in a safe shape (notes array, weather/rain objects); null if it is none. */
+export function normalizePlan(p: unknown): PlanData | null {
+  if (!isObject(p) || !isObject(p.plan) || !Array.isArray(p.plan.days)) return null;
+  const plan = { ...p.plan, notes: Array.isArray(p.plan.notes) ? p.plan.notes : [] };
+  return { ...p, plan, weather: isObject(p.weather) ? p.weather : {}, rain: isObject(p.rain) ? p.rain : {} } as unknown as PlanData;
+}
+
 /** One line for the chat: the number of days, or (no day possible) the note that says why. */
 export function planSummary(p: PlanData): string {
   const n = p.plan.days.length;
@@ -90,7 +97,7 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
     case "plan": {
       const { type: _type, ...plan } = e;
       void _type;
-      const data: PlanData = { ...plan, weather: plan.weather ?? {}, rain: plan.rain ?? {} };
+      const data = normalizePlan({ ...plan, start_name: s.request?.request.start?.label ?? null })!;
       return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
     }
     case "token": {
@@ -127,8 +134,7 @@ export function loadState(storage: Storage | null, newId: () => string): ChatSta
         delete (rest as { v?: number }).v;
         const last = isObject(rest.last) && Array.isArray(rest.last.cards) ? { ...rest.last, request: isObject(rest.last.request) ? rest.last.request : null } : null;
         const request = isObject(rest.request) && isObject(rest.request.request) ? rest.request : null;
-        const pl = rest.plan;
-        const plan = isObject(pl) && isObject(pl.plan) && Array.isArray(pl.plan.days) ? { ...pl, weather: isObject(pl.weather) ? pl.weather : {}, rain: isObject(pl.rain) ? pl.rain : {} } : null;
+        const plan = normalizePlan(rest.plan);
         return { ...initialState(parsed.threadId), ...rest, last, plan, request } as ChatState;
       }
     }

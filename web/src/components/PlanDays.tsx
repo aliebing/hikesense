@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DayPlan, DayWeather, NoForecast, PlanData, RainVariant } from "../lib/chat";
 import { duration, hm, hmDown } from "../lib/format";
 import { lodgingKind } from "../lib/map";
@@ -20,7 +21,8 @@ function dateText(iso: string | null): string | null {
 }
 
 /** „Westweg ab Hausach, 3 Tage“ — also the title of the saved plan. */
-export function planTitle(data: PlanData, startName?: string | null): string {
+export function planTitle(data: PlanData): string {
+  const startName = data.start_name;
   const n = data.plan.days.length;
   const trail = data.labels?.[`trail:${data.plan.trail_id}`] ?? data.plan.trail_name;
   return `${trail}${startName ? ` ab ${startName}` : ""}, ${n} ${n === 1 ? "Tag" : "Tage"}`;
@@ -28,13 +30,13 @@ export function planTitle(data: PlanData, startName?: string | null): string {
 
 const isForecast = (w: DayWeather | NoForecast | undefined): w is DayWeather => !!w && !("reason" in w);
 
-function Weather({ w }: { w: DayWeather | NoForecast | undefined }) {
+function Weather({ w, dated }: { w: DayWeather | NoForecast | undefined; dated: boolean }) {
   if (!isForecast(w)) {
     const reason = w?.reason;
     return (
       <p className="text-xs text-wald-dunkel/80">
         Noch keine Vorhersage{reason && !reason.startsWith("Noch keine Vorhersage") ? ` (${reason})` : ""}
-        {!w && " (ohne Datum)"}
+        {!w && !dated && " (ohne Datum)"}
       </p>
     );
   }
@@ -106,7 +108,7 @@ function DayCard({ d, from, weather, rain }: { d: DayPlan; from: string; weather
           )}
         </p>
       )}
-      <Weather w={weather} />
+      <Weather w={weather} dated={d.date !== null} />
       {rain !== undefined && <Rain v={rain} />}
     </li>
   );
@@ -116,20 +118,27 @@ function DayCard({ d, from, weather, rain }: { d: DayPlan; from: string; weather
  * The multi-day plan: notes (trail end, access walks, missing section), one card per day with weather and
  * the rain variant, and „Merken“ (signed-in users only). `save: false` for an already saved plan.
  */
-export default function PlanDays({ data, startName, save = true, title }: { data: PlanData; startName?: string | null; save?: boolean; title?: string }) {
+export default function PlanDays({ data, save = true, title, mapHref }: { data: PlanData; save?: boolean; title?: string; mapHref?: string }) {
   const { plan, weather, rain } = data;
+  const startName = data.start_name ?? null;
+  const notes = plan.notes ?? [];
   const hasWeather = Object.values(weather ?? {}).some(isForecast);
   return (
     <section aria-label="Mehrtagesplan" className="flex max-w-3xl flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-xl drop-shadow">{title ?? planTitle(data, startName)}</h2>
+        <h2 className="font-serif text-xl drop-shadow">{title ?? planTitle(data)}</h2>
         {save && plan.days.length > 0 && (
-          <MerkenButton kind="multiday" title={planTitle(data, startName)} payload={data} className="[&_button]:bg-papier/90 [&_button]:text-wald-dunkel" />
+          <MerkenButton kind="multiday" title={planTitle(data)} payload={data} className="[&_button]:bg-papier/90 [&_button]:text-wald-dunkel" />
         )}
       </div>
-      {(plan.notes.length > 0 || plan.days.length > 0) && (
+      {mapHref && plan.days.length > 0 && (
+        <Link href={mapHref} className="self-start rounded-full bg-papier/90 px-4 py-1.5 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
+          Karte mit Tagesabschnitten
+        </Link>
+      )}
+      {(notes.length > 0 || plan.days.length > 0) && (
         <ul aria-label="Hinweise" className="flex flex-col gap-1">
-          {plan.notes.map((n, i) => (
+          {notes.map((n, i) => (
             <li key={i} role="note" className="rounded-xl border-l-4 border-amber-500 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-950">
               {n}
             </li>

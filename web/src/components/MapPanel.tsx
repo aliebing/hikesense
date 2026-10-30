@@ -251,9 +251,12 @@ function MapOverlay({
             {lodgings === null
               ? "Unterkünfte konnten nicht geladen werden"
               : planDays
-                ? `${nearby.length} Unterkünfte am Tagesende`
+                ? "Unterkünfte am Tagesende"
                 : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
           </span>
+          {days?.filter((d) => d.lodging_missing).map((d) => (
+            <span key={d.day}>Unterkunft für Tag {d.day} nicht auf der Karte</span>
+          ))}
           <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
         </div>
       </div>

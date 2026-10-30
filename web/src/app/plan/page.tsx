@@ -7,6 +7,7 @@ import PlanDays from "../../components/PlanDays";
 import PlanMap from "../../components/PlanMap";
 import { getBrowserSupabase, useSession } from "../../lib/auth";
 import type { PlanData } from "../../lib/chat";
+import { normalizePlan } from "../../lib/chatState";
 import { getLodgings, getTrail, type LodgingOnTrail } from "../../lib/data";
 import { mapTrail, type MapTrail } from "../../lib/map";
 import { useSearchParams } from "next/navigation";
@@ -20,9 +21,9 @@ async function load(id: string): Promise<Loaded | { error: string }> {
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload").eq("id", id).maybeSingle();
     if (error || !data) return { error: error ? MSG_LOAD : "Plan nicht gefunden" };
-    const p = data.payload as PlanData | null;
-    if (data.kind !== "multiday" || !p || !Array.isArray(p.plan?.days)) return { error: MSG_LOAD };
-    const data2: PlanData = { ...p, weather: p.weather ?? {}, rain: p.rain ?? {} };
+    const p = normalizePlan(data.payload);
+    if (data.kind !== "multiday" || !p) return { error: MSG_LOAD };
+    const data2 = p;
     let trail: MapTrail | null = null;
     let lodgings: LodgingOnTrail[] | null = null;
     let lengthKm: number | null = null;
@@ -49,6 +50,7 @@ function SavedPlan() {
   const [result, setResult] = useState<Loaded | { error: string } | null>(null);
 
   useEffect(() => {
+    setResult(null); // another plan or no session: never show the previous one
     if (!signedIn || !id) return;
     let live = true;
     void load(id).then((r) => live && setResult(r));

@@ -45,7 +45,7 @@ function LastCards() {
 
 function PlanCards() {
   const { state } = useChat();
-  return state.plan ? <PlanDays data={state.plan} startName="Hausach" /> : null;
+  return state.plan ? <PlanDays data={state.plan} /> : null;
 }
 
 async function chat(name: keyof typeof streams) {

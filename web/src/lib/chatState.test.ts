@@ -143,3 +143,18 @@ it("plan survives a reload; a corrupt plan is dropped", () => {
   store.set(STORAGE_KEY, JSON.stringify({ ...s, v: 1, plan: { plan: "x" } }));
   expect(loadState(storage, () => "n").plan).toBeNull();
 });
+
+it("the plan keeps the start of the request at that moment", () => {
+  let s = reduceEvent(initialState("t"), { type: "understood", text: "x", request: { ...(request() as object), start: { label: "Hausach" } } as never });
+  s = reduceEvent(s, planEvent(1));
+  s = reduceEvent(s, { type: "understood", text: "y", request: { ...(request() as object), start: { label: "Kandern" } } as never });
+  expect(s.plan?.start_name).toBe("Hausach");
+});
+
+it("an old stored state without plan loads with plan null; a plan without notes gets []", () => {
+  const store = new Map<string, string>([[STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], last: null, request: null })]]);
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} } as unknown as Storage;
+  expect(loadState(storage, () => "n").plan).toBeNull();
+  store.set(STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], plan: { plan: { days: [] } } }));
+  expect(loadState(storage, () => "n").plan?.plan.notes).toEqual([]);
+});
