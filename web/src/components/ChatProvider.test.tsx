@@ -107,3 +107,15 @@ it('abort adds the notice "Abgebrochen."', async () => {
   expect(await screen.findByText("a:busy=false")).toBeInTheDocument();
   expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).items.at(-1)).toEqual({ kind: "notice", text: "Abgebrochen." });
 });
+
+it("posts to the same-origin /api/chat by default (proxied by Next)", async () => {
+  mockStream(sse([DONE]));
+  render(
+    <ChatProvider>
+      <Probe name="a" />
+    </ChatProvider>,
+  );
+  await userEvent.click(screen.getByText("a-send"));
+  await screen.findByText("a:busy=false");
+  expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/chat");
+});

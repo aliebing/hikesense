@@ -89,7 +89,7 @@ cloudflared tunnel --url http://localhost:3000
 
 Die Position bleibt auf dem Gerät: „Unterwegs“ rechnet Restkilometer und Ankunft im Browser, sendet und speichert nichts und orten läuft nur, solange die Seite offen und gestartet ist. Ohne HTTPS (reines HTTP im WLAN) funktionieren Chat, Touren und Karte weiter; nur Ortung, Service Worker und Installation fehlen.
 
-Bekannte Lücke: Der Tunnel reicht nur die Web-App (Port 3000) durch. Anmeldung und Chat spricht der Browser direkt an (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_API_URL`, lokal `127.0.0.1`); auf dem Handy sind diese Adressen nicht erreichbar. Über den Tunnel gehen deshalb Touren, Karte und „Unterwegs“ für eine Tour, nicht aber Anmelden, Chat und gemerkte Pläne. Dafür bräuchten Supabase (54321) und API (8000) eigene HTTPS-Adressen in diesen beiden Variablen und die Tunnel-Adresse in den erlaubten Origins der API.
+Ein Tunnel reicht: Der Browser spricht nur mit der Web-App (Port 3000). Next leitet `/api/chat` an die API (`API_INTERNAL_URL`, in Compose `http://api:8000`) und `/sb/…` an Supabase (`SUPABASE_URL`) weiter (`web/next.config.ts`); der Chat-Stream wird dabei nicht gepuffert. Über die Tunnel-Adresse gehen so Anmelden, Chat, Touren, Karte, Merken, gemerkte Pläne, „Unterwegs“ und eigene Fotos. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_API_URL` bleiben dafür leer; gesetzt umgehen sie den Proxy (dann wieder nur am Rechner selbst erreichbar).
 
 ## Gruppen und Läufe
 

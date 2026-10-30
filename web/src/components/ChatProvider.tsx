@@ -5,7 +5,8 @@ import { getAccessToken } from "../lib/auth";
 import { streamChat } from "../lib/chat";
 import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, type ChatState } from "../lib/chatState";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+/** Same origin by default: next.config.ts proxies /api/chat to the backend (one tunnel for the phone). */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 type Chat = { state: ChatState; busy: boolean; hydrated: boolean; /** resolves to { auth: true } when the turn ended because the session is missing or expired */
   send(text: string): Promise<{ auth: boolean }>; abort(): void };

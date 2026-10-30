@@ -228,3 +228,12 @@ def test_jwks_outage_is_503_not_401(settings, monkeypatch):
     r = post(client)
     assert r.status_code == 503
     assert "gleich noch einmal" in r.json()["detail"]
+
+
+def test_stream_is_not_buffered_by_proxies(client, seen):
+    # the web app proxies /api/chat (Next rewrite): no compression, no proxy buffering
+    r = post(client)
+    assert r.status_code == 200
+    assert "no-transform" in r.headers["cache-control"]
+    assert "no-cache" in r.headers["cache-control"]
+    assert r.headers["x-accel-buffering"] == "no"

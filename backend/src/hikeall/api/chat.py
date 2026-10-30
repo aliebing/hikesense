@@ -41,6 +41,9 @@ MAX_CHARS = 1000
 MAX_BODY_BYTES = 64 * 1024
 WEATHER_TIMEOUT_S = 10.0
 TRAIL_NAMES_SQL = "select distinct name from trails where name is not null"
+# The web app proxies /api/chat (Next rewrite, one origin for a phone tunnel): the stream must
+# neither be compressed (no-transform) nor buffered by a proxy, or events arrive all at once.
+STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
 
 
 AUTH_MESSAGES = {
@@ -152,7 +155,7 @@ def make_router(
             return EventSourceResponse(
                 limited(),
                 status_code=429,
-                headers={"Retry-After": str(decision.retry_after_s)},
+                headers={**STREAM_HEADERS, "Retry-After": str(decision.retry_after_s)},
             )
         declared = request.headers.get("content-length", "")
         if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
@@ -176,7 +179,8 @@ def make_router(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
         return EventSourceResponse(
-            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id))
+            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id)),
+            headers=STREAM_HEADERS,
         )
 
     return router
