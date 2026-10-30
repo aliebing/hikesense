@@ -17,12 +17,14 @@ function TileFace({ tile }: { tile: Tile }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={tile.photo.thumb_url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <span className="absolute inset-0 grid place-items-center bg-wald p-3 text-center font-serif text-sm">{tile.name}</span>
+        <span className="absolute inset-0 grid place-items-center wald-verlauf p-3 text-center font-serif text-sm">{tile.name}</span>
       )}
-      <span className="absolute inset-x-0 bottom-0 grid gap-0.5 bg-black/55 px-2 py-1 text-[11px] leading-snug">
-        <span className="truncate font-medium">{tile.name}</span>
-        {tile.match?.deviation && <span className="text-papier/90">{tile.match.deviation}</span>}
-      </span>
+      {(tile.photo || tile.match?.deviation) && (
+        <span className="absolute inset-x-0 bottom-0 grid gap-0.5 bg-black/55 px-2 py-1 text-[11px] leading-snug">
+          {tile.photo && <span className="truncate font-medium">{tile.name}</span>}
+          {tile.match?.deviation && <span className="text-papier/90">{tile.match.deviation}</span>}
+        </span>
+      )}
     </>
   );
 }

@@ -95,6 +95,10 @@ body {
 .hike-drift {
   animation: hike-drift 75s linear infinite;
 }
+.hike-drift:hover,
+.hike-drift:focus-within {
+  animation-play-state: paused;
+}
 .hike-drift.hike-drift-back {
   animation-direction: reverse;
 }
