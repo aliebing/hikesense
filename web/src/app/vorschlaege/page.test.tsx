@@ -57,8 +57,8 @@ it("fallback note first, each card shows its deviation", () => {
   expect(note).toHaveTextContent(fb);
   const first = screen.getAllByRole("article")[0];
   expect(note.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByText("15 km statt 14 km")).toBeInTheDocument();
-  expect(screen.getByText("16 km statt 14 km")).toBeInTheDocument();
+  expect(screen.getByText(/15 km statt 14 km/)).toBeInTheDocument();
+  expect(screen.getByText(/16 km statt 14 km/)).toBeInTheDocument();
 });
 
 it("without results shows a hint", () => {
