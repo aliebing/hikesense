@@ -64,4 +64,26 @@ describe("HeroBackdrop", () => {
     fireEvent.error(container.querySelector('img[src="/p1.jpg"]')!);
     expect(screen.getByText(/Autor 2/)).toBeInTheDocument();
   });
+
+  it("keeps the attribution out of the background layer so its links are clickable", () => {
+    const { container } = render(<HeroBackdrop photos={photos} />);
+    const credit = screen.getByText(/Autor 1/);
+    expect(credit.closest(".-z-10")).toBeNull();
+    expect(container.querySelector(".-z-10")).not.toBeNull();
+    expect(credit.closest(".fixed")).not.toBeNull();
+  });
+
+  it("changes photo half as often on a phone", () => {
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    render(<HeroBackdrop photos={photos} intervalMs={1000} />);
+    act(() => void vi.advanceTimersByTime(1500));
+    expect(screen.getByText(/Autor 1/)).toBeInTheDocument();
+    act(() => void vi.advanceTimersByTime(1000));
+    expect(screen.getByText(/Autor 2/)).toBeInTheDocument();
+  });
 });

@@ -80,7 +80,7 @@ export default function Vorschlaege() {
           </>
         )}
       </main>
-      <div className="sticky bottom-3 z-10 ml-auto w-full max-w-md">
+      <div className="sticky bottom-12 z-10 ml-auto w-full max-w-md">
         <ChatShell variant="drawer" intro="Möchtest du etwas anpassen? Schreib mir, was anders sein soll." />
       </div>
     </Panorama>

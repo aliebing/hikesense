@@ -23,7 +23,7 @@ const card = { trail_id: "t1", name: "Tour 1", deviation_text: null } as unknown
 const withLast = (cards: TourCard[] | null) =>
   saveState(sessionStorage, {
     ...initialState("th"),
-    last: cards ? { cards, fallback: null, runWithoutPace: false, labels: {} } : null,
+    last: cards ? { cards, fallback: null, runWithoutPace: false, labels: {}, request: null } : null,
   });
 const show = () =>
   render(
@@ -59,5 +59,20 @@ it("credits list visible tile photos", async () => {
   expect(dialog).toHaveTextContent("Lizenz 0");
   expect(screen.getByRole("link", { name: "Lizenz 0" })).toHaveAttribute("href", "https://l/0");
   await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("credits dialog takes focus and gives it back on close", async () => {
+  show();
+  await userEvent.click(screen.getByRole("button", { name: "Bildnachweise" }));
+  expect(screen.getByRole("button", { name: "Schließen" })).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: "Bildnachweise" })).toHaveFocus();
+});
+
+it("credits dialog closes on a click on the backdrop", async () => {
+  show();
+  await userEvent.click(screen.getByRole("button", { name: "Bildnachweise" }));
+  await userEvent.click(screen.getByRole("dialog").parentElement!);
   expect(screen.queryByRole("dialog")).toBeNull();
 });

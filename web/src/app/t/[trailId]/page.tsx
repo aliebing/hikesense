@@ -89,7 +89,7 @@ export default async function TrailPage({
         <StageCards trail={trail} />
       </section>
 
-      <footer className="text-[11px] text-papier/75">
+      <footer className="text-[11px] text-papier/75 pb-10 sm:pb-0 sm:pr-[min(26rem,40vw)]">
         Quellen:{" "}
         {trail.sources.map((s, i) => (
           <span key={s.id}>

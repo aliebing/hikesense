@@ -58,7 +58,7 @@ export default async function Home() {
     <Panorama longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HeroBackdrop photos={backgrounds} />
       <HomeStage pool={pool} />
-      <footer className="text-[11px] text-papier/75">
+      <footer className="text-[11px] text-papier/75 pb-10 sm:pb-0 sm:pr-[min(26rem,40vw)]">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
         von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, siehe Bildnachweise.
       </footer>
