@@ -40,7 +40,6 @@ test("home shows a clear message when data cannot be loaded", async () => {
   expect(screen.getByText(/Daten konnten nicht geladen werden/)).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "Nachricht" })).toBeInTheDocument();
   expect(screen.queryAllByRole("link", { hidden: true }).filter((l) => l.getAttribute("href")?.startsWith("/t/"))).toHaveLength(0);
-  expect(screen.queryByRole("button", { name: "Bildnachweise" })).toBeNull();
 });
 
 test("home explains an empty database", async () => {
@@ -51,15 +50,16 @@ test("home explains an empty database", async () => {
   expect(screen.queryAllByRole("link", { hidden: true }).filter((l) => l.getAttribute("href")?.startsWith("/t/"))).toHaveLength(0);
 });
 
-test("renders chat and tile rows", async () => {
+test("renders the chat and a background photo with its credit, no tour tiles", async () => {
   mockGetTrails.mockResolvedValue([
     trail("westweg-west", "long_distance", 48.5),
     trail("day-1", "day_hike", 48.1),
   ]);
-  const { container } = render(<ChatProvider>{await Home()}</ChatProvider>);
-  expect(screen.getByRole("textbox")).toBeInTheDocument();
-  expect(container.querySelectorAll("li").length).toBeGreaterThan(0);
-  expect(screen.getByRole("button", { name: "Bildnachweise" })).toBeInTheDocument();
+  render(<ChatProvider>{await Home()}</ChatProvider>);
+  expect(screen.getByRole("textbox", { name: "Nachricht" })).toBeInTheDocument();
+  expect(screen.getByText(/Autor westweg-west/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Nächstes Bild" })).toBeInTheDocument();
+  expect(screen.queryAllByRole("link").filter((l) => l.getAttribute("href") === "/t/day-1")).toHaveLength(0);
 });
 
 test("menu lists long-distance trails", async () => {

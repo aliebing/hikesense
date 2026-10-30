@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import HeroBackdrop from "../../../components/HeroBackdrop";
 import ChatShell from "../../../components/ChatShell";
 import MapPanel from "../../../components/MapPanel";
 import Notice from "../../../components/Notice";
 import Panorama from "../../../components/Panorama";
+import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
 import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
@@ -32,7 +32,7 @@ export default async function TrailPage({
     console.error(`getTrail(${trailId}) failed:`, e);
     return (
       <Panorama back={back}>
-        <HeroBackdrop photos={[]} />
+        <PhotoSwitcher photos={[]} />
         <Notice title="Daten konnten nicht geladen werden.">
           <p>Die Datenbank ist nicht erreichbar oder nicht konfiguriert. Bitte später erneut versuchen.</p>
         </Notice>
@@ -83,13 +83,15 @@ export default async function TrailPage({
 
       <div className="flex-1" />
 
-      <HeroBackdrop photos={trail.photos} />
+      <div className="flex justify-end">
+        <PhotoSwitcher photos={trail.photos} />
+      </div>
 
       <section aria-label={longDistance ? "Etappen" : "Tour"}>
         <StageCards trail={trail} />
       </section>
 
-      <footer className="text-[11px] text-papier/75 pb-10 sm:pb-0 sm:pr-[min(26rem,40vw)]">
+      <footer className="text-[11px] text-papier/75">
         Quellen:{" "}
         {trail.sources.map((s, i) => (
           <span key={s.id}>

@@ -4,6 +4,8 @@ Stand: 2026-10-30 · ergänzt `2026-10-28-hike-all-about-design.md` §10 (Oberfl
 
 Kennzeichnung: **[Ali]** = vom Nutzer entschieden, **[Claude]** = meine Entscheidung (beim Review änderbar), **[Builder]** = bewusst offen.
 
+> **Änderung 2026-10-30 nach Ansicht [Ali]:** Kachelreihen und der automatisch wechselnde Hintergrund passen nicht zur Anwendung und entfallen. Die Startseite zeigt wie vorher ein ruhiges Hintergrundbild (von Hand weiterschaltbar, Nachweis am Bild) und den Chat in der Mitte; darunter erscheint nach einem Treffer „Vorschläge zeigen →“. Vorschlagsseite und Routenansicht nutzen ebenfalls das ruhige Bild. Die Abschnitte zu Kacheln, Bewegung und dem Overlay „Bildnachweise“ unten gelten damit nicht mehr; alles andere (eigene Vorschlagsseite, Knopf, gemeinsames Gespräch, Zurück-Link) bleibt.
+
 ## 1. Warum
 
 Die jetzige Startseite ist ein Panorama-Bild mit Chat und darunter Kartenreihen (Fernwege, Tagestouren) und Ergebniskarten direkt im Chat. Ali möchte die Wirkung von CineSense (`~/projects/CineSenseAi/web`): eine ruhige Bühne mit Bewegung, auf der man **nur chattet**, und die Vorschläge kommen erst auf einer eigenen Seite. Das Planen soll sich wie ein Gespräch anfühlen, nicht wie eine Datenbankliste – derselbe Grund wie bei CineSense („feels like a database rather than going to the movies“).

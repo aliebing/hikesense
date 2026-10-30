@@ -4,7 +4,7 @@ import Link from "next/link";
 import { chipsFor, withoutFallback } from "../../components/ChatMessages";
 import ChatShell from "../../components/ChatShell";
 import { useChat } from "../../components/ChatProvider";
-import HeroBackdrop from "../../components/HeroBackdrop";
+import PhotoSwitcher from "../../components/PhotoSwitcher";
 import Panorama from "../../components/Panorama";
 import TourResultCard from "../../components/TourResultCard";
 import { coverOf } from "../../lib/chatState";
@@ -35,7 +35,6 @@ export default function Vorschlaege() {
 
   return (
     <Panorama back={{ href: "/", label: "← Zum Chat" }}>
-      <HeroBackdrop photos={photos} />
       <main className="flex flex-1 flex-col gap-5 pb-4">
         <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Vorschläge</h1>
         {!hydrated ? null : cards.length === 0 ? (
@@ -80,7 +79,10 @@ export default function Vorschlaege() {
           </>
         )}
       </main>
-      <div className="sticky bottom-12 z-10 ml-auto w-full max-w-md">
+      <div className="flex justify-end">
+        <PhotoSwitcher photos={photos} />
+      </div>
+      <div className="sticky bottom-3 z-10 ml-auto w-full max-w-md">
         <ChatShell variant="drawer" intro="Möchtest du etwas anpassen? Schreib mir, was anders sein soll." />
       </div>
     </Panorama>
