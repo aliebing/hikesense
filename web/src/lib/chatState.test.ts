@@ -113,3 +113,33 @@ it("drops a malformed last or request but keeps the rest", () => {
   expect(s.last).toBeNull();
   expect(s.request).toBeNull();
 });
+
+const planEvent = (days: number): ChatEvent =>
+  ({ type: "plan", plan: { trail_id: "t", trail_name: "T", target_km: 15, days: Array.from({ length: days }, (_, i) => ({ day: i + 1 })), notes: days ? [] : ["Ab hier endet der Weg."], source_ids: [] }, weather: {}, rain: {} }) as unknown as ChatEvent;
+
+it("plan event sets plan, clears last, adds a one-line item; results clears plan", () => {
+  let s = reduceEvent(initialState("t"), results(["a"]));
+  s = reduceEvent(s, planEvent(3));
+  expect(s.last).toBeNull();
+  expect(s.plan?.plan.days).toHaveLength(3);
+  expect(s.items[s.items.length - 1]).toEqual({ kind: "plan", summary: "Plan mit 3 Tagen erstellt" });
+  s = reduceEvent(s, results(["b"]));
+  expect(s.plan).toBeNull();
+  expect(s.last?.cards).toHaveLength(1);
+});
+
+it("a plan without days keeps the plan (notes) and shows the dead-end note", () => {
+  const s = reduceEvent(initialState("t"), planEvent(0));
+  expect(s.plan).not.toBeNull();
+  expect(s.items[0]).toEqual({ kind: "plan", summary: "Ab hier endet der Weg." });
+});
+
+it("plan survives a reload; a corrupt plan is dropped", () => {
+  const s = reduceEvent(initialState("t"), planEvent(2));
+  const store = new Map<string, string>();
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) } as unknown as Storage;
+  saveState(storage, s);
+  expect(loadState(storage, () => "n").plan?.plan.days).toHaveLength(2);
+  store.set(STORAGE_KEY, JSON.stringify({ ...s, v: 1, plan: { plan: "x" } }));
+  expect(loadState(storage, () => "n").plan).toBeNull();
+});

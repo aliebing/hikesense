@@ -36,3 +36,10 @@ it("empty results hide the button", () => {
   show();
   expect(screen.queryByRole("link", { name: "Vorschläge zeigen →" })).toBeNull();
 });
+
+it("button for a plan, also an empty one", () => {
+  const plan = { plan: { trail_id: "t", trail_name: "T", target_km: 15, days: [], notes: ["x"], source_ids: [] }, weather: {}, rain: {} };
+  saveState(sessionStorage, { ...initialState("th"), plan });
+  show();
+  expect(screen.getByRole("link", { name: "Vorschläge zeigen →" })).toBeInTheDocument();
+});

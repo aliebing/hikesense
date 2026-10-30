@@ -1,4 +1,4 @@
-import type { ChatEvent, HikeRequest, Labels, TourCard } from "./chat";
+import type { ChatEvent, HikeRequest, Labels, PlanData, TourCard } from "./chat";
 import type { Photo } from "./data";
 import type { ChatItem } from "../components/ChatMessages";
 
@@ -16,6 +16,8 @@ export type ChatState = {
   items: ChatItem[];
   /** null: nothing found yet, or the last search found nothing */
   last: LastResults | null;
+  /** the last multi-day plan (shown on /vorschlaege); a results event clears it, a plan event clears `last` */
+  plan: PlanData | null;
   /** the last understood request (for chips on /vorschlaege); null before the first */
   request: { request: HikeRequest; labels: Labels } | null;
   /** internal: activity "run" without pace, carried from "understood" to "results" */
@@ -38,7 +40,7 @@ export function coverOf(card: TourCard | undefined): Photo | null {
 }
 
 export function initialState(threadId: string): ChatState {
-  return { threadId, items: [], last: null, request: null, runWithoutPace: false };
+  return { threadId, items: [], last: null, plan: null, request: null, runWithoutPace: false };
 }
 
 /** All labels seen so far in this conversation (later ones win). */
@@ -49,6 +51,13 @@ function labelsOf(items: ChatItem[]): Labels {
 }
 
 const add = (s: ChatState, item: ChatItem): ChatState => ({ ...s, items: [...s.items, item] });
+
+/** One line for the chat: the number of days, or (no day possible) the note that says why. */
+export function planSummary(p: PlanData): string {
+  const n = p.plan.days.length;
+  if (n === 0) return p.plan.notes.join(" ") || "Kein Plan möglich.";
+  return `Plan mit ${n} ${n === 1 ? "Tag" : "Tagen"} erstellt`;
+}
 
 export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
   switch (e.type) {
@@ -72,7 +81,17 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
         labels,
       };
       // An empty result list clears "Passend": the page never shows stale tours.
-      return { ...add(s, { kind: "results", ...item }), last: e.cards.length > 0 ? { ...item, request: s.request } : null };
+      return {
+        ...add(s, { kind: "results", ...item }),
+        last: e.cards.length > 0 ? { ...item, request: s.request } : null,
+        plan: null,
+      };
+    }
+    case "plan": {
+      const { type: _type, ...plan } = e;
+      void _type;
+      const data: PlanData = { ...plan, weather: plan.weather ?? {}, rain: plan.rain ?? {} };
+      return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
     }
     case "token": {
       const last = s.items[s.items.length - 1];
@@ -108,7 +127,9 @@ export function loadState(storage: Storage | null, newId: () => string): ChatSta
         delete (rest as { v?: number }).v;
         const last = isObject(rest.last) && Array.isArray(rest.last.cards) ? { ...rest.last, request: isObject(rest.last.request) ? rest.last.request : null } : null;
         const request = isObject(rest.request) && isObject(rest.request.request) ? rest.request : null;
-        return { ...initialState(parsed.threadId), ...rest, last, request } as ChatState;
+        const pl = rest.plan;
+        const plan = isObject(pl) && isObject(pl.plan) && Array.isArray(pl.plan.days) ? { ...pl, weather: isObject(pl.weather) ? pl.weather : {}, rain: isObject(pl.rain) ? pl.rain : {} } : null;
+        return { ...initialState(parsed.threadId), ...rest, last, plan, request } as ChatState;
       }
     }
   } catch {

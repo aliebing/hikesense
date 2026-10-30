@@ -23,6 +23,14 @@ export type HikeRequest = {
   pace_min_per_km: number | null;
   unmatched: string[];
   question: string | null;
+  // multi-day (only values the user wrote; null otherwise)
+  trail_id?: string | null;
+  trail_assumed?: boolean;
+  days?: number | null;
+  day_km?: number | null;
+  start_date?: string | null;
+  start_time?: string | null;
+  day_change?: { day: number; change: "shorter" | "longer" } | null;
 };
 
 export type ConstraintResult = {
@@ -62,6 +70,76 @@ export type SourceBrief = {
   status: string | null;
 };
 
+/** Multi-day plan, as serialised by backend PlanEvent (agent/multiday.py, adapters/open_meteo.py). */
+export type PlanStop = {
+  lodging_id: number;
+  name: string | null;
+  kind: string | null;
+  website: string | null;
+  along_km: number;
+  dist_m: number;
+};
+
+export type DayPlan = {
+  day: number;
+  /** ISO date; null: the user gave no date */
+  date: string | null;
+  start_km: number;
+  end_km: number;
+  walk_km: number;
+  access_km: number;
+  length_km: number;
+  ascent_m: number;
+  descent_m: number;
+  duration_h: number;
+  /** "09:00:00" */
+  start_time: string;
+  /** null: the day would end after midnight (see gap) */
+  arrival: string | null;
+  /** null: the day ends at the trail end */
+  stop: PlanStop | null;
+  gap: string | null;
+  within_band: boolean;
+};
+
+export type MultidayPlan = {
+  trail_id: string;
+  trail_name: string;
+  target_km: number;
+  days: DayPlan[];
+  notes: string[];
+  source_ids: string[];
+};
+
+export type DayWeather = {
+  date: string;
+  code: number | null;
+  text: string | null;
+  t_min_c: number | null;
+  t_max_c: number | null;
+  precip_mm: number | null;
+  precip_prob_pct: number | null;
+  source_id: string;
+};
+
+export type NoForecast = { reason: string };
+
+export type RainVariant = {
+  station_name: string;
+  walk_km: number;
+  ascent_m: number;
+  duration_h: number;
+  note: string;
+};
+
+/** The plan event without its type (what is stored and saved with „Merken“). Keys of weather/rain: day number. */
+export type PlanData = {
+  plan: MultidayPlan;
+  weather: Record<string, DayWeather | NoForecast>;
+  rain: Record<string, RainVariant | null>;
+  labels?: Labels;
+};
+
 /** tag_id -> vocabulary label */
 export type Labels = Record<string, string>;
 
@@ -69,6 +147,7 @@ export type ChatEvent =
   | { type: "understood"; text: string; request: HikeRequest; labels?: Labels }
   | { type: "clarify"; question: string; options: string[] }
   | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
+  | ({ type: "plan" } & PlanData)
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }

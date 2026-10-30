@@ -1,6 +1,6 @@
 import type { LineString } from "geojson";
 import type { LodgingOnTrail, TrailDetail } from "./data";
-import { bboxOf, BASEMAP_STYLE, lodgingsNearby, mapTrail, safeWebsite, trailToFeatures } from "./map";
+import { bboxOf, dayFeatures, daySections, BASEMAP_STYLE, lodgingsNearby, mapTrail, safeWebsite, trailToFeatures } from "./map";
 
 const line = (...coords: [number, number][]): LineString => ({ type: "LineString", coordinates: coords });
 
@@ -82,4 +82,25 @@ test("safeWebsite links only http(s) and adds a missing scheme", () => {
   expect(safeWebsite("www.pension.de")).toBe("https://www.pension.de/");
   expect(safeWebsite("javascript:alert(1)")).toBeNull();
   expect(safeWebsite(null)).toBeNull();
+});
+
+describe("daySections", () => {
+  // 0.1 degree of latitude is ~11.1 km
+  const l: [number, number][] = [[8, 48], [8, 48.1], [8, 48.2], [8, 48.3]];
+  it("cuts the line at the plan km, scaled to the trail length", () => {
+    const secs = daySections(l, [
+      { day: 1, start_km: 0, end_km: 15, stop: { name: "A" } },
+      { day: 2, start_km: 15, end_km: 33.3, stop: null },
+    ], 33.3);
+    expect(secs.map((s) => s.day)).toEqual([1, 2]);
+    const c1 = secs[0].geom.coordinates;
+    expect(c1[0]).toEqual([8, 48]);
+    expect(c1[c1.length - 1][1]).toBeCloseTo(48 + (15 / 33.3) * 0.3, 3);
+    expect(secs[1].geom.coordinates[secs[1].geom.coordinates.length - 1][1]).toBeCloseTo(48.3, 3);
+    expect(secs[0].end_name).toBe("A");
+    expect(dayFeatures(secs).features.filter((f) => f.properties?.kind === "boundary")).toHaveLength(2);
+  });
+  it("draws nothing without a line", () => {
+    expect(daySections([[8, 48]], [{ day: 1, start_km: 0, end_km: 1, stop: null }])).toEqual([]);
+  });
 });

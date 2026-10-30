@@ -96,3 +96,13 @@ it("keeps the chips and sentence of its own search after a later knowledge quest
   expect(main).toHaveTextContent("Hier ist eine Tour.");
   expect(main).not.toHaveTextContent("Der Westweg ist rot markiert.");
 });
+
+it("shows the plan days instead of tour cards when a plan is set", () => {
+  const day = { day: 1, date: null, start_km: 0, end_km: 15, walk_km: 15, access_km: 0, length_km: 15, ascent_m: 1, descent_m: 1, duration_h: 4, start_time: "09:00:00", arrival: "13:00:00", stop: null, gap: null, within_band: true };
+  const plan = { plan: { trail_id: "t", trail_name: "Westweg", target_km: 15, days: [day], notes: ["Der Weg endet hier."], source_ids: [] }, weather: {}, rain: {} };
+  saveState(sessionStorage, { ...initialState("th"), plan });
+  show();
+  expect(screen.getByRole("list", { name: "Tage" })).toHaveTextContent("Tag 1");
+  expect(screen.getByRole("note")).toHaveTextContent("Der Weg endet hier.");
+  expect(screen.queryByText("Noch keine Vorschläge.")).toBeNull();
+});

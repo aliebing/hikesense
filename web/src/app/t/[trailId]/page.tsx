@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import ChatShell from "../../../components/ChatShell";
-import MapPanel from "../../../components/MapPanel";
 import Notice from "../../../components/Notice";
 import Panorama from "../../../components/Panorama";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
+import TrailMap from "../../../components/TrailMap";
 import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
@@ -77,7 +77,13 @@ export default async function TrailPage({
           variant="drawer"
         />
         <div data-slot="map" className="grid">
-          <MapPanel trail={mapTrail(trail)} lodgings={lodgings} />
+          <TrailMap
+            trailId={trailId}
+            fromSuggestions={von === "vorschlaege"}
+            trail={mapTrail(trail)}
+            lodgings={lodgings}
+            lengthKm={trail.length_km}
+          />
         </div>
       </div>
 

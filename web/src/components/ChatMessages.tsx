@@ -7,6 +7,7 @@ export type ChatItem =
   | { kind: "understood"; text: string; request: HikeRequest; labels: Labels }
   | { kind: "clarify"; question: string; options: string[] }
   | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels }
+  | { kind: "plan"; summary: string }
   | { kind: "sources"; sources: SourceBrief[] }
   | { kind: "notice"; text: string }
   | { kind: "error"; text: string }
@@ -140,6 +141,7 @@ export default function ChatMessages({
               <p className="text-xs text-papier/90">{foundText(it.cards.length)}</p>
             </div>
           )}
+          {it.kind === "plan" && <p className="text-xs text-papier/90">{it.summary}</p>}
           {it.kind === "sources" && (
             <ul aria-label="Quellen" className="flex flex-col gap-0.5 text-xs text-papier/90">
               {it.sources.map((s) => (

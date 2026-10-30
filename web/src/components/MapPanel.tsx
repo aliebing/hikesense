@@ -11,10 +11,12 @@ import {
   LODGING_MAX_DIST_M,
   OSM_RASTER_STYLE,
   bboxOf,
+  dayFeatures,
   lodgingKind,
   lodgingsNearby,
   safeWebsite,
   trailToFeatures,
+  type DaySection,
   type MapTrail,
 } from "../lib/map";
 
@@ -44,10 +46,13 @@ const LODGING_FULL_ZOOM = 11;
 export default function MapPanel({
   trail,
   lodgings,
+  days,
 }: {
   trail: MapTrail;
   /** null when the lodgings could not be loaded — then the legend says so instead of „0“ */
   lodgings: LodgingOnTrail[] | null;
+  /** plan days: drawn instead of the stages, alternating colours; `lodgings` are then the day-end lodgings */
+  days?: DaySection[];
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -84,7 +89,7 @@ export default function MapPanel({
       >
         <span aria-hidden="true">🗺 </span>Karte
       </button>
-      {open && <MapOverlay trail={trail} lodgings={lodgings} closer={closer} onClose={() => setOpen(false)} />}
+      {open && <MapOverlay trail={trail} lodgings={lodgings} days={days} closer={closer} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -92,18 +97,22 @@ export default function MapPanel({
 function MapOverlay({
   trail,
   lodgings,
+  days,
   closer,
   onClose,
 }: {
   trail: MapTrail;
   lodgings: LodgingOnTrail[] | null;
+  days?: DaySection[];
   closer: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
-  const features = useMemo(() => trailToFeatures(trail), [trail]);
-  const nearby = useMemo(() => (lodgings ? lodgingsNearby(lodgings) : []), [lodgings]);
+  const features = useMemo(() => (days && days.length > 0 ? dayFeatures(days) : trailToFeatures(trail)), [trail, days]);
+  const planDays = !!days && days.length > 0;
+  // day-end lodgings may be up to 2 km off the trail (access walk): they are all shown
+  const nearby = useMemo(() => (lodgings ? (planDays ? lodgings : lodgingsNearby(lodgings)) : []), [lodgings, planDays]);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,13 +244,15 @@ function MapOverlay({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[11px] text-papier/85">
           <span className="flex items-center gap-1">
             <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
-            {trail.stages.length > 0 ? "Etappen" : "Tour"}
+            {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
           </span>
           <span>
             <span aria-hidden="true">🛏 </span>
             {lodgings === null
               ? "Unterkünfte konnten nicht geladen werden"
-              : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
+              : planDays
+                ? `${nearby.length} Unterkünfte am Tagesende`
+                : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
           </span>
           <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
         </div>
