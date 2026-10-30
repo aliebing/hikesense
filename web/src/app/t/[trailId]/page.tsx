@@ -90,7 +90,7 @@ export default async function TrailPage({
       <div className="flex-1" />
 
       <div className="flex justify-end">
-        <PhotoSwitcher photos={trail.photos} />
+        <PhotoSwitcher photos={trail.photos} trailId={trailId} />
       </div>
 
       <section aria-label={longDistance ? "Etappen" : "Tour"}>

@@ -8,6 +8,8 @@ export type Photo = {
   license: string;
   license_url: string | null;
   page_url: string | null;
+  /** set only for the signed-in owner's own upload (never in server-rendered data) */
+  own?: { id: number; path: string };
 };
 
 export type TrailSummary = {
