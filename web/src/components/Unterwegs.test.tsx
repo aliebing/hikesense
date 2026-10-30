@@ -24,7 +24,9 @@ beforeEach(() => {
   Object.defineProperty(navigator, "geolocation", { configurable: true, value: { watchPosition: geo.watch, clearWatch: geo.clear } });
 });
 
-const view = () => <Unterwegs title="Testweg" trail={trail} line={coords} ascentM={600} descentM={600} />;
+// climb first, descent last: at half distance almost no climb remains
+const profile: [number, number][] = [[0, 0], [1, 600], [10, 600], [11.12, 0]];
+const view = () => <Unterwegs title="Testweg" trail={trail} line={coords} profile={profile} lengthKm={null} />;
 const fix = (lat: number, lon: number) => act(() => (geo.ok as Ok)({ coords: { latitude: lat, longitude: lon } }));
 
 test("shows remaining km and arrival on the line", async () => {
@@ -92,9 +94,42 @@ test("without geolocation support: own message", async () => {
 });
 
 test("unknown ascent: remaining km but no arrival guess", async () => {
-  render(<Unterwegs title="Testweg" trail={trail} line={coords} ascentM={null} descentM={null} />);
+  render(<Unterwegs title="Testweg" trail={trail} line={coords} profile={null} lengthKm={null} />);
   await userEvent.click(screen.getByRole("button", { name: "Unterwegs starten" }));
   fix(48.05, 8.0);
   expect(screen.getByText(/Noch 5,6 km/)).toBeInTheDocument();
   expect(screen.getByText(/Ankunft: unbekannt/)).toBeInTheDocument();
+});
+
+test("arrival comes from the remaining profile, not a pro-rata share", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 2, 9, 0, 0));
+  try {
+    render(view());
+    await userEvent.click(screen.getByRole("button", { name: "Unterwegs starten" }));
+    fix(48.05, 8.0); // half way: ~5.56 km left, 0 m up, 600 m down -> 1.39 h + 0.6 h = 1:59 h
+    expect(screen.getByText(/Ankunft ca\. 10:59 Uhr/)).toBeInTheDocument();
+    expect(screen.queryByText(/anteilig/)).not.toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("known section length gives the remaining km (plan card km), offset into the trail profile", async () => {
+  render(<Unterwegs title="Tag 2" trail={trail} line={coords} profile={profile} startKm={20} lengthKm={10} />);
+  await userEvent.click(screen.getByRole("button", { name: "Unterwegs starten" }));
+  fix(48.05, 8.0); // half of the line = half of the 10 km
+  expect(screen.getByText(/Noch 5,0 km/)).toBeInTheDocument();
+  expect(screen.getByText(/bisher 5,0 km von 10,0 km/)).toBeInTheDocument();
+  // km 25..30 lies beyond the profile: its last elevation holds, so no ascent/descent and an arrival of 1.25 h
+  expect(screen.getByText(/Ankunft ca\./)).toBeInTheDocument();
+});
+
+test("Beenden clears the position and the progress", async () => {
+  render(view());
+  await userEvent.click(screen.getByRole("button", { name: "Unterwegs starten" }));
+  fix(48.05, 8.0);
+  expect(screen.getByText(/Noch/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Beenden" }));
+  expect(screen.queryByText(/Noch/)).not.toBeInTheDocument();
 });

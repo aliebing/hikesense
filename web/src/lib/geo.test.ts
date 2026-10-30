@@ -1,4 +1,4 @@
-import { etaFromProfile, progressOnLine } from "./geo";
+import { etaFromProfile, progressOnLine, upDown } from "./geo";
 
 // ~111.2 km per degree of latitude: a straight north-south line of 0.1° ≈ 11.12 km
 const line: [number, number][] = [
@@ -32,4 +32,21 @@ test("eta uses DIN 33466 like the backend (12 km, 600 up, 600 down = 4.7 h)", ()
   expect(etaFromProfile(12, 600, 600, now).toISOString()).toBe("2026-11-02T13:42:00.000Z");
   // 20 km, 300/300: 5.8 h
   expect(etaFromProfile(20, 300, 300, now).toISOString()).toBe("2026-11-02T14:48:00.000Z");
+});
+
+test("fraction is the planar share along the line", () => {
+  expect(progressOnLine(line, { lat: 48.05, lon: 8.0 }).fraction).toBeCloseTo(0.5, 3);
+});
+
+test("upDown on an asymmetric profile: half way almost no climb remains", () => {
+  const profile: [number, number][] = [[0, 0], [1, 600], [10, 600], [11, 0]];
+  expect(upDown(profile, 0, 11)).toEqual({ up: 600, down: 600 });
+  expect(upDown(profile, 5.5, 11)).toEqual({ up: 0, down: 600 });
+  // cut inside the climb: elevation interpolated at the cut (300 m at km 0.5)
+  expect(upDown(profile, 0.5, 11)).toEqual({ up: 300, down: 600 });
+});
+
+test("upDown without a usable profile is null", () => {
+  expect(upDown(null, 0, 1)).toBeNull();
+  expect(upDown([[0, 5]], 0, 1)).toBeNull();
 });

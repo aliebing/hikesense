@@ -2,7 +2,7 @@
 
 import type { Position } from "geojson";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { etaFromProfile, haversineKm, progressOnLine } from "../lib/geo";
+import { etaFromProfile, haversineKm, progressOnLine, upDown, type Profile } from "../lib/geo";
 import type { DaySection, MapTrail } from "../lib/map";
 import MapPanel from "./MapPanel";
 
@@ -25,15 +25,18 @@ type Fix = { lat: number; lon: number };
  * „Unterwegs“: own position on the planned line (whole trail or one plan day), remaining km and arrival.
  * Everything is computed here in the browser from watchPosition; the position is never sent, stored or logged,
  * and the watch runs only while the page is open and started (no background location, no recording).
- * Ascent/descent of the rest are the section's totals pro rata (the profile has no per-point elevation).
+ * Remaining km = remaining share × the section's known length (the plan's own km, like the plan card), the
+ * haversine length only when that is unknown. Ascent/descent of the rest come from the elevation profile
+ * (same interpolation as the backend); without a profile there is no arrival, never a scaled guess.
  */
 export default function Unterwegs({
   title,
   trail,
   days,
   line,
-  ascentM,
-  descentM,
+  profile,
+  startKm = 0,
+  lengthKm,
 }: {
   title: string;
   trail: MapTrail;
@@ -41,8 +44,12 @@ export default function Unterwegs({
   days?: DaySection[];
   /** the line to walk, [lon, lat] like GeoJSON */
   line: Position[];
-  ascentM: number | null;
-  descentM: number | null;
+  /** trails.profile: [km, elevation_m] along the whole trail */
+  profile: Profile | null;
+  /** trail km where the line starts (plan day: its start_km; whole trail: 0) */
+  startKm?: number;
+  /** known km of the line (plan day: its walk_km; trail: length_km); null: use the geometry */
+  lengthKm: number | null;
 }) {
   const [watching, setWatching] = useState(false);
   const [fix, setFix] = useState<Fix | null>(null);
@@ -56,6 +63,8 @@ export default function Unterwegs({
     if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current);
     watchId.current = null;
     setWatching(false);
+    setFix(null); // nothing stale after „Beenden“
+    setError(null);
   };
 
   const start = () => {
@@ -87,10 +96,14 @@ export default function Unterwegs({
   const progress = useMemo(() => (fix && latLon.length > 1 ? progressOnLine(latLon, fix) : null), [fix, latLon]);
   const onRoute = progress !== null && progress.distToLineM <= OFF_ROUTE_M;
 
+  const known = lengthKm !== null && lengthKm > 0 ? lengthKm : null;
+  const sectionKm = known ?? totalKm;
+  const alongKm = progress ? (known ? progress.fraction * known : progress.alongKm) : 0;
+  const remainingKm = progress ? (known ? (1 - progress.fraction) * known : progress.remainingKm) : 0;
   let arrival: string | null = null;
-  if (onRoute && ascentM !== null && descentM !== null && totalKm > 0) {
-    const share = Math.min(1, progress.remainingKm / totalKm);
-    arrival = clock.format(etaFromProfile(progress.remainingKm, ascentM * share, descentM * share, new Date()));
+  if (onRoute && progress) {
+    const rest = upDown(profile, startKm + alongKm, startKm + sectionKm);
+    if (rest) arrival = clock.format(etaFromProfile(remainingKm, rest.up, rest.down, new Date()));
   }
 
   return (
@@ -123,10 +136,10 @@ export default function Unterwegs({
       {progress && onRoute && (
         <div className="rounded-xl bg-papier/95 px-3 py-2 text-sm text-wald-dunkel shadow">
           <p className="font-medium">
-            Noch {de1.format(progress.remainingKm)} km <span className="font-normal">(bisher {de1.format(progress.alongKm)} km von {de1.format(totalKm)} km)</span>
+            Noch {de1.format(remainingKm)} km <span className="font-normal">(bisher {de1.format(alongKm)} km von {de1.format(sectionKm)} km)</span>
           </p>
           <p className="text-xs">
-            {arrival ? `Ankunft ca. ${arrival} Uhr (Gehzeit nach DIN 33466, ohne Pausen, Anstieg anteilig gerechnet)` : "Ankunft: unbekannt (Höhenmeter fehlen)"}
+            {arrival ? `Ankunft ca. ${arrival} Uhr (Gehzeit nach DIN 33466, ohne Pausen)` : "Ankunft: unbekannt (kein Höhenprofil)"}
           </p>
         </div>
       )}

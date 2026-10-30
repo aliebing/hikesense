@@ -47,6 +47,8 @@ export type TrailDetail = TrailSummary & {
   stages: Stage[];
   photos: Photo[];
   geom: LineString | null;
+  /** [km, elevation_m] along the trail (max 300 points); null when the import has none */
+  profile?: [number, number][] | null;
   sources: Source[];
 };
 
@@ -105,6 +107,17 @@ function num(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** jsonb [[km, m], …] in a safe shape; anything else is no profile */
+export function toProfile(v: unknown): [number, number][] | null {
+  if (!Array.isArray(v) || v.length < 2) return null;
+  const out: [number, number][] = [];
+  for (const p of v) {
+    if (!Array.isArray(p) || typeof p[0] !== "number" || typeof p[1] !== "number" || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return null;
+    out.push([p[0], p[1]]);
+  }
+  return out;
+}
+
 function fail(what: string, error: { message: string }): never {
   throw new Error(`${what}: ${error.message}`);
 }
@@ -127,7 +140,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
   if (!row) return null;
   const overview = row as unknown as OverviewRow;
 
-  const [geo, stages, stageGeo, photos] = await Promise.all([
+  const [geo, stages, stageGeo, photos, prof] = await Promise.all([
     sb.from("trails_geojson").select("geom").eq("id", id).maybeSingle(),
     sb
       .from("stages")
@@ -136,11 +149,13 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
       .order("seq"),
     sb.from("stages_geojson").select("id,geom").eq("trail_id", id),
     sb.from("photos").select(PHOTO_COLUMNS).eq("trail_id", id).order("id"),
+    sb.from("trails").select("profile").eq("id", id).maybeSingle(),
   ]);
   if (geo.error) fail("trails_geojson", geo.error);
   if (stages.error) fail("stages", stages.error);
   if (stageGeo.error) fail("stages_geojson", stageGeo.error);
   if (photos.error) fail("photos", photos.error);
+  if (prof.error) fail("trails", prof.error);
 
   const stageRows = stages.data ?? [];
   const seqById = new Map(stageRows.map((s) => [s.id as string, s.seq as number]));
@@ -174,6 +189,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
   return {
     ...toSummary(overview),
     geom: (geo.data?.geom as LineString | undefined) ?? null,
+    profile: toProfile(prof.data?.profile),
     photos: photoRows.map(toPhoto),
     sources,
     stages: stageRows.map((s) => ({

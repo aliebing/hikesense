@@ -1,4 +1,4 @@
-import { getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
+import { toProfile, getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
 
 const t = (id: string, lat: number | null, withCover = true): TrailSummary => ({
   id, name: id, kind: "day_hike", length_km: 10, ascent_m: 100, descent_m: 100,
@@ -43,4 +43,11 @@ test("toSummary keeps missing numbers as null instead of 0", () => {
 
 test("photoPool counts only day hikes with a photo", () => {
   expect(photoPool([t("a", 48), t("b", 48.2, false), t("c", null)]).map((h) => h.id)).toEqual(["a"]);
+});
+
+test("toProfile keeps [km, m] pairs and refuses anything else", () => {
+  expect(toProfile([[0, 100], [1.5, 120]])).toEqual([[0, 100], [1.5, 120]]);
+  expect(toProfile(null)).toBeNull();
+  expect(toProfile([[0, 100]])).toBeNull();
+  expect(toProfile([[0, "x"], [1, 2]])).toBeNull();
 });

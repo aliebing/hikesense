@@ -7,20 +7,21 @@ import Panorama from "../../components/Panorama";
 import Unterwegs from "../../components/Unterwegs";
 import { getBrowserSupabase, useSession } from "../../lib/auth";
 import { normalizePlan } from "../../lib/chatState";
+import type { Profile } from "../../lib/geo";
 import { getTrail } from "../../lib/data";
 import { daySections, mapTrail, trailLine, type DaySection, type MapTrail } from "../../lib/map";
 import type { Position } from "geojson";
 
 const MSG_LOAD = "Die Tour konnte nicht geladen werden";
 
-type Loaded = { title: string; trail: MapTrail; line: Position[]; days?: DaySection[]; ascentM: number | null; descentM: number | null };
+type Loaded = { title: string; trail: MapTrail; line: Position[]; days?: DaySection[]; profile: Profile | null; startKm: number; lengthKm: number | null };
 
 async function loadTrail(id: string): Promise<Loaded | { error: string }> {
   try {
     const t = await getTrail(id);
     if (!t) return { error: "Tour nicht gefunden" };
     const trail = mapTrail(t);
-    return { title: t.name, trail, line: trailLine(trail), ascentM: t.ascent_m, descentM: t.descent_m };
+    return { title: t.name, trail, line: trailLine(trail), profile: t.profile ?? null, startKm: 0, lengthKm: t.length_km };
   } catch {
     return { error: MSG_LOAD };
   }
@@ -39,15 +40,16 @@ async function loadDay(planId: string, dayNo: number): Promise<Loaded | { error:
     const t = await getTrail(p.plan.trail_id);
     if (!t) return { error: MSG_LOAD };
     const trail = mapTrail(t);
-    const section = daySections(trailLine(trail), p.plan.days, t.length_km)[p.plan.days.indexOf(day)];
+    const section = daySections(trailLine(trail), p.plan.days, t.length_km).find((x) => x.day === dayNo);
     if (!section) return { error: "Für diesen Tag lässt sich kein Wegabschnitt bestimmen" };
     return {
       title: `${data.title as string} – Tag ${dayNo}`,
       trail,
       line: section.geom.coordinates,
       days: [section],
-      ascentM: day.ascent_m ?? null,
-      descentM: day.descent_m ?? null,
+      profile: t.profile ?? null,
+      startKm: Math.min(day.start_km, day.end_km),
+      lengthKm: Math.abs(day.end_km - day.start_km) || null,
     };
   } catch {
     return { error: MSG_LOAD };
@@ -58,17 +60,20 @@ function Content() {
   const params = useSearchParams();
   const trailId = params.get("trail");
   const planId = params.get("plan");
-  const dayNo = Number(params.get("day") ?? 1);
+  const rawDay = params.get("day");
+  // no day = day 1; anything else must be a whole number >= 1
+  const dayNo = rawDay === null ? 1 : /^\d+$/.test(rawDay) ? Number(rawDay) : 0;
+  const badDay = !!planId && dayNo < 1;
   const { session, loading } = useSession();
   const needsLogin = !!planId && !loading && !session;
-  const ready = !!trailId || (!!planId && !!session);
+  const ready = (!!trailId && !planId) || (!!planId && !!session && !badDay);
   const [result, setResult] = useState<Loaded | { error: string } | null>(null);
 
   useEffect(() => {
     setResult(null);
     if (!ready) return;
     let live = true;
-    const p = planId ? loadDay(planId, Number.isInteger(dayNo) && dayNo > 0 ? dayNo : 1) : loadTrail(trailId!);
+    const p = planId ? loadDay(planId, dayNo) : loadTrail(trailId!);
     void p.then((r) => live && setResult(r));
     return () => {
       live = false;
@@ -87,6 +92,7 @@ function Content() {
           .
         </p>
       )}
+      {badDay && <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">Ungültiger Tag „{rawDay}“ – bitte öffne „Unterwegs“ bei einem Tag des Plans.</p>}
       {!trailId && !planId && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Keine Tour ausgewählt – öffne „Unterwegs“ bei einer Tour oder einem gemerkten Plan.</p>}
       {result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
