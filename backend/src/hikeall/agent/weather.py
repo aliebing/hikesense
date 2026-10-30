@@ -11,7 +11,7 @@ from hikeall.errors import WeatherUnavailable
 
 __all__ = ["DayWeather", "NoForecast", "is_rain_day", "weather_for"]
 
-HORIZON_DAYS = 14  # today counts as day 1
+HORIZON_DAYS = 14  # days 0..14 ahead of today have a forecast; 15+ do not
 CACHE_TTL_S = 3600.0
 RAIN_PROB_PCT = 60
 RAIN_MM = 5.0
@@ -35,7 +35,7 @@ def weather_for(
     offset = (day - today).days
     if offset < 0:
         return NoForecast(REASON_PAST)
-    if offset >= HORIZON_DAYS:
+    if offset > HORIZON_DAYS:
         return NoForecast(REASON_TOO_FAR)
     key = (round(lat, 2), round(lon, 2), day)
     hit = _cache.get(key)

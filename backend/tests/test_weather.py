@@ -29,7 +29,7 @@ def client():
 @respx.mock
 def test_day_15_has_no_forecast(client):
     route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
-    far = date(2026, 11, 13)  # today + 14 = day 15
+    far = date(2026, 11, 14)  # today + 15
     assert weather_for(client, 47.9, 8.1, far, TODAY) == NoForecast("Noch keine Vorhersage (mehr als 14 Tage)")
     assert weather_for(client, 47.9, 8.1, date(2026, 10, 29), TODAY) == NoForecast(
         "Datum liegt in der Vergangenheit")
@@ -67,3 +67,29 @@ def test_cache_hits_once(client):
     b = weather_for(client, 47.899, 8.098, TODAY, TODAY)  # same cell at 2 decimals
     assert a == b and a.text == "Bedeckt"
     assert route.call_count == 1
+
+
+@respx.mock
+def test_day_14_ahead_still_has_forecast(client):
+    last = date(2026, 11, 13)  # today + 14
+    body = {"daily": {"time": [last.isoformat()], "weather_code": [2], "temperature_2m_max": [9.0],
+                      "temperature_2m_min": [2.0], "precipitation_sum": [0.0],
+                      "precipitation_probability_max": [5]}}
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=body))
+    w = weather_for(client, 47.9, 8.1, last, TODAY)
+    assert isinstance(w, DayWeather) and w.text == "Teils bewölkt"
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_expired_cache_refetches(client, monkeypatch):
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
+    now = [1000.0]
+    monkeypatch.setattr(weather.time, "monotonic", lambda: now[0])
+    weather_for(client, 47.9, 8.1, TODAY, TODAY)
+    now[0] += 3599
+    weather_for(client, 47.9, 8.1, TODAY, TODAY)
+    assert route.call_count == 1
+    now[0] += 2
+    weather_for(client, 47.9, 8.1, TODAY, TODAY)
+    assert route.call_count == 2
