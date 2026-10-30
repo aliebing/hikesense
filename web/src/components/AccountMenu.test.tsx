@@ -17,3 +17,9 @@ it("shows a shortened e-mail and Abmelden with a session", () => {
   expect(screen.getByText("ein.sehr.langer.name…")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Abmelden" })).toBeInTheDocument();
 });
+
+it("links to Meine Pläne with a session", () => {
+  h.session = { user: { email: "a@b.de" } };
+  render(<AccountMenu />);
+  expect(screen.getByRole("link", { name: "Meine Pläne" })).toHaveAttribute("href", "/meine-plaene");
+});

@@ -3,6 +3,7 @@ import type { ConstraintResult, Labels, TourCard } from "../lib/chat";
 import { duration } from "../lib/format";
 import { coverOf } from "../lib/chatState";
 import Attribution from "./Attribution";
+import MerkenButton from "./MerkenButton";
 
 const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
@@ -111,6 +112,8 @@ export default function TourResultCard({
           {p.avoided_hit.length > 0 && <li>Vermiedenes vorhanden: {name(p.avoided_hit)}</li>}
         </ul>
       )}
+      {/* above the card-wide link overlay, so it is clickable and does not navigate */}
+      <MerkenButton kind="day_hike" title={card.name} payload={card} className="relative z-10 mt-1" />
     </article>
   );
 }
