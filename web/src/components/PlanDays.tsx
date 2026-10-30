@@ -81,7 +81,7 @@ function DayCard({ d, from, weather, rain, unterwegsHref }: { d: DayPlan; from: 
       </p>
       <p className="text-xs">
         {kmText(d.length_km)} · {numOr(d.ascent_m, (n) => hm(n))} · {numOr(d.descent_m, (n) => hmDown(n))}
-        {d.access_km > 0 && ` · davon ${kmText(d.access_km)} Zuweg zur Unterkunft`}
+        {d.access_km > 0 && ` · davon ${kmText(d.access_km)} Zuweg zur Unterkunft (Luftlinie, ohne Höhenmeter des Zuwegs)`}
       </p>
       {d.arrival ? (
         <p className="text-xs">

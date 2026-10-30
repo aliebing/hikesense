@@ -379,8 +379,14 @@ def test_plan_lodgings_near():
     exp = {"plan_lodgings_near": True}
     assert sm.check([plan_ev(_day(1, 0, 15), _day(2, 15, 30, dist=1000))], exp) == []
     far = _day(1, 0, 15, dist=1500, access=1.5)
-    named = "Unterkunft U1 liegt 1,5 km abseits – Zuweg eingerechnet"
+    named = (
+        "Unterkunft U1 liegt 1,5 km Luftlinie abseits – Zuweg als Luftlinie eingerechnet, "
+        "ohne Höhenmeter des Zuwegs"
+    )
     assert sm.check([plan_ev(far, notes=[named])], exp) == []
+    # the old wording hid that the access walk is a straight line
+    old = "Unterkunft U1 liegt 1,5 km abseits – Zuweg eingerechnet"
+    assert sm.check([plan_ev(far, notes=[old])], exp)
     assert sm.check([plan_ev(far)], exp)  # access path not named
     assert sm.check([plan_ev(_day(1, 0, 15, dist=1500, gap=GAP))], exp) == []  # gap named
     assert sm.check([plan_ev(_day(1, 0, 15, dist=2500))], exp)

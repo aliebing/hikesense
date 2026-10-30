@@ -123,6 +123,8 @@ class GroupBrief(BaseModel):
     checked_at: date
     stale: bool
     dist_km: float
+    # "vorschlag": page and name fetched automatically, not yet confirmed by hand; "geprüft": by hand
+    status: str = "vorschlag"
 
 
 def is_stale(checked_at: date, today: date) -> bool:
@@ -358,7 +360,7 @@ def find_groups(
     today = today or date.today()
     rows = conn.execute(
         """
-        select name, kind, place, url, checked_at, d / 1000.0
+        select name, kind, place, url, checked_at, d / 1000.0, status
         from (
           select *, st_distance(geom::geography,
                                 st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326)::geography) as d
@@ -373,7 +375,7 @@ def find_groups(
     return [
         GroupBrief(
             name=r[0], kind=r[1], place=r[2], url=r[3], checked_at=r[4],
-            stale=is_stale(r[4], today), dist_km=round(float(r[5]), 1),
+            stale=is_stale(r[4], today), dist_km=round(float(r[5]), 1), status=r[6],
         )
         for r in rows
     ]  # fmt: skip

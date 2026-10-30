@@ -142,7 +142,7 @@ export type PlanData = {
   start_name?: string | null;
 };
 
-/** A group of the hand-curated list (no persons, no event dates); `checked_at` is an ISO date. */
+/** A group of the curated list (no persons, no event dates); `checked_at` is an ISO date. */
 export type GroupBrief = {
   name: string;
   kind: string;
@@ -151,6 +151,8 @@ export type GroupBrief = {
   checked_at: string;
   stale: boolean;
   dist_km: number;
+  /** "geprüft": confirmed by hand; "vorschlag" (or missing, older payloads): page and name fetched automatically */
+  status?: string;
 };
 
 /** One race field: the value and the verbatim quote from the source page; value null = „nicht angegeben“. */

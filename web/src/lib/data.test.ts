@@ -63,4 +63,7 @@ test("groupsNearLine: within 15 km of any point, nearest first, stale after 180 
   expect(got.map((g) => g.name)).toEqual(["A", "C", "B"]);
   expect(got.map((g) => g.stale)).toEqual([false, true, false]);
   expect(got[0].dist_km).toBe(0);
+  expect(got[0].status).toBe("vorschlag"); // no status: never presented as checked by hand
+  const hand = groupsNearLine([{ ...row("H", 48.0, 8.0, "2026-10-01"), status: "geprüft" }], line, new Date("2026-10-30T12:00:00Z"));
+  expect(hand[0].status).toBe("geprüft");
 });

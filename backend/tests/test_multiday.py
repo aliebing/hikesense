@@ -54,7 +54,22 @@ def test_uses_2km_lodging_only_if_none_in_band_and_adds_access_twice():
     assert d2.start_km == 15.0 and d2.stop.lodging_id == 3
     assert d2.walk_km == 14.0 and d2.access_km == 1.4 and d2.length_km == 15.4
     assert d1.within_band and d2.within_band
-    assert "Unterkunft Haus 2 liegt 1,4 km abseits – Zuweg eingerechnet" in p.notes
+    # the access walk is the straight-line distance, without its elevation: said so, not hidden
+    assert (
+        "Unterkunft Haus 2 liegt 1,4 km Luftlinie abseits – Zuweg als Luftlinie eingerechnet, "
+        "ohne Höhenmeter des Zuwegs"
+    ) in p.notes
+
+
+def test_day_line_names_the_access_walk_as_straight_line():
+    from hikeall.agent.graph import _day_line
+
+    stops = [stop(1, 5.0), stop(2, 15.0, 1400), stop(3, 29.0), stop(4, 40.0)]
+    d1 = plan_multiday(stops, FLAT, trail_len_km=100, start_km=0, days=2).days[0]
+    line = _day_line(d1, None, False, None)
+    assert "davon Zuweg 1,4 km Luftlinie" in line
+    assert "Zuweg als Luftlinie eingerechnet, ohne Höhenmeter des Zuwegs" in line
+    assert "(Zuweg eingerechnet)" not in line
 
 
 def test_2km_lodging_ignored_when_1km_one_in_band():

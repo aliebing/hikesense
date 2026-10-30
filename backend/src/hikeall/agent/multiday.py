@@ -89,6 +89,10 @@ class RainVariant(BaseModel):
     note: str = RAIN_NOTE
 
 
+# The access walk is counted as the straight-line distance, without its elevation.
+ACCESS_STRAIGHT = "Zuweg als Luftlinie eingerechnet, ohne Höhenmeter des Zuwegs"
+
+
 # --- helpers -----------------------------------------------------------------
 
 
@@ -98,7 +102,8 @@ def _fmt(x: float) -> str:
 
 
 def _access(stop: Stop | None) -> float:
-    """Access path one way (km) for a lodging farther than 1000 m from the trail."""
+    """Access path one way (km) for a lodging farther than 1000 m from the trail: the straight-line
+    distance (no path routing, no elevation) — the notes and the day view say so."""
     return stop.dist_m / 1000 if stop is not None and stop.dist_m > NEAR_M else 0.0
 
 
@@ -186,7 +191,7 @@ def _notes(
         if d.stop is not None and d.stop.dist_m > NEAR_M:
             notes.append(
                 f"Unterkunft {d.stop.name or 'ohne Namen'} liegt "
-                f"{_fmt(d.stop.dist_m / 1000)} km abseits – Zuweg eingerechnet"
+                f"{_fmt(d.stop.dist_m / 1000)} km Luftlinie abseits – {ACCESS_STRAIGHT}"
             )
     if dead_end:
         notes.append(dead_end)

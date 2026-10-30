@@ -76,13 +76,18 @@ EVENTS_SEARCH_DOWN = (
 EVENTS_SKIPPED = " {n} {page_noun} übersprungen ({reasons})."
 GROUPS_FOUND = (
     "{n} {noun} im Umkreis von {radius} km um {place}, nach Abstand sortiert – {note}. "
-    "Die Liste ist von Hand gepflegt und nicht vollständig; Treffzeiten und Ansprechpersonen "
+    "{check} Die Liste ist nicht vollständig; Treffzeiten und Ansprechpersonen "
     "stehen auf den Seiten der Gruppen."
 )
+# status "vorschlag" = fetched and matched automatically; only "geprüft" was confirmed by hand
+GROUP_AUTO = "automatisch geprüft (Seite und Name abgerufen), noch nicht von Hand bestätigt"
+GROUP_HAND = "von Hand geprüft"
+GROUPS_CHECK_ALL = "Alle Einträge: {label}."
+GROUPS_CHECK_MIXED = "Davon {hand} " + GROUP_HAND + ", {auto} " + GROUP_AUTO + "."
 GROUPS_STALE = " {n} mit Prüfdatum älter als 180 Tage {verb} als „veraltet“ markiert."
 GROUPS_NONE = (
     "In meiner Liste gibt es keine Gruppe{kind} im Umkreis von {radius} km um {place}. "
-    "Die Liste ist von Hand gepflegt und nicht vollständig."
+    "Die Liste ist nicht vollständig."
 )
 GROUPS_NO_COORDS = "Für {place} kenne ich keine Koordinate – nenne bitte einen Ort in der Nähe."
 OTHER_REPLY = (

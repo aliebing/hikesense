@@ -74,6 +74,7 @@ def test_find_groups_sorted_by_distance(conn):
     names = [g.name for g in got if g.name.startswith("Gruppe ")]
     assert names == ["Gruppe a", "Gruppe b", "Gruppe c"]
     assert got[0].dist_km == 0.0 and not got[0].stale
+    assert got[0].status == "vorschlag"  # shown as „automatisch geprüft“, never as hand-checked
     only = find_groups(conn, *here, radius_km=2, today=date(2026, 10, 30))
     assert [g.name for g in only if g.name.startswith("Gruppe ")] == ["Gruppe a", "Gruppe b"]
     runners = find_groups(conn, *here, kind="lauftreff", today=date(2026, 10, 30))
@@ -119,11 +120,38 @@ class GroupTools(FakeTools):
         return self.groups
 
 
-def _brief(name, checked, stale=False, dist=3.2):
+def _brief(name, checked, stale=False, dist=3.2, status="vorschlag"):
     return GroupBrief(
         name=name, kind="wanderverein", place="Hinterzarten", url="https://example.org/" + name,
-        checked_at=checked, stale=stale, dist_km=dist,
+        checked_at=checked, stale=stale, dist_km=dist, status=status,
     )  # fmt: skip
+
+
+AUTO = "automatisch geprüft (Seite und Name abgerufen), noch nicht von Hand bestätigt"
+
+
+def _groups_text(vocab, settings, briefs):  # noqa: F811
+    deps = make(
+        vocab, settings, tools=GroupTools(briefs),
+        structured={RawRequest: [raw(intent="groups", start_text="Hausach")]},
+    )  # fmt: skip
+    return text_of(run(deps, "Gibt es eine Wandergruppe in Hausach?"))
+
+
+def test_unconfirmed_groups_are_not_called_hand_checked(vocab, settings):  # noqa: F811
+    text = _groups_text(vocab, settings, [_brief("A", date(2026, 10, 2))])
+    assert AUTO in text
+    assert "von Hand gepflegt" not in text and "von Hand geprüft" not in text
+
+
+def test_hand_checked_only_for_status_geprueft(vocab, settings):  # noqa: F811
+    text = _groups_text(vocab, settings, [_brief("A", date(2026, 10, 2), status="geprüft")])
+    assert "von Hand geprüft" in text and AUTO not in text
+    mixed = _groups_text(
+        vocab, settings,
+        [_brief("A", date(2026, 10, 2), status="geprüft"), _brief("B", date(2026, 10, 2))],
+    )  # fmt: skip
+    assert "1 von Hand geprüft" in mixed and f"1 {AUTO}" in mixed
 
 
 def test_groups_intent_flow(vocab, settings):  # noqa: F811
@@ -157,6 +185,7 @@ def test_groups_intent_nothing_found_is_said(vocab, settings):  # noqa: F811
     events = run(deps, "Gruppe in Hausach?")
     assert "groups" not in types(events)
     assert "keine Gruppe" in text_of(events)
+    assert "von Hand gepflegt" not in text_of(events)
 
 
 # --- grants and import_groups ---------------------------------------------------------------

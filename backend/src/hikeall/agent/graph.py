@@ -43,7 +43,14 @@ from hikeall.agent.constraints import (
 )
 from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace
 from hikeall.agent.grounding import Evidence, grounding_check, has_number
-from hikeall.agent.multiday import NEAR_M, NO_RAIN_VARIANT, DayPlan, MultidayPlan, RainVariant
+from hikeall.agent.multiday import (
+    ACCESS_STRAIGHT,
+    NEAR_M,
+    NO_RAIN_VARIANT,
+    DayPlan,
+    MultidayPlan,
+    RainVariant,
+)
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
     CLARIFY_START,
@@ -56,6 +63,10 @@ from hikeall.agent.prompts import (
     EVENTS_NOTE,
     EVENTS_SEARCH_DOWN,
     EVENTS_SKIPPED,
+    GROUP_AUTO,
+    GROUP_HAND,
+    GROUPS_CHECK_ALL,
+    GROUPS_CHECK_MIXED,
     GROUPS_FOUND,
     GROUPS_NO_COORDS,
     GROUPS_NONE,
@@ -507,7 +518,7 @@ def _day_line(
     when = f" ({_WEEKDAY[d.date.weekday()]}, {d.date:%d.%m.%Y})" if d.date else ""
     facts = [
         f"{_de(d.length_km)} km"
-        + (f" (davon Zuweg {_de(d.access_km, 2)} km)" if d.access_km else ""),
+        + (f" (davon Zuweg {_de(d.access_km, 2)} km Luftlinie)" if d.access_km else ""),
         f"Anstieg {d.ascent_m} Hm",
         f"Abstieg {d.descent_m} Hm",
         f"Gehzeit {_de(d.duration_h)} h",
@@ -518,7 +529,7 @@ def _day_line(
     if d.stop is not None:
         line += f"; Ziel: {d.stop.name or 'Unterkunft ohne Namen'}, {d.stop.dist_m} m vom Weg"
         if d.stop.dist_m > NEAR_M:
-            line += " (Zuweg eingerechnet)"
+            line += f" ({ACCESS_STRAIGHT})"
     else:
         line += "; Ziel: Wegende"
     if d.gap:
@@ -937,9 +948,16 @@ def build_graph(deps: AgentDeps) -> Any:
         note = f"Stand: {min(g.checked_at for g in found):%d.%m.%Y}"
         _emit(GroupsEvent(groups=found, checked_note=note))
         stale = sum(g.stale for g in found)
+        hand = sum(g.status == "geprüft" for g in found)
+        if hand == len(found):
+            check = GROUPS_CHECK_ALL.format(label=GROUP_HAND)
+        elif hand == 0:
+            check = GROUPS_CHECK_ALL.format(label=GROUP_AUTO)
+        else:
+            check = GROUPS_CHECK_MIXED.format(hand=hand, auto=len(found) - hand)
         body = GROUPS_FOUND.format(
             n=len(found), noun="Gruppe" if len(found) == 1 else "Gruppen",
-            radius=radius, place=place, note=note,
+            radius=radius, place=place, note=note, check=check,
         )  # fmt: skip
         if stale:
             body += GROUPS_STALE.format(n=stale, verb="ist" if stale == 1 else "sind")

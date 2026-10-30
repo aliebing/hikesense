@@ -140,3 +140,9 @@ it("no Unterwegs link without a saved plan id", () => {
   render(<PlanDays data={data([day(1)])} />);
   expect(screen.queryByRole("link", { name: "Unterwegs" })).not.toBeInTheDocument();
 });
+
+it("names the access walk as straight line without its elevation", () => {
+  render(<PlanDays data={data([day(1, { access_km: 1.6, length_km: 16.6, stop: { ...day(1).stop!, dist_m: 1600 } })])} />);
+  const card = screen.getAllByRole("listitem").find((li) => li.querySelector("h3"))!;
+  expect(card).toHaveTextContent("davon 1,6 km Zuweg zur Unterkunft (Luftlinie, ohne Höhenmeter des Zuwegs)");
+});

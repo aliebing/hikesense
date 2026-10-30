@@ -247,10 +247,10 @@ export const GROUP_RADIUS_KM = 15;
 export const GROUP_STALE_DAYS = 180;
 const MAX_GROUPS = 5;
 
-type GroupRow = { name: string; kind: string; place: string; url: string; checked_at: string; lat: number; lon: number };
+type GroupRow = { name: string; kind: string; place: string; url: string; checked_at: string; lat: number; lon: number; status?: string };
 
 /**
- * Groups of the hand-curated list within `radiusKm` of any point of the line ([lon, lat] as in
+ * Groups of the curated list within `radiusKm` of any point of the line ([lon, lat] as in
  * GeoJSON), nearest first, at most 5; `stale` = checked more than 180 days before `today`.
  */
 export function groupsNearLine(rows: GroupRow[], line: number[][], today: Date, radiusKm = GROUP_RADIUS_KM): GroupBrief[] {
@@ -261,7 +261,7 @@ export function groupsNearLine(rows: GroupRow[], line: number[][], today: Date, 
     if (best > radiusKm) continue;
     const day = new Date(`${today.toISOString().slice(0, 10)}T00:00:00Z`); // whole days, like the backend
     const age = (day.getTime() - new Date(`${r.checked_at}T00:00:00Z`).getTime()) / 86_400_000;
-    out.push({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, stale: age > GROUP_STALE_DAYS, dist_km: Math.round(best * 10) / 10 });
+    out.push({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, stale: age > GROUP_STALE_DAYS, dist_km: Math.round(best * 10) / 10, status: r.status ?? "vorschlag" });
   }
   return out.sort((a, b) => a.dist_km - b.dist_km || a.name.localeCompare(b.name)).slice(0, MAX_GROUPS);
 }
@@ -269,9 +269,9 @@ export function groupsNearLine(rows: GroupRow[], line: number[][], today: Date, 
 /** The public groups list (view groups_geo); the trail page filters it by distance. */
 export async function getGroups(): Promise<GroupRow[]> {
   const sb = getSupabase();
-  const { data, error } = await sb.from("groups_geo").select("name,kind,place,url,checked_at,lon,lat").order("id");
+  const { data, error } = await sb.from("groups_geo").select("name,kind,place,url,checked_at,status,lon,lat").order("id");
   if (error) fail("groups_geo", error);
-  return (data ?? []).map((r) => ({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, lat: Number(r.lat), lon: Number(r.lon) }));
+  return (data ?? []).map((r) => ({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, status: r.status, lat: Number(r.lat), lon: Number(r.lon) }));
 }
 
 /** Day hikes eligible for the home selection: with a photo and a known position. */

@@ -21,7 +21,7 @@ import yaml
 from hikeall.adapters.http import make_http_client
 from hikeall.agent.events import FIELDS
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
-from hikeall.agent.multiday import FAR_M, NEAR_M
+from hikeall.agent.multiday import ACCESS_STRAIGHT, FAR_M, NEAR_M
 from hikeall.agent.prompts import OTHER_REPLY
 from hikeall.auth import AuthError, verify_token
 from hikeall.chatlog import hash_user
@@ -144,7 +144,8 @@ def _lodging_errors(events: list[ChatEvent]) -> list[str]:
         elif d.stop.dist_m > NEAR_M and not (
             d.access_km > 0
             and any(
-                f"Unterkunft {d.stop.name or 'ohne Namen'} " in n and "Zuweg" in n for n in notes
+                f"Unterkunft {d.stop.name or 'ohne Namen'} " in n and ACCESS_STRAIGHT in n
+                for n in notes
             )
         ):
             errors.append(f"Tag {d.day}: Unterkunft {d.stop.dist_m} m vom Weg, Zuweg nicht genannt")

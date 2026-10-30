@@ -57,6 +57,6 @@ places: osm-extract
 	cd backend && uv run hikeall import-places --pbf $(OSM_PBF)
 	cd backend && uv run hikeall build-tags
 
-# Von Hand gepflegte Gruppenliste (data/curated/groups.csv) in die DB.
+# Kuratierte Gruppenliste (data/curated/groups.csv) in die DB.
 groups:
 	cd backend && uv run hikeall import-groups
