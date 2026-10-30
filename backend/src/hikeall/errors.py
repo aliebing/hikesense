@@ -57,3 +57,7 @@ class KnowledgeError(HikeAllError):
 
 class KnowledgeFetchError(HikeAllError):
     """MediaWiki request for a knowledge article failed."""
+
+
+class WeatherUnavailable(HikeAllError):
+    """Open-Meteo request failed or returned unusable data; weather stays unknown."""

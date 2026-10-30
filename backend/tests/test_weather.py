@@ -1,0 +1,69 @@
+import json
+from datetime import date
+from pathlib import Path
+
+import httpx
+import pytest
+import respx
+
+from hikeall.adapters.http import make_http_client
+from hikeall.adapters.open_meteo import FORECAST_URL, DayWeather, OpenMeteoClient
+from hikeall.agent import weather
+from hikeall.agent.weather import NoForecast, is_rain_day, weather_for
+
+FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "open_meteo_daily.json").read_text())
+TODAY = date(2026, 10, 30)
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    weather._cache.clear()
+
+
+@pytest.fixture
+def client():
+    with make_http_client(5) as http:
+        yield OpenMeteoClient(http, backoff_s=0)
+
+
+@respx.mock
+def test_day_15_has_no_forecast(client):
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
+    far = date(2026, 11, 13)  # today + 14 = day 15
+    assert weather_for(client, 47.9, 8.1, far, TODAY) == NoForecast("Noch keine Vorhersage (mehr als 14 Tage)")
+    assert weather_for(client, 47.9, 8.1, date(2026, 10, 29), TODAY) == NoForecast(
+        "Datum liegt in der Vergangenheit")
+    assert not route.called
+
+
+@respx.mock
+def test_missing_values_stay_none(client):
+    respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
+    w = weather_for(client, 47.9, 8.1, date(2026, 11, 1), TODAY)
+    assert w == DayWeather(date=date(2026, 11, 1))
+    assert is_rain_day(w) is None
+    full = client.daily(47.9, 8.1, TODAY, date(2026, 10, 31))
+    assert (full[0].code, full[0].text, full[0].t_min_c, full[0].t_max_c) == (3, "Bedeckt", 4.1, 11.4)
+    assert full[1].text == "Regen" and full[1].precip_mm == 7.5 and full[1].precip_prob_pct == 85
+
+
+def test_rain_day_threshold():
+    d = date(2026, 10, 30)
+    assert is_rain_day(DayWeather(d, precip_prob_pct=59, precip_mm=4.9)) is False
+    assert is_rain_day(DayWeather(d, precip_prob_pct=60)) is True
+    assert is_rain_day(DayWeather(d, precip_mm=5.0)) is True
+
+
+@respx.mock
+def test_network_error_is_no_forecast(client):
+    respx.get(FORECAST_URL).mock(side_effect=httpx.ConnectError("down"))
+    assert weather_for(client, 47.9, 8.1, TODAY, TODAY) == NoForecast("Wetterdienst nicht erreichbar")
+
+
+@respx.mock
+def test_cache_hits_once(client):
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
+    a = weather_for(client, 47.901, 8.102, TODAY, TODAY)
+    b = weather_for(client, 47.899, 8.098, TODAY, TODAY)  # same cell at 2 decimals
+    assert a == b and a.text == "Bedeckt"
+    assert route.call_count == 1
