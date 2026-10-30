@@ -38,12 +38,17 @@ test("home shows a clear message when data cannot be loaded", async () => {
   mockGetTrails.mockRejectedValue(new Error("no supabase"));
   render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByText(/Daten konnten nicht geladen werden/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Nachricht" })).toBeInTheDocument();
+  expect(screen.queryAllByRole("link", { hidden: true }).filter((l) => l.getAttribute("href")?.startsWith("/t/"))).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: "Bildnachweise" })).toBeNull();
 });
 
 test("home explains an empty database", async () => {
   mockGetTrails.mockResolvedValue([]);
   render(<ChatProvider>{await Home()}</ChatProvider>);
   expect(screen.getByText(/Noch keine Wege/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Nachricht" })).toBeInTheDocument();
+  expect(screen.queryAllByRole("link", { hidden: true }).filter((l) => l.getAttribute("href")?.startsWith("/t/"))).toHaveLength(0);
 });
 
 test("renders chat and tile rows", async () => {

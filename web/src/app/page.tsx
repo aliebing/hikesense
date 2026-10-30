@@ -2,7 +2,6 @@ import HeroBackdrop from "../components/HeroBackdrop";
 import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import Panorama from "../components/Panorama";
-import PhotoSwitcher from "../components/PhotoSwitcher";
 import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
 
@@ -19,7 +18,7 @@ export default async function Home() {
     console.error("getTrails failed:", e);
     return (
       <Panorama>
-        <PhotoSwitcher photos={[]} />
+        <HeroBackdrop photos={[]} />
         <Notice title="Daten konnten nicht geladen werden.">
           {e instanceof MissingConfigError ? (
             <p>{e.message}</p>
@@ -30,6 +29,7 @@ export default async function Home() {
             </p>
           )}
         </Notice>
+        <HomeStage pool={[]} />
       </Panorama>
     );
   }
@@ -37,12 +37,13 @@ export default async function Home() {
   if (trails.length === 0) {
     return (
       <Panorama>
-        <PhotoSwitcher photos={[]} />
+        <HeroBackdrop photos={[]} />
         <Notice title="Noch keine Wege in der Datenbank.">
           <p>
             Die Datenbank ist erreichbar, aber leer. Daten importieren mit <code>make import</code>.
           </p>
         </Notice>
+        <HomeStage pool={[]} />
       </Panorama>
     );
   }

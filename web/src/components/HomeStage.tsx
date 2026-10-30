@@ -46,13 +46,15 @@ export default function HomeStage({ pool }: { pool: TrailSummary[] }) {
                 Vorschläge zeigen →
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => setCredits(true)}
-              className="rounded-full border border-papier/50 px-4 py-2 text-sm text-papier hover:bg-papier/10"
-            >
-              Bildnachweise
-            </button>
+            {photos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCredits(true)}
+                className="rounded-full border border-papier/50 px-4 py-2 text-sm text-papier hover:bg-papier/10"
+              >
+                Bildnachweise
+              </button>
+            )}
           </div>
         </div>
       </div>
