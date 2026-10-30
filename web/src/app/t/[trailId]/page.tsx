@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
+import HeroBackdrop from "../../../components/HeroBackdrop";
 import ChatShell from "../../../components/ChatShell";
 import MapPanel from "../../../components/MapPanel";
 import Notice from "../../../components/Notice";
 import Panorama from "../../../components/Panorama";
-import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
 import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
@@ -11,16 +11,28 @@ import { mapTrail } from "../../../lib/map";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrailPage({ params }: { params: Promise<{ trailId: string }> }) {
+export default async function TrailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ trailId: string }>;
+  searchParams?: Promise<{ von?: string | string[] }>;
+}) {
   const { trailId } = await params;
+  // Only the exact value counts; anything else (missing, other strings, arrays) goes home.
+  const von = (await searchParams)?.von;
+  const back =
+    von === "vorschlaege"
+      ? { href: "/vorschlaege", label: "← Zu den Vorschlägen" }
+      : { href: "/", label: "← Zur Startseite" };
   let trail: TrailDetail | null;
   try {
     trail = await getTrail(trailId);
   } catch (e) {
     console.error(`getTrail(${trailId}) failed:`, e);
     return (
-      <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
-        <PhotoSwitcher photos={[]} />
+      <Panorama back={back}>
+        <HeroBackdrop photos={[]} />
         <Notice title="Daten konnten nicht geladen werden.">
           <p>Die Datenbank ist nicht erreichbar oder nicht konfiguriert. Bitte später erneut versuchen.</p>
         </Notice>
@@ -49,7 +61,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
   if (time) meta.push(time);
 
   return (
-    <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
+    <Panorama back={back}>
       <section>
         <h1 className="font-serif text-3xl leading-tight drop-shadow-md sm:text-5xl">{trail.name}</h1>
         <Facts items={meta} className="mt-1 text-sm text-papier/90 drop-shadow" />
@@ -62,6 +74,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
               ? `Der ${trail.name} hat ${trail.stages.length} Etappen. Bald kannst du hier fragen, z. B. „3 Tage ab Hausach, etwa 15 km pro Tag“.`
               : `${trail.name}${trail.length_km === null ? "" : `: ${km(trail.length_km)}`}. Bald kannst du hier fragen, ob die Tour zu dir und zum Wetter passt.`
           }
+          variant="drawer"
         />
         <div data-slot="map" className="grid">
           <MapPanel trail={mapTrail(trail)} lodgings={lodgings} />
@@ -70,9 +83,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
 
       <div className="flex-1" />
 
-      <div className="flex justify-end">
-        <PhotoSwitcher photos={trail.photos} />
-      </div>
+      <HeroBackdrop photos={trail.photos} />
 
       <section aria-label={longDistance ? "Etappen" : "Tour"}>
         <StageCards trail={trail} />
