@@ -103,3 +103,12 @@ it("verdict rows carry the unit of the bound", () => {
   expect(container).toHaveTextContent("Rundweg: Rundweg");
   expect(container).not.toHaveTextContent("Rundweg km");
 });
+
+it("from=vorschlaege links with ?von and makes the whole card clickable, large has a bigger image", () => {
+  const withCover = card({ cover_thumb_url: "https://img/t.jpg", cover_author: "Anna", cover_license: "CC BY 4.0" });
+  const { container } = render(<TourResultCard card={withCover} size="large" from="vorschlaege" />);
+  const link = screen.getByRole("link", { name: "Feldsee-Runde" });
+  expect(link).toHaveAttribute("href", "/t/t1?von=vorschlaege");
+  expect(link.className).toContain("after:inset-0");
+  expect(container.querySelector("img")?.className).toContain("h-48");
+});

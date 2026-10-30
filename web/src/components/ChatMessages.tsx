@@ -60,7 +60,7 @@ const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
  * The backend starts the answer with the honest fallback sentence (the contract for the text);
  * the note above the cards already shows it, so the bubble leaves it out (also while streaming).
  */
-function withoutFallback(items: ChatItem[], i: number, text: string): string {
+export function withoutFallback(items: ChatItem[], i: number, text: string): string {
   for (let j = i - 1; j >= 0; j--) {
     const it = items[j];
     if (it.kind === "user") break;
