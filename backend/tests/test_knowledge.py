@@ -1,3 +1,4 @@
+import re
 from itertools import pairwise
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from hikeall.knowledge.corpus import (
     Chunk,
     Source,
     chunk,
+    clean_wikivoyage,
     fetch_articles,
     load_own_texts,
 )
@@ -225,3 +227,64 @@ def test_real_own_texts_load():
     docs = load_own_texts(Path(__file__).resolve().parents[2] / "data" / "knowledge")
     assert len(docs) == 4
     assert all(d.status == "entwurf" and d.source_urls for d in docs)
+
+
+# --- Wikivoyage noise (plan 3, task 13) ------------------------------------------------------
+
+# Real lines of de.wikivoyage.org "Westweg" and "Schwarzwald" (plain-text extract, CC BY-SA 4.0).
+WV_EXCERPT = Path(__file__).parent / "fixtures" / "wikivoyage_excerpt.txt"
+_GLUED = re.compile(r"4[789]\.\d+[5-9]\.\d+")
+
+
+def test_wikivoyage_noise_removed_from_real_excerpt():
+    raw = WV_EXCERPT.read_text(encoding="utf-8")
+    assert "Tel." in raw and "+49" in raw and _GLUED.search(raw)  # the fixture is noisy
+    text = clean_wikivoyage(raw)
+    for noise in ("Tel.", "Fax", "+49", "+41", "@", "letzte Änderung", "\u200b"):
+        assert noise not in text, noise
+    assert not _GLUED.search(text)
+    assert not re.search(r"\d{4,} ?\d{3,}", text.replace("75181 Pforzheim", ""))  # no numbers
+    # prose, names, addresses and opening hours stay
+    assert "Gasthaus Kupferhammer, Am Kupferhammer 1, 75181 Pforzheim." in text
+    assert "Vom Ausgangspunkt in Unterstmatt führt der Weg zunächst links" in text
+    assert "zum Schloss Neuenbürg." in text
+    assert "Geöffnet: MO geschlossen." in text
+    assert "Nordschwarzwald. hochmoor- und fichtenwaldreiche Gegend" in text
+    assert "== Regionen ==" in text  # headings untouched for chunking
+    assert not re.search(r"\s[.,]|[.,]\s*[.,]", text)  # no punctuation left over
+
+
+@pytest.mark.parametrize(
+    ("raw", "clean"),
+    [
+        ("Start am Bahnhof (47.9, 8.1) bergauf.", "Start am Bahnhof bergauf."),
+        ("Hütte lat=47.912 long=8.123 mit Blick.", "Hütte mit Blick."),
+        (
+            "Flughafen (IATA: FRA) 50.0333055555568.5704555555556 nördlich.",
+            "Flughafen (IATA: FRA) nördlich.",
+        ),
+        ("Ruf an: +49 7652 382 oder komm vorbei.", "Ruf an: oder komm vorbei."),
+        (
+            "Die Mobilität ist gut, 4,5 km und 1.200 Hm.",
+            "Die Mobilität ist gut, 4,5 km und 1.200 Hm.",
+        ),
+    ],
+)
+def test_wikivoyage_noise_patterns(raw, clean):
+    assert clean_wikivoyage(raw) == clean
+
+
+def test_only_wikivoyage_articles_are_cleaned(respx_mock):
+    noisy = "Hütte am Weg. Tel.: +49 7652 382 .letzte Änderung: keine Angabe47.92668.1248"
+    for site in ("de.wikipedia.org", "de.wikivoyage.org"):
+        respx_mock.get(f"https://{site}/w/api.php").mock(
+            return_value=httpx.Response(200, json=wiki_page("Westweg", noisy))
+        )
+    with make_http_client(5) as http:
+        wp, wv = fetch_articles(
+            http,
+            [Source("de.wikipedia.org", "Westweg"), Source("de.wikivoyage.org", "Westweg")],
+            backoff_s=0,
+        )
+    assert wp.text == noisy
+    assert wv.text == "Hütte am Weg."

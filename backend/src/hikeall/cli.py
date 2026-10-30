@@ -456,21 +456,39 @@ def build_knowledge_cmd() -> int:
 
 
 def smoke_cmd() -> int:
+    from hikeall import smoke as sm
     from hikeall.api.chat import default_deps_factory
-    from hikeall.smoke import smoke
 
     settings = _settings()
     if settings is None:
         return 2
     try:
-        return smoke(
+        user_hash = sm.authorize(settings)  # the same token check as POST /chat
+        return sm.smoke(
             default_deps_factory(settings),
             REPO_ROOT / "data" / "smoke" / "prompts.yaml",
             REPO_ROOT / "data" / "smoke",
+            user_hash=user_hash,
         )
     except (HikeAllError, psycopg.Error) as e:  # e.g. database down: a message, no traceback
         print(f"Smoke abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
         return 2
+
+
+def smoke_user_cmd() -> int:
+    from hikeall import smoke as sm
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        with make_http_client(sm.AUTH_TIMEOUT_S) as http:
+            state = sm.create_user(http, settings)
+    except HikeAllError as e:
+        print(f"Smoke-Nutzer – {e}", file=sys.stderr)
+        return 2
+    print(f"Smoke-Nutzer {sm.SMOKE_EMAIL} {state}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -492,7 +510,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
-    sub.add_parser("smoke", help="6 Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    sub.add_parser("smoke", help="Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    sub.add_parser("smoke-user", help="Testkonto smoke@hikeall.local in der lokalen Supabase-Auth")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
@@ -517,6 +536,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_knowledge_cmd()
     if args.command == "smoke":
         return smoke_cmd()
+    if args.command == "smoke-user":
+        return smoke_user_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":

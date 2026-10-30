@@ -2,7 +2,10 @@
 # fällt ein Fall durch, wird die Ursache gesucht, nicht die Erwartung geändert.
 # Erwartungsarten (je Runde): min_results, all_constraints_ok, clarify_options_include,
 # fallback_single_violation, activity, no_duration_without_pace, no_pace, sources, reply,
-# no_model_calls.
+# no_model_calls, plan_days, plan_lodgings_near, plan_band_or_named, days_unchanged, day_shorter,
+# min_groups, no_groups, events_quoted.
+# `continues: <Fall-ID>` setzt den Gesprächsfaden eines früheren Falls fort (Folgerunde).
+# Der Lauf meldet sich als smoke@hikeall.local an (`make smoke-user`) und prüft das Token wie /chat.
 cases:
   - id: 1-rundweg-hinterzarten
     turns:
@@ -42,3 +45,36 @@ cases:
         expect:
           plan_days: 3
           sources: true
+  - id: 7-westweg-3-tage
+    turns:
+      - message: "3 Tage Westweg ab Hausach, ~15 km pro Tag"
+        expect:
+          plan_days: 3
+          plan_lodgings_near: true
+          plan_band_or_named: true
+  - id: 8-tag-3-kuerzer
+    continues: 7-westweg-3-tage
+    turns:
+      - message: "Tag 3 kürzer"
+        expect:
+          plan_days: 3
+          days_unchanged: [1, 2]
+          day_shorter: 3
+  # Fall 9 fragt nach einem Wanderverein: die von Hand gepflegte Liste (data/curated/groups.csv)
+  # enthält bisher keine Lauftreffs mit eigener, prüfbarer Seite. Fall 9b prüft deshalb, dass
+  # nach einem Lauftreff ehrlich „keine Gruppe“ kommt und keine erfunden wird.
+  - id: 9-wanderverein-freiburg
+    turns:
+      - message: "Wanderverein in Freiburg"
+        expect:
+          min_groups: 1
+  - id: 9b-lauftreff-freiburg
+    turns:
+      - message: "Lauftreff in Freiburg"
+        expect:
+          no_groups: true
+  - id: 10-halbmarathon-freiburg
+    turns:
+      - message: "Halbmarathon im Frühjahr bei Freiburg"
+        expect:
+          events_quoted: true

@@ -1,6 +1,9 @@
 import csv
-from datetime import date
+import json
+from datetime import date, time
 
+import httpx
+import jwt
 import pytest
 from test_agent_graph import (  # noqa: F401 (fixture)
     TODAY,
@@ -12,12 +15,17 @@ from test_agent_graph import (  # noqa: F401 (fixture)
 )
 
 from hikeall import smoke as sm
+from hikeall.agent import multiday as md
 from hikeall.agent.constraints import ConstraintResult, PreferenceMatch
+from hikeall.agent.events import CalendarLink, Field, RaceInfo, VerifiedRace
 from hikeall.agent.graph import (
     AgentDeps,
     ClarifyEvent,
     DoneEvent,
     ErrorEvent,
+    EventsEvent,
+    GroupsEvent,
+    PlanEvent,
     ResultsEvent,
     SourcesEvent,
     TokenEvent,
@@ -26,7 +34,8 @@ from hikeall.agent.graph import (
 )
 from hikeall.agent.prompts import OTHER_REPLY
 from hikeall.agent.request import HikeRequest, RawRequest
-from hikeall.agent.tools import SourceBrief
+from hikeall.agent.tools import GroupBrief, SourceBrief
+from hikeall.chatlog import hash_user
 from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY
 from hikeall.llm.gateway import FakeGateway
@@ -70,12 +79,43 @@ def understood(activity="hike", pace=None):
 # --- loader ---------------------------------------------------------------------------------
 
 
-def test_loader_reads_the_six_cases():
+def test_loader_reads_the_cases():
     cases = sm.load_cases(PROMPTS)
-    assert len(cases) == 6
+    assert [c.id.split("-")[0] for c in cases] == [
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10",
+    ]  # fmt: skip
+    assert cases[7].continues == cases[6].id  # "Tag 3 kürzer" in the thread of case 7
     assert len(cases[1].turns) == 2  # Feldberg: clarify, then the answer
     assert cases[1].turns[1].answer_option_containing == "Gemeinde"
     assert cases[4].turns[0].expect == {"reply": "injection", "no_model_calls": True}
+
+
+def test_case_expectations_of_plan_three():
+    cases = {c.id.split("-")[0]: c for c in sm.load_cases(PROMPTS)}
+    assert cases["6"].turns[0].expect == {"plan_days": 3, "sources": True}
+    assert cases["7"].turns[0].message == "3 Tage Westweg ab Hausach, ~15 km pro Tag"
+    assert cases["7"].turns[0].expect == {
+        "plan_days": 3, "plan_lodgings_near": True, "plan_band_or_named": True,
+    }  # fmt: skip
+    assert cases["8"].turns[0].message == "Tag 3 kürzer"
+    assert cases["8"].turns[0].expect == {
+        "plan_days": 3,
+        "days_unchanged": [1, 2],
+        "day_shorter": 3,
+    }
+    assert cases["9"].turns[0].expect == {"min_groups": 1}
+    assert cases["9b"].turns[0].message == "Lauftreff in Freiburg"
+    assert cases["9b"].turns[0].expect == {"no_groups": True}
+    assert cases["10"].turns[0].message == "Halbmarathon im Frühjahr bei Freiburg"
+    assert cases["10"].turns[0].expect == {"events_quoted": True}
+
+
+def test_loader_rejects_continuing_an_unknown_or_later_case(tmp_path):
+    p = tmp_path / "p.yaml"
+    turn = "turns: [{message: x, expect: {}}]"
+    p.write_text(f"cases:\n  - {{id: b, continues: a, {turn}}}\n  - {{id: a, {turn}}}\n")
+    with pytest.raises(ValueError, match="continues"):
+        sm.load_cases(p)
 
 
 @pytest.mark.parametrize(
@@ -292,7 +332,7 @@ def test_summary_line_keeps_the_end_of_an_error(monkeypatch, tmp_path, capsys):
     p = tmp_path / "p.yaml"
     p.write_text("cases:\n  - id: a\n    turns:\n      - message: m\n        expect: {}\n")
     r = sm.CaseResult(case="a", ok=False, errors=["Antwort endet mit: "])
-    monkeypatch.setattr(sm, "run_all", lambda deps, cases: [r])
+    monkeypatch.setattr(sm, "run_all", lambda deps, cases, user_hash=None: [r])
     sm.smoke(lambda: None, p, tmp_path, today=date(2026, 10, 30))
     assert "FAIL a: Antwort endet mit: \n" in capsys.readouterr().out
 
@@ -306,6 +346,234 @@ def test_smoke_cmd_reports_db_errors_without_traceback(monkeypatch, capsys):
         raise psycopg.OperationalError("connection refused")
 
     monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
+    monkeypatch.setattr(sm, "authorize", lambda settings: "h")
     monkeypatch.setattr(sm, "smoke", broken)
     assert cli.smoke_cmd() == 2
     assert "OperationalError" in capsys.readouterr().err
+
+
+# --- plan 3: multi-day, day change, groups, events, sign-in ------------------------------------
+
+
+def _day(n, start, end, dist=300, gap=None, band=True, stop=True, access=0.0):
+    s = md.Stop(lodging_id=n, name=f"U{n}", kind="hotel", website=None, along_km=end, dist_m=dist)
+    return md.DayPlan(
+        day=n, date=None, start_km=start, end_km=end, walk_km=end - start, access_km=access,
+        length_km=end - start + access, ascent_m=100, descent_m=100, duration_h=4.0,
+        start_time=time(9), arrival=time(13), stop=s if stop else None, gap=gap, within_band=band,
+    )  # fmt: skip
+
+
+def plan_ev(*days, notes=()):
+    plan = md.MultidayPlan(
+        trail_id="westweg", trail_name="Westweg", target_km=15, days=list(days),
+        notes=list(notes), source_ids=["osm"],
+    )  # fmt: skip
+    return PlanEvent(plan=plan)
+
+
+GAP = "Keine Unterkunft ≤ 1 km zwischen km 12 und km 18"
+
+
+def test_plan_lodgings_near():
+    exp = {"plan_lodgings_near": True}
+    assert sm.check([plan_ev(_day(1, 0, 15), _day(2, 15, 30, dist=1000))], exp) == []
+    far = _day(1, 0, 15, dist=1500, access=1.5)
+    named = "Unterkunft U1 liegt 1,5 km abseits – Zuweg eingerechnet"
+    assert sm.check([plan_ev(far, notes=[named])], exp) == []
+    assert sm.check([plan_ev(far)], exp)  # access path not named
+    assert sm.check([plan_ev(_day(1, 0, 15, dist=1500, gap=GAP))], exp) == []  # gap named
+    assert sm.check([plan_ev(_day(1, 0, 15, dist=2500))], exp)
+    assert sm.check([plan_ev(_day(1, 0, 15, stop=False), _day(2, 15, 30))], exp)  # mid-plan end
+    assert sm.check([plan_ev(_day(1, 0, 15), _day(2, 15, 30, stop=False))], exp) == []  # trail end
+    assert sm.check([], exp)
+
+
+def test_plan_band_or_named():
+    exp = {"plan_band_or_named": True}
+    assert sm.check([plan_ev(_day(1, 0, 15))], exp) == []
+    out = _day(1, 0, 20, band=False, gap=GAP)
+    assert sm.check([plan_ev(out), TokenEvent(text=f"Tag 1: {GAP}.\nText")], exp) == []
+    assert sm.check([plan_ev(out)], exp)  # the gap never reached the answer
+    assert sm.check([plan_ev(_day(1, 0, 20, band=False))], exp)  # out of band, nothing named
+    assert sm.check([], exp)
+
+
+def test_days_unchanged_and_day_shorter_compare_with_the_previous_turn():
+    before = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 45))]
+    after = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 40, band=False))]
+    exp = {"days_unchanged": [1, 2], "day_shorter": 3}
+    assert sm.check(after, exp, prev=before) == []
+    moved = [plan_ev(_day(1, 0, 14), _day(2, 14, 30), _day(3, 30, 40))]
+    assert sm.check(moved, exp, prev=before)  # day 1 changed
+    assert sm.check(before, exp, prev=before)  # day 3 not shorter
+    assert sm.check(after, exp, prev=[])  # no plan to compare with
+    assert sm.check([], exp, prev=before)
+
+
+def group(name="Schwarzwaldverein Freiburg"):
+    return GroupBrief(
+        name=name, kind="wanderverein", place="Freiburg im Breisgau", url="https://example.org/",
+        checked_at=date(2026, 10, 30), stale=False, dist_km=0.4,
+    )  # fmt: skip
+
+
+def test_min_groups_with_check_date():
+    ok = [GroupsEvent(groups=[group()], checked_note="Stand: 30.10.2026")]
+    assert sm.check(ok, {"min_groups": 1}) == []
+    assert sm.check(ok, {"min_groups": 2})
+    assert sm.check([GroupsEvent(groups=[group()], checked_note="")], {"min_groups": 1})
+    assert sm.check([], {"min_groups": 1})
+
+
+def test_no_groups_needs_the_honest_sentence():
+    none = "In meiner Liste gibt es keine Gruppe (Lauftreff) im Umkreis von 15 km um Freiburg."
+    assert sm.check([TokenEvent(text=none)], {"no_groups": True}) == []
+    invented = [GroupsEvent(groups=[group("Lauftreff X")], checked_note="Stand: 30.10.2026")]
+    assert sm.check([*invented, TokenEvent(text=none)], {"no_groups": True})
+    assert sm.check([TokenEvent(text="Hier ist ein Lauftreff.")], {"no_groups": True})
+
+
+def race(**fields):
+    info = RaceInfo(**{k: Field(value=v, quote=q) for k, (v, q) in fields.items()})
+    return VerifiedRace(
+        **info.model_dump(), source_url="https://lauf.example.org/", day=date(2027, 4, 18)
+    )
+
+
+CAL = CalendarLink(name="BLV", url="https://www.blv-online.de/laeufe/veranstaltungstermine")
+
+
+def test_events_quoted():
+    exp = {"events_quoted": True}
+    quoted = race(name=("Freiburg-Marathon", "Freiburg-Marathon 2027"), fee=(None, None))
+    assert sm.check([EventsEvent(events=[quoted], fallback=[], note="n")], exp) == []
+    assert sm.check([EventsEvent(events=[], fallback=[CAL], note="n")], exp) == []
+    bare = race(name=("Freiburg-Marathon", None))
+    assert sm.check([EventsEvent(events=[bare], fallback=[], note="n")], exp)
+    assert sm.check([EventsEvent(events=[], fallback=[], note="n")], exp)  # nothing at all
+    assert sm.check([], exp)
+
+
+def test_runner_multiday_then_day_change_in_the_same_thread(deps):
+    cases = sm.load_cases(PROMPTS)
+    seven, eight = _case(cases, "7-"), _case(cases, "8-")
+    d = deps(
+        structured={
+            RawRequest: [
+                westweg_raw(days=3, day_km=15),
+                RawRequest(intent="change", day_change_day=3, day_change_direction="shorter"),
+            ]
+        },
+        answers=["Drei Tage.", "Tag 3 ist kürzer."],
+    )
+    r7, r8 = sm.run_all(d, [seven, eight])
+    assert r7.ok, r7.errors
+    assert r8.ok, r8.errors
+    assert d.tools.calls["change_day"] == 1
+
+
+def test_runner_continuation_without_the_earlier_case_fails(deps):
+    eight = _case(sm.load_cases(PROMPTS), "8-")
+    d = deps(
+        structured={
+            RawRequest: [
+                RawRequest(intent="change", day_change_day=3, day_change_direction="shorter")
+            ]
+        }
+    )
+    (r,) = sm.run_all(d, [eight])
+    assert not r.ok and r.errors
+
+
+def test_runner_passes_the_signed_in_user_hash(monkeypatch):
+    seen = []
+
+    def fake_run_chat(deps, thread, message, user_hash=None):
+        seen.append(user_hash)
+        return iter([TokenEvent(text=OTHER_REPLY), done()])
+
+    monkeypatch.setattr(sm, "run_chat", fake_run_chat)
+    case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "other"})])
+    assert sm.run_all(None, [case], user_hash="abc123def456")[0].ok
+    assert seen == ["abc123def456"]
+
+
+# --- sign-in of the smoke user (local Supabase auth) -------------------------------------------
+
+AUTH = "http://127.0.0.1:54321/auth/v1"
+
+
+def auth_settings(**kw):
+    kw = {
+        "supabase_db_url": "postgresql://x",
+        "supabase_url": "http://127.0.0.1:54321",
+        "supabase_anon_key": "anon",
+        "hikeall_smoke_password": "geheim-123",
+        **kw,
+    }
+    return Settings(**kw)
+
+
+def test_sign_in_uses_the_password_grant(respx_mock):
+    route = respx_mock.post(f"{AUTH}/token").mock(
+        return_value=httpx.Response(200, json={"access_token": "tok"})
+    )
+    with httpx.Client() as http:
+        assert sm.sign_in(http, auth_settings()) == "tok"
+    req = route.calls.last.request
+    assert req.url.params["grant_type"] == "password"
+    assert req.headers["apikey"] == "anon"
+    assert json.loads(req.content) == {"email": sm.SMOKE_EMAIL, "password": "geheim-123"}
+
+
+@pytest.mark.parametrize(
+    ("kw", "status", "match"),
+    [
+        ({"hikeall_smoke_password": None}, 200, "HIKEALL_SMOKE_PASSWORD"),
+        ({"supabase_anon_key": None}, 200, "SUPABASE_ANON_KEY"),
+        ({}, 400, "make smoke-user"),
+    ],
+)
+def test_sign_in_failures_are_named(respx_mock, kw, status, match):
+    respx_mock.post(f"{AUTH}/token").mock(
+        return_value=httpx.Response(status, json={"error": "invalid_grant", "access_token": "t"})
+    )
+    with httpx.Client() as http, pytest.raises(sm.SmokeAuthError, match=match):
+        sm.sign_in(http, auth_settings(**kw))
+
+
+def test_create_user_signs_up_or_finds_the_existing_user(respx_mock):
+    signup = respx_mock.post(f"{AUTH}/signup").mock(
+        return_value=httpx.Response(200, json={"access_token": "t", "user": {"id": "u"}})
+    )
+    respx_mock.post(f"{AUTH}/token").mock(
+        return_value=httpx.Response(200, json={"access_token": "tok"})
+    )
+    with httpx.Client() as http:
+        assert sm.create_user(http, auth_settings()) == "angelegt"
+        assert json.loads(signup.calls.last.request.content)["email"] == sm.SMOKE_EMAIL
+        signup.mock(
+            return_value=httpx.Response(
+                422, json={"code": "user_already_exists", "msg": "User already registered"}
+            )
+        )
+        assert sm.create_user(http, auth_settings()) == "vorhanden"
+
+
+def test_smoke_cmd_checks_the_token_like_chat(monkeypatch, capsys):
+    from hikeall import cli
+
+    monkeypatch.setattr(cli, "_settings", lambda: auth_settings(supabase_jwt_secret="s" * 32))
+    monkeypatch.setattr(sm, "sign_in", lambda http, settings: "kein-jwt")
+    called = []
+    monkeypatch.setattr(sm, "smoke", lambda *a, **kw: called.append(kw) or 0)
+    assert cli.smoke_cmd() == 2
+    assert "Anmeldung" in capsys.readouterr().err and not called
+
+    token = jwt.encode(
+        {"sub": "user-1", "aud": "authenticated", "exp": 4102444800}, "s" * 32, algorithm="HS256"
+    )
+    monkeypatch.setattr(sm, "sign_in", lambda http, settings: token)
+    assert cli.smoke_cmd() == 0
+    assert called[0]["user_hash"] == hash_user("user-1")

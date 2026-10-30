@@ -25,6 +25,23 @@ SKIP_SECTIONS = {
 STATUSES = ("entwurf", "geprüft")
 _HEADING = re.compile(r"^=+\s*(.*?)\s*=+$")
 
+# Wikivoyage listings in the plain-text extract: "4\u200b Name, Adresse. Tel.: +49 …, E-Mail: …
+# .letzte Änderung: keine Angabe48.596718.20157" (marker, contacts, edit note, lat+lon glued).
+# Phone numbers and coordinates are noise for retrieval and invite unsupported numbers.
+_LAT = r"(?:4[5-9]|5[0-5])\.\d+"  # Germany and its neighbours, decimal degrees
+_LON = r"(?:[5-9]|1[0-5])\.\d+"
+_WV_NOISE = [
+    re.compile(r"letzte Änderung:\s*(?:keine Angabe|[^\W\d]*\.?\s*\d{4})"),
+    re.compile(rf"(?<![\d.]){_LAT}\s*,\s*{_LON}(?!\d)"),  # "47.9, 8.1"
+    re.compile(rf"(?<![\d.]){_LAT}{_LON}(?!\d)"),  # lat and lon glued together
+    re.compile(r"\b(?:lat|long|lon)\s*=\s*-?[\d.]+"),
+    re.compile(r"\b(?:Tel\.|Telefon|Fax|Mobil)\s*:?\s*\+?[\d\s()/-]*\d"),
+    re.compile(r"\bE-Mail\s*:?\s*[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),
+    re.compile(r"\+\d{2}\s*(?:\(0\))?[\d\s/-]*\d"),  # a bare international number
+    re.compile(r"\d+\u200b"),  # listing marker "4\u200b"
+    re.compile(r"\u200b"),
+]
+
 
 @dataclass(frozen=True)
 class Source:
@@ -54,6 +71,24 @@ class Chunk:
     status: str | None = None
 
 
+def clean_wikivoyage(text: str) -> str:
+    """Wikivoyage extract without phone numbers, coordinates and listing remains (per line)."""
+    lines = []
+    for line in text.splitlines():
+        if _HEADING.match(line.strip()):
+            lines.append(line)
+            continue
+        for rx in _WV_NOISE:
+            line = rx.sub(" ", line)
+        line = re.sub(r"\(\s*\)", " ", line)  # brackets left empty
+        line = re.sub(r"\s+([.,])", r"\1", line)  # "Pforzheim ." -> "Pforzheim."
+        line = re.sub(r"([.,])(?:\s*[.,])+", r"\1", line)  # ". , ." -> "."
+        line = re.sub(r"\s+", " ", line).strip()
+        line = line.lstrip(".,").strip()
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def load_sources(path: Path) -> list[Source]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
     return [Source(site=str(r["site"]), title=str(r["title"])) for r in raw]
@@ -79,7 +114,7 @@ def fetch_articles(
                 site=src.site,
                 title=f"{page.title} ({src.site.split('.')[1].capitalize()})",
                 url=page.url,
-                text=page.text,
+                text=clean_wikivoyage(page.text) if "wikivoyage" in src.site else page.text,
                 license=WIKI_LICENSE,
             )
         )
