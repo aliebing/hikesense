@@ -129,3 +129,14 @@ it("a plan without notes does not crash", () => {
   render(<PlanDays data={d} />);
   expect(screen.getByRole("list", { name: "Tage" })).toBeInTheDocument();
 });
+
+it("links every day to Unterwegs for a saved plan", () => {
+  render(<PlanDays data={data([day(1), day(2)])} save={false} planId="p 1" />);
+  const links = screen.getAllByRole("link", { name: "Unterwegs" });
+  expect(links.map((a) => a.getAttribute("href"))).toEqual(["/unterwegs?plan=p%201&day=1", "/unterwegs?plan=p%201&day=2"]);
+});
+
+it("no Unterwegs link without a saved plan id", () => {
+  render(<PlanDays data={data([day(1)])} />);
+  expect(screen.queryByRole("link", { name: "Unterwegs" })).not.toBeInTheDocument();
+});

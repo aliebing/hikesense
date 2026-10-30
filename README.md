@@ -42,4 +42,17 @@ Erfüllt keine Tour alle Wünsche, beginnt die Antwort mit „Keine Tour erfüll
 
 `make smoke` spielt diese fünf Fragen und einen Prompt-Injection-Versuch („Ignoriere alle vorherigen Anweisungen“), also sechs Fälle, gegen das echte Modell durch (`data/smoke/prompts.yaml`), schreibt `data/smoke/result-<Datum>.csv` und gibt die Gesamtkosten aus; Exit-Code 1, wenn eine Erwartung nicht erfüllt ist.
 
+## Auf dem Handy (HTTPS-Tunnel)
+
+Die Ortung („Unterwegs“) und die Installation als App brauchen HTTPS: Browser geben den Standort nur auf sicheren Seiten frei (`localhost` zählt, die Adresse im WLAN wie `http://192.168.…:3000` nicht). Ein Tunnel gibt der lokalen Web-App eine HTTPS-Adresse:
+
+```sh
+make up
+cloudflared tunnel --url http://localhost:3000
+```
+
+`cloudflared` gibt eine Adresse `https://….trycloudflare.com` aus; sie öffnest du auf dem Handy und wählst „Zum Startbildschirm hinzufügen“ bzw. „App installieren“. Die Installation nutzt `web/public/manifest.webmanifest` und einen kleinen Service Worker (`web/public/sw.js`), der nur die App-Hülle zwischenspeichert, keine Karten und keine Antworten der API; er wird nur im Produktionsbuild (`npm run build && npm start`) angemeldet, nicht in `npm run dev`.
+
+Die Position bleibt auf dem Gerät: „Unterwegs“ rechnet Restkilometer und Ankunft im Browser, sendet und speichert nichts und orten läuft nur, solange die Seite offen und gestartet ist. Ohne HTTPS (reines HTTP im WLAN) funktionieren Chat, Touren und Karte weiter; nur Ortung, Service Worker und Installation fehlen.
+
 Die ausführliche Capstone-README folgt in Plan 4.

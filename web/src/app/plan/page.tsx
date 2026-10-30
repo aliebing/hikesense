@@ -79,7 +79,7 @@ function SavedPlan() {
       )}
       {result && "data" in result && (
         <>
-          <PlanDays data={result.data} save={false} title={result.title} />
+          <PlanDays data={result.data} save={false} title={result.title} planId={id ?? undefined} />
           {result.trail && <PlanMap trail={result.trail} lodgings={result.lodgings} plan={result.data.plan} lengthKm={result.lengthKm} />}
         </>
       )}

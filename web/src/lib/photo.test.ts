@@ -54,3 +54,20 @@ it("accepts png and webp up to exactly 10 MB", async () => {
   await expect(prepareUpload(fileOf([new Uint8Array(MAX_BYTES)], "a.png", "image/png"), reencode)).resolves.toBeInstanceOf(Blob);
   await expect(prepareUpload(fileOf(["x"], "a.webp", "image/webp"), reencode)).resolves.toBeInstanceOf(Blob);
 });
+
+test("uploadOwnPhoto works without crypto.randomUUID (plain HTTP on the LAN)", async () => {
+  const { uploadOwnPhoto } = await import("./photo");
+  const paths: string[] = [];
+  const sb = {
+    storage: { from: () => ({ upload: async (p: string) => (paths.push(p), { error: null }), remove: async () => ({}) }) },
+    from: () => ({ insert: async () => ({ error: null }) }),
+  };
+  const orig = crypto.randomUUID;
+  Object.defineProperty(crypto, "randomUUID", { configurable: true, value: undefined });
+  try {
+    await uploadOwnPhoto(sb as never, "u1", "t1", new Blob(["x"]));
+  } finally {
+    Object.defineProperty(crypto, "randomUUID", { configurable: true, value: orig });
+  }
+  expect(paths[0]).toMatch(/^u1\/t1\/[0-9a-f]{32}\.jpg$/);
+});

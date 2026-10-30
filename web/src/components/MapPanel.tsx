@@ -47,12 +47,15 @@ export default function MapPanel({
   trail,
   lodgings,
   days,
+  position,
 }: {
   trail: MapTrail;
   /** null when the lodgings could not be loaded — then the legend says so instead of „0“ */
   lodgings: LodgingOnTrail[] | null;
   /** plan days: drawn instead of the stages, alternating colours; `lodgings` are then the day-end lodgings */
   days?: DaySection[];
+  /** own position (Unterwegs): shown as a dot, never sent anywhere */
+  position?: { lat: number; lon: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -89,7 +92,7 @@ export default function MapPanel({
       >
         <span aria-hidden="true">🗺 </span>Karte
       </button>
-      {open && <MapOverlay trail={trail} lodgings={lodgings} days={days} closer={closer} onClose={() => setOpen(false)} />}
+      {open && <MapOverlay trail={trail} lodgings={lodgings} days={days} position={position} closer={closer} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -98,16 +101,21 @@ function MapOverlay({
   trail,
   lodgings,
   days,
+  position,
   closer,
   onClose,
 }: {
   trail: MapTrail;
   lodgings: LodgingOnTrail[] | null;
   days?: DaySection[];
+  position?: { lat: number; lon: number } | null;
   closer: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
+  const live = useRef<{ map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker } | null>(null);
+  const posRef = useRef(position);
+  posRef.current = position;
   const [status, setStatus] = useState<Status>("loading");
   const features = useMemo(() => (days && days.length > 0 ? dayFeatures(days) : trailToFeatures(trail)), [trail, days]);
   const planDays = !!days && days.length > 0;
@@ -133,6 +141,8 @@ function MapOverlay({
           ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.1, 48.3], zoom: 8 }),
         });
         map.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
+        live.current = { map, ml };
+        showPosition(live.current, posRef.current);
         // Zoomed out (whole Westweg), full 🛏 markers would cover the line: show dots.
         const markDots = () => container.current?.classList.toggle("map-lodging-dots", map!.getZoom() < LODGING_FULL_ZOOM);
         map.on("zoomend", markDots);
@@ -194,10 +204,15 @@ function MapOverlay({
 
     return () => {
       cancelled = true;
+      live.current = null;
       markers.forEach((m) => m.remove());
       map?.remove();
     };
   }, [features, nearby]);
+
+  useEffect(() => {
+    if (live.current) showPosition(live.current, position);
+  }, [position]);
 
   return (
     <div
@@ -262,6 +277,24 @@ function MapOverlay({
       </div>
     </div>
   );
+}
+
+/** The own-position dot: created on the first fix, moved afterwards, removed when the position is gone. */
+function showPosition(l: { map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker }, pos: { lat: number; lon: number } | null | undefined) {
+  if (!pos) {
+    l.me?.remove();
+    l.me = undefined;
+    return;
+  }
+  if (!l.me) {
+    const el = document.createElement("div");
+    el.className = "map-me";
+    el.setAttribute("role", "img");
+    el.setAttribute("aria-label", "Dein Standort");
+    l.me = new l.ml.Marker({ element: el }).setLngLat([pos.lon, pos.lat]).addTo(l.map);
+  } else {
+    l.me.setLngLat([pos.lon, pos.lat]);
+  }
 }
 
 function addTrailLayers(map: MapLibreMap, features: FeatureCollection) {

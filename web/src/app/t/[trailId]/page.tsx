@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import ChatShell from "../../../components/ChatShell";
 import Notice from "../../../components/Notice";
@@ -84,6 +85,12 @@ export default async function TrailPage({
             lodgings={lodgings}
             lengthKm={trail.length_km}
           />
+          <Link
+            href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
+            className="mt-2 self-start justify-self-start rounded-full border border-white/25 bg-papier/15 px-4 py-2 text-sm text-papier shadow-lg backdrop-blur-xl hover:bg-papier/25 focus-visible:outline-2 focus-visible:outline-papier"
+          >
+            Unterwegs
+          </Link>
         </div>
       </div>
 

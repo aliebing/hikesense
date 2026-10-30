@@ -119,9 +119,15 @@ export async function listOwnPhotos(sb: SupabaseClient, trailId: string): Promis
   }
 }
 
+/** crypto.randomUUID only exists in secure contexts (not over plain HTTP on the LAN); getRandomValues does. */
+function fileId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /** Uploads the prepared JPEG to `<user_id>/<trail_id>/<uuid>.jpg` and records it. Throws a German message. */
 export async function uploadOwnPhoto(sb: SupabaseClient, userId: string, trailId: string, blob: Blob): Promise<void> {
-  const path = `${userId}/${trailId}/${crypto.randomUUID()}.jpg`;
+  const path = `${userId}/${trailId}/${fileId()}.jpg`;
   const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg" });
   if (up.error) throw new Error("Hochladen hat nicht geklappt – bitte versuche es noch einmal");
   const ins = await sb.from("photos").insert({ trail_id: trailId, source: "upload", url: path, author: "Eigenes Foto", license: "privat" });

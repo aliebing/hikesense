@@ -65,7 +65,7 @@ function Rain({ v }: { v: RainVariant | null }) {
   );
 }
 
-function DayCard({ d, from, weather, rain }: { d: DayPlan; from: string; weather: DayWeather | NoForecast | undefined; rain: RainVariant | null | undefined }) {
+function DayCard({ d, from, weather, rain, unterwegsHref }: { d: DayPlan; from: string; unterwegsHref?: string; weather: DayWeather | NoForecast | undefined; rain: RainVariant | null | undefined }) {
   const date = dateText(d.date);
   const stop = d.stop;
   const link = stop ? lodgingLink(stop) : null;
@@ -110,6 +110,11 @@ function DayCard({ d, from, weather, rain }: { d: DayPlan; from: string; weather
       )}
       <Weather w={weather} dated={d.date !== null} />
       {rain !== undefined && <Rain v={rain} />}
+      {unterwegsHref && (
+        <Link href={unterwegsHref} className="self-start text-xs font-medium underline">
+          Unterwegs
+        </Link>
+      )}
     </li>
   );
 }
@@ -118,7 +123,7 @@ function DayCard({ d, from, weather, rain }: { d: DayPlan; from: string; weather
  * The multi-day plan: notes (trail end, access walks, missing section), one card per day with weather and
  * the rain variant, and „Merken“ (signed-in users only). `save: false` for an already saved plan.
  */
-export default function PlanDays({ data, save = true, title, mapHref }: { data: PlanData; save?: boolean; title?: string; mapHref?: string }) {
+export default function PlanDays({ data, save = true, title, mapHref, planId }: { data: PlanData; save?: boolean; title?: string; mapHref?: string; /** saved plan id: every day links to „Unterwegs“ */ planId?: string }) {
   const { plan, weather, rain } = data;
   const startName = data.start_name ?? null;
   const notes = plan.notes ?? [];
@@ -154,6 +159,7 @@ export default function PlanDays({ data, save = true, title, mapHref }: { data: 
             from={i === 0 ? (startName ?? `km ${de1.format(d.start_km)}`) : (plan.days[i - 1].stop?.name ?? `km ${de1.format(d.start_km)}`)}
             weather={weather?.[String(d.day)]}
             rain={rain?.[String(d.day)]}
+            unterwegsHref={planId ? `/unterwegs?plan=${encodeURIComponent(planId)}&day=${d.day}` : undefined}
           />
         ))}
       </ol>
