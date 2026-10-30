@@ -15,8 +15,8 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
   const submit = (m: string) => {
     if (!m.trim() || busy) return;
     setText("");
-    // an expired session keeps the typed message in the field for after the re-login
-    void send(m).then((r) => r.auth && setText((t) => t || m));
+    // an expired session (or an auth check that is down, 503) keeps the typed message in the field
+    void send(m).then((r) => r.keepDraft && setText((t) => t || m));
   };
 
   const body = (

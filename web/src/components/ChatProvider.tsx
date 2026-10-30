@@ -2,14 +2,18 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, onSignedOut } from "../lib/auth";
-import { streamChat } from "../lib/chat";
+import { ERROR_AUTH_UNAVAILABLE, streamChat } from "../lib/chat";
 import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, STORAGE_KEY, type ChatState } from "../lib/chatState";
 
 /** Same origin by default: next.config.ts proxies /api/chat to the backend (one tunnel for the phone). */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-type Chat = { state: ChatState; busy: boolean; hydrated: boolean; /** resolves to { auth: true } when the turn ended because the session is missing or expired */
-  send(text: string): Promise<{ auth: boolean }>; abort(): void;
+/** `auth`: the session is missing or expired; `keepDraft`: the message was not processed (auth or the
+ * auth check unavailable, 503), so the input keeps the typed text */
+type SendResult = { auth: boolean; keepDraft: boolean };
+
+type Chat = { state: ChatState; busy: boolean; hydrated: boolean;
+  send(text: string): Promise<SendResult>; abort(): void;
   /** drops the conversation (new thread id, stored copy removed), e.g. on sign-out */
   reset(): void };
 
@@ -61,9 +65,9 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
   }, []);
 
   const send = useCallback(
-    async (message: string) => {
+    async (message: string): Promise<SendResult> => {
       const m = message.trim();
-      if (!m || busyRef.current) return { auth: false };
+      if (!m || busyRef.current) return { auth: false, keepDraft: false };
       busyRef.current = true;
       setBusy(true);
       setState((s) => addUser(s, m));
@@ -71,6 +75,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
       ctrl.current = c;
       const gen = generation.current;
       let auth = false;
+      let unavailable = false;
       const token = await getAccessToken();
       await streamChat(
         apiUrl,
@@ -79,17 +84,19 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
         (e) => {
           if (generation.current !== gen) return;
           if (e.type === "auth") auth = true;
+          if (e.type === "error" && e.message === ERROR_AUTH_UNAVAILABLE) unavailable = true;
           setState((s) => reduceEvent(s, e));
         },
         c.signal,
         token,
       );
       if (ctrl.current === c) ctrl.current = null;
-      if (unmounted.current) return { auth };
+      const result = { auth, keepDraft: auth || unavailable };
+      if (unmounted.current) return result;
       if (c.signal.aborted && generation.current === gen) setState((s) => addNotice(s, "Abgebrochen."));
       busyRef.current = false;
       setBusy(false);
-      return { auth };
+      return result;
     },
     [apiUrl],
   );

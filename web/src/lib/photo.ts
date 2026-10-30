@@ -48,7 +48,7 @@ function readBytes(blob: Blob): Promise<Uint8Array> {
 
 /**
  * True when the bytes are not a plain JPEG or carry an APP1 segment (EXIF or XMP, both can hold GPS).
- * Walks the marker segments up to the start of the scan.
+ * Walks the marker segments up to the start of the scan; bytes that end before it count as metadata.
  */
 export function hasMetadata(bytes: Uint8Array): boolean {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return true;
@@ -68,7 +68,7 @@ export function hasMetadata(bytes: Uint8Array): boolean {
     }
     i += 2 + ((bytes[i + 2] << 8) | bytes[i + 3]);
   }
-  return false;
+  return true; // truncated before the start of scan: unknown, so fail closed
 }
 
 /** Checks type and size, re-encodes and verifies the result carries no metadata. Throws a German message. */

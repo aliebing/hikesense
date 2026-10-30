@@ -163,6 +163,15 @@ def test_value_must_be_a_whole_token_of_the_quote():
     assert verify(ok, probe).fee.value == "25 €"
 
 
+def test_contains_rejects_a_decimal_point_continuation():
+    from hikeall.agent.events import _contains
+
+    assert not _contains("Startgebühr 25.50 €", "25")  # „25“ is not „25.50“
+    assert not _contains("Startgebühr 25,50 €", "25")
+    assert _contains("Startgebühr: 25.", "25")  # a sentence end is no decimal
+    assert _contains("Startgebühr 25 €", "25")
+
+
 def test_link_must_be_exactly_a_link_of_the_page():
     probe = page("https://probe.example.org/", PROBE)
     for url in (

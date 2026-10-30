@@ -131,6 +131,9 @@ it("renders the backend groups stream inside the chat: names as links, distance,
   expect(items[0]).not.toHaveTextContent("veraltet");
   expect(items[1]).toHaveTextContent("veraltet");
   expect(screen.getAllByText(/Stand: 01\.03\.2026/).length).toBeGreaterThan(0);
+  // status „vorschlag“ from the backend: never presented as checked by hand
+  expect(screen.getAllByText(/automatisch geprüft \(Seite und Name abgerufen\), noch nicht von Hand bestätigt/).length).toBeGreaterThan(0);
+  expect(document.body).not.toHaveTextContent(/von Hand (gepflegt|geprüft)/);
   expect(screen.queryAllByRole("article")).toHaveLength(0);
 });
 

@@ -71,3 +71,11 @@ test("uploadOwnPhoto works without crypto.randomUUID (plain HTTP on the LAN)", a
   }
   expect(paths[0]).toMatch(/^u1\/t1\/[0-9a-f]{32}\.jpg$/);
 });
+
+it("fails closed on a truncated JPEG (no start of scan reached)", () => {
+  // SOI + APP0 + the start of a quantisation table header, cut off before its length bytes
+  expect(hasMetadata(CLEAN_JPEG.slice(0, 10))).toBe(true);
+  // segments end without start of scan
+  expect(hasMetadata(CLEAN_JPEG.slice(0, 14))).toBe(true);
+  expect(hasMetadata(CLEAN_JPEG)).toBe(false);
+});

@@ -215,10 +215,11 @@ class PlanEvent(ChatEvent):
     weather: dict[int, DayWeather | NoForecast] = {}
     rain: dict[int, RainVariant | None] = {}
     labels: dict[str, str] = {}  # tag_id -> vocabulary label (the trail)
+    start_name: str | None = None  # the plan's start place (day 1, saved title); None: none named
 
 
 class GroupsEvent(ChatEvent):
-    """Groups of the hand-curated list near the place, nearest first; `checked_note` names the
+    """Groups of the curated list near the place, nearest first; `checked_note` names the
     oldest check date ("Stand: 01.03.2026"). No persons, no dates of events."""
 
     type: Literal["groups"] = "groups"
@@ -1034,6 +1035,7 @@ def build_graph(deps: AgentDeps) -> Any:
                 weather=weather,
                 rain=rain,
                 labels=_labels(vocab, [t for t in [f"trail:{plan.trail_id}"] if t in vocab]),
+                start_name=start,
             )
         )
         sources = tools.sources([i for i in plan.source_ids if i != SOURCE_WEATHER])

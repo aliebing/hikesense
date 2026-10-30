@@ -138,7 +138,7 @@ export type PlanData = {
   weather: Record<string, DayWeather | NoForecast>;
   rain: Record<string, RainVariant | null>;
   labels?: Labels;
-  /** the start place of the request at that moment (added by the web app, not part of the event) */
+  /** the plan's start place (backend PlanEvent; payloads saved before it: added by the web app) */
   start_name?: string | null;
 };
 

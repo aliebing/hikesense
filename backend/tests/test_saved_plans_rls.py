@@ -74,3 +74,16 @@ def test_anon_cannot_read_plans(conn):
     _as(conn, "anon")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         conn.execute("select count(*) from saved_plans")
+
+
+def test_authenticated_has_only_select_insert_delete(conn):
+    # Supabase default privileges grant everything; a plan is saved or deleted, never edited
+    rows = conn.execute(
+        "select grantee, privilege_type from information_schema.role_table_grants "
+        "where table_name = 'saved_plans' and grantee in ('anon', 'authenticated')"
+    ).fetchall()
+    assert {r[1] for r in rows if r[0] == "authenticated"} == {"SELECT", "INSERT", "DELETE"}
+    assert not [r for r in rows if r[0] == "anon"]
+    for priv in ("UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+        sql = "select has_table_privilege('authenticated', 'saved_plans', %s)"
+        assert conn.execute(sql, (priv,)).fetchone()[0] is False, priv

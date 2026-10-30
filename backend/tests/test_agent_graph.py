@@ -1045,6 +1045,7 @@ def test_multiday_flow_events_in_order(vocab, settings):
     assert plan.plan.days[0].date == date(2026, 11, 2)
     assert plan.weather[1] == DRY and isinstance(plan.weather[2], NoForecast)
     assert plan.labels == {"trail:westweg-west": "Westweg"}
+    assert plan.start_name == "Hausach"  # the plan's own start, for day 1 and the saved title
     text = text_of(events)
     assert "Zeiten ohne Pausen" in text
     assert text.endswith("Tag 1 führt 15 km zum Gasthaus Adler, Tag 2 15 km zum Hotel Sonne.")
@@ -1086,6 +1087,7 @@ def test_day_change_keeps_earlier_days_across_turns(vocab, settings):
     assert deps.tools.calls["plan_multiday"] == 1 and deps.tools.calls["change_day"] == 1
     assert one(second_events, "understood").request.day_change.day == 2
 
+    assert one(second_events, "plan").start_name == "Hausach"  # the stored plan's start
     third = one(run(deps, "Tag 3 länger"), "plan").plan
     assert third.days[:2] == second.days[:2]  # works on the last plan, not the first one
     assert third.days[2].start_km == 26.0 and third.days[2].end_km == TRAIL_LEN

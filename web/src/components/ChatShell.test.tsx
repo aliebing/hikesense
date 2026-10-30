@@ -315,3 +315,11 @@ it("a 503 is an error, not a re-login", async () => {
   expect(await screen.findByText(/Anmeldung kann gerade nicht geprüft werden/)).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Anmelden" })).toBeNull();
 });
+
+it("a 503 keeps the draft like a 401 does", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 503 })));
+  renderChat();
+  await ask("Feldberg bitte");
+  expect(await screen.findByText(/Anmeldung kann gerade nicht geprüft werden/)).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByLabelText("Nachricht")).toHaveValue("Feldberg bitte"));
+});

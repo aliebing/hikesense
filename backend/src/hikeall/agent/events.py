@@ -137,8 +137,8 @@ def _given(text: str | None) -> bool:
 
 def _contains(text: str, part: str) -> bool:
     """`part` occurs in `text` as whole tokens: "5 €" is not in "25 €", "10 km" not in "110 km",
-    "25" not in "25,50". Both are already normalised."""
-    return re.search(rf"(?<![\w,.]){re.escape(part)}(?![\w,])", text) is not None
+    "25" not in "25,50" or "25.50". Both are already normalised."""
+    return re.search(rf"(?<![\w,.]){re.escape(part)}(?![\w,]|\.\d)", text) is not None
 
 
 def _checked(name: str, f: Field, page: PageText, page_text: str) -> Field:

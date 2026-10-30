@@ -97,7 +97,9 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
     case "plan": {
       const { type: _type, ...plan } = e;
       void _type;
-      const data = normalizePlan({ ...plan, start_name: s.request?.request.start?.label ?? null })!;
+      // the backend names the plan's start; older payloads without it: the request at that moment
+      const start = plan.start_name !== undefined ? plan.start_name : (s.request?.request.start?.label ?? null);
+      const data = normalizePlan({ ...plan, start_name: start })!;
       return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
     }
     case "groups":

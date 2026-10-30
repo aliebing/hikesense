@@ -151,6 +151,15 @@ it("the plan keeps the start of the request at that moment", () => {
   expect(s.plan?.start_name).toBe("Hausach");
 });
 
+it("the plan's start comes from the event, not from the latest request", () => {
+  // a day change („Tag 2 kürzer“) is understood without a start; the backend names the plan's own
+  let s = reduceEvent(initialState("t"), { type: "understood", text: "x", request: { ...(request() as object), start: { label: "Kandern" } } as never });
+  s = reduceEvent(s, { ...planEvent(1), start_name: "Hausach" } as ChatEvent);
+  expect(s.plan?.start_name).toBe("Hausach");
+  s = reduceEvent(s, { ...planEvent(1), start_name: null } as ChatEvent);
+  expect(s.plan?.start_name).toBeNull(); // null: no start named, never guessed
+});
+
 it("an old stored state without plan loads with plan null; a plan without notes gets []", () => {
   const store = new Map<string, string>([[STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], last: null, request: null })]]);
   const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} } as unknown as Storage;
