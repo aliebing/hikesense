@@ -43,6 +43,18 @@ export function useSession(): { session: Session | null; loading: boolean } {
   return state;
 }
 
+/** Calls `cb` when the session ends (sign-out here or in another tab); returns the unsubscribe. Never throws. */
+export function onSignedOut(cb: () => void): () => void {
+  try {
+    const { data } = getBrowserSupabase().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") cb();
+    });
+    return () => data.subscription.unsubscribe();
+  } catch {
+    return () => {};
+  }
+}
+
 /** A fresh access token (supabase-js refreshes an expired one); null without session. Never throws. */
 export async function getAccessToken(): Promise<string | null> {
   try {

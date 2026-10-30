@@ -7,8 +7,8 @@ grounding check replaces unsupported numbers, and the code prefixes the honest f
 A multi-day plan comes from the deterministic planner (multiday.py); the model only words it.
 Groups and running events get a code-written answer; their items carry the sources.
 Events are streamed with LangGraph's custom stream writer; the conversation state (last request,
-open clarify question, last multi-day plan) lives in a MemorySaver keyed by thread_id and holds
-only plain JSON data.
+open clarify question, last multi-day plan) lives in a MemorySaver keyed by user hash + thread_id
+and holds only plain JSON data.
 """
 
 from __future__ import annotations
@@ -1239,7 +1239,8 @@ def _run(
     with metered(max_cost_usd=deps.settings.max_cost_usd) as usage:
         config: RunnableConfig = {
             "configurable": {
-                "thread_id": thread_id,
+                # keyed by user as well: a thread id alone never continues another user's chat
+                "thread_id": f"{user_hash or ''}:{thread_id}",
                 "usage": usage,
                 "request_id": request_id,
                 "user_hash": user_hash,

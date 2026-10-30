@@ -62,3 +62,12 @@ it("shows an empty hint and load errors", async () => {
   render(<MeinePlaene />);
   expect(await screen.findByRole("alert")).toHaveTextContent("nicht geladen");
 });
+
+it("clears the list on sign-out (shared device)", async () => {
+  const { rerender } = render(<MeinePlaene />);
+  expect(await screen.findByText("Feldsee-Runde")).toBeInTheDocument();
+  h.session = null;
+  rerender(<MeinePlaene />);
+  expect(screen.queryByText("Feldsee-Runde")).toBeNull();
+  expect(screen.getByText(/Zum Ansehen deiner Pläne/)).toBeInTheDocument();
+});

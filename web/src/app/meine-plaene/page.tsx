@@ -24,7 +24,12 @@ export default function MeinePlaene() {
   const signedIn = !!session;
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn) {
+      // signed out (shared device): never keep showing the previous user's plans
+      setPlans(null);
+      setError(null);
+      return;
+    }
     let live = true;
     void listPlans().then((r) => {
       if (!live) return;

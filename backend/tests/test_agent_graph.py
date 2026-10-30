@@ -361,6 +361,19 @@ def test_change_is_per_thread(vocab, settings):
     assert types(events) == ["clarify", "done"]
 
 
+def test_thread_is_per_user(vocab, settings):
+    # a thread id another user knows (shared device, leaked id) must not continue that conversation
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw(), raw(intent="change", length_km_max=12)]},
+        answers=["Erste Antwort."],
+    )
+    list(run_chat(deps, "same-thread", FELDBERG_MSG, "user-a"))
+    events = list(run_chat(deps, "same-thread", "kürzer", "user-b"))
+    assert types(events) == ["clarify", "done"]  # fresh state: nothing to change
+
+
 HIT = KnowledgeHit(
     text="Im Naturschutzgebiet Feldberg (4.226 ha) gilt ein Wegegebot.",
     source_id="own:wegegebot",
