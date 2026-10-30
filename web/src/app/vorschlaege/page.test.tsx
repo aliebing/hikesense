@@ -49,8 +49,9 @@ it("shows chips, sentence and cards", () => {
 });
 
 it("fallback note first, each card shows its deviation", () => {
+  const bad = [{ kind: "length_km", ok: false, actual: 15, bound: "≤ 14 km", deviation_rel: 0.1, bound_value: 14 }];
   const fb = "Keine Tour erfüllt alle Wünsche, weil die Länge abweicht";
-  seed([mk(1, { deviation_text: "15 km statt 14 km" }), mk(2, { deviation_text: "16 km statt 14 km" })], fb);
+  seed([mk(1, { results: bad, deviation_text: "15 km statt 14 km" }), mk(2, { results: bad, deviation_text: "16 km statt 14 km" })], fb);
   show();
   const note = screen.getAllByRole("note")[0]; // the drawer history repeats it further down
   expect(note).toHaveTextContent(fb);
