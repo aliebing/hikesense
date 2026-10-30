@@ -66,3 +66,41 @@ body {
   border-width: 1.5px;
   font-size: 0;
 }
+
+/* Landscape backdrop: slow zoom, cross-fade and drifting fog (HeroBackdrop). */
+@keyframes hike-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+@keyframes hike-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hike-fog {
+  from { transform: translateX(-8%); }
+  to { transform: translateX(8%); }
+}
+.hike-kenburns {
+  animation: hike-kenburns 12s ease-out forwards;
+}
+.hike-kenburns.hike-fade-in {
+  animation-name: hike-kenburns, hike-fade;
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: forwards, both;
+}
+.hike-fog {
+  width: 120%;
+  left: -10%;
+  background:
+    radial-gradient(ellipse 40% 30% at 20% 75%, rgb(244 241 234 / 0.22), transparent 70%),
+    radial-gradient(ellipse 45% 25% at 70% 85%, rgb(244 241 234 / 0.18), transparent 70%),
+    radial-gradient(ellipse 35% 20% at 50% 55%, rgb(244 241 234 / 0.1), transparent 70%);
+  animation: hike-fog 40s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hike-kenburns,
+  .hike-kenburns.hike-fade-in,
+  .hike-fog {
+    animation: none;
+  }
+}
