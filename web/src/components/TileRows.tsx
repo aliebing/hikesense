@@ -22,11 +22,6 @@ function TileFace({ tile }: { tile: Tile }) {
       <span className="absolute inset-x-0 bottom-0 grid gap-0.5 bg-black/55 px-2 py-1 text-[11px] leading-snug">
         <span className="truncate font-medium">{tile.name}</span>
         {tile.match?.deviation && <span className="text-papier/90">{tile.match.deviation}</span>}
-        {tile.photo && (
-          <span className="truncate text-[9px] text-papier/70">
-            Foto: {tile.photo.author} · {tile.photo.license}
-          </span>
-        )}
       </span>
     </>
   );

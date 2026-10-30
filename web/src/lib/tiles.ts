@@ -34,13 +34,15 @@ export function arrangeTiles(pool: TrailSummary[], matches: TourCard[], rows: nu
   if (grid.length === 0 && matches.length) grid.push([]);
 
   const picked = matches.filter((c, i, a) => a.findIndex((d) => d.trail_id === c.trail_id) === i).slice(0, MAX_MATCHES);
+  // first mark matches that are already in the pool: they stay in place and must not be overwritten
+  const missing: [TourCard, number][] = [];
   picked.forEach((card, i) => {
-    const match = { deviation: card.deviation_text };
     const existing = grid.flat().find((t) => t.id === card.trail_id);
-    if (existing) {
-      existing.match = match;
-      return;
-    }
+    if (existing) existing.match = { deviation: card.deviation_text };
+    else missing.push([card, i]);
+  });
+  missing.forEach(([card, i]) => {
+    const match = { deviation: card.deviation_text };
     const tile: Tile = { id: card.trail_id, name: card.name, photo: coverOf(card), match };
     // round-robin start row; fall through to the next rows when it has no pale tile left
     for (let k = 0; k < grid.length; k++) {

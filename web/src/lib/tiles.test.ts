@@ -63,6 +63,14 @@ describe("arrangeTiles", () => {
     expect(rows.flat().filter((t) => t.id === "neu")).toHaveLength(1);
   });
 
+  it("pool matches keep their place regardless of card order", () => {
+    const rows = arrangeTiles(pool(30), [card("neu"), card("t1")], 3, 8);
+    expect(rows[0][1].id).toBe("t1");
+    expect(rows[0][1].match).not.toBeNull();
+    expect(rows.flat().filter((t) => t.id === "neu")).toHaveLength(1);
+    expect(rows.flat().filter((t) => t.id === "t1")).toHaveLength(1);
+  });
+
   it("spreads matches one per row first", () => {
     const rows = arrangeTiles(pool(30), [card("x1"), card("x2"), card("x3")], 3, 8);
     expect(rows.map((r) => r.filter((t) => t.match).length)).toEqual([1, 1, 1]);
