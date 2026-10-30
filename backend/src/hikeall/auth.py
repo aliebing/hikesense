@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from dataclasses import dataclass
 from typing import Literal
 
 import jwt
 from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientConnectionError
 
 from hikeall.config import Settings
+
+log = logging.getLogger(__name__)
 
 AUDIENCE = "authenticated"
 HS_ALGS = ("HS256",)
@@ -25,7 +29,7 @@ class AuthUser:
 
 
 class AuthError(Exception):
-    def __init__(self, reason: Literal["missing", "expired", "invalid"]) -> None:
+    def __init__(self, reason: Literal["missing", "expired", "invalid", "unavailable"]) -> None:
         super().__init__(reason)
         self.reason = reason
 
@@ -34,7 +38,9 @@ def _jwks_client(settings: Settings) -> PyJWKClient:
     url = f"{(settings.supabase_url or '').rstrip('/')}/auth/v1/.well-known/jwks.json"
     with _lock:
         if url not in _clients:
-            _clients[url] = PyJWKClient(url, cache_keys=True, lifespan=3600, timeout=5)
+            _clients[url] = PyJWKClient(
+                url, cache_keys=True, lifespan=3600, timeout=5, cooldown_duration=60
+            )  # unknown kid: refetch at most once a minute
         return _clients[url]
 
 
@@ -58,6 +64,9 @@ def verify_token(token: str, settings: Settings) -> AuthUser:
         )
     except AuthError:
         raise
+    except PyJWKClientConnectionError as exc:  # JWKS unreachable: not the user's fault
+        log.error("JWKS fetch failed: %s", type(exc.__cause__ or exc).__name__)
+        raise AuthError("unavailable") from exc
     except jwt.ExpiredSignatureError as exc:
         raise AuthError("expired") from exc
     except Exception as exc:  # bad signature/audience/format, JWKS unreachable: not logged in

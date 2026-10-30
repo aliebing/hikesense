@@ -41,6 +41,7 @@ AUTH_MESSAGES = {
     "missing": "Bitte anmelden.",
     "invalid": "Bitte anmelden.",
     "expired": "Sitzung abgelaufen – bitte erneut anmelden.",
+    "unavailable": "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.",
 }
 
 
@@ -100,9 +101,7 @@ def make_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    async def stream(
-        thread_id: str, message: str, user_hash: str
-    ) -> AsyncIterator[dict[str, str]]:
+    async def stream(thread_id: str, message: str, user_hash: str) -> AsyncIterator[dict[str, str]]:
         try:
             deps = await run_in_threadpool(deps_factory)
             async for event in iterate_in_threadpool(run_chat(deps, thread_id, message, user_hash)):
@@ -117,8 +116,12 @@ def make_router(
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         try:
-            user = verify_token(token.strip() if scheme.lower() == "bearer" else "", settings)
+            user = await run_in_threadpool(
+                verify_token, token.strip() if scheme.lower() == "bearer" else "", settings
+            )
         except AuthError as exc:
+            if exc.reason == "unavailable":
+                return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
             return JSONResponse(
                 {"detail": AUTH_MESSAGES.get(exc.reason, AUTH_MESSAGES["invalid"])},
                 status_code=401,
@@ -157,6 +160,8 @@ def make_router(
             raise RequestValidationError(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
-        return EventSourceResponse(stream(str(body.thread_id), message, chatlog.hash_user(user.user_id)))
+        return EventSourceResponse(
+            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id))
+        )
 
     return router

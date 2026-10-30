@@ -215,3 +215,16 @@ def test_oversized_body_is_rejected_before_parsing(client, seen):
     r = client.post("/chat", json=big, headers=bearer())
     assert r.status_code == 413
     assert seen == []
+
+
+def test_jwks_outage_is_503_not_401(settings, monkeypatch):
+    from hikeall.auth import AuthError
+
+    def down(token, settings):
+        raise AuthError("unavailable")
+
+    monkeypatch.setattr(chat_api, "verify_token", down)
+    client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
+    r = post(client)
+    assert r.status_code == 503
+    assert "gleich noch einmal" in r.json()["detail"]
