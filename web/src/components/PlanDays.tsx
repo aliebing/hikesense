@@ -11,6 +11,15 @@ const de1 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 const de0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
+const savedFmt = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
+
+/** „28.10.2026“ for a timestamp (the day a plan was saved); null when it is no date. */
+function savedDate(ts: string | undefined): string | null {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? null : savedFmt.format(d);
+}
+
 const kmText = (v: number | null | undefined) => numOr(v, (n) => `${de1.format(n)} km`);
 const clock = (t: string | null) => (t ? t.slice(0, 5) : null);
 
@@ -30,7 +39,8 @@ export function planTitle(data: PlanData): string {
 
 const isForecast = (w: DayWeather | NoForecast | undefined): w is DayWeather => !!w && !("reason" in w);
 
-function Weather({ w, dated }: { w: DayWeather | NoForecast | undefined; dated: boolean }) {
+/** `asOf`: the date a saved plan's forecast was fetched — it is not today's forecast. */
+function Weather({ w, dated, asOf }: { w: DayWeather | NoForecast | undefined; dated: boolean; asOf: string | null }) {
   if (!isForecast(w)) {
     const reason = w?.reason;
     return (
@@ -44,6 +54,7 @@ function Weather({ w, dated }: { w: DayWeather | NoForecast | undefined; dated: 
   const rain = `Regen ${numOr(w.precip_prob_pct, (n) => `${de0.format(n)} %`)} / ${numOr(w.precip_mm, (n) => `${de1.format(n)} mm`)}`;
   return (
     <p className="text-xs">
+      {asOf && `Vorhersage vom ${asOf}: `}
       <span className="font-medium">{w.text ?? "Wetter"}</span> · {temp} · {rain}
     </p>
   );
@@ -65,7 +76,7 @@ function Rain({ v }: { v: RainVariant | null }) {
   );
 }
 
-function DayCard({ d, from, weather, rain, unterwegsHref }: { d: DayPlan; from: string; unterwegsHref?: string; weather: DayWeather | NoForecast | undefined; rain: RainVariant | null | undefined }) {
+function DayCard({ d, from, weather, asOf, rain, unterwegsHref }: { d: DayPlan; from: string; unterwegsHref?: string; weather: DayWeather | NoForecast | undefined; asOf: string | null; rain: RainVariant | null | undefined }) {
   const date = dateText(d.date);
   const stop = d.stop;
   const link = stop ? lodgingLink(stop) : null;
@@ -108,7 +119,7 @@ function DayCard({ d, from, weather, rain, unterwegsHref }: { d: DayPlan; from: 
           )}
         </p>
       )}
-      <Weather w={weather} dated={d.date !== null} />
+      <Weather w={weather} dated={d.date !== null} asOf={asOf} />
       {rain !== undefined && <Rain v={rain} />}
       {unterwegsHref && (
         <Link href={unterwegsHref} className="self-start text-xs font-medium underline">
@@ -121,13 +132,15 @@ function DayCard({ d, from, weather, rain, unterwegsHref }: { d: DayPlan; from: 
 
 /**
  * The multi-day plan: notes (trail end, access walks, missing section), one card per day with weather and
- * the rain variant, and „Merken“ (signed-in users only). `save: false` for an already saved plan.
+ * the rain variant, and „Merken“ (signed-in users only). `save: false` for an already saved plan;
+ * its weather is labelled „Vorhersage vom <forecastFrom>“ (the save time), never shown as current.
  */
-export default function PlanDays({ data, save = true, title, mapHref, planId }: { data: PlanData; save?: boolean; title?: string; mapHref?: string; /** saved plan id: every day links to „Unterwegs“ */ planId?: string }) {
+export default function PlanDays({ data, save = true, title, mapHref, planId, forecastFrom }: { data: PlanData; save?: boolean; title?: string; mapHref?: string; /** saved plan id: every day links to „Unterwegs“ */ planId?: string; /** saved plan: created_at */ forecastFrom?: string }) {
   const { plan, weather, rain } = data;
   const startName = data.start_name ?? null;
   const notes = plan.notes ?? [];
   const hasWeather = Object.values(weather ?? {}).some(isForecast);
+  const asOf = save ? null : savedDate(forecastFrom);
   return (
     <section aria-label="Mehrtagesplan" className="flex max-w-3xl flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -158,6 +171,7 @@ export default function PlanDays({ data, save = true, title, mapHref, planId }: 
             d={d}
             from={i === 0 ? (startName ?? `km ${de1.format(d.start_km)}`) : (plan.days[i - 1].stop?.name ?? `km ${de1.format(d.start_km)}`)}
             weather={weather?.[String(d.day)]}
+            asOf={asOf}
             rain={rain?.[String(d.day)]}
             unterwegsHref={planId ? `/unterwegs?plan=${encodeURIComponent(planId)}&day=${d.day}` : undefined}
           />
@@ -169,7 +183,7 @@ export default function PlanDays({ data, save = true, title, mapHref, planId }: 
           <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="underline">
             Open-Meteo.com
           </a>{" "}
-          (CC BY 4.0)
+          (CC BY 4.0){asOf && ` · Vorhersage vom ${asOf}, beim Merken abgerufen – nicht aktuell`}
         </p>
       )}
     </section>

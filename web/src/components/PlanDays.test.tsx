@@ -146,3 +146,17 @@ it("names the access walk as straight line without its elevation", () => {
   const card = screen.getAllByRole("listitem").find((li) => li.querySelector("h3"))!;
   expect(card).toHaveTextContent("davon 1,6 km Zuweg zur Unterkunft (Luftlinie, ohne Höhenmeter des Zuwegs)");
 });
+
+it("a saved plan labels its weather with the forecast date, never as current", () => {
+  const w = { date: "2026-11-02", code: 2, text: "Teils bewölkt", t_min_c: 3, t_max_c: 11, precip_mm: 0, precip_prob_pct: 10, source_id: "open-meteo" };
+  render(<PlanDays data={data([day(1)], { weather: { "1": w } })} save={false} forecastFrom="2026-10-28T21:30:00Z" />);
+  const card = screen.getAllByRole("listitem").find((li) => li.querySelector("h3"))!;
+  expect(card).toHaveTextContent("Vorhersage vom 28.10.2026: Teils bewölkt");
+  expect(screen.getByText(/Open-Meteo/).closest("p")).toHaveTextContent("Vorhersage vom 28.10.2026");
+});
+
+it("a live plan shows no forecast date", () => {
+  const w = { date: "2026-11-02", code: 2, text: "Teils bewölkt", t_min_c: 3, t_max_c: 11, precip_mm: 0, precip_prob_pct: 10, source_id: "open-meteo" };
+  render(<PlanDays data={data([day(1)], { weather: { "1": w } })} />);
+  expect(screen.queryByText(/Vorhersage vom/)).toBeNull();
+});

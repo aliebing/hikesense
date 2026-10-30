@@ -14,12 +14,12 @@ import { useSearchParams } from "next/navigation";
 
 const MSG_LOAD = "Der Plan konnte nicht geladen werden";
 
-type Loaded = { title: string; data: PlanData; trail: MapTrail | null; lodgings: LodgingOnTrail[] | null; lengthKm: number | null };
+type Loaded = { title: string; createdAt: string; data: PlanData; trail: MapTrail | null; lodgings: LodgingOnTrail[] | null; lengthKm: number | null };
 
 /** A saved multi-day plan (own rows only, RLS) with the trail loaded for the map; the map is optional. */
 async function load(id: string): Promise<Loaded | { error: string }> {
   try {
-    const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload").eq("id", id).maybeSingle();
+    const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload, created_at").eq("id", id).maybeSingle();
     if (error || !data) return { error: error ? MSG_LOAD : "Plan nicht gefunden" };
     const p = normalizePlan(data.payload);
     if (data.kind !== "multiday" || !p) return { error: MSG_LOAD };
@@ -37,7 +37,7 @@ async function load(id: string): Promise<Loaded | { error: string }> {
     } catch {
       // no map without the trail; the days are still shown
     }
-    return { title: data.title as string, data: data2, trail, lodgings, lengthKm };
+    return { title: data.title as string, createdAt: data.created_at as string, data: data2, trail, lodgings, lengthKm };
   } catch {
     return { error: MSG_LOAD };
   }
@@ -79,7 +79,7 @@ function SavedPlan() {
       )}
       {result && "data" in result && (
         <>
-          <PlanDays data={result.data} save={false} title={result.title} planId={id ?? undefined} />
+          <PlanDays data={result.data} save={false} title={result.title} planId={id ?? undefined} forecastFrom={result.createdAt} />
           {result.trail && <PlanMap trail={result.trail} lodgings={result.lodgings} plan={result.data.plan} lengthKm={result.lengthKm} />}
         </>
       )}
