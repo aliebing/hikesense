@@ -29,6 +29,7 @@ MAX_PAGES = 3
 SEARCH_K = 5
 MAX_PAGE_CHARS = 30_000  # page text sent to the model (cost bound); quotes are checked on all
 MAX_ANCHORS = 80
+MAX_QUOTE_CHARS = 300
 CALENDARS_YAML = "events/calendars.yaml"
 DATE_FIELDS = ("date", "registration_deadline")
 _NULLS = {"null", "none", "n/a", "nicht angegeben", "unbekannt", "-", "–"}
@@ -134,33 +135,40 @@ def _given(text: str | None) -> bool:
     return bool(text and text.strip() and text.strip().casefold() not in _NULLS)
 
 
+def _contains(text: str, part: str) -> bool:
+    """`part` occurs in `text` as whole tokens: "5 €" is not in "25 €", "10 km" not in "110 km",
+    "25" not in "25,50". Both are already normalised."""
+    return re.search(rf"(?<![\w,.]){re.escape(part)}(?![\w,])", text) is not None
+
+
 def _checked(name: str, f: Field, page: PageText, page_text: str) -> Field:
-    if not _given(f.value) or not _given(f.quote):
+    if not _given(f.value) or not _given(f.quote) or len(f.quote) > MAX_QUOTE_CHARS:
         return Field()
     quote = _norm(f.quote)
-    if quote not in page_text:
+    if not _contains(page_text, quote):
         return Field()
     if name in DATE_FIELDS:
         day = parse_day(f.value)
         if day is not None and day in dates_in(f.quote):
             return Field(value=day.isoformat(), quote=f.quote)
-        if name == "date" or _norm(f.value) not in quote:  # a deadline may be a phrase
+        if name == "date" or not _contains(quote, _norm(f.value)):  # a deadline may be a phrase
             return Field()
         return f
     if name == "registration_url":
         url = f.value.strip()
-        on_page = url in page.links or url in page.html or url.replace("&", "&amp;") in page.html
+        on_page = url in page.links  # exactly a link of the page, not text in a script
         itself = _bare(url) == _bare(page.url)  # a page linking to itself is no sign-up link
         return (
             Field(value=url, quote=f.quote)
             if is_web_url(url) and on_page and not itself
             else Field()
         )
-    return f if _norm(f.value) in quote else Field()
+    return f if _contains(quote, _norm(f.value)) else Field()
 
 
 def verify(race: RaceInfo, page: PageText) -> RaceInfo:
-    """Keep a field only if its quote is on the page and the value is in the quote."""
+    """Keep a field only if its quote (at most 300 characters) is on the page and the value is
+    in the quote, both as whole tokens; a link only if it is exactly a link of the page."""
     text = _norm(page.text)
     return RaceInfo(**{n: _checked(n, getattr(race, n), page, text) for n in FIELDS})
 
@@ -180,7 +188,8 @@ def extract_race(gw: LLMGateway, page: PageText, query: str = "") -> RaceInfo:
 
 class EventFinder:
     """search -> at most 3 pages -> one race per page, quote-checked. The page fetch goes
-    through the safe fetcher (public addresses only, robots.txt, 10 s, 1 MB, text/html)."""
+    through the safe fetcher (public addresses only, robots.txt, 10 s, 1 MB, text/html); for
+    real fetches `http` must be page_fetch.safe_client() (connections pinned to vetted IPs)."""
 
     def __init__(
         self,

@@ -4,6 +4,7 @@ the agent's events intent. No network: fake search, respx pages, FakeGateway."""
 from datetime import date
 from pathlib import Path
 
+import httpcore
 import httpx
 import pytest
 from langchain_core.messages import AIMessage
@@ -19,7 +20,14 @@ from test_agent_graph import (  # noqa: F401 (vocab, settings are fixtures)
     vocab,
 )
 
-from hikeall.adapters.page_fetch import PageSkipped, PageText, fetch_page
+from hikeall.adapters.page_fetch import (
+    PageSkipped,
+    PageText,
+    PinnedBackend,
+    fetch_page,
+    safe_client,
+    vetted_ips,
+)
 from hikeall.adapters.web_search import BLOCKED_DOMAINS, OpenRouterWebSearch, SearchHit, is_blocked
 from hikeall.agent.events import (
     CalendarLink,
@@ -132,6 +140,50 @@ def test_dates_must_be_the_same_day():
     assert named.date.value == "2026-10-04"
     deadline = verify(good_race(), page()).registration_deadline
     assert deadline.value == "2027-04-11"
+
+
+PROBE = """<html><body>
+<h1>Probelauf 2027</h1>
+<p>Startgebühr: 25 €. Strecke 110 km.</p>
+<p><a href="https://anm.example.org/lauf-2027">Zur Anmeldung</a></p>
+<script>var u = "https://anm.example.org/geheim";</script>
+<!-- https://anm.example.org/kommentar -->
+</body></html>"""
+
+
+def test_value_must_be_a_whole_token_of_the_quote():
+    probe = page("https://probe.example.org/", PROBE)
+    fee = good_race(fee=Field(value="5 €", quote="Startgebühr: 25 €."))
+    assert verify(fee, probe).fee.value is None
+    km = good_race(distances=Field(value="10 km", quote="Strecke 110 km."))
+    assert verify(km, probe).distances.value is None
+    part_quote = good_race(fee=Field(value="5 €", quote="5 €"))  # the quote is part of "25 €"
+    assert verify(part_quote, probe).fee.value is None
+    ok = good_race(fee=Field(value="25 €", quote="Startgebühr: 25 €."))
+    assert verify(ok, probe).fee.value == "25 €"
+
+
+def test_link_must_be_exactly_a_link_of_the_page():
+    probe = page("https://probe.example.org/", PROBE)
+    for url in (
+        "https://anm.example.org/lauf",  # a prefix of the real link
+        "https://anm.example.org/geheim",  # only in a script
+        "https://anm.example.org/kommentar",  # only in a comment
+    ):
+        race = good_race(registration_url=Field(value=url, quote="Zur Anmeldung"))
+        assert verify(race, probe).registration_url.value is None, url
+    exact = good_race(
+        registration_url=Field(value="https://anm.example.org/lauf-2027", quote="Zur Anmeldung")
+    )
+    assert verify(exact, probe).registration_url.value == "https://anm.example.org/lauf-2027"
+
+
+def test_quote_longer_than_300_characters_is_rejected():
+    long_text = "Wort " * 80 + "Startgebühr: 25 €."
+    probe = page("https://probe.example.org/", f"<p>{long_text}</p>")
+    race = good_race(fee=Field(value="25 €", quote=long_text))
+    assert len(long_text) > 300
+    assert verify(race, probe).fee.value is None
 
 
 def test_link_must_be_in_the_html():
@@ -551,3 +603,91 @@ def test_configured_user_agent_is_sent_and_used_for_robots(respx_mock):
     assert not route.called  # robots.txt disallows this agent
     assert other.calls[0].request.headers["user-agent"] == "HikeAllTest/1.0 (+https://example.org)"
     assert [r.source_url for r in result.events] == ["https://anders.example.org/"]
+
+
+# --- fix round 1: pinned connections, NAT64, DNS deadline, decompression bomb -----------------
+
+
+class RecordingBackend:
+    def __init__(self):
+        self.connected: list[tuple[str, int]] = []
+
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        self.connected.append((host, port))
+        raise httpcore.ConnectError("test: no network")
+
+    def sleep(self, seconds):
+        pass
+
+
+def test_connect_step_refuses_private_address_even_after_the_pre_check():
+    # DNS rebinding: the pre-check saw a public address, the connect-time answer is private
+    inner = RecordingBackend()
+    backend = PinnedBackend(resolve=lambda host: ["10.0.0.5"], inner=inner)
+    with pytest.raises(PageSkipped, match="Adresse"):
+        backend.connect_tcp("lauf.example.org", 443, timeout=1)
+    assert inner.connected == []
+    public_backend = PinnedBackend(resolve=public, inner=inner)
+    with pytest.raises(httpcore.ConnectError):
+        public_backend.connect_tcp("lauf.example.org", 443, timeout=1)
+    assert inner.connected == [("93.184.216.34", 443)]  # the vetted address, not the name
+
+
+def test_safe_client_connects_only_through_the_pinned_backend():
+    # no pre-check here: the connect step itself refuses
+    with (
+        safe_client(resolve=lambda host: ["127.0.0.1"]) as http,
+        pytest.raises(PageSkipped, match="Adresse"),
+    ):
+        http.get("http://rebind.example.org/")
+
+
+def test_nat64_and_ipv4_compatible_addresses_are_checked_by_their_ipv4():
+    for ips in (
+        ["64:ff9b::a00:1"],
+        ["64:ff9b:1::7f00:1"],
+        ["::a00:5"],
+        ["::1"],
+        ["::ffff:10.0.0.1"],
+    ):
+        with pytest.raises(PageSkipped, match="Adresse"):
+            vetted_ips("x.example.org", lambda host, ips=ips: ips, 1)
+    assert vetted_ips("x.example.org", lambda host: ["64:ff9b::5db8:d822"], 1)  # 93.184.216.34
+
+
+def test_dns_resolution_counts_against_the_deadline(monkeypatch):
+    import time
+
+    import hikeall.adapters.page_fetch as pf
+
+    monkeypatch.setattr(pf, "TIMEOUT_S", 0.2)
+
+    def slow(host):
+        time.sleep(1.0)
+        return ["93.184.216.34"]
+
+    start = time.monotonic()
+    with httpx.Client() as http, pytest.raises(PageSkipped, match="Zeitlimit"):
+        fetch_page(http, "https://slow.example.org/", resolve=slow)
+    assert time.monotonic() - start < 0.8
+
+
+def test_gzip_body_is_capped_after_decompression(respx_mock):
+    import gzip
+
+    robots_404(respx_mock)
+    bomb = gzip.compress(b"<p>" + b"x" * 5_000_000)
+    route = respx_mock.get("https://lauf.example.org/bomb").respond(
+        200, content=bomb, headers=HTML | {"content-encoding": "gzip"}
+    )
+    small = gzip.compress(HALB.encode("utf-8"))
+    respx_mock.get("https://lauf.example.org/klein").respond(
+        200, content=small, headers=HTML | {"content-encoding": "gzip"}
+    )
+    with httpx.Client() as http:
+        with pytest.raises(PageSkipped, match="1 MB"):
+            fetch_page(http, "https://lauf.example.org/bomb", resolve=public)
+        got = fetch_page(http, "https://lauf.example.org/klein", resolve=public)
+    assert len(bomb) < 1_000_000  # the compressed body alone would pass the cap
+    assert route.calls[0].request.headers["accept-encoding"] == "identity"
+    assert "Kirchzarten" in got.text
