@@ -165,6 +165,44 @@ def test_rain_variant_ends_at_station_or_none():
     assert NO_RAIN_VARIANT == "Keine Haltestelle am Weg – Regenvariante nicht möglich"
 
 
+def test_access_carry_is_exact_for_1450m_lodging():
+    stops = [stop(1, 5.0), stop(2, 10.0), stop(3, 15.0, 1450), stop(4, 29.0), stop(5, 31.05)]
+    p = plan_multiday(stops, FLAT, trail_len_km=100, start_km=0, days=2)
+    assert [d.stop.lodging_id for d in p.days] == [3, 4]
+    assert p.days[0].access_km == 1.45 and p.days[1].access_km == 1.45
+
+    shorter = change_day(p, 1, "shorter", stops, FLAT, 100)
+    assert shorter.days[0].stop.lodging_id == 2
+    assert shorter.days[0].access_km == 0 and shorter.days[0].length_km == 10.0
+
+    longer = change_day(p, 2, "longer", stops, FLAT, 100)
+    assert longer.days[0].model_dump_json() == p.days[0].model_dump_json()
+    assert longer.days[1].stop.lodging_id == 5
+    assert longer.days[1].access_km == 1.45 and longer.days[1].length_km == 17.5
+
+    station = StationOnTrail(poi_id=1, name="Halt", along_km=22.04, dist_m=0)
+    rv = rain_variant(p.days[1], [station], FLAT)
+    assert rv.walk_km == 8.5  # 7.04 km on the trail + 1.45 km access back to it
+
+
+def test_no_impossible_day_when_lodgings_run_out():
+    p = plan_multiday([stop(1, 3.0, 1500)], FLAT, trail_len_km=200, start_km=0, days=3)
+    assert len(p.days) == 1
+    d = p.days[0]
+    assert d.stop.lodging_id == 1 and not d.within_band and d.gap
+    assert d.access_km == 1.5 and d.length_km == 4.5
+    assert all(x.length_km < 30 for x in p.days)
+    assert "Keine Unterkunft ≤ 2 km zwischen km 13,5 und km 19,5 – der Plan endet hier." in p.notes
+
+
+def test_arrival_none_when_day_crosses_midnight():
+    p = plan_multiday([stop(1, 100.0)], FLAT, trail_len_km=200, start_km=0, days=1)
+    d = p.days[0]
+    assert d.duration_h == 25.0 and d.arrival is None
+    assert "Tagesstrecke zu lang für einen Tag (25 h ohne Pausen)" in d.gap
+    assert "Keine Unterkunft ≤ 1 km zwischen km 12 und km 18" in d.gap
+
+
 @pytest.mark.db
 def test_real_westweg_hausach_3_days(conn):
     stops, stations, profile, trail_len, name, source_ids = load_trail_for_multiday(
@@ -187,17 +225,6 @@ def test_real_westweg_hausach_3_days(conn):
     )
     assert len(p.days) == 3
     for d in p.days:
-        print(
-            d.day,
-            d.start_km,
-            d.end_km,
-            d.length_km,
-            d.stop and d.stop.name,
-            d.stop and d.stop.dist_m,
-            d.within_band,
-            d.gap,
-        )
         assert d.stop is not None
         assert d.stop.dist_m <= 1000 or any(d.stop.name in n for n in p.notes)
         assert d.within_band or d.gap
-    print(p.notes)

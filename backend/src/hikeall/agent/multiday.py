@@ -59,13 +59,13 @@ class DayPlan(BaseModel):
     start_km: float
     end_km: float
     walk_km: float  # on the trail
-    access_km: float  # access paths to/from lodgings > 1000 m off the trail
+    access_km: float  # access paths to/from lodgings > 1000 m off the trail (metre precision)
     length_km: float  # walk + access
     ascent_m: int
     descent_m: int
     duration_h: float  # DIN 33466, without breaks
     start_time: time
-    arrival: time
+    arrival: time | None  # None: the day would end after midnight (see gap)
     stop: Stop | None  # None = day ends at the trail end
     gap: str | None
     within_band: bool
@@ -140,7 +140,12 @@ def _make_day(
     hours = din33466(round(length, 1), ascent, descent).hours
     day_date = start_date + timedelta(days=n - 1) if start_date else None
     t0 = datetime.combine(day_date or date(2000, 1, 1), start_time)
-    arrival = (t0 + timedelta(minutes=round(hours * 60))).time()
+    t1 = t0 + timedelta(minutes=round(hours * 60))
+    arrival: time | None = t1.time()
+    if t1.date() != t0.date():  # never show an arrival past midnight
+        arrival = None
+        too_long = f"Tagesstrecke zu lang für einen Tag ({_fmt(hours)} h ohne Pausen)"
+        gap = f"{gap}; {too_long}" if gap else too_long
     lo, hi = target_km * (1 - BAND), target_km * (1 + BAND)
     return DayPlan(
         day=n,
@@ -148,7 +153,7 @@ def _make_day(
         start_km=round(start_km, 3),
         end_km=round(end_km, 3),
         walk_km=round(walk, 1),
-        access_km=round(access, 1),
+        access_km=round(access, 3),
         length_km=round(length, 1),
         ascent_m=ascent,
         descent_m=descent,
@@ -162,7 +167,11 @@ def _make_day(
 
 
 def _notes(
-    days: list[DayPlan], trail_len_km: float, start_name: str | None, end_name: str | None
+    days: list[DayPlan],
+    trail_len_km: float,
+    start_name: str | None,
+    end_name: str | None,
+    dead_end: str | None = None,
 ) -> list[str]:
     notes: list[str] = []
     if days and days[-1].stop is None:
@@ -179,6 +188,8 @@ def _notes(
                 f"Unterkunft {d.stop.name or 'ohne Namen'} liegt "
                 f"{_fmt(d.stop.dist_m / 1000)} km abseits – Zuweg eingerechnet"
             )
+    if dead_end:
+        notes.append(dead_end)
     return notes
 
 
@@ -218,7 +229,7 @@ class _Planner:
 
     def candidates(self, state: int) -> tuple[list[int], str | None]:
         """Candidate day ends from a state, and the gap text if none is in the band."""
-        km, carry = self.pos(state)
+        km, _ = self.pos(state)
         ahead = [i for i, s in enumerate(self.stops) if s.along_km > km + 1e-9]
 
         def in_band(i: int) -> bool:
@@ -235,11 +246,17 @@ class _Planner:
             return tier2 + ends, None
         if end_ok:
             return ends, None
-        gap = (
-            f"Keine Unterkunft ≤ 1 km zwischen km {_fmt(km + self.lo - carry)} "
+        # Last resort, out of the band: nearest-to-target lodging <= 1000 m, else <= 2000 m.
+        # No lodging <= 2000 m left and the trail end out of reach: no candidate, plan ends.
+        far = [i for i in ahead if self.stops[i].dist_m <= FAR_M]
+        return near or far, self.gap_text(state, 1)
+
+    def gap_text(self, state: int, within_km: int) -> str:
+        km, carry = self.pos(state)
+        return (
+            f"Keine Unterkunft ≤ {within_km} km zwischen km {_fmt(km + self.lo - carry)} "
             f"und km {_fmt(km + self.hi - carry)}"
         )
-        return near + [_END], gap
 
     def key(self, cand: int) -> tuple[int, int]:
         if cand == _END:
@@ -247,20 +264,23 @@ class _Planner:
         s = self.stops[cand]
         return (s.dist_m, s.lodging_id)
 
-    def _best(self, state: int, left: int) -> tuple[float, tuple, tuple[int, ...]]:
-        """Minimal (sum of squared deviations, tie keys, path) for `left` more days."""
+    def _best(self, state: int, left: int) -> tuple[int, float, tuple, tuple[int, ...]]:
+        """Best (days lost to a dead end, sum of squared deviations, tie keys, path).
+
+        A dead end (no lodging <= 2000 m ahead, trail end out of reach) loses the
+        remaining days; plans that lose fewer days always win.
+        """
         cands, _ = self.candidates(state)
-        best: tuple[float, tuple, tuple[int, ...]] | None = None
+        best: tuple[int, float, tuple, tuple[int, ...]] = (left, 0.0, (), ())
         for c in cands:
             cost = (self.length(state, c) - self.target) ** 2
             if c == _END or left == 1:
-                total = (round(cost, 6), (self.key(c),), (c,))
+                total = (0, round(cost, 6), (self.key(c),), (c,))
             else:
-                sub_cost, sub_keys, sub_path = self.best(c, left - 1)
-                total = (round(cost + sub_cost, 6), (self.key(c), *sub_keys), (c, *sub_path))
-            if best is None or total[:2] < best[:2]:
+                lost, sub_cost, sub_keys, sub_path = self.best(c, left - 1)
+                total = (lost, round(cost + sub_cost, 6), (self.key(c), *sub_keys), (c, *sub_path))
+            if not best[3] or total[:3] < best[:3]:
                 best = total
-        assert best is not None  # candidates always contain the trail end as a last resort
         return best
 
     def days(
@@ -271,9 +291,10 @@ class _Planner:
         start_date: date | None,
         start_time: time,
         profile: Profile,
-    ) -> list[DayPlan]:
+    ) -> tuple[list[DayPlan], str | None]:
+        """Day plans for the best path, plus a note if the plan ends at a dead end."""
         out: list[DayPlan] = []
-        _, _, path = self.best(state, left)
+        lost, _, _, path = self.best(state, left)
         for n, c in enumerate(path, start=first_day):
             km, carry = self.pos(state)
             _, gap = self.candidates(state)
@@ -285,7 +306,8 @@ class _Planner:
                 )
             )
             state = c
-        return out
+        dead_end = f"{self.gap_text(state, 2)} – der Plan endet hier." if lost else None
+        return out, dead_end
 
 
 # --- public API --------------------------------------------------------------
@@ -314,13 +336,13 @@ def plan_multiday(
     if not 0 <= start_km < trail_len_km:
         raise ValueError("start_km must lie on the trail")
     planner = _Planner(stops, trail_len_km, target_km, start_km, 0.0)
-    day_plans = planner.days(_START, days, 1, start_date, start_time, profile)
+    day_plans, dead_end = planner.days(_START, days, 1, start_date, start_time, profile)
     return MultidayPlan(
         trail_id=trail_id,
         trail_name=trail_name,
         target_km=target_km,
         days=day_plans,
-        notes=_notes(day_plans, trail_len_km, start_name, end_name),
+        notes=_notes(day_plans, trail_len_km, start_name, end_name, dead_end),
         source_ids=list(source_ids or []),
     )
 
@@ -346,7 +368,7 @@ def change_day(
     if not 1 <= day <= len(plan.days):
         raise ValueError("day out of range")
     old = plan.days[day - 1]
-    carry_in = round(old.access_km - _access(old.stop), 3)
+    carry_in = _access(plan.days[day - 2].stop) if day > 1 else 0.0
     # Planner whose start state is this day's start; it scores candidates for us.
     planner = _Planner(stops, trail_len_km, plan.target_km, old.start_km, carry_in)
     old_len = old.end_km - old.start_km + old.access_km
@@ -396,11 +418,12 @@ def change_day(
     )
     days = [*plan.days[: day - 1], changed]
     left = len(plan.days) - day
+    dead_end = None
     if stop is not None and left > 0:
-        days += planner.days(pick, left, day + 1, first_date, old.start_time, profile)
-    return plan.model_copy(
-        update={"days": days, "notes": _notes(days, trail_len_km, start_name, end_name)}
-    )
+        more, dead_end = planner.days(pick, left, day + 1, first_date, old.start_time, profile)
+        days += more
+    notes = _notes(days, trail_len_km, start_name, end_name, dead_end)
+    return plan.model_copy(update={"days": days, "notes": notes})
 
 
 def rain_variant(
@@ -410,7 +433,8 @@ def rain_variant(
 
     None means NO_RAIN_VARIANT ("Keine Haltestelle am Weg – Regenvariante nicht möglich").
     """
-    carry_in = day_plan.access_km - _access(day_plan.stop)
+    # access_km has metre precision, so this recovers the morning access walk exactly.
+    carry_in = round(day_plan.access_km - _access(day_plan.stop), 3)
     lo = day_plan.start_km + RAIN_MIN_KM
     hits = [s for s in stations if lo - 1e-9 <= s.along_km < day_plan.end_km - 1e-9]
     if not hits:
