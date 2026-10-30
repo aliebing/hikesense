@@ -978,10 +978,10 @@ def build_graph(deps: AgentDeps) -> Any:
         stored = MultidayPlan.model_validate(state["plan"]) if state.get("plan") else None
         plan_req = state.get("plan_request")
         rain_days = state.get("rain_days") or []
-        if stored is not None and plan_req and plan_req.get("start"):
+        start = req.start.label if req.start else None  # a new plan names its own start
+        follow_up = bool(rain_days) or req.day_change is not None
+        if follow_up and stored is not None and plan_req and plan_req.get("start"):
             start = plan_req["start"]["label"]  # the stored plan's start, not a later request's
-        else:
-            start = req.start.label if req.start else None
         budget = settings.max_tool_calls
         calls = 0
         lead: list[str] = []

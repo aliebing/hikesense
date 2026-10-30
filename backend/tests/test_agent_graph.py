@@ -1393,3 +1393,52 @@ def test_a_planner_bug_is_not_called_off_trail(vocab, settings):
     )
     with pytest.raises(ValueError, match="bug"):  # the API turns it into ERROR_UNAVAILABLE
         run(deps, "2 Tage Westweg ab Hausach")
+
+
+class _TodtnauTools(FakeTools):
+    def start_km(self, trail_id, lat, lon):
+        return 0.0  # every start is on the trail
+
+
+def test_second_plan_in_thread_uses_its_own_start(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={
+            RawRequest: [
+                westweg_raw(days=2),
+                westweg_raw(days=2, start_text="Todtnau"),
+                RawRequest(intent="change", day_change_day=2, day_change_direction="shorter"),
+            ]
+        },
+        answers=["A.", "B.", "C."],
+        tools=_TodtnauTools(),
+    )
+    first = run(deps, "2 Tage Westweg ab Hausach")
+    assert one(first, "plan").start_name == "Hausach"
+    second = run(deps, "2 Tage Westweg ab Todtnau")
+    assert one(second, "plan").start_name == "Todtnau"
+    third = run(deps, "Tag 2 kürzer")
+    assert one(third, "plan").start_name == "Todtnau"  # follow-up keeps the stored plan's start
+
+
+class _RefusesSecondTools(_TodtnauTools):
+    def plan_multiday(self, req):
+        if req.start.label != "Hausach":
+            raise StartNotOnTrail("start at the trail end")
+        return super().plan_multiday(req)
+
+
+def test_no_plan_at_start_names_the_current_start(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2), westweg_raw(days=2, start_text="Todtnau")]},
+        answers=["A."],
+        tools=_RefusesSecondTools(),
+    )
+    run(deps, "2 Tage Westweg ab Hausach")
+    events = run(deps, "2 Tage Westweg ab Todtnau")
+    assert not [e for e in events if e.type == "plan"]
+    text = text_of(events)
+    assert "Todtnau" in text and "Hausach" not in text
