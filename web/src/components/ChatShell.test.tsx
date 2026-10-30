@@ -1,6 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ChatShell from "./ChatShell";
+import { ChatProvider } from "./ChatProvider";
+
+const renderChat = () =>
+  render(
+    <ChatProvider apiUrl="http://api">
+      <ChatShell intro="Hi" />
+    </ChatProvider>,
+  );
 
 const sse = (events: object[]) =>
   events.map((e) => `event: ${(e as { type: string }).type}\ndata: ${JSON.stringify(e)}\n\n`).join("");
@@ -34,6 +42,7 @@ const tour = {
 
 const DONE = { type: "done", usage: {}, unsupported: 0 };
 
+beforeEach(() => sessionStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
 async function ask(text = "Tour bitte") {
@@ -42,7 +51,7 @@ async function ask(text = "Tour bitte") {
 
 it("shows understood chips including 'nicht prüfbar'", async () => {
   mockStream(sse([understood, { type: "done", usage: {}, unsupported: 0 }]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByText("Länge ≤ 15 km")).toBeInTheDocument();
   expect(screen.getByText(/Vorliebe: Aussicht/)).toBeInTheDocument();
@@ -51,28 +60,39 @@ it("shows understood chips including 'nicht prüfbar'", async () => {
   expect(screen.getByText("Tour bitte")).toBeInTheDocument();
 });
 
-it("shows fallback reason above cards and reports the cover of the first tour", async () => {
-  const onCover = vi.fn();
+it("shows the fallback reason above a 'Tour gefunden' line instead of cards", async () => {
   mockStream(
     sse([
       understood,
       { type: "results", cards: [tour], fallback_reason: "Keine Tour erfüllt alle Wünsche, weil …" },
-      { type: "done", usage: {}, unsupported: 0 },
+      DONE,
     ]),
   );
-  render(<ChatShell intro="Hi" apiUrl="http://api" onCover={onCover} />);
+  renderChat();
   await ask();
   const note = await screen.findByRole("note");
-  const card = screen.getByRole("link", { name: "Feldsee-Runde" });
-  expect(note.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(onCover).toHaveBeenCalledWith({
-    url: "https://img/x.jpg",
-    thumb_url: "https://img/x.jpg",
-    author: "Anna",
-    license: "CC BY 4.0",
-    license_url: "https://cc/by",
-    page_url: "https://commons/p",
-  });
+  const found = screen.getByText("1 Tour gefunden");
+  expect(note.compareDocumentPosition(found) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Feldsee-Runde" })).toBeNull();
+});
+
+it("counts the tours of a result set, also none", async () => {
+  mockStream(sse([{ type: "results", cards: [tour, { ...tour, trail_id: "t2" }], fallback_reason: null }, DONE]));
+  renderChat();
+  await ask();
+  expect(await screen.findByText("2 Touren gefunden")).toBeInTheDocument();
+  mockStream(sse([{ type: "results", cards: [], fallback_reason: null }, DONE]));
+  await ask("noch eine");
+  expect(await screen.findByText("Keine passende Tour gefunden.")).toBeInTheDocument();
+});
+
+it("the drawer variant is a collapsible 'Chat'", () => {
+  render(
+    <ChatProvider apiUrl="http://api">
+      <ChatShell intro="Hi" variant="drawer" />
+    </ChatProvider>,
+  );
+  expect(screen.getByText("Chat").closest("details")).not.toBeNull();
 });
 
 it("streams tokens, shows sources with a draft marker", async () => {
@@ -84,7 +104,7 @@ it("streams tokens, shows sources with a draft marker", async () => {
       { type: "done", usage: {}, unsupported: 0 },
     ]),
   );
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByText("Der Feldberg.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Quelle A" })).toHaveAttribute("href", "https://a");
@@ -94,7 +114,7 @@ it("streams tokens, shows sources with a draft marker", async () => {
 
 it("clarify options are buttons that send the answer", async () => {
   mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel", "Gemeinde"] }, DONE]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask("Feldberg");
   mockStream(sse([{ type: "token", text: "ok" }, DONE]));
   await userEvent.click(await screen.findByRole("button", { name: "Gipfel" }));
@@ -106,7 +126,7 @@ it("clarify options are buttons that send the answer", async () => {
 
 it("shows a German error when the API is unreachable and keeps the input usable", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByRole("alert")).toHaveTextContent(/nicht erreichbar/);
   expect(screen.getByLabelText("Nachricht")).toBeEnabled();
@@ -123,30 +143,16 @@ it("ignores a condition without any bound and a roundtrip without value", async 
     unmatched: [],
   };
   mockStream(sse([{ ...understood, request: odd }, DONE]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   await screen.findByText("Verstanden: Tagestour, Wandern.");
   expect(screen.queryByText(/≤ 0/)).toBeNull();
   expect(screen.queryByText("kein Rundweg")).toBeNull();
 });
 
-it("run without pace shows the pace hint on cards", async () => {
-  const run = { ...request, activity: "run", pace_min_per_km: null };
-  mockStream(
-    sse([
-      { ...understood, request: run },
-      { type: "results", cards: [{ ...tour, duration_h: null }], fallback_reason: null, labels: {} },
-      DONE,
-    ]),
-  );
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
-  await ask();
-  expect(await screen.findByText(/Zeit: Tempo angeben/)).toBeInTheDocument();
-});
-
 it("shows an error when the stream ends without done", async () => {
   mockStream(sse([{ type: "token", text: "Halb" }]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByRole("alert")).toHaveTextContent(/unterbrochen/);
 });
@@ -154,7 +160,7 @@ it("shows an error when the stream ends without done", async () => {
 it("shows the rate-limit message of a 429 answer", async () => {
   const body = sse([{ type: "error", message: "Zu viele Anfragen. Bitte warte 12 Sekunden." }]);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 429 })));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByRole("alert")).toHaveTextContent("Zu viele Anfragen. Bitte warte 12 Sekunden.");
 });
@@ -175,7 +181,7 @@ function hangingFetch() {
 
 it("Abbrechen aborts the request, shows 'Abgebrochen.' as a plain note and frees the input", async () => {
   const getSignal = hangingFetch();
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   await userEvent.click(await screen.findByRole("button", { name: "Abbrechen" }));
   expect(getSignal()?.aborted).toBe(true);
@@ -186,7 +192,7 @@ it("Abbrechen aborts the request, shows 'Abgebrochen.' as a plain note and frees
 
 it("aborts the request on unmount", async () => {
   const getSignal = hangingFetch();
-  const { unmount } = render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  const { unmount } = renderChat();
   await ask();
   await screen.findByRole("button", { name: "Abbrechen" });
   unmount();
@@ -195,7 +201,7 @@ it("aborts the request on unmount", async () => {
 
 it("clarify buttons are disabled while an answer is running; history is a polite live region", async () => {
   mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel"] }, DONE]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask("Feldberg");
   const btn = await screen.findByRole("button", { name: "Gipfel" });
   expect(screen.getByRole("list", { name: "Verlauf" })).toHaveAttribute("aria-live", "polite");
@@ -214,7 +220,7 @@ it("ascent chip says Hm; a single value shows its band and the value", async () 
     ],
   };
   mockStream(sse([{ ...understood, request: r }, DONE]));
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByText("Höhenmeter ≤ 400 Hm")).toBeInTheDocument();
   expect(screen.getByText("Länge 6,8–9,2 km (≈ 8 km)")).toBeInTheDocument();
@@ -230,7 +236,7 @@ it("shows the fallback sentence once, not again at the start of the answer", asy
       DONE,
     ]),
   );
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   expect(await screen.findByText("Die Feldsee-Runde ist am nächsten dran.")).toBeInTheDocument();
   expect(screen.getAllByText(new RegExp(reason))).toHaveLength(1);
@@ -252,7 +258,7 @@ it("flags a source without name and URL instead of 'unbekannt'; same id twice is
     ]),
   );
   const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-  render(<ChatShell intro="Hi" apiUrl="http://api" />);
+  renderChat();
   await ask();
   const list = await screen.findByRole("list", { name: "Quellen" });
   expect(list).toHaveTextContent("Quelle: osm (Angaben fehlen)");

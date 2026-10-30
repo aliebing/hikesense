@@ -28,7 +28,7 @@ Der Chat nutzt ein Sprachmodell über [OpenRouter](https://openrouter.ai) (Stand
 
    Die API lädt Merkmale und Orte beim ersten Chat; nach `make tags` oder einem neuen Orts-Import die API neu starten (`make up`).
 
-3. API und Web-App starten (`make up`) und auf http://localhost:3000 den Chat öffnen. Der Chat ist lokal ohne Anmeldung nutzbar und auf 10 Nachrichten pro Minute und 100 pro Tag begrenzt. Gezählt wird je IP-Adresse, die die API sieht; hinter dem Docker-Port teilen sich alle Browser diese Adresse, das Limit gilt dann also für alle gemeinsam.
+3. API und Web-App starten (`make up`) und auf http://localhost:3000 den Chat in der Mitte der Startseite nutzen. Hat der Chat Touren gefunden, führt der Knopf „Vorschläge zeigen →“ zur Vorschlagsseite, von dort öffnet eine Tour die Route mit Karte. Der Chat ist lokal ohne Anmeldung nutzbar und auf 10 Nachrichten pro Minute und 100 pro Tag begrenzt. Gezählt wird je IP-Adresse, die die API sieht; hinter dem Docker-Port teilen sich alle Browser diese Adresse, das Limit gilt dann also für alle gemeinsam.
 
 Beispiel-Fragen:
 

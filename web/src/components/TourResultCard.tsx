@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ConstraintResult, Labels, TourCard } from "../lib/chat";
 import { duration } from "../lib/format";
+import { coverOf } from "../lib/chatState";
 import Attribution from "./Attribution";
 
 const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -45,23 +46,18 @@ export default function TourResultCard({
   card,
   runWithoutPace = false,
   labels = {},
+  size = "compact",
+  from,
 }: {
   card: TourCard;
   runWithoutPace?: boolean;
   labels?: Labels;
+  size?: "compact" | "large";
+  from?: "vorschlaege";
 }) {
+  const large = size === "large";
   const name = (ids: string[]) => ids.map((t) => labels[t] ?? t).join(", ");
-  const photo =
-    card.cover_thumb_url && card.cover_author && card.cover_license
-      ? {
-          url: card.cover_thumb_url,
-          thumb_url: card.cover_thumb_url,
-          author: card.cover_author,
-          license: card.cover_license,
-          license_url: card.cover_license_url,
-          page_url: card.cover_page_url,
-        }
-      : null;
+  const photo = coverOf(card);
   const firstViolated = card.results.findIndex((r) => r.ok === false);
   const p = card.preference;
   let time: string | null = null;
@@ -74,16 +70,29 @@ export default function TourResultCard({
     card.distance_km === null ? "im Gebiet" : `Entfernung: ${nf1.format(card.distance_km)} km`,
   ];
   return (
-    <article className="flex flex-col gap-1 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel">
+    <article
+      className={`flex flex-col gap-1 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel ${
+        from ? "relative shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl" : ""
+      }`}
+    >
+      {!photo && large && (
+        <div aria-hidden="true" className="grid h-48 w-full place-items-center rounded-lg wald-verlauf p-3 text-center font-serif text-lg text-papier">
+          {card.name}
+        </div>
+      )}
       {photo && (
         <div className="flex flex-col gap-0.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo.thumb_url} alt="" loading="lazy" className="h-24 w-full rounded-lg object-cover" />
-          <Attribution photo={photo} className="text-wald-dunkel/70" />
+          <img src={photo.thumb_url} alt="" loading="lazy" className={`${large ? "h-48" : "h-24"} w-full rounded-lg object-cover`} />
+          {/* above the card-wide link so its licence links stay clickable */}
+          <Attribution photo={photo} className="relative z-10 text-wald-dunkel/70" />
         </div>
       )}
-      <h4 className="font-serif text-base leading-snug">
-        <Link href={`/t/${card.trail_id}`} className="underline-offset-2 hover:underline">
+      <h4 className={`font-serif leading-snug ${large ? "text-xl" : "text-base"}`}>
+        <Link
+          href={from ? `/t/${card.trail_id}?von=${from}` : `/t/${card.trail_id}`}
+          className={`underline-offset-2 hover:underline ${from ? "after:absolute after:inset-0" : ""}`}
+        >
           {card.name}
         </Link>
       </h4>

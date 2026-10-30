@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { ChatProvider } from "../../../components/ChatProvider";
 import userEvent from "@testing-library/user-event";
 import type { TrailDetail } from "../../../lib/data";
 
@@ -37,7 +38,8 @@ const detail: TrailDetail = {
   sources: [{ id: "osm", name: "OpenStreetMap", url: null, license: "ODbL" }],
 };
 
-const page = () => TrailPage({ params: Promise.resolve({ trailId: "day-1" }) });
+const page = (searchParams: { von?: string | string[] } = {}) =>
+  TrailPage({ params: Promise.resolve({ trailId: "day-1" }), searchParams: Promise.resolve(searchParams) });
 
 beforeEach(() => {
   mockGetTrail.mockReset();
@@ -47,7 +49,7 @@ beforeEach(() => {
 test("trail footer credits the elevation data (Copernicus GLO-30)", async () => {
   mockGetTrail.mockResolvedValue(detail);
   mockGetLodgings.mockResolvedValue([]);
-  render(await page());
+  render(<ChatProvider>{await page()}</ChatProvider>);
   const footer = screen.getByRole("contentinfo");
   expect(footer).toHaveTextContent("OpenStreetMap (ODbL)");
   expect(footer).toHaveTextContent("Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA");
@@ -57,9 +59,31 @@ test("when lodgings fail to load, the map legend says so instead of „0 Unterk�
   vi.spyOn(console, "error").mockImplementation(() => {});
   mockGetTrail.mockResolvedValue(detail);
   mockGetLodgings.mockRejectedValue(new Error("db down"));
-  render(await page());
+  render(<ChatProvider>{await page()}</ChatProvider>);
   await userEvent.setup().click(screen.getByRole("button", { name: /Karte/ }));
   const dialog = screen.getByRole("dialog", { name: /Karte/ });
   expect(dialog).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
   expect(dialog).not.toHaveTextContent("0 Unterkünfte");
+});
+
+describe("back link", () => {
+  beforeEach(() => {
+    mockGetTrail.mockResolvedValue(detail);
+    mockGetLodgings.mockResolvedValue([]);
+  });
+
+  test("goes back to the suggestions when coming from there", async () => {
+    render(<ChatProvider>{await page({ von: "vorschlaege" })}</ChatProvider>);
+    expect(screen.getByRole("link", { name: "← Zu den Vorschlägen" })).toHaveAttribute("href", "/vorschlaege");
+  });
+
+  test("goes back home otherwise", async () => {
+    render(<ChatProvider>{await page()}</ChatProvider>);
+    expect(screen.getByRole("link", { name: "← Zur Startseite" })).toHaveAttribute("href", "/");
+  });
+
+  test("unknown von is ignored", async () => {
+    render(<ChatProvider>{await page({ von: "https://evil" })}</ChatProvider>);
+    expect(screen.getByRole("link", { name: "← Zur Startseite" })).toHaveAttribute("href", "/");
+  });
 });

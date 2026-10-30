@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ChatProvider } from "../components/ChatProvider";
 
 export const metadata: Metadata = {
   title: "Hike all about – Wandern im Schwarzwald",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="de">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><ChatProvider>{children}</ChatProvider></body>
     </html>
   );
 }

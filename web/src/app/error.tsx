@@ -6,7 +6,7 @@ import PhotoSwitcher from "../components/PhotoSwitcher";
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
-    <Panorama back>
+    <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
       <PhotoSwitcher photos={[]} />
       <Notice title="Etwas ist schiefgelaufen.">
         <p>Die Seite konnte nicht angezeigt werden.</p>

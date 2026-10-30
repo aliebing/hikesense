@@ -1,5 +1,4 @@
 import type { Constraint, HikeRequest, Labels, SourceBrief, TourCard } from "../lib/chat";
-import TourResultCard from "./TourResultCard";
 
 export type ChatItem =
   | { kind: "user"; text: string }
@@ -52,13 +51,16 @@ export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?:
   ];
 }
 
+const foundText = (n: number) =>
+  n === 0 ? "Keine passende Tour gefunden." : n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`;
+
 const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
 
 /**
  * The backend starts the answer with the honest fallback sentence (the contract for the text);
- * the note above the cards already shows it, so the bubble leaves it out (also while streaming).
+ * the note on the results item (and on /vorschlaege) already shows it, so the bubble leaves it out (also while streaming).
  */
-function withoutFallback(items: ChatItem[], i: number, text: string): string {
+export function withoutFallback(items: ChatItem[], i: number, text: string): string {
   for (let j = i - 1; j >= 0; j--) {
     const it = items[j];
     if (it.kind === "user") break;
@@ -133,9 +135,7 @@ export default function ChatMessages({
                   {it.fallback}
                 </p>
               )}
-              {it.cards.map((c) => (
-                <TourResultCard key={c.trail_id} card={c} runWithoutPace={it.runWithoutPace} labels={it.labels} />
-              ))}
+              <p className="text-xs text-papier/90">{foundText(it.cards.length)}</p>
             </div>
           )}
           {it.kind === "sources" && (
