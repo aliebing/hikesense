@@ -136,12 +136,15 @@ def resolve(
 
     nums, unread = _scan(message)
     day_change = None
+    change_note = None
     if is_change and raw.day_change_day is not None and raw.day_change_direction is not None:
         if previous is None or previous.days is None:  # no multi-day plan to change
             return _CLARIFY_CHANGE
         day_change = _day_change(raw, message, nums, previous.days)
         if isinstance(day_change, Clarify):
             return day_change
+        if day_change is None:  # never a silent no-op
+            change_note = "Änderung nicht erkannt – bitte z. B. „Tag 3 kürzer“ schreiben"
 
     is_multiday = raw.intent == "multiday"
     trail: tuple[Tag, bool] | None = None
@@ -170,6 +173,8 @@ def resolve(
     unmatched += invalid
     multi, problems, dropped = _multiday_fields(raw, message, nums, today or date.today())
     unmatched += problems
+    if change_note:
+        unmatched.append(change_note)
     discarded += dropped
     if is_multiday and multi["days"] is None:
         return Clarify(question="Wie viele Tage?")
@@ -787,8 +792,12 @@ def _multiday_echo(req: HikeRequest) -> list[str]:
 # --- multi-day ----------------------------------------------------------------------------
 
 _START_QUESTION = "Wo soll die Mehrtagestour starten?"
-_DAY_WORD = re.compile(r"\b(?:tage|tagen|tag|tages|tagig|tagestour)\b|[a-z]tagig")
-_DIRECTION_WORDS = {"shorter": ("kurzer", "weniger"), "longer": ("langer", "mehr")}
+_DIRECTION_WORDS = {
+    "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
+    "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
+}
+_DAYS_PHRASE = re.compile(r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag)\b")
+_PACE_UNIT = re.compile(r"\s*min\b")
 _MONTHS = {
     "januar": 1, "februar": 2, "marz": 3, "maerz": 3, "april": 4, "mai": 5, "juni": 6,
     "juli": 7, "august": 8, "september": 9, "oktober": 10, "november": 11, "dezember": 12,
@@ -801,6 +810,16 @@ _TIME_AT = re.compile(r"\b(?:um|ab|gegen)\s+(\d{1,2}):(\d{2})\b")
 _MONTH_WORD = re.compile(r"\b(?:" + "|".join(_MONTHS) + r")\b")
 
 
+def _days_written(days: int, text: str) -> bool:
+    """The count is tied to a day word: "3 Tage", "drei Tage", "dreitägig", "3-Tages-Tour"."""
+    for m in _DAYS_PHRASE.finditer(text):
+        word = m.group(1)
+        value = float(word) if word.isdigit() else _word_value(word)
+        if value is not None and value == days:
+            return True
+    return False
+
+
 def _day_change(
     raw: RawRequest, message: str, nums: set[float], plan_days: int
 ) -> DayChange | Clarify | None:
@@ -809,7 +828,7 @@ def _day_change(
     if day is None or direction is None:
         return None
     text = _plain(message)
-    if not _written(day, nums) or not any(w in text for w in _DIRECTION_WORDS[direction]):
+    if not _written(day, nums) or not _DIRECTION_WORDS[direction].search(text):
         return None
     if not MIN_DAYS <= day <= plan_days:
         return Clarify(question=f"Der Plan hat {plan_days} Tage. Welchen Tag meinst du?")
@@ -873,7 +892,7 @@ def _multiday_fields(
     problems: list[str] = []
     discarded = 0
     if raw.days is not None:
-        if not _written(raw.days, nums) or not _DAY_WORD.search(text):
+        if not _days_written(raw.days, text):
             discarded += 1
         elif not MIN_DAYS <= raw.days <= MAX_DAYS:
             problems.append(f"Tage: {raw.days} ist kein gültiger Wert ({MIN_DAYS}–{MAX_DAYS})")
@@ -915,12 +934,18 @@ def _parse_date(text: str, today: date) -> tuple[date | None, str | None]:
         label = f"{day}.{month}."
         if year is not None and len(year) == 2:
             year = "20" + year
-        try:
-            found = date(int(year) if year else today.year, month, day)
-        except ValueError:
+        found = None
+        # no year: the next year (from this one on) in which the day exists and is not past
+        for y in [int(year)] if year else range(today.year, today.year + 9):
+            try:
+                found = date(y, month, day)
+            except ValueError:
+                continue
+            if year or found >= today:
+                break
+            found = None
+        if found is None:
             return None, f"Datum: {label} gibt es nicht"
-        if year is None and found < today:
-            found = date(today.year + 1, month, day)
         if found < today:
             return None, f"Datum: {found:%d.%m.%Y} liegt in der Vergangenheit"
         return found, None
@@ -935,8 +960,8 @@ def _parse_time(text: str) -> tuple[time | None, str | None]:
     hour = minute = None
     if m := _TIME_UHR.search(text):
         hour, minute = int(m.group(1)), int(m.group(2) or 0)
-    elif m := _TIME_AT.search(text):
-        hour, minute = int(m.group(1)), int(m.group(2))
+    elif (m := _TIME_AT.search(text)) and not _PACE_UNIT.match(text, m.end()):
+        hour, minute = int(m.group(1)), int(m.group(2))  # "um 5:30 min/km" is a pace
     elif m := _TIME_WORD_UHR.search(text):
         value = _word_value(m.group(1))
         if value is not None and value == int(value):

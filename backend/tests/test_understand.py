@@ -890,3 +890,77 @@ def test_relative_and_numeric_dates(vocab):
         days=3,
     )
     assert bad.start_date is None and any("Datum" in u for u in bad.unmatched)
+
+
+def test_leap_day_dates(vocab):
+    def date_of(message, today):
+        req = understand(
+            gw_of(intent="multiday", trail_text="Westweg", start_text="Hausach", days=3),
+            vocab,
+            message,
+            None,
+            today=today,
+            trails=FakeTrails(),
+        )
+        return req
+
+    msg = "Westweg 3 Tage ab Hausach am 29. Februar"
+    assert date_of(msg, date(2028, 3, 5)).start_date == date(2032, 2, 29)  # no crash
+    assert date_of(msg, date(2027, 1, 10)).start_date == date(2028, 2, 29)
+    assert date_of("Westweg 3 Tage ab Hausach am 29.2.2027", TODAY).start_date is None
+
+
+def test_pace_is_not_a_start_time(vocab):
+    req = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach, Tempo um 5:30 min/km",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+        start_time="05:30",
+    )
+    assert req.start_time is None
+
+
+def test_mehrtagestour_is_not_longer(vocab):
+    prev = multi(
+        vocab, "Westweg 4 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=4
+    )
+    req = multi(
+        vocab,
+        "Mehrtagestour Tag 3",
+        previous=prev,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="longer",
+    )
+    assert req.day_change is None and any("Änderung nicht erkannt" in u for u in req.unmatched)
+
+
+def test_days_need_a_day_phrase(vocab):
+    res = multi(
+        vocab,
+        "Westweg 20 km pro Tag ab Hausach",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=20,
+    )
+    assert isinstance(res, Clarify) and res.question == "Wie viele Tage?"
+    for msg in ("Westweg dreitägig ab Hausach", "Westweg drei Tage ab Hausach"):
+        req = multi(vocab, msg, trail_text="Westweg", start_text="Hausach", days=3)
+        assert req.days == 3
+
+
+def test_rejected_day_change_is_reported(vocab):
+    prev = multi(
+        vocab, "Westweg 4 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=4
+    )
+    req = multi(
+        vocab,
+        "mach es anders",
+        previous=prev,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="shorter",
+    )
+    assert req.day_change is None and any("Änderung nicht erkannt" in u for u in req.unmatched)
