@@ -18,7 +18,7 @@ def test_health_reports_db_false_without_db():
     app = create_app(Settings(supabase_db_url="postgresql://x:x@127.0.0.1:1/none", openrouter_api_key=None))
     r = TestClient(app).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "db": False, "llm": False, "knowledge": False}
+    assert r.json() | {"auth": None} == {"status": "ok", "db": False, "llm": False, "knowledge": False, "auth": None}
 
 
 @pytest.mark.db
@@ -27,7 +27,7 @@ def test_health_reports_db_true(conn):
     app = create_app(Settings(supabase_db_url=url, openrouter_api_key=None))
     r = TestClient(app).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "db": True, "llm": False, "knowledge": False}
+    assert r.json() | {"auth": None} == {"status": "ok", "db": True, "llm": False, "knowledge": False, "auth": None}
 
 
 def test_health_reports_db_false_when_url_unset(monkeypatch):
@@ -35,11 +35,11 @@ def test_health_reports_db_false_when_url_unset(monkeypatch):
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     r = TestClient(create_app()).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "db": False, "llm": False, "knowledge": False}
+    assert r.json() | {"auth": None} == {"status": "ok", "db": False, "llm": False, "knowledge": False, "auth": None}
 
 
 def test_health_reports_db_false_for_malformed_url():
     app = create_app(Settings(supabase_db_url="not a url ::", openrouter_api_key=None))
     r = TestClient(app).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "db": False, "llm": False, "knowledge": False}
+    assert r.json() | {"auth": None} == {"status": "ok", "db": False, "llm": False, "knowledge": False, "auth": None}

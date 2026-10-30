@@ -6,9 +6,11 @@ Regenerate after an intended protocol change: HIKEALL_UPDATE_FIXTURES=1 uv run p
 
 import json
 import os
+import time
 import uuid
 from pathlib import Path
 
+import jwt
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 from test_agent_graph import (  # noqa: F401 (vocab is a fixture)
@@ -27,6 +29,14 @@ from hikeall.api.app import create_app
 from hikeall.config import Settings
 from hikeall.llm.gateway import LLMUnavailable
 
+SECRET = "test-secret-with-at-least-32-characters!!"
+
+
+def _auth_header() -> dict[str, str]:
+    claims = {"sub": "u1", "aud": "authenticated", "exp": int(time.time()) + 3600}
+    return {"Authorization": "Bearer " + jwt.encode(claims, SECRET, algorithm="HS256")}
+
+
 FIXTURE = Path(__file__).resolve().parents[2] / "web/src/lib/__fixtures__/chat-streams.json"
 
 
@@ -35,7 +45,9 @@ def _stream(settings, deps, *messages) -> str:
     thread = str(uuid.uuid4())
     text = ""
     for m in messages:
-        r = client.post("/chat", json={"thread_id": thread, "message": m})
+        r = client.post(
+            "/chat", json={"thread_id": thread, "message": m}, headers=_auth_header()
+        )
         assert r.status_code == 200
         text = r.text  # the last message's stream
     return text
@@ -47,6 +59,7 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         chat_log_path=tmp_path / "chat.jsonl",
         chroma_dir=tmp_path / "chroma",
         openrouter_api_key="k",
+        supabase_jwt_secret=SECRET,
     )
 
     def deps(**kw):

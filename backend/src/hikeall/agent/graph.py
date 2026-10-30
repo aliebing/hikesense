@@ -717,7 +717,9 @@ def build_graph(deps: AgentDeps) -> Any:
     def log(state: State, config: RunnableConfig) -> State:
         conf = config["configurable"]
         usage: LLMUsage = conf["usage"]
-        _write_log(settings, conf["request_id"], state, usage, None)
+        _write_log(
+            settings, conf["request_id"], state, usage, None, conf.get("user_hash")
+        )
         _emit(DoneEvent(usage=usage, unsupported=state.get("unsupported", 0)))
         return {}
 
@@ -750,12 +752,18 @@ def build_graph(deps: AgentDeps) -> Any:
 
 
 def _write_log(
-    settings: Settings, request_id: str, state: dict, usage: LLMUsage, error: str | None
+    settings: Settings,
+    request_id: str,
+    state: dict,
+    usage: LLMUsage,
+    error: str | None,
+    user_hash: str | None = None,
 ) -> None:
     chatlog.write(
         settings.chat_log_path,
         ChatLogEntry(
             request_id=request_id,
+            user_hash=user_hash,
             intent=state.get("intent"),
             activity=state.get("activity"),
             tool_calls=state.get("tool_calls", 0),
@@ -771,11 +779,18 @@ def _write_log(
     )
 
 
-def _run(deps: AgentDeps, thread_id: str, message: str) -> Iterator[ChatEvent]:
+def _run(
+    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None
+) -> Iterator[ChatEvent]:
     request_id = uuid.uuid4().hex
     with metered(max_cost_usd=deps.settings.max_cost_usd) as usage:
         config: RunnableConfig = {
-            "configurable": {"thread_id": thread_id, "usage": usage, "request_id": request_id}
+            "configurable": {
+                "thread_id": thread_id,
+                "usage": usage,
+                "request_id": request_id,
+                "user_hash": user_hash,
+            }
         }
         stream = deps.graph.stream(_turn(message), config, stream_mode="custom")
         logged = False  # the log node writes the line and then emits "done"
@@ -786,30 +801,38 @@ def _run(deps: AgentDeps, thread_id: str, message: str) -> Iterator[ChatEvent]:
         except LLMError as exc:
             logged = True
             state = deps.graph.get_state(config).values
-            _write_log(deps.settings, request_id, state, usage, type(exc).__name__)
+            _write_log(deps.settings, request_id, state, usage, type(exc).__name__, user_hash)
             msg = ERROR_BUDGET if isinstance(exc, BudgetExceeded) else ERROR_UNAVAILABLE
             yield ErrorEvent(message=msg)
         except GeneratorExit:  # client went away: model cost may already be spent (best effort)
             if not logged:
-                _abort_log(deps, config, request_id, usage)
+                _abort_log(deps, config, request_id, usage, user_hash)
             raise
         finally:
             stream.close()
 
 
-def _abort_log(deps: AgentDeps, config: RunnableConfig, request_id: str, usage: LLMUsage) -> None:
+def _abort_log(
+    deps: AgentDeps,
+    config: RunnableConfig,
+    request_id: str,
+    usage: LLMUsage,
+    user_hash: str | None,
+) -> None:
     try:
         state = deps.graph.get_state(config).values
-        _write_log(deps.settings, request_id, state, usage, "ClientDisconnected")
+        _write_log(deps.settings, request_id, state, usage, "ClientDisconnected", user_hash)
     except Exception:  # never mask the disconnect with a logging error
         log.exception("chat log after disconnect failed")
 
 
-def run_chat(deps: AgentDeps, thread_id: str, message: str) -> Iterator[ChatEvent]:
+def run_chat(
+    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None = None
+) -> Iterator[ChatEvent]:
     """Stream the events of one chat message. Each step runs in one fixed context, so the
     per-message cost metering holds even if the consumer calls next() from different threads."""
     ctx = contextvars.copy_context()
-    inner = _run(deps, thread_id, message)
+    inner = _run(deps, thread_id, message, user_hash)
     try:
         while True:
             try:

@@ -39,7 +39,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Authorization"],
     )
     try:
         cfg = settings or Settings()
@@ -53,6 +53,7 @@ def create_app(
             "db": _db_ok(settings),
             "llm": bool(cfg and cfg.openrouter_api_key),
             "knowledge": bool(cfg and _knowledge_ok(cfg)),
+            "auth": bool(cfg and (cfg.supabase_jwt_secret or cfg.supabase_url)),
         }
 
     if cfg is not None:

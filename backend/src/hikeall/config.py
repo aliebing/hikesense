@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ROOT_ENV, extra="ignore")
 
     supabase_db_url: str
+    supabase_jwt_secret: str | None = None
+    supabase_url: str | None = None  # JWKS: {supabase_url}/auth/v1/.well-known/jwks.json
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None

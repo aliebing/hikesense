@@ -21,6 +21,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "sse-starlette>=3.6.0",
     "osmium>=4.3.2",
+    "pyjwt[crypto]>=2.15.1",
 ]
 
 [dependency-groups]
