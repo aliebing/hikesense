@@ -17,6 +17,8 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from hikeall import chatlog
+from hikeall.adapters.http import make_http_client
+from hikeall.adapters.open_meteo import OpenMeteoClient
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
 from hikeall.agent.tools import DbTools
@@ -34,6 +36,7 @@ log = logging.getLogger(__name__)
 
 MAX_CHARS = 1000
 MAX_BODY_BYTES = 64 * 1024
+WEATHER_TIMEOUT_S = 10.0
 TRAIL_NAMES_SQL = "select distinct name from trails where name is not null"
 
 
@@ -67,6 +70,7 @@ def default_deps_factory(settings: Settings) -> Callable[[], AgentDeps]:
                     lambda: connect(settings.supabase_db_url),
                     try_open(settings.chroma_dir),
                     knowledge_opener=lambda: try_open(settings.chroma_dir),
+                    weather_client=OpenMeteoClient(make_http_client(WEATHER_TIMEOUT_S)),
                 )
                 cache.append(
                     AgentDeps(

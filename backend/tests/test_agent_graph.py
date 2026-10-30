@@ -1,9 +1,12 @@
 import json
 from collections import Counter
+from datetime import date, time
 
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
+from hikeall.adapters.open_meteo import DayWeather
+from hikeall.agent import multiday as md
 from hikeall.agent.constraints import Candidate, select
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
 from hikeall.agent.prompts import (
@@ -12,7 +15,6 @@ from hikeall.agent.prompts import (
     ERROR_BUDGET,
     ERROR_UNAVAILABLE,
     LEAK_REPLY,
-    MULTIDAY_REPLY,
     NO_SOURCE_REPLY,
     OTHER_REPLY,
     TOOL_LIMIT,
@@ -25,6 +27,7 @@ from hikeall.agent.tools import (
     TrailDetails,
     search_radius_km,
 )
+from hikeall.agent.weather import REASON_TOO_FAR, NoForecast
 from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY
 from hikeall.hiking_time import din33466
@@ -46,6 +49,8 @@ def vocab():
         _place("place:feldberg", "Feldberg", 47.8741, 8.0038, 1, "peak"),
         _place("place:feldberg-schwarzwald", "Feldberg (Schwarzwald)", 47.86, 8.04, 2, "village"),
         _place("place:todtnau", "Todtnau", 47.83, 7.95, 3, "town"),
+        _place("place:hausach", "Hausach", 48.2836, 8.175, 4, "town"),
+        _place("place:kandern", "Kandern", 47.7147, 7.6611, 5, "town"),
     ]
     return TagVocabulary(TagVocabulary.from_features(FEATURES_YAML).all() + places)
 
@@ -56,11 +61,47 @@ CANDS = [
 ]
 
 
+# A small synthetic long-distance trail for the multi-day tests: Hausach at km 0, Kandern at
+# the trail end (km 60). The real planner (multiday.py) runs on it.
+TODAY = date(2026, 10, 30)
+TRAIL_LEN = 60.0
+PROFILE = [[0.0, 300.0], [15.0, 700.0], [30.0, 500.0], [45.0, 900.0], [60.0, 400.0]]
+
+
+def _stop(i, name, km, dist):
+    return md.Stop(lodging_id=i, name=name, kind="guest_house", website=None, along_km=km, dist_m=dist)
+
+
+STOPS = [
+    _stop(1, "Gasthaus Adler", 15.0, 300),
+    _stop(2, "Gasthof Krone", 26.0, 250),
+    _stop(3, "Hotel Sonne", 30.0, 200),
+    _stop(4, "Hütte Moos", 33.5, 600),
+    _stop(5, "Pension Linde", 45.0, 400),
+]
+STATIONS = [
+    md.StationOnTrail(poi_id=1, name="Bahnhof Hornberg", along_km=8.0, dist_m=150),
+    md.StationOnTrail(poi_id=2, name="Haltestelle Wolfach", along_km=24.0, dist_m=300),
+    md.StationOnTrail(poi_id=3, name="Haltestelle Kirnbach", along_km=40.0, dist_m=100),
+]
+PLAN_SOURCES = {
+    "osm": SourceBrief(
+        id="osm", name="OpenStreetMap contributors", url="https://www.openstreetmap.org/copyright",
+        license="ODbL",
+    ),
+    "stages-schwarzwald-tourismus": SourceBrief(
+        id="stages-schwarzwald-tourismus", name="Schwarzwald Tourismus – Westweg Etappen",
+        url="https://www.schwarzwald-tourismus.info/", license="Fakten, keine Texte übernommen",
+    ),
+}  # fmt: skip
+
+
 class FakeTools:
-    def __init__(self, cands=CANDS, details=None, hits=None):
+    def __init__(self, cands=CANDS, details=None, hits=None, weather=None):
         self.cands = cands
         self.details = details or {}
         self.hits = hits or []
+        self.forecast = weather or {}  # date -> DayWeather
         self.calls: Counter[str] = Counter()
         self.requests = []
 
@@ -92,6 +133,55 @@ class FakeTools:
     def search_knowledge(self, query, k=5):
         self.calls["search_knowledge"] += 1
         return self.hits
+
+    # multi-day: start on the trail only at Hausach (km 0) and Kandern (km 60 = trail end)
+    def start_km(self, trail_id, lat, lon):
+        if abs(lat - 48.2836) < 0.01:
+            return 0.0
+        if abs(lat - 47.7147) < 0.01:
+            return TRAIL_LEN
+        return None
+
+    def stage_places(self, trail_id):
+        return ["Hausach", "Kandern"]
+
+    def plan_multiday(self, req):
+        self.calls["plan_multiday"] += 1
+        km = self.start_km(req.trail_id, req.start.lat, req.start.lon)
+        if km is None:
+            raise ValueError("start not on the trail")
+        return md.plan_multiday(
+            STOPS, PROFILE, TRAIL_LEN, km, req.days, req.day_km or 15.0, req.start_date,
+            req.start_time or time(9), trail_id=req.trail_id, trail_name="Westweg (Westvariante)",
+            source_ids=["osm", "stages-schwarzwald-tourismus"], start_name=req.start.label,
+            end_name="Kandern",
+        )  # fmt: skip
+
+    def change_day(self, plan, day_change, start_name=None):
+        self.calls["change_day"] += 1
+        return md.change_day(
+            plan, day_change.day, day_change.change, STOPS, PROFILE, TRAIL_LEN,
+            start_name=start_name, end_name="Kandern",
+        )  # fmt: skip
+
+    def day_end_point(self, trail_id, day):
+        return (48.0, 8.0 + day.end_km / 100)
+
+    def weather(self, lat, lon, day):
+        self.calls["weather"] += 1
+        if (day - TODAY).days > 14:
+            return NoForecast(REASON_TOO_FAR)
+        return self.forecast.get(day) or NoForecast("Für diesen Tag liegt keine Vorhersage vor")
+
+    def rain_variant(self, plan, day):
+        self.calls["rain_variant"] += 1
+        return md.rain_variant(plan.days[day - 1], STATIONS, PROFILE)
+
+    def sources(self, ids):
+        return [
+            PLAN_SOURCES.get(i) or SourceBrief(id=i, name=None, url=None, license=None)
+            for i in ids
+        ]
 
 
 class RecordingGateway(FakeGateway):
@@ -156,7 +246,9 @@ def settings(tmp_path):
 
 def make(vocab, settings, gw=None, tools=None, **gw_kw) -> AgentDeps:
     gw = gw or RecordingGateway(**gw_kw)
-    return AgentDeps(tools=tools or FakeTools(), gateway=gw, vocab=vocab, settings=settings)
+    return AgentDeps(
+        tools=tools or FakeTools(), gateway=gw, vocab=vocab, settings=settings, today=lambda: TODAY
+    )
 
 
 def run(deps, message, thread="t1") -> list[ChatEvent]:
@@ -359,18 +451,6 @@ def test_tool_call_cap(vocab, settings):
     assert tool_msgs[-1].tool_call_id == "c7"
     assert text_of(events) == "Der Testweg hat 7,4 km und 120 Hm."
     assert log_lines(settings)[-1]["tool_calls"] == 8
-
-
-def test_multiday_is_honest_not_attempted(vocab, settings):
-    deps = make(
-        vocab,
-        settings,
-        structured={RawRequest: [raw(intent="multiday", start_text="Feldberg (Schwarzwald)")]},
-    )
-    events = run(deps, "Drei Tage Westweg ab Feldberg")
-    assert text_of(events) == MULTIDAY_REPLY
-    assert deps.tools.calls["search_day_hikes"] == 0
-    assert deps.gateway.calls["answer"] == 0 and deps.gateway.calls["tool_round"] == 0
 
 
 # --- carried decisions -----------------------------------------------------------------------
@@ -647,18 +727,6 @@ def test_leak_keeps_fallback_reason_prefix(vocab, settings):
     assert text_of(events) == f"{reason}.\n\n{LEAK_REPLY}"
 
 
-def test_multiday_answered_before_start_clarify(vocab, settings):
-    deps = make(
-        vocab, settings, structured={RawRequest: [raw(intent="multiday", start_text="Feldberg")]}
-    )
-    events = run(deps, "Drei Tage ab Feldberg")
-    assert "clarify" not in types(events)
-    assert text_of(events) == MULTIDAY_REPLY
-    # nothing pending: the next message is understood fresh
-    deps.gateway._structured[RawRequest] = [raw(intent="other")]
-    assert text_of(run(deps, "Feldberg (Schwarzwald)")) == OTHER_REPLY
-
-
 def test_react_ascent_is_hm_evidence(vocab, settings):
     details = TrailDetails(
         trail_id="t1",
@@ -913,3 +981,260 @@ def test_done_stream_is_logged_once(vocab, settings):
         if e.type == "done":
             stream.close()
     assert len(log_lines(settings)) == 1
+
+
+# --- multi-day plans (plan 3, task 7) ------------------------------------------------------
+
+
+def westweg_raw(**kw) -> RawRequest:
+    kw.setdefault("start_text", "Hausach")
+    return RawRequest(intent="multiday", trail_text="Westweg", **kw)
+
+
+RAINY = DayWeather(
+    date=date(2026, 11, 3), code=63, text="Regen", t_min_c=4.2, t_max_c=9.8, precip_mm=7.5,
+    precip_prob_pct=85,
+)  # fmt: skip
+DRY = DayWeather(
+    date=date(2026, 11, 2), code=2, text="Teils bewölkt", t_min_c=3.0, t_max_c=11.4,
+    precip_mm=0.2, precip_prob_pct=10,
+)  # fmt: skip
+
+
+def test_multiday_flow_events_in_order(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-02")]},
+        answers=["Tag 1 führt 15 km zum Gasthaus Adler, Tag 2 15 km zum Hotel Sonne."],
+        tools=FakeTools(weather={DRY.date: DRY}),
+    )
+    events = run(deps, "2 Tage Westweg ab Hausach am 2.11.2026")
+    t = types(events)
+    assert t[:2] == ["understood", "plan"]
+    assert t[2:-2] == ["token"] * (len(t) - 4) and len(t) > 4
+    assert t[-2:] == ["sources", "done"]
+    plan = one(events, "plan")
+    assert [d.end_km for d in plan.plan.days] == [15.0, 30.0]
+    assert plan.plan.days[0].date == date(2026, 11, 2)
+    assert plan.weather[1] == DRY and isinstance(plan.weather[2], NoForecast)
+    assert plan.labels == {"trail:westweg-west": "Westweg"}
+    text = text_of(events)
+    assert "Zeiten ohne Pausen" in text
+    assert text.endswith("Tag 1 führt 15 km zum Gasthaus Adler, Tag 2 15 km zum Hotel Sonne.")
+    ids = [s.id for s in one(events, "sources").sources]
+    assert ids == ["osm", "stages-schwarzwald-tourismus", "open-meteo"]
+    meteo = one(events, "sources").sources[-1]
+    assert (meteo.name, meteo.license) == ("Open-Meteo.com", "CC BY 4.0")
+    assert deps.tools.calls["search_day_hikes"] == 0
+    data = deps.gateway.answer_users[-1]
+    assert "Gasthaus Adler" in data and "Teils bewölkt" in data and "11,4 °C" in data
+    # the event serialises to plain JSON (ISO dates and times) for the web
+    dumped = json.loads(plan.model_dump_json())
+    assert dumped["plan"]["days"][0]["date"] == "2026-11-02"
+    assert dumped["plan"]["days"][0]["start_time"] == "09:00:00"
+    assert dumped["weather"]["1"]["t_max_c"] == 11.4
+    assert dumped["weather"]["2"] == {"reason": "Für diesen Tag liegt keine Vorhersage vor"}
+
+
+def test_day_change_keeps_earlier_days_across_turns(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={
+            RawRequest: [
+                westweg_raw(days=3),
+                RawRequest(intent="change", day_change_day=2, day_change_direction="shorter"),
+                RawRequest(intent="change", day_change_day=3, day_change_direction="longer"),
+            ]
+        },
+        answers=["Plan.", "Geändert.", "Wieder geändert."],
+    )
+    first = one(run(deps, "3 Tage Westweg ab Hausach"), "plan").plan
+    assert [d.end_km for d in first.days] == [15.0, 30.0, 45.0]
+
+    second_events = run(deps, "Tag 2 kürzer")
+    second = one(second_events, "plan").plan
+    assert second.days[0] == first.days[0]
+    assert second.days[1].end_km == 26.0  # Gasthof Krone: 4 km shorter
+    assert deps.tools.calls["plan_multiday"] == 1 and deps.tools.calls["change_day"] == 1
+    assert one(second_events, "understood").request.day_change.day == 2
+
+    third = one(run(deps, "Tag 3 länger"), "plan").plan
+    assert third.days[:2] == second.days[:2]  # works on the last plan, not the first one
+    assert third.days[2].start_km == 26.0 and third.days[2].end_km == TRAIL_LEN
+    assert deps.tools.calls["plan_multiday"] == 1
+
+
+def test_rain_day_gets_variant(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-02")]},
+        answers=["Am zweiten Tag regnet es mit 85 % Wahrscheinlichkeit."],
+        tools=FakeTools(weather={DRY.date: DRY, RAINY.date: RAINY}),
+    )
+    events = run(deps, "2 Tage Westweg ab Hausach am 2.11.2026")
+    plan = one(events, "plan")
+    assert set(plan.rain) == {2}  # only the rain day
+    variant = plan.rain[2]
+    assert variant.station_name == "Haltestelle Wolfach" and variant.walk_km == 9.3
+    data = deps.gateway.answer_users[-1]
+    assert "Regenvariante" in data and "Haltestelle Wolfach" in data and "9,3 km" in data
+    assert "85 %" in text_of(events) and one(events, "done").unsupported == 0
+
+
+def test_rain_variant_on_request_for_any_day(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2)]},
+        answers=["Plan.", "Regenvariante."],
+    )
+    run(deps, "2 Tage Westweg ab Hausach")
+    events = run(deps, "Und eine Regenvariante für Tag 1?")
+    plan = one(events, "plan")
+    assert set(plan.rain) == {1}
+    assert plan.rain[1].station_name == "Bahnhof Hornberg"
+    assert deps.gateway.calls["structured"] == 1  # answered from the stored plan, no new parse
+    assert deps.tools.calls["plan_multiday"] == 1
+
+
+def test_no_forecast_beyond_14_days_is_stated(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-20")]},
+        answers=["Plan."],
+    )
+    events = run(deps, "2 Tage Westweg ab Hausach am 20.11.2026")
+    plan = one(events, "plan")
+    assert all(w == NoForecast(REASON_TOO_FAR) for w in plan.weather.values())
+    assert plan.rain == {}
+    text = text_of(events)
+    assert text.count("Noch keine Vorhersage (mehr als 14 Tage)") == 1
+
+
+def test_no_date_no_weather_said_once(vocab, settings):
+    deps = make(
+        vocab, settings, structured={RawRequest: [westweg_raw(days=3)]}, answers=["Plan."]
+    )
+    events = run(deps, "3 Tage Westweg ab Hausach")
+    assert one(events, "plan").weather == {}
+    assert deps.tools.calls["weather"] == 0
+    assert text_of(events).count("ohne Datum keine Vorhersage") == 1
+
+
+def test_invented_temperature_removed(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-02")]},
+        answers=["Am 2.11. wird es bis 11 °C warm, am 3.11. sogar 18 °C bei 40 % Regenrisiko."],
+        tools=FakeTools(weather={DRY.date: DRY, RAINY.date: RAINY}),
+    )
+    events = run(deps, "2 Tage Westweg ab Hausach am 2.11.2026")
+    text = text_of(events)
+    assert "bis 11 °C" in text  # 11,4 °C rounded
+    assert "18 °C" not in text and "sogar ? °C" in text
+    assert "40 %" not in text
+    assert one(events, "done").unsupported == 2
+
+
+def test_gap_sentence_prefixed_by_code(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=1, day_km=8)]},
+        answers=["Der Tag endet am Gasthaus Adler."],
+    )
+    events = run(deps, "1 Tag Westweg ab Hausach, 8 km pro Tag")
+    day = one(events, "plan").plan.days[0]
+    assert day.gap == "Keine Unterkunft ≤ 1 km zwischen km 6,4 und km 9,6"
+    text = text_of(events)
+    assert text.startswith("Tag 1: Keine Unterkunft ≤ 1 km zwischen km 6,4 und km 9,6.")
+    assert text.endswith("Der Tag endet am Gasthaus Adler.")
+    assert one(events, "done").unsupported == 0
+
+
+def test_plan_without_days_is_honest_and_skips_the_model(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=1, day_km=4, start_text="Hausach")]},
+    )
+    tools = deps.tools
+    tools.plan_multiday = lambda req: md.plan_multiday(  # nothing within reach of km 50
+        [], PROFILE, TRAIL_LEN, 50.0, 1, 4.0, trail_id="westweg-west", trail_name="Westweg",
+        start_name="Hausach", end_name="Kandern",
+    )  # fmt: skip
+    events = run(deps, "1 Tag Westweg ab Hausach, 4 km pro Tag")
+    assert one(events, "plan").plan.days == []
+    assert "der Plan endet hier." in text_of(events)
+    assert deps.gateway.calls["answer"] == 0
+
+
+def test_start_at_trail_end_is_answered_honestly(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_text="Kandern")]},
+    )
+    events = run(deps, "2 Tage Westweg ab Kandern")
+    assert "plan" not in types(events)
+    assert "Kandern" in text_of(events) and "Wegende" in text_of(events)
+    assert deps.gateway.calls["answer"] == 0 and types(events)[-1] == "done"
+
+
+def test_multiday_start_clarify_option_continues_without_model(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_text="Todtnau")]},
+        answers=["Plan."],
+    )
+    clarify = one(run(deps, "2 Tage Westweg ab Todtnau"), "clarify")
+    assert clarify.options == ["Hausach", "Kandern"]
+    events = run(deps, "Hausach")
+    assert one(events, "plan").plan.days[0].start_km == 0.0
+    assert deps.gateway.calls["structured"] == 1
+
+
+@pytest.mark.parametrize("intent", ["events", "groups"])
+def test_events_and_groups_are_not_invented(vocab, settings, intent):
+    deps = make(vocab, settings, structured={RawRequest: [raw(intent=intent)]})
+    events = run(deps, "Gibt es Lauftreffs in Freiburg?")
+    assert "bald" in text_of(events)
+    assert deps.gateway.calls["answer"] == 0 and types(events)[-1] == "done"
+
+
+def test_day_change_beyond_the_shortened_plan_is_honest(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={
+            RawRequest: [
+                westweg_raw(days=5),
+                RawRequest(intent="change", day_change_day=5, day_change_direction="shorter"),
+            ]
+        },
+        answers=["Plan."],
+    )
+    plan = one(run(deps, "5 Tage Westweg ab Hausach"), "plan").plan
+    assert len(plan.days) == 4  # the trail ends first
+    events = run(deps, "Tag 5 kürzer")
+    assert "plan" not in types(events) and types(events)[-1] == "done"
+    assert text_of(events) == "Der Plan hat 4 Tag(e) – einen Tag 5 gibt es darin nicht."
+
+
+def test_bare_number_answers_the_days_question(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(), westweg_raw(days=2)]},
+        answers=["Plan."],
+    )
+    assert one(run(deps, "Westweg ab Hausach"), "clarify").question == "Wie viele Tage?"
+    events = run(deps, "2")
+    assert "Antwort: 2 Tage" in deps.gateway.structured_users[-1]
+    assert len(one(events, "plan").plan.days) == 2

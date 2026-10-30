@@ -1,16 +1,37 @@
-"""Agent tools: day-hike search, trail details, lodgings, walking time (all read-only SQL)."""
+"""Agent tools: day-hike search, trail details, lodgings, walking time, multi-day plans and
+weather (all read-only SQL; weather from Open-Meteo)."""
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
+from datetime import date
 from typing import Any, Protocol
 
 import psycopg
 from pydantic import BaseModel, Field
 
+from hikeall.adapters.open_meteo import DayWeather, OpenMeteoClient
+from hikeall.agent import multiday
 from hikeall.agent.constraints import Candidate, Selection, select
-from hikeall.agent.multiday import start_km_for
-from hikeall.agent.request import DEFAULT_RADIUS_KM, HikeRequest
+from hikeall.agent.multiday import (
+    DayPlan,
+    MultidayPlan,
+    Profile,
+    RainVariant,
+    StationOnTrail,
+    Stop,
+    load_trail_for_multiday,
+    start_km_for,
+)
+from hikeall.agent.request import (
+    DEFAULT_DAY_KM,
+    DEFAULT_RADIUS_KM,
+    DEFAULT_START_TIME,
+    DayChange,
+    HikeRequest,
+)
+from hikeall.agent.weather import REASON_DOWN, NoForecast, weather_for
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikeall.models import HikingTime
@@ -317,6 +338,68 @@ def hiking_time(length_km: float, ascent_m: float, descent_m: float) -> HikingTi
     return din33466(length_km, ascent_m, descent_m)
 
 
+class TrailData(BaseModel):
+    """Everything the multi-day planner needs about one long-distance trail."""
+
+    trail_id: str
+    name: str
+    length_km: float
+    stops: list[Stop]
+    stations: list[StationOnTrail]
+    profile: Profile
+    source_ids: list[str]
+    end_name: str | None  # end place of the last stage ("Basel")
+
+
+def load_trail_data(conn: psycopg.Connection, trail_id: str) -> TrailData:
+    stops, stations, profile, length_km, name, source_ids = load_trail_for_multiday(conn, trail_id)
+    stage_sources = {
+        r[0]
+        for r in conn.execute(
+            "select distinct source_id from stages where trail_id = %s and source_id is not null",
+            (trail_id,),
+        )
+    }
+    places = stage_places(conn, trail_id)
+    return TrailData(
+        trail_id=trail_id,
+        name=name,
+        length_km=length_km,
+        stops=stops,
+        stations=stations,
+        profile=profile,
+        source_ids=sorted(set(source_ids) | stage_sources),
+        end_name=places[-1] if places else None,
+    )
+
+
+def day_end_point(
+    conn: psycopg.Connection, trail_id: str, day: DayPlan
+) -> tuple[float, float] | None:
+    """(lat, lon) where the day ends: the lodging, else the point on the trail at end_km."""
+    if day.stop is not None:
+        row = conn.execute(
+            """
+            select st_y(p), st_x(p) from (
+              select st_pointonsurface(geom) as p from lodgings where id = %s) q
+            """,
+            (day.stop.lodging_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            select st_y(p), st_x(p) from (
+              select st_lineinterpolatepoint(
+                       geom, least(greatest(%s / nullif(length_km, 0), 0), 1)) as p
+              from trails where id = %s and geom is not null) q
+            """,
+            (day.end_km, trail_id),
+        ).fetchone()
+    if row is None or row[0] is None:
+        return None
+    return float(row[0]), float(row[1])
+
+
 class AgentTools(Protocol):
     def search_day_hikes(self, req: HikeRequest) -> DayHikeResult: ...
 
@@ -334,6 +417,22 @@ class AgentTools(Protocol):
 
     def stage_places(self, trail_id: str) -> list[str]: ...
 
+    def plan_multiday(self, req: HikeRequest) -> MultidayPlan:
+        """Raises ValueError if the start is not on the trail or at its very end."""
+        ...
+
+    def change_day(
+        self, plan: MultidayPlan, day_change: DayChange, start_name: str | None = None
+    ) -> MultidayPlan: ...
+
+    def day_end_point(self, trail_id: str, day: DayPlan) -> tuple[float, float] | None: ...
+
+    def weather(self, lat: float, lon: float, day: date) -> DayWeather | NoForecast: ...
+
+    def rain_variant(self, plan: MultidayPlan, day: int) -> RainVariant | None: ...
+
+    def sources(self, ids: list[str]) -> list[SourceBrief]: ...
+
 
 class DbTools:
     """AgentTools on Postgres. conn_factory must return a FRESH connection per call; every
@@ -344,9 +443,13 @@ class DbTools:
         conn_factory: Callable[[], psycopg.Connection],
         knowledge: KnowledgeIndex | None = None,
         knowledge_opener: Callable[[], KnowledgeIndex | None] | None = None,
+        weather_client: OpenMeteoClient | None = None,
     ) -> None:
         self._conn_factory = conn_factory
         self._knowledge = knowledge
+        self._weather_client = weather_client
+        self._trails: dict[str, TrailData] = {}  # static between imports: loaded once per trail
+        self._trails_lock = threading.Lock()
         # a missing index is opened again on the next question (built while the API was up)
         self._knowledge_opener = knowledge_opener
 
@@ -374,6 +477,70 @@ class DbTools:
     def stage_places(self, trail_id: str) -> list[str]:
         with self._conn_factory() as conn:
             return stage_places(conn, trail_id)
+
+    def _trail(self, trail_id: str) -> TrailData:
+        with self._trails_lock:
+            if trail_id not in self._trails:
+                with self._conn_factory() as conn:
+                    self._trails[trail_id] = load_trail_data(conn, trail_id)
+            return self._trails[trail_id]
+
+    def plan_multiday(self, req: HikeRequest) -> MultidayPlan:
+        if req.trail_id is None or req.days is None or req.start is None:
+            raise ValueError("multi-day request without trail, days or start")
+        if req.start.lat is None or req.start.lon is None:
+            raise ValueError("start without coordinates")
+        trail = self._trail(req.trail_id)
+        start_km = self.start_km(req.trail_id, req.start.lat, req.start.lon)
+        if start_km is None:
+            raise ValueError("start not on the trail")
+        return multiday.plan_multiday(
+            trail.stops,
+            trail.profile,
+            trail.length_km,
+            start_km,
+            req.days,
+            req.day_km or DEFAULT_DAY_KM,
+            req.start_date,
+            req.start_time or DEFAULT_START_TIME,
+            trail_id=trail.trail_id,
+            trail_name=trail.name,
+            source_ids=trail.source_ids,
+            start_name=req.start.label,
+            end_name=trail.end_name,
+        )
+
+    def change_day(
+        self, plan: MultidayPlan, day_change: DayChange, start_name: str | None = None
+    ) -> MultidayPlan:
+        trail = self._trail(plan.trail_id)
+        return multiday.change_day(
+            plan,
+            day_change.day,
+            day_change.change,
+            trail.stops,
+            trail.profile,
+            trail.length_km,
+            start_name=start_name,
+            end_name=trail.end_name,
+        )
+
+    def day_end_point(self, trail_id: str, day: DayPlan) -> tuple[float, float] | None:
+        with self._conn_factory() as conn:
+            return day_end_point(conn, trail_id, day)
+
+    def weather(self, lat: float, lon: float, day: date) -> DayWeather | NoForecast:
+        if self._weather_client is None:
+            return NoForecast(REASON_DOWN)
+        return weather_for(self._weather_client, lat, lon, day, date.today())
+
+    def rain_variant(self, plan: MultidayPlan, day: int) -> RainVariant | None:
+        trail = self._trail(plan.trail_id)
+        return multiday.rain_variant(plan.days[day - 1], trail.stations, trail.profile)
+
+    def sources(self, ids: list[str]) -> list[SourceBrief]:
+        with self._conn_factory() as conn:
+            return _source_briefs(conn, ids)
 
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]:
         if self._knowledge is None and self._knowledge_opener is not None:

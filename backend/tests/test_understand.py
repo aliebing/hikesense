@@ -757,13 +757,14 @@ def test_start_off_trail_asks(vocab):
     )
     assert isinstance(res, Clarify)
     assert res.question == "Todtnau liegt nicht am Westweg. Ab welchem Etappenort?"
-    assert res.options == STAGES
+    assert res.options == ["Hausach", "Hinterzarten"]  # only stage places that resolve
 
 
 def test_missing_start_and_days_ask(vocab):
     res = multi(vocab, "Westweg 3 Tage", trail_text="Westweg", days=3)
     assert isinstance(res, Clarify)
-    assert res.question == "Wo soll die Mehrtagestour starten?" and res.options == STAGES
+    assert res.question == "Wo soll die Mehrtagestour starten?"
+    assert res.options == ["Hausach", "Hinterzarten"]
     res = multi(vocab, "Westweg ab Hausach", trail_text="Westweg", start_text="Hausach")
     assert isinstance(res, Clarify) and res.question == "Wie viele Tage?"
 

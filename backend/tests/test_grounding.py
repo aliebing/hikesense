@@ -200,3 +200,16 @@ def test_tour_name_in_evidence_text_is_supported():
 def test_tour_name_needs_whole_word():
     r = grounding_check("Ein Panoramawegweiser.", ev(), tour_names=["Panoramaweg"])
     assert r.unsupported_names == []
+
+
+def test_weather_units_and_clock_times_are_checked():
+    ev = Evidence()
+    ev.add(11.4, "°C")
+    ev.add(85, "%")
+    ev.add(7.5, "mm")
+    ev.numbers.append("Ankunft 13:30 Uhr")
+    g = grounding_check(
+        "Bis 11 °C, 85 % Regen, 7,5 mm, an um 13:30 Uhr; nachts 2 Grad, 12 mm, an um 15 Uhr.", ev
+    )
+    assert g.unsupported == ["2 Grad", "12 mm", "15 Uhr"]
+    assert "Bis 11 °C, 85 % Regen, 7,5 mm, an um 13:30 Uhr" in g.text

@@ -2,7 +2,14 @@ import csv
 from datetime import date
 
 import pytest
-from test_agent_graph import FakeTools, feldberg_raw, raw, vocab  # noqa: F401 (fixture)
+from test_agent_graph import (  # noqa: F401 (fixture)
+    TODAY,
+    FakeTools,
+    feldberg_raw,
+    raw,
+    vocab,
+    westweg_raw,
+)
 
 from hikeall import smoke as sm
 from hikeall.agent.constraints import ConstraintResult, PreferenceMatch
@@ -17,7 +24,7 @@ from hikeall.agent.graph import (
     TourCard,
     UnderstoodEvent,
 )
-from hikeall.agent.prompts import MULTIDAY_REPLY
+from hikeall.agent.prompts import OTHER_REPLY
 from hikeall.agent.request import HikeRequest, RawRequest
 from hikeall.agent.tools import SourceBrief
 from hikeall.config import Settings
@@ -137,8 +144,8 @@ def test_sources():
 def test_reply():
     assert sm.check([TokenEvent(text=INJECTION_REPLY)], {"reply": "injection"}) == []
     assert sm.check([TokenEvent(text="Hallo")], {"reply": "injection"})
-    parts = [TokenEvent(text=MULTIDAY_REPLY[:5]), TokenEvent(text=MULTIDAY_REPLY[5:])]
-    assert sm.check(parts, {"reply": "multiday"}) == []
+    parts = [TokenEvent(text=OTHER_REPLY[:5]), TokenEvent(text=OTHER_REPLY[5:])]
+    assert sm.check(parts, {"reply": "other"}) == []
 
 
 def test_no_model_calls():
@@ -160,7 +167,11 @@ def deps(vocab, tmp_path):  # noqa: F811
 
     def make(**kw):
         return AgentDeps(
-            tools=FakeTools(), gateway=FakeGateway(**kw), vocab=vocab, settings=settings
+            tools=FakeTools(),
+            gateway=FakeGateway(**kw),
+            vocab=vocab,
+            settings=settings,
+            today=lambda: TODAY,
         )
 
     return make
@@ -178,8 +189,10 @@ def test_runner_injection_case_passes_with_zero_calls(deps):
 
 def test_runner_multiday_case_passes(deps):
     case = _case(sm.load_cases(PROMPTS), "6-")
-    g = deps(structured={RawRequest: [raw(intent="multiday", start_text="Hausach")]})
+    g = deps(structured={RawRequest: [westweg_raw(days=3)]}, answers=["Drei Tage."])
     assert sm.run_case(g, case).ok
+    g = deps(structured={RawRequest: [raw(intent="other")]})
+    assert sm.run_case(g, case).errors == ["kein Plan, erwartet 3 Tage", "keine Quelle"]
 
 
 def test_runner_two_turn_feldberg_answers_with_the_place_option(deps):
@@ -233,9 +246,9 @@ def test_runner_exception_becomes_error_not_crash(deps):
 
 
 def test_unsupported_numbers_fail_the_case(monkeypatch):
-    evs = [TokenEvent(text=MULTIDAY_REPLY), done(unsupported=2)]
+    evs = [TokenEvent(text=OTHER_REPLY), done(unsupported=2)]
     monkeypatch.setattr(sm, "run_chat", lambda *a: iter(evs))
-    case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "multiday"})])
+    case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "other"})])
     r = sm.run_case(None, case)
     assert not r.ok and r.unsupported == 2
 
@@ -253,7 +266,7 @@ def test_smoke_writes_csv_and_exit_code(deps, tmp_path, capsys):
         {"Fall": "inj", "ok": "true", "unsupported": "0", "cost_usd": "0.000000", "Fehler": ""}
     ]
     assert "Kosten gesamt" in capsys.readouterr().out
-    p.write_text(p.read_text().replace("injection", "multiday"))
+    p.write_text(p.read_text().replace("injection", "other"))
     assert sm.smoke(deps, p, tmp_path, today=date(2026, 10, 30)) == 1
 
 

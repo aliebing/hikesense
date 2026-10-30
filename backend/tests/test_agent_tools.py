@@ -325,3 +325,49 @@ def test_dbtools_reopens_a_missing_knowledge_index_lazily():
     assert "Wissensindex fehlt" in tools.search_knowledge("a")[0].text
     built[0] = Idx()  # `make knowledge` ran while the API was up
     assert tools.search_knowledge("a")[0].text == "gefunden"
+
+
+# --- multi-day tools (plan 3, task 7) ------------------------------------------------------
+
+
+class _FixedWeather:
+    """OpenMeteoClient stand-in: one dry day, no network."""
+
+    def daily(self, lat, lon, start, end):
+        from hikeall.adapters.open_meteo import DayWeather
+
+        return [DayWeather(date=start, text="Klar", t_min_c=2.0, t_max_c=9.0, precip_mm=0.0)]
+
+
+def test_dbtools_weather_without_client_is_no_forecast():
+    from hikeall.agent.weather import REASON_DOWN, NoForecast
+
+    assert DbTools(lambda: None).weather(48.0, 8.0, date.today()) == NoForecast(REASON_DOWN)
+
+
+@pytest.mark.db
+def test_dbtools_multiday_on_the_real_westweg(db):
+    from hikeall.agent.request import DayChange
+
+    tools = DbTools(CountingFactory(db), weather_client=_FixedWeather())
+    hausach = ResolvedStart(
+        kind="place", tag_id="place:hausach", label="Hausach", lat=48.2836305, lon=8.174972
+    )
+    request = HikeRequest(
+        intent="multiday", start=hausach, trail_id="westweg-west", days=3,
+        start_date=date.today(),
+    )  # fmt: skip
+    plan = tools.plan_multiday(request)
+    assert len(plan.days) == 3 and plan.trail_name == "Westweg (Westvariante)"
+    assert {"osm", "stages-schwarzwald-tourismus"} <= set(plan.source_ids)
+    lat, lon = tools.day_end_point(plan.trail_id, plan.days[0])
+    assert 47.5 < lat < 49.0 and 7.5 < lon < 8.8  # in the Black Forest
+    assert tools.weather(lat, lon + 0.0001 * 7, date.today()).text == "Klar"
+    assert tools.rain_variant(plan, 1) is None or tools.rain_variant(plan, 1).walk_km > 0
+    changed = tools.change_day(plan, DayChange(day=2, change="shorter"), start_name="Hausach")
+    assert changed.days[0] == plan.days[0]
+    names = {s.id: s.name for s in tools.sources(plan.source_ids)}
+    assert names["osm"] and names["stages-schwarzwald-tourismus"]
+    basel = hausach.model_copy(update={"label": "Basel", "lat": 47.5673009, "lon": 7.6069164})
+    with pytest.raises(ValueError):  # the trail end: nothing left to plan
+        tools.plan_multiday(request.model_copy(update={"start": basel}))

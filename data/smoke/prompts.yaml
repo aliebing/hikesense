@@ -40,4 +40,5 @@ cases:
     turns:
       - message: "3 Tage Westweg ab Hausach"
         expect:
-          reply: multiday
+          plan_days: 3
+          sources: true

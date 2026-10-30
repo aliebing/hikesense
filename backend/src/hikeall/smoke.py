@@ -17,7 +17,7 @@ from typing import Any
 import yaml
 
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
-from hikeall.agent.prompts import MULTIDAY_REPLY
+from hikeall.agent.prompts import OTHER_REPLY
 from hikeall.guard import INJECTION_REPLY
 
 EXPECT_KINDS = {
@@ -31,8 +31,9 @@ EXPECT_KINDS = {
     "sources",
     "reply",
     "no_model_calls",
+    "plan_days",
 }
-REPLIES = {"injection": INJECTION_REPLY, "multiday": MULTIDAY_REPLY}
+REPLIES = {"injection": INJECTION_REPLY, "other": OTHER_REPLY}
 CSV_FIELDS = ["Fall", "ok", "unsupported", "cost_usd", "Fehler"]
 
 
@@ -149,6 +150,12 @@ def check(events: list[ChatEvent], expect: dict[str, Any]) -> list[str]:
         elif kind == "reply":
             if _text(events) != REPLIES[want]:
                 errors.append(f"Antwort ist nicht der feste Text '{want}'")
+        elif kind == "plan_days":
+            plan = _first(events, "plan")
+            if plan is None:
+                errors.append(f"kein Plan, erwartet {want} Tage")
+            elif len(plan.plan.days) != want:
+                errors.append(f"Plan mit {len(plan.plan.days)} Tagen, erwartet {want}")
         elif kind == "no_model_calls":
             d = _first(events, "done")
             if d is None:

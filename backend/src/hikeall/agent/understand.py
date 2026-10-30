@@ -164,7 +164,7 @@ def resolve(
             return resolved
         start = resolved
     if trail is not None:
-        clarify = _check_multiday_start(trail[0], start, trails)
+        clarify = _check_multiday_start(vocab, trail[0], start, trails)
         if clarify is not None:
             return clarify
 
@@ -177,7 +177,7 @@ def resolve(
         unmatched.append(change_note)
     discarded += dropped
     if is_multiday and multi["days"] is None:
-        return Clarify(question="Wie viele Tage?")
+        return Clarify(question=DAYS_QUESTION)
     for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
         if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
             constraints.append(Constraint(kind="roundtrip", required=required))
@@ -792,6 +792,7 @@ def _multiday_echo(req: HikeRequest) -> list[str]:
 # --- multi-day ----------------------------------------------------------------------------
 
 _START_QUESTION = "Wo soll die Mehrtagestour starten?"
+DAYS_QUESTION = "Wie viele Tage?"
 _DIRECTION_WORDS = {
     "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
     "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
@@ -867,12 +868,14 @@ def _trail_name(tag: Tag) -> str:
 
 
 def _check_multiday_start(
-    trail: Tag, start: ResolvedStart | None, trails: TrailLookup | None
+    vocab: TagVocabulary, trail: Tag, start: ResolvedStart | None, trails: TrailLookup | None
 ) -> Clarify | None:
     """The start must be a place on the trail (<= 2 km from the line); otherwise ask for a
-    stage place of that trail (names from the stages table)."""
+    stage place of that trail (names from the stages table). Only stage places that resolve to
+    one known place are offered: an option must work when the user clicks it."""
     trail_id = trail.rule.trail_id if isinstance(trail.rule, LongTrail) else ""
-    options = trails.stage_places(trail_id) if trails is not None else []
+    places = trails.stage_places(trail_id) if trails is not None else []
+    options = [p for p in places if _is_point(_resolve_start(vocab, p))]
     if start is None or start.lat is None or start.lon is None:
         return Clarify(question=_START_QUESTION, options=options)
     if trails is not None and trails.start_km(trail_id, start.lat, start.lon) is None:
@@ -881,6 +884,10 @@ def _check_multiday_start(
             options=options,
         )
     return None
+
+
+def _is_point(res: ResolvedStart | Clarify) -> bool:
+    return isinstance(res, ResolvedStart) and res.lat is not None and res.lon is not None
 
 
 def _multiday_fields(
