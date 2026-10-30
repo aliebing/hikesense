@@ -238,9 +238,10 @@ def import_shares_cmd(only: str | None) -> int:
 
 
 STAGE_COUNT_SQL = """
-    select s.id, s.trail_id, s.seq, count(l.id)
-    from stages s
-    left join lodgings l on st_dwithin(s.geom::geography, l.geom::geography, 1000)
+    select s.id, s.trail_id, s.seq, count(distinct l.id)
+    from (select id, trail_id, seq, st_subdivide(geom, 64) as geom from stages) s
+    left join lodgings l on l.geom && st_expand(s.geom, 0.015)  -- index prefilter, > 1 km
+      and st_dwithin(s.geom::geography, l.geom::geography, 1000)
     where s.trail_id like 'westweg%%'
     group by s.id, s.trail_id, s.seq
     order by s.trail_id, s.seq
