@@ -67,7 +67,7 @@ it("parses every backend stream into typed events ending with done or error", ()
   const all = (Object.keys(streams) as (keyof typeof streams)[]).map(events);
   for (const evs of all) expect(["done", "error"]).toContain(evs[evs.length - 1].type);
   const seen = new Set(all.flat().map((e) => e.type));
-  for (const t of ["understood", "clarify", "results", "plan", "token", "sources", "done", "error"]) expect(seen).toContain(t);
+  for (const t of ["understood", "clarify", "results", "plan", "groups", "token", "sources", "done", "error"]) expect(seen).toContain(t);
 });
 
 it("renders a backend fallback search: one honest sentence, cards, attributed sources", async () => {
@@ -119,4 +119,17 @@ it("renders the backend multiday stream: one-line chat item, day cards, weather,
   expect(days).toHaveTextContent("Haltestelle Wolfach");
   expect(days).toHaveTextContent("Noch keine Vorhersage");
   expect(within(screen.getByRole("region", { name: "Mehrtagesplan" })).getByRole("link", { name: "Open-Meteo.com" })).toBeInTheDocument();
+});
+
+it("renders the backend groups stream inside the chat: names as links, distance, veraltet, Stand, no tour cards", async () => {
+  await chat("groups");
+  const list = await screen.findByRole("list", { name: "Gruppen" });
+  expect(within(list).getByRole("link", { name: "Schwarzwaldverein Hausach" })).toHaveAttribute("href", "https://schwarzwaldverein-hausach.de/");
+  expect(list).toHaveTextContent("Sektion Lahr");
+  expect(list).toHaveTextContent("22,4 km");
+  const items = within(list).getAllByRole("listitem");
+  expect(items[0]).not.toHaveTextContent("veraltet");
+  expect(items[1]).toHaveTextContent("veraltet");
+  expect(screen.getAllByText(/Stand: 01\.03\.2026/).length).toBeGreaterThan(0);
+  expect(screen.queryAllByRole("article")).toHaveLength(0);
 });

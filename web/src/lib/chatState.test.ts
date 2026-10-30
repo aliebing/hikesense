@@ -158,3 +158,10 @@ it("an old stored state without plan loads with plan null; a plan without notes 
   store.set(STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], plan: { plan: { days: [] } } }));
   expect(loadState(storage, () => "n").plan?.plan.notes).toEqual([]);
 });
+
+it("groups event adds a groups item with its Stand note; an empty list adds nothing", () => {
+  const g = { name: "SWV", kind: "wanderverein", place: "Hausach", url: "https://x.example", checked_at: "2026-10-02", stale: false, dist_km: 1 };
+  const s = reduceEvent(initialState("t"), { type: "groups", groups: [g], checked_note: "Stand: 02.10.2026" });
+  expect(s.items).toEqual([{ kind: "groups", groups: [g], note: "Stand: 02.10.2026" }]);
+  expect(reduceEvent(initialState("t"), { type: "groups", groups: [], checked_note: "x" }).items).toEqual([]);
+});

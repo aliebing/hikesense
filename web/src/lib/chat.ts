@@ -142,6 +142,17 @@ export type PlanData = {
   start_name?: string | null;
 };
 
+/** A group of the hand-curated list (no persons, no event dates); `checked_at` is an ISO date. */
+export type GroupBrief = {
+  name: string;
+  kind: string;
+  place: string;
+  url: string;
+  checked_at: string;
+  stale: boolean;
+  dist_km: number;
+};
+
 /** tag_id -> vocabulary label */
 export type Labels = Record<string, string>;
 
@@ -150,6 +161,7 @@ export type ChatEvent =
   | { type: "clarify"; question: string; options: string[] }
   | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
   | ({ type: "plan" } & PlanData)
+  | { type: "groups"; groups: GroupBrief[]; checked_note: string }
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }

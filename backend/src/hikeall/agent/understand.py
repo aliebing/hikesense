@@ -158,7 +158,7 @@ def resolve(
     start_text = raw.start_text.strip() if raw.start_text else None
     if start is not None:
         start_text = start.label
-    elif wants_tour and start_text:
+    elif (wants_tour or raw.intent == "groups") and start_text:
         resolved = _resolve_start(vocab, start_text)
         if isinstance(resolved, Clarify):
             return resolved

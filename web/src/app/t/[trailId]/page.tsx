@@ -6,7 +6,8 @@ import Panorama from "../../../components/Panorama";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
 import TrailMap from "../../../components/TrailMap";
-import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
+import GroupList from "../../../components/GroupList";
+import { GROUP_RADIUS_KM, getGroups, getLodgings, getTrail, groupsNearLine, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
 
@@ -49,6 +50,14 @@ export default async function TrailPage({
     lodgings = await getLodgings(trailId);
   } catch (e) {
     console.error(`getLodgings(${trailId}) failed:`, e);
+  }
+
+  // „Gruppen in der Nähe“: failure or no geometry just leaves the section out.
+  let groups: ReturnType<typeof groupsNearLine> = [];
+  try {
+    if (trail.geom) groups = groupsNearLine(await getGroups(), trail.geom.coordinates, new Date());
+  } catch (e) {
+    console.error("getGroups failed:", e);
   }
 
   const longDistance = trail.kind === "long_distance";
@@ -103,6 +112,16 @@ export default async function TrailPage({
       <section aria-label={longDistance ? "Etappen" : "Tour"}>
         <StageCards trail={trail} />
       </section>
+
+      {groups.length > 0 && (
+        <section aria-label="Gruppen in der Nähe" className="max-w-2xl">
+          <h2 className="mb-1 font-serif text-xl drop-shadow">Gruppen in der Nähe</h2>
+          <GroupList
+            groups={groups}
+            note={`Stand: ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`))} · bis ${GROUP_RADIUS_KM} km vom Weg`}
+          />
+        </section>
+      )}
 
       <footer className="text-[11px] text-papier/75">
         Quellen:{" "}

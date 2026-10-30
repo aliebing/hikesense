@@ -49,7 +49,10 @@ from hikeall.agent.prompts import (
     ERROR_BUDGET,
     ERROR_UNAVAILABLE,
     EVENTS_SOON,
-    GROUPS_SOON,
+    GROUPS_FOUND,
+    GROUPS_NO_COORDS,
+    GROUPS_NONE,
+    GROUPS_STALE,
     LEAK_REPLY,
     NO_PLAN_AT_START,
     NO_PLAN_TO_CHANGE,
@@ -66,8 +69,10 @@ from hikeall.agent.prompts import (
 )
 from hikeall.agent.request import MAX_DAYS, Clarify, Constraint, HikeRequest, RawRequest
 from hikeall.agent.tools import (
+    DEFAULT_GROUP_RADIUS_KM,
     TOOL_SPECS,
     AgentTools,
+    GroupBrief,
     KnowledgeHit,
     LodgingBrief,
     SourceBrief,
@@ -92,6 +97,7 @@ __all__ = [
     "ClarifyEvent",
     "DoneEvent",
     "ErrorEvent",
+    "GroupsEvent",
     "PlanEvent",
     "ResultsEvent",
     "SourcesEvent",
@@ -117,7 +123,13 @@ _DAYS_PHRASE = re.compile(
     re.IGNORECASE,
 )
 _NEW_START = re.compile(r"\b(?:ab|von|in|nach|bei|[Ss]tart(?:ort)?)\s+[A-ZÄÖÜ]")
-_SOON = {"events": EVENTS_SOON, "groups": GROUPS_SOON}  # their nodes come with tasks 11/12
+_SOON = {"events": EVENTS_SOON}  # its node comes with task 12
+_GROUP_KINDS = (  # words in the message -> kind filter (first hit wins)
+    (re.compile(r"lauftreff|laufgruppe|laufverein", re.IGNORECASE), "lauftreff"),
+    (re.compile(r"alpenverein|\bdav\b", re.IGNORECASE), "alpenverein"),
+    (re.compile(r"schwarzwaldverein|wanderverein|wandergruppe", re.IGNORECASE), "wanderverein"),
+)
+_GROUP_KIND_WORD = {"lauftreff": " (Lauftreff)", "alpenverein": " (Alpenverein)", "wanderverein": " (Wanderverein)"}
 _WEEKDAY = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 _LABEL = {
     "length_km": "Länge",
@@ -184,6 +196,15 @@ class PlanEvent(ChatEvent):
     weather: dict[int, DayWeather | NoForecast] = {}
     rain: dict[int, RainVariant | None] = {}
     labels: dict[str, str] = {}  # tag_id -> vocabulary label (the trail)
+
+
+class GroupsEvent(ChatEvent):
+    """Groups of the hand-curated list near the place, nearest first; `checked_note` names the
+    oldest check date ("Stand: 01.03.2026"). No persons, no dates of events."""
+
+    type: Literal["groups"] = "groups"
+    groups: list[GroupBrief]
+    checked_note: str
 
 
 class TokenEvent(ChatEvent):
@@ -771,7 +792,7 @@ def build_graph(deps: AgentDeps) -> Any:
         if isinstance(res, HikeRequest):
             out.update(intent=res.intent, activity=res.activity)
             out["discarded_numbers"] = res.discarded_model_numbers
-            if res.intent in TOUR_INTENTS and res.start is None:
+            if res.intent in (*TOUR_INTENTS, "groups") and res.start is None:
                 res = Clarify(question=CLARIFY_START)
         if isinstance(res, Clarify):
             pending = {
@@ -802,6 +823,8 @@ def build_graph(deps: AgentDeps) -> Any:
             }
         if req.intent == "knowledge":
             return out | {"route": "react"}
+        if req.intent == "groups":
+            return out | {"route": "groups"}
         return out | {"reply": _SOON.get(req.intent, OTHER_REPLY), "route": "reply"}
 
     def clarify(state: State) -> State:
@@ -854,6 +877,36 @@ def build_graph(deps: AgentDeps) -> Any:
         if req.start is not None:
             ev.add_name(req.start.label)
         return out | {"data": data, "evidence": vars(ev)}
+
+    def groups(state: State) -> State:
+        req = HikeRequest.model_validate(state["current"])
+        start = req.start
+        if start is not None and start.lat is not None and start.lon is not None:
+            lat, lon = start.lat, start.lon
+        elif start is not None and start.bbox is not None:  # an area: its centre
+            lat, lon = (start.bbox.south + start.bbox.north) / 2, (start.bbox.west + start.bbox.east) / 2
+        else:
+            return {"fixed": GROUPS_NO_COORDS.format(place=start.label if start else "diesem Ort")}
+        place = start.label
+        text = f"{req.question or ''} {state['message']}"
+        kind = next((k for rx, k in _GROUP_KINDS if rx.search(text)), None)
+        found = tools.find_groups(lat, lon, DEFAULT_GROUP_RADIUS_KM, kind, deps.today())
+        radius = _de(DEFAULT_GROUP_RADIUS_KM)
+        if not found:
+            body = GROUPS_NONE.format(
+                kind=_GROUP_KIND_WORD.get(kind or "", ""), radius=radius, place=place
+            )
+            return {"tool_calls": 1, "fixed": body}
+        note = f"Stand: {min(g.checked_at for g in found):%d.%m.%Y}"
+        _emit(GroupsEvent(groups=found, checked_note=note))
+        stale = sum(g.stale for g in found)
+        body = GROUPS_FOUND.format(
+            n=len(found), noun="Gruppe" if len(found) == 1 else "Gruppen",
+            radius=radius, place=place, note=note,
+        )  # fmt: skip
+        if stale:
+            body += GROUPS_STALE.format(n=stale, verb="ist" if stale == 1 else "sind")
+        return {"tool_calls": 1, "fixed": body}
 
     def multiday(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
@@ -1059,6 +1112,7 @@ def build_graph(deps: AgentDeps) -> Any:
         ("reply", reply),
         ("search", search),
         ("multiday", multiday),
+        ("groups", groups),
         ("react", react),
         ("answer", answer),
         ("ground", ground),
@@ -1068,13 +1122,14 @@ def build_graph(deps: AgentDeps) -> Any:
     g.add_edge(START, "guard")
     g.add_conditional_edges("guard", lambda s: s["route"], ["understand", "reply"])
     g.add_conditional_edges(
-        "understand", lambda s: s["route"], ["clarify", "reply", "search", "multiday", "react"]
+        "understand", lambda s: s["route"], ["clarify", "reply", "search", "multiday", "react", "groups"]
     )
     g.add_edge("clarify", "log")
     g.add_edge("reply", "log")
     g.add_edge("search", "answer")
     g.add_edge("multiday", "answer")
     g.add_edge("react", "answer")
+    g.add_edge("groups", "answer")
     g.add_edge("answer", "ground")
     g.add_edge("ground", "log")
     g.add_edge("log", END)

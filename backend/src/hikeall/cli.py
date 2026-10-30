@@ -1,4 +1,4 @@
-"""Command line: `hikeall import-trails [--only ID]`, `scan-day-hikes`, `import-day-hikes`."""
+"""Command line: `hikeall import-trails [--only ID]`, `scan-day-hikes`, `import-day-hikes`, `import-groups`."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from hikeall.ingest.day_hikes import (
     scan,
     write_candidates,
 )
+from hikeall.ingest.groups import import_groups, read_groups
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
 from hikeall.ingest.places import (
@@ -45,6 +46,7 @@ from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAILS_YAML = REPO_ROOT / "data" / "curated" / "trails.yaml"
 DAY_HIKES_CSV = REPO_ROOT / "data" / "curated" / "day_hikes.csv"
+GROUPS_CSV = REPO_ROOT / "data" / "curated" / "groups.csv"
 KNOWLEDGE_DIR = REPO_ROOT / "data" / "knowledge"
 CHROMA_DIR = REPO_ROOT / "data" / "chroma"
 OSM_SOURCE_ID = "osm"
@@ -166,6 +168,26 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
         f"{len(rep.failed)} fehlgeschlagen"
     )
     return 1 if rep.failed else 0
+
+
+def import_groups_cmd(csv_path: Path) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        rows = read_groups(csv_path)
+    except (HikeAllError, OSError) as e:
+        print(f"Fehler: {csv_path}: {e}", file=sys.stderr)
+        return 2
+    with connect(settings.supabase_db_url) as conn:
+        try:
+            n = import_groups(conn, rows)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+    print(f"{n} Gruppen importiert ({sum(r.status == 'vorschlag' for r in rows)} Vorschläge)")
+    return 0
 
 
 def import_shares_cmd(only: str | None) -> int:
@@ -479,6 +501,8 @@ def main(argv: list[str] | None = None) -> int:
     ):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--csv", type=Path, default=DAY_HIKES_CSV, help="Kurations-CSV")
+    p = sub.add_parser("import-groups", help="Gruppenliste aus der Kurations-CSV importieren")
+    p.add_argument("--csv", type=Path, default=GROUPS_CSV, help="Gruppen-CSV")
     args = parser.parse_args(argv)
     if args.command == "import-trails":
         return import_trails(args.only)
@@ -500,6 +524,8 @@ def main(argv: list[str] | None = None) -> int:
         return scan_day_hikes(_repo_path(args.csv))
     if args.command == "import-day-hikes":
         return import_day_hikes_cmd(_repo_path(args.csv))
+    if args.command == "import-groups":
+        return import_groups_cmd(_repo_path(args.csv))
     return 2
 
 

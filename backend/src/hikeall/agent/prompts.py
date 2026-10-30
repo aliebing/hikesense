@@ -52,10 +52,17 @@ EVENTS_SOON = (
     "Läufe und Veranstaltungen suche ich bald – im Moment kann ich dazu noch nichts sagen. "
     "Touren, Mehrtagestouren und Fragen zum Wandern beantworte ich gern."
 )
-GROUPS_SOON = (
-    "Lauf- und Wandergruppen zeige ich bald – im Moment kann ich dazu noch nichts sagen. "
-    "Touren, Mehrtagestouren und Fragen zum Wandern beantworte ich gern."
+GROUPS_FOUND = (
+    "{n} {noun} im Umkreis von {radius} km um {place}, nach Abstand sortiert – {note}. "
+    "Die Liste ist von Hand gepflegt und nicht vollständig; Treffzeiten und Ansprechpersonen "
+    "stehen auf den Seiten der Gruppen."
 )
+GROUPS_STALE = " {n} mit Prüfdatum älter als 180 Tage {verb} als „veraltet“ markiert."
+GROUPS_NONE = (
+    "In meiner Liste gibt es keine Gruppe{kind} im Umkreis von {radius} km um {place}. "
+    "Die Liste ist von Hand gepflegt und nicht vollständig."
+)
+GROUPS_NO_COORDS = "Für {place} kenne ich keine Koordinate – nenne bitte einen Ort in der Nähe."
 OTHER_REPLY = (
     "Dabei kann ich leider nicht helfen – ich plane Wanderungen und Laufrunden im "
     "Schwarzwald und beantworte Fragen dazu. Wohin soll es gehen?"

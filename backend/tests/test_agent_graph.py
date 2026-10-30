@@ -1207,10 +1207,9 @@ def test_multiday_start_clarify_option_continues_without_model(vocab, settings):
     assert deps.gateway.calls["structured"] == 1
 
 
-@pytest.mark.parametrize("intent", ["events", "groups"])
-def test_events_and_groups_are_not_invented(vocab, settings, intent):
-    deps = make(vocab, settings, structured={RawRequest: [raw(intent=intent)]})
-    events = run(deps, "Gibt es Lauftreffs in Freiburg?")
+def test_events_are_not_invented(vocab, settings):  # groups: tests/test_groups.py
+    deps = make(vocab, settings, structured={RawRequest: [raw(intent="events")]})
+    events = run(deps, "Gibt es Läufe in Freiburg?")
     assert "bald" in text_of(events)
     assert deps.gateway.calls["answer"] == 0 and types(events)[-1] == "done"
 

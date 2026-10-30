@@ -8,6 +8,7 @@ import json
 import os
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 
 import jwt
@@ -26,8 +27,10 @@ from test_agent_graph import (  # noqa: F401 (vocab is a fixture)
     vocab,
     westweg_raw,
 )
+from test_groups import GroupTools
 
 from hikeall.agent.request import RawRequest
+from hikeall.agent.tools import GroupBrief
 from hikeall.api.app import create_app
 from hikeall.config import Settings
 from hikeall.llm.gateway import LLMUnavailable
@@ -84,6 +87,25 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         structured={RawRequest: [westweg_raw(days=3, start_date="2026-11-02")]},
         answers=["Drei Tage bis zur Pension Linde; am 3.11. Regen bei bis zu 9,8 °C."],
     )
+    groups = make(
+        vocab,
+        settings,
+        tools=GroupTools(
+            [
+                GroupBrief(
+                    name="Schwarzwaldverein Hausach", kind="wanderverein", place="Hausach",
+                    url="https://schwarzwaldverein-hausach.de/", checked_at=date(2026, 10, 30),
+                    stale=False, dist_km=0.0,
+                ),
+                GroupBrief(
+                    name="Sektion Lahr", kind="alpenverein", place="Lahr/Schwarzwald",
+                    url="https://www.dav-lahr.de", checked_at=date(2026, 3, 1),
+                    stale=True, dist_km=22.4,
+                ),
+            ]
+        ),
+        structured={RawRequest: [raw(intent="groups", start_text="Hausach")]},
+    )  # fmt: skip
     return {
         "fallback": _stream(settings, fallback, FELDBERG_MSG),
         "area": _stream(settings, area, "Tour im Nordschwarzwald"),
@@ -91,6 +113,7 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         "knowledge": _stream(settings, knowledge, "Darf man am Feldberg querfeldein gehen?"),
         "error": _stream(settings, error, FELDBERG_MSG),
         "multiday": _stream(settings, multiday, "3 Tage Westweg ab Hausach am 2.11.2026"),
+        "groups": _stream(settings, groups, "Gibt es eine Wandergruppe in Hausach?"),
     }
 
 

@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke osm-extract places
+.PHONY: test lint up down import scan knowledge tags smoke osm-extract places groups
 
 test:
 	cd backend && uv run pytest -q
@@ -51,3 +51,7 @@ osm-extract:
 places: osm-extract
 	cd backend && uv run hikeall import-places --pbf $(OSM_PBF)
 	cd backend && uv run hikeall build-tags
+
+# Von Hand gepflegte Gruppenliste (data/curated/groups.csv) in die DB.
+groups:
+	cd backend && uv run hikeall import-groups

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Protocol
 
 import psycopg
@@ -41,6 +41,9 @@ SEARCH_FACTOR = 3.0
 MAX_POIS = 10
 MAX_LODGINGS = 10
 MAX_LODGING_DIST_M = 5000
+MAX_GROUPS = 10
+DEFAULT_GROUP_RADIUS_KM = 25.0
+STALE_DAYS = 180  # a group not checked for longer than this is shown as "veraltet"
 
 
 class SourceBrief(BaseModel):
@@ -106,6 +109,22 @@ class LodgingBrief(BaseModel):
 
 KNOWLEDGE_MISSING = "Wissensindex fehlt – `make knowledge` ausführen"
 __all__ = ["KnowledgeHit", "KnowledgeIndex"]
+
+
+class GroupBrief(BaseModel):
+    """A group of the hand-curated list: no persons, no dates (spec §3 exception)."""
+
+    name: str
+    kind: str
+    place: str
+    url: str
+    checked_at: date
+    stale: bool
+    dist_km: float
+
+
+def is_stale(checked_at: date, today: date) -> bool:
+    return today - checked_at > timedelta(days=STALE_DAYS)
 
 
 def _f(x: Any) -> float | None:
@@ -325,6 +344,39 @@ def find_accommodation(
     ]
 
 
+def find_groups(
+    conn: psycopg.Connection,
+    lat: float,
+    lon: float,
+    radius_km: float = DEFAULT_GROUP_RADIUS_KM,
+    kind: str | None = None,
+    today: date | None = None,
+) -> list[GroupBrief]:
+    """Groups within radius_km of the point, nearest first (at most 10)."""
+    today = today or date.today()
+    rows = conn.execute(
+        """
+        select name, kind, place, url, checked_at, d / 1000.0
+        from (
+          select *, st_distance(geom::geography,
+                                st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326)::geography) as d
+          from groups
+        ) g
+        where d <= %(r)s * 1000 and (%(kind)s::text is null or kind = %(kind)s)
+        order by d, id
+        limit %(n)s
+        """,
+        {"lat": lat, "lon": lon, "r": radius_km, "kind": kind, "n": MAX_GROUPS},
+    ).fetchall()
+    return [
+        GroupBrief(
+            name=r[0], kind=r[1], place=r[2], url=r[3], checked_at=r[4],
+            stale=is_stale(r[4], today), dist_km=round(float(r[5]), 1),
+        )
+        for r in rows
+    ]  # fmt: skip
+
+
 def stage_places(conn: psycopg.Connection, trail_id: str) -> list[str]:
     """Start and end names of the trail's stages, in walking order, without repeats."""
     rows = conn.execute(
@@ -423,6 +475,15 @@ class AgentTools(Protocol):
 
     def hiking_time(self, length_km: float, ascent_m: float, descent_m: float) -> HikingTime: ...
 
+    def find_groups(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float = DEFAULT_GROUP_RADIUS_KM,
+        kind: str | None = None,
+        today: date | None = None,
+    ) -> list[GroupBrief]: ...
+
     def search_knowledge(self, query: str, k: int = 5) -> list[KnowledgeHit]: ...
 
     def start_km(self, trail_id: str, lat: float, lon: float) -> float | None: ...
@@ -487,6 +548,17 @@ class DbTools:
 
     def hiking_time(self, length_km: float, ascent_m: float, descent_m: float) -> HikingTime:
         return hiking_time(length_km, ascent_m, descent_m)
+
+    def find_groups(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float = DEFAULT_GROUP_RADIUS_KM,
+        kind: str | None = None,
+        today: date | None = None,
+    ) -> list[GroupBrief]:
+        with self._conn_factory() as conn:
+            return find_groups(conn, lat, lon, radius_km, kind, today)
 
     def start_km(self, trail_id: str, lat: float, lon: float) -> float | None:
         with self._conn_factory() as conn:

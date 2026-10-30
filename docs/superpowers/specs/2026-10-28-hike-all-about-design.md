@@ -34,7 +34,7 @@ Vorgänger HikeAI (Sprint 2, Streamlit, `~/projects/HikeAi2`) wurde im Review kr
 - Keine native App (React Native) **[Ali]**.
 - Keine Region außerhalb des Schwarzwalds **[Ali]**.
 - Keine Daten von Komoot, AllTrails oder Booking.com (keine offene Schnittstelle, Scraping widerspricht den Nutzungsbedingungen).
-- Keine Community-Funktionen (Bewertungen anderer, öffentliche Fotos fremder Nutzer). Uploads sind privat **[Claude]**.
+- Keine Community-Funktionen (Bewertungen anderer, öffentliche Fotos fremder Nutzer). Uploads sind privat **[Claude]**. Ausnahme: eine von Hand gepflegte, verlinkte Gruppenliste mit Prüfdatum **[Ali]**.
 
 ## 4. Anti-Ziele (Misserfolg, auch wenn es technisch läuft) [Ali]
 

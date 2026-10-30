@@ -100,6 +100,8 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
       const data = normalizePlan({ ...plan, start_name: s.request?.request.start?.label ?? null })!;
       return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
     }
+    case "groups":
+      return e.groups.length > 0 ? add(s, { kind: "groups", groups: e.groups, note: e.checked_note }) : s;
     case "token": {
       const last = s.items[s.items.length - 1];
       if (last?.kind === "assistant") {
