@@ -80,6 +80,10 @@ body {
   from { transform: translateX(-8%); }
   to { transform: translateX(8%); }
 }
+@keyframes hike-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
 .hike-kenburns {
   animation: hike-kenburns 12s ease-out forwards;
 }
@@ -87,6 +91,12 @@ body {
   animation-name: hike-kenburns, hike-fade;
   animation-timing-function: ease-out, ease-in-out;
   animation-fill-mode: forwards, both;
+}
+.hike-drift {
+  animation: hike-drift 75s linear infinite;
+}
+.hike-drift.hike-drift-back {
+  animation-direction: reverse;
 }
 .hike-fog {
   width: 120%;
@@ -100,7 +110,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hike-kenburns,
   .hike-kenburns.hike-fade-in,
-  .hike-fog {
+  .hike-fog,
+  .hike-drift {
     animation: none;
   }
 }
