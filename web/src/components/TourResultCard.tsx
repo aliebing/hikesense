@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ConstraintResult, Labels, TourCard } from "../lib/chat";
 import { duration } from "../lib/format";
+import { coverOf } from "../lib/chatState";
 import Attribution from "./Attribution";
 
 const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -56,17 +57,7 @@ export default function TourResultCard({
 }) {
   const large = size === "large";
   const name = (ids: string[]) => ids.map((t) => labels[t] ?? t).join(", ");
-  const photo =
-    card.cover_thumb_url && card.cover_author && card.cover_license
-      ? {
-          url: card.cover_thumb_url,
-          thumb_url: card.cover_thumb_url,
-          author: card.cover_author,
-          license: card.cover_license,
-          license_url: card.cover_license_url,
-          page_url: card.cover_page_url,
-        }
-      : null;
+  const photo = coverOf(card);
   const firstViolated = card.results.findIndex((r) => r.ok === false);
   const p = card.preference;
   let time: string | null = null;
@@ -84,6 +75,11 @@ export default function TourResultCard({
         from ? "relative shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl" : ""
       }`}
     >
+      {!photo && large && (
+        <div aria-hidden="true" className="grid h-48 w-full place-items-center rounded-lg wald-verlauf p-3 text-center font-serif text-lg text-papier">
+          {card.name}
+        </div>
+      )}
       {photo && (
         <div className="flex flex-col gap-0.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}

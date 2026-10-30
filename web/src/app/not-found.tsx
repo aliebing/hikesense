@@ -7,7 +7,7 @@ export default function NotFound() {
     <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
       <PhotoSwitcher photos={[]} />
       <Notice title="Diesen Weg gibt es hier nicht.">
-        <p>Vielleicht wurde er (noch) nicht importiert. Zurück zur Übersicht über „Alle Wege“.</p>
+        <p>Vielleicht wurde er (noch) nicht importiert. Zurück zur Startseite.</p>
       </Notice>
     </Panorama>
   );
