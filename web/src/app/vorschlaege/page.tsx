@@ -14,17 +14,20 @@ const MAX_CARDS = 5;
 
 /** Suggestions: understood wishes, the answer sentence, the honest fallback note and large tour cards. */
 export default function Vorschlaege() {
-  const { state } = useChat();
+  const { state, hydrated } = useChat();
   const last = state.last;
   const cards = last?.cards.slice(0, MAX_CARDS) ?? [];
-  const chips = state.request ? chipsFor(state.request.request, state.request.labels) : [];
+  // chips belong to the search that produced these cards, not to a later question
+  const chips = last?.request ? chipsFor(last.request.request, last.request.labels) : [];
 
-  // the last assistant sentence after the last results event, without the fallback sentence
+  // the last assistant sentence between the last results event and the next user turn, without the fallback sentence
   const lastResults = state.items.map((it) => it.kind).lastIndexOf("results");
   let sentence = "";
-  state.items.forEach((it, i) => {
-    if (it.kind === "assistant" && i > lastResults) sentence = withoutFallback(state.items, i, it.text);
-  });
+  for (let i = lastResults + 1; lastResults >= 0 && i < state.items.length; i++) {
+    const it = state.items[i];
+    if (it.kind === "user") break;
+    if (it.kind === "assistant") sentence = withoutFallback(state.items, i, it.text);
+  }
 
   const photos = cards
     .map(coverOf)
@@ -35,7 +38,7 @@ export default function Vorschlaege() {
       <HeroBackdrop photos={photos} />
       <main className="flex flex-1 flex-col gap-5 pb-4">
         <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Vorschläge</h1>
-        {cards.length === 0 ? (
+        {!hydrated ? null : cards.length === 0 ? (
           <div className="flex flex-col items-start gap-3 text-papier">
             <p>Noch keine Vorschläge.</p>
             <Link href="/" className="rounded-full bg-papier px-5 py-2 text-sm font-medium text-wald-dunkel shadow-lg hover:bg-white">
@@ -56,12 +59,12 @@ export default function Vorschlaege() {
                 ))}
               </ul>
             )}
-            {sentence && <p className="max-w-2xl text-lg drop-shadow">{sentence}</p>}
             {last?.fallback && (
               <p role="note" className="max-w-2xl rounded-xl border-l-4 border-amber-500 bg-amber-100 px-4 py-3 text-sm font-medium text-amber-950">
                 {last.fallback}
               </p>
             )}
+            {sentence && <p className="max-w-2xl text-lg drop-shadow">{sentence}</p>}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {cards.map((c) => (
                 <TourResultCard

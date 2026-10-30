@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ChatProvider } from "../../components/ChatProvider";
 import { initialState, saveState } from "../../lib/chatState";
 import type { HikeRequest, TourCard } from "../../lib/chat";
@@ -22,7 +22,7 @@ const seed = (cards: TourCard[], fallback: string | null = null, text = "Hier si
   saveState(sessionStorage, {
     ...initialState("th"),
     request: { request, labels: {} },
-    last: { cards, fallback, runWithoutPace: false, labels: {} },
+    last: { cards, fallback, runWithoutPace: false, labels: {}, request: { request, labels: {} } },
     items: [
       { kind: "user", text: "Rundweg" },
       { kind: "results", cards, fallback, runWithoutPace: false, labels: {} },
@@ -72,4 +72,27 @@ it("chat drawer is present", () => {
   seed([mk(1)]);
   const { container } = show();
   expect(container.querySelector("details > summary")).toHaveTextContent("Chat");
+});
+
+it("keeps the chips and sentence of its own search after a later knowledge question", () => {
+  const cards = [mk(1)];
+  const other = { constraints: [], preferences: [], unmatched: [] } as unknown as HikeRequest;
+  saveState(sessionStorage, {
+    ...initialState("th"),
+    request: { request: other, labels: {} },
+    last: { cards, fallback: null, runWithoutPace: false, labels: {}, request: { request, labels: {} } },
+    items: [
+      { kind: "user", text: "Rundweg" },
+      { kind: "results", cards, fallback: null, runWithoutPace: false, labels: {} },
+      { kind: "assistant", text: "Hier ist eine Tour." },
+      { kind: "user", text: "Wie ist der Westweg markiert?" },
+      { kind: "understood", text: "t", request: other, labels: {} },
+      { kind: "assistant", text: "Der Westweg ist rot markiert." },
+    ],
+  });
+  show();
+  const main = screen.getByRole("main");
+  expect(within(main).getByRole("list", { name: "Erkannte Wünsche" })).toHaveTextContent("Rundweg");
+  expect(main).toHaveTextContent("Hier ist eine Tour.");
+  expect(main).not.toHaveTextContent("Der Westweg ist rot markiert.");
 });

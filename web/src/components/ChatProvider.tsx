@@ -6,9 +6,15 @@ import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, ty
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
-type Chat = { state: ChatState; busy: boolean; send(text: string): Promise<void>; abort(): void };
+type Chat = { state: ChatState; busy: boolean; hydrated: boolean; send(text: string): Promise<void>; abort(): void };
 
 const Ctx = createContext<Chat | null>(null);
+
+/** crypto.randomUUID only exists in secure contexts (not over plain HTTP on the LAN). */
+function newId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+}
 
 const storage = () => {
   try {
@@ -20,7 +26,7 @@ const storage = () => {
 
 /** One conversation per browser tab: shared by all pages, kept in sessionStorage across reloads. */
 export function ChatProvider({ children, apiUrl = API_URL }: { children: React.ReactNode; apiUrl?: string }) {
-  const [state, setState] = useState(() => initialState(crypto.randomUUID()));
+  const [state, setState] = useState(() => initialState(newId()));
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState(false);
   const stateRef = useRef(state);
@@ -31,7 +37,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
 
   // Loaded after mount (not in the initial state) so server and client render the same markup.
   useEffect(() => {
-    setState(loadState(storage(), () => crypto.randomUUID()));
+    setState(loadState(storage(), newId));
     setHydrated(true);
   }, []);
 
@@ -69,7 +75,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
 
   const abort = useCallback(() => ctrl.current?.abort(), []);
 
-  const value = useMemo(() => ({ state, busy, send, abort }), [state, busy, send, abort]);
+  const value = useMemo(() => ({ state, busy, hydrated, send, abort }), [state, busy, hydrated, send, abort]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
