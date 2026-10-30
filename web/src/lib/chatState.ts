@@ -85,6 +85,8 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
       return e.sources.length > 0 ? add(s, { kind: "sources", sources: e.sources }) : s;
     case "error":
       return add(s, { kind: "error", text: e.message });
+    case "auth":
+      return add(s, { kind: "auth" });
     case "done":
       return s;
   }

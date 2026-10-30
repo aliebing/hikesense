@@ -1,12 +1,14 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { getAccessToken } from "../lib/auth";
 import { streamChat } from "../lib/chat";
 import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, type ChatState } from "../lib/chatState";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
-type Chat = { state: ChatState; busy: boolean; hydrated: boolean; send(text: string): Promise<void>; abort(): void };
+type Chat = { state: ChatState; busy: boolean; hydrated: boolean; /** resolves to { auth: true } when the turn ended because the session is missing or expired */
+  send(text: string): Promise<{ auth: boolean }>; abort(): void };
 
 const Ctx = createContext<Chat | null>(null);
 
@@ -57,18 +59,31 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
   const send = useCallback(
     async (message: string) => {
       const m = message.trim();
-      if (!m || busyRef.current) return;
+      if (!m || busyRef.current) return { auth: false };
       busyRef.current = true;
       setBusy(true);
       setState((s) => addUser(s, m));
       const c = new AbortController();
       ctrl.current = c;
-      await streamChat(apiUrl, stateRef.current.threadId, m, (e) => setState((s) => reduceEvent(s, e)), c.signal);
+      let auth = false;
+      const token = await getAccessToken();
+      await streamChat(
+        apiUrl,
+        stateRef.current.threadId,
+        m,
+        (e) => {
+          if (e.type === "auth") auth = true;
+          setState((s) => reduceEvent(s, e));
+        },
+        c.signal,
+        token,
+      );
       ctrl.current = null;
-      if (unmounted.current) return;
+      if (unmounted.current) return { auth };
       if (c.signal.aborted) setState((s) => addNotice(s, "Abgebrochen."));
       busyRef.current = false;
       setBusy(false);
+      return { auth };
     },
     [apiUrl],
   );

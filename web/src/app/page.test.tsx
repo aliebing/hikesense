@@ -10,6 +10,14 @@ vi.mock("../lib/data", async (importOriginal) => {
 
 import Home from "./page";
 
+const auth = vi.hoisted(() => ({ session: { access_token: "tok", user: { email: "a@b.de" } } as object | null }));
+vi.mock("../lib/auth", async (orig) => ({
+  ...(await orig<typeof import("../lib/auth")>()),
+  useSession: () => ({ session: auth.session, loading: false }),
+  getAccessToken: async () => (auth.session ? "tok" : null),
+}));
+
+
 const trail = (id: string, kind: TrailSummary["kind"], lat: number): TrailSummary => ({
   id,
   name: `Weg ${id}`,

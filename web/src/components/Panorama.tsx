@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AccountMenu from "./AccountMenu";
 
 /** Page frame: header with logo, optional „Fernwege“ menu and back link; content on top of the backdrop. */
 export default function Panorama({
@@ -31,6 +32,7 @@ export default function Panorama({
               </ul>
             </details>
           )}
+          <AccountMenu />
           {back && (
             <Link href={back.href} className="underline-offset-4 hover:underline">
               {back.label}

@@ -72,12 +72,18 @@ export type ChatEvent =
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** 401 from /chat: no or expired session */
+  | { type: "auth"; message: string };
 
 export const ERROR_INTERRUPTED = "Die Antwort wurde unterbrochen. Bitte stelle die Frage noch einmal.";
 
 export const ERROR_REJECTED =
   "Die Nachricht konnte nicht verarbeitet werden. Bitte formuliere sie neu oder kürzer.";
+
+export const ERROR_AUTH = "Sitzung abgelaufen – bitte erneut anmelden";
+
+export const ERROR_AUTH_UNAVAILABLE = "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.";
 
 export const ERROR_UNREACHABLE =
   "Der Planungs-Dienst ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.";
@@ -118,14 +124,22 @@ export async function streamChat(
   message: string,
   onEvent: (e: ChatEvent) => void,
   signal?: AbortSignal,
+  accessToken?: string | null,
 ): Promise<void> {
   try {
     const res = await fetch(`${apiUrl}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({ thread_id: threadId, message }),
       signal,
     });
+    // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
+    if (res.status === 401) return onEvent({ type: "auth", message: ERROR_AUTH });
+    if (res.status === 503) return onEvent({ type: "error", message: ERROR_AUTH_UNAVAILABLE });
     // a rejected request (e.g. 422, 413) answers with JSON, not with events
     const rejected = res.status >= 400 && res.status < 500 ? ERROR_REJECTED : ERROR_UNREACHABLE;
     if (!res.body) {

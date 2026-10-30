@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Constraint, HikeRequest, Labels, SourceBrief, TourCard } from "../lib/chat";
 
 export type ChatItem =
@@ -8,7 +9,8 @@ export type ChatItem =
   | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels }
   | { kind: "sources"; sources: SourceBrief[] }
   | { kind: "notice"; text: string }
-  | { kind: "error"; text: string };
+  | { kind: "error"; text: string }
+  | { kind: "auth" };
 
 const num = (n: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(n);
 
@@ -162,6 +164,14 @@ export default function ChatMessages({
           {it.kind === "error" && (
             <p role="alert" className={`${bubble} bg-red-100 text-red-900`}>
               {it.text}
+            </p>
+          )}
+          {it.kind === "auth" && (
+            <p role="alert" className={`${bubble} bg-red-100 text-red-900`}>
+              Sitzung abgelaufen – bitte erneut anmelden.{" "}
+              <Link href="/anmelden" className="underline">
+                Anmelden
+              </Link>
             </p>
           )}
         </li>

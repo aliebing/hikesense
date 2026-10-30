@@ -3,6 +3,14 @@ import userEvent from "@testing-library/user-event";
 import ChatShell from "./ChatShell";
 import { ChatProvider } from "./ChatProvider";
 
+const auth = vi.hoisted(() => ({ session: { access_token: "tok", user: { email: "a@b.de" } } as object | null }));
+vi.mock("../lib/auth", async (orig) => ({
+  ...(await orig<typeof import("../lib/auth")>()),
+  useSession: () => ({ session: auth.session, loading: false }),
+  getAccessToken: async () => (auth.session ? "tok" : null),
+}));
+
+
 const renderChat = () =>
   render(
     <ChatProvider apiUrl="http://api">
@@ -265,4 +273,45 @@ it("flags a source without name and URL instead of 'unbekannt'; same id twice is
   expect(list).not.toHaveTextContent("unbekannt");
   expect(errors).not.toHaveBeenCalled();
   errors.mockRestore();
+});
+
+it("shows login hint without session", () => {
+  auth.session = null;
+  try {
+    renderChat();
+    expect(screen.getByText(/Zum Planen bitte/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "anmelden" })).toHaveAttribute("href", "/anmelden");
+    expect(screen.queryByLabelText("Nachricht")).toBeNull();
+  } finally {
+    auth.session = { access_token: "tok", user: { email: "a@b.de" } };
+  }
+});
+
+it("sends bearer token", async () => {
+  mockStream(sse([{ type: "token", text: "ok" }, DONE]));
+  renderChat();
+  await ask();
+  await screen.findByText("ok");
+  const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+  expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+});
+
+it("shows re-login on 401 and keeps the draft", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: "Sitzung abgelaufen – bitte erneut anmelden." }), { status: 401 })),
+  );
+  renderChat();
+  await ask("Feldberg bitte");
+  expect(await screen.findByText(/Sitzung abgelaufen – bitte erneut anmelden/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/anmelden");
+  await waitFor(() => expect(screen.getByLabelText("Nachricht")).toHaveValue("Feldberg bitte"));
+});
+
+it("a 503 is an error, not a re-login", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 503 })));
+  renderChat();
+  await ask();
+  expect(await screen.findByText(/Anmeldung kann gerade nicht geprüft werden/)).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Anmelden" })).toBeNull();
 });

@@ -10,6 +10,14 @@ import TourResultCard from "../components/TourResultCard";
 import streams from "./__fixtures__/chat-streams.json";
 import { parseSse, type ChatEvent } from "./chat";
 
+const auth = vi.hoisted(() => ({ session: { access_token: "tok", user: { email: "a@b.de" } } as object | null }));
+vi.mock("./auth", async (orig) => ({
+  ...(await orig<typeof import("./auth")>()),
+  useSession: () => ({ session: auth.session, loading: false }),
+  getAccessToken: async () => (auth.session ? "tok" : null),
+}));
+
+
 const events = (name: keyof typeof streams): ChatEvent[] => parseSse(streams[name], "").events;
 
 function mockStream(body: string) {

@@ -1,18 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useSession } from "../lib/auth";
 import ChatMessages from "./ChatMessages";
 import { useChat } from "./ChatProvider";
 
 /** Planning chat: the conversation lives in ChatProvider; this is one view of it. */
 export default function ChatShell({ intro, variant = "stage" }: { intro: string; variant?: "stage" | "drawer" }) {
   const { state, busy, send, abort } = useChat();
+  const { session, loading } = useSession();
   const [text, setText] = useState("");
 
   const submit = (m: string) => {
     if (!m.trim() || busy) return;
     setText("");
-    void send(m);
+    // an expired session keeps the typed message in the field for after the re-login
+    void send(m).then((r) => r.auth && setText((t) => t || m));
   };
 
   const body = (
@@ -31,6 +35,14 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           </button>
         </p>
       )}
+      {loading ? null : !session ? (
+        <p className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
+          Zum Planen bitte{" "}
+          <Link href="/anmelden" className="underline">
+            anmelden
+          </Link>
+        </p>
+      ) : (
       <form
         className="flex gap-2"
         onSubmit={(ev) => {
@@ -55,6 +67,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           Senden
         </button>
       </form>
+      )}
     </>
   );
 
