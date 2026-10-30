@@ -19,7 +19,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
   } catch (e) {
     console.error(`getTrail(${trailId}) failed:`, e);
     return (
-      <Panorama back>
+      <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
         <PhotoSwitcher photos={[]} />
         <Notice title="Daten konnten nicht geladen werden.">
           <p>Die Datenbank ist nicht erreichbar oder nicht konfiguriert. Bitte später erneut versuchen.</p>
@@ -49,7 +49,7 @@ export default async function TrailPage({ params }: { params: Promise<{ trailId:
   if (time) meta.push(time);
 
   return (
-    <Panorama back>
+    <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
       <section>
         <h1 className="font-serif text-3xl leading-tight drop-shadow-md sm:text-5xl">{trail.name}</h1>
         <Facts items={meta} className="mt-1 text-sm text-papier/90 drop-shadow" />

@@ -19,6 +19,7 @@ export default function HeroBackdrop({ photos, intervalMs = 9000 }: { photos: Ph
   const current = usable.length ? usable[index % usable.length] : null;
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReduced(mq.matches);
     const onChange = () => setReduced(mq.matches);

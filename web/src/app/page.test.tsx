@@ -46,15 +46,25 @@ test("home explains an empty database", async () => {
   expect(screen.getByText(/Noch keine Wege/)).toBeInTheDocument();
 });
 
-test("home lists long-distance trails and day hikes with attribution", async () => {
+test("renders chat and tile rows", async () => {
+  mockGetTrails.mockResolvedValue([
+    trail("westweg-west", "long_distance", 48.5),
+    trail("day-1", "day_hike", 48.1),
+  ]);
+  const { container } = render(<ChatProvider>{await Home()}</ChatProvider>);
+  expect(screen.getByRole("textbox")).toBeInTheDocument();
+  expect(container.querySelectorAll("li").length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: "Bildnachweise" })).toBeInTheDocument();
+});
+
+test("menu lists long-distance trails", async () => {
   mockGetTrails.mockResolvedValue([
     trail("westweg-west", "long_distance", 48.5),
     trail("day-1", "day_hike", 48.1),
   ]);
   render(<ChatProvider>{await Home()}</ChatProvider>);
-  expect(screen.getByRole("link", { name: /Weg westweg-west/ })).toHaveAttribute("href", "/t/westweg-west");
-  expect(screen.getByRole("link", { name: /Weg day-1/ })).toHaveAttribute("href", "/t/day-1");
-  expect(screen.getAllByText(/Autor day-1/).length).toBeGreaterThan(0);
+  expect(screen.getByText("Fernwege")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Weg westweg-west", hidden: true })).toHaveAttribute("href", "/t/westweg-west");
 });
 
 test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
@@ -63,11 +73,4 @@ test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
   expect(screen.getByRole("contentinfo")).toHaveTextContent(
     "Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA",
   );
-});
-
-test("home counts only day hikes that have a photo", async () => {
-  const noPhoto = { ...trail("day-2", "day_hike", 48.2), cover: null };
-  mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1), noPhoto]);
-  render(<ChatProvider>{await Home()}</ChatProvider>);
-  expect(screen.getByText(/1 von 1 Tagestouren mit Foto/)).toBeInTheDocument();
 });

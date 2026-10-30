@@ -1,14 +1,15 @@
-import ChatShell from "../components/ChatShell";
+import HeroBackdrop from "../components/HeroBackdrop";
+import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import Panorama from "../components/Panorama";
 import PhotoSwitcher from "../components/PhotoSwitcher";
-import { CardRow, TrailCard } from "../components/StageCards";
-import { getTrails, photoPool, pickSpread, type Photo, type TrailSummary } from "../lib/data";
+import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-const DAY_HIKE_SELECTION = 12;
+const POOL_SIZE = 24;
+const BACKDROP_SIZE = 8;
 
 export default async function Home() {
   let trails: TrailSummary[];
@@ -47,60 +48,18 @@ export default async function Home() {
   }
 
   const longDistance = trails.filter((t) => t.kind === "long_distance");
-  const withPhoto = photoPool(trails).length;
-  const selection = pickSpread(trails, DAY_HIKE_SELECTION);
-  const backgrounds = [...longDistance, ...selection]
+  const pool = pickSpread(trails, POOL_SIZE);
+  const backgrounds = [...longDistance, ...pickSpread(trails, BACKDROP_SIZE)]
     .map((t) => t.cover)
     .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
 
   return (
-    <Panorama>
-      <section className="max-w-2xl pt-6 sm:pt-12">
-        <h1 className="font-serif text-4xl leading-tight drop-shadow-md sm:text-6xl">Wandern im Schwarzwald</h1>
-        <p className="mt-3 max-w-lg text-base text-papier/90 drop-shadow sm:text-lg">
-          Westweg-Etappen und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.
-        </p>
-      </section>
-
-      <ChatShell intro="Hallo! Beschreibe deine Tagestour – zum Beispiel „Rundweg ab Hinterzarten, 10 bis 15 km, wenig Höhenmeter, mit Aussicht“. Oder wähle unten einen Weg." />
-
-      <div className="flex-1" />
-
-      <div className="flex justify-end">
-        <PhotoSwitcher photos={backgrounds} />
-      </div>
-
-      <section aria-labelledby="fernwege" className="flex flex-col gap-2">
-        <h2 id="fernwege" className="font-serif text-xl drop-shadow">Fernwege</h2>
-        <CardRow label="Fernwege">
-          {longDistance.map((t) => (
-            <li key={t.id}>
-              <TrailCard trail={t} />
-            </li>
-          ))}
-        </CardRow>
-      </section>
-
-      <section aria-labelledby="tagestouren" className="flex flex-col gap-2">
-        <h2 id="tagestouren" className="font-serif text-xl drop-shadow">
-          Tagestouren – eine Auswahl
-        </h2>
-        <p className="text-xs text-papier/80">
-          {selection.length} von {withPhoto} Tagestouren mit Foto, von Nord nach Süd verteilt.
-        </p>
-        <CardRow label="Tagestouren">
-          {selection.map((t) => (
-            <li key={t.id}>
-              <TrailCard trail={t} />
-            </li>
-          ))}
-        </CardRow>
-      </section>
-
+    <Panorama longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
+      <HeroBackdrop photos={backgrounds} />
+      <HomeStage pool={pool} />
       <footer className="text-[11px] text-papier/75">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
-        von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am
-        Bild.
+        von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, siehe Bildnachweise.
       </footer>
     </Panorama>
   );

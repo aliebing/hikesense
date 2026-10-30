@@ -53,12 +53,8 @@ function TileView({ tile, copy }: { tile: Tile; copy: 0 | 1 }) {
   );
 }
 
-/**
- * Drifting rows of tour tiles behind the chat. Tiles are pale and not clickable until the chat's
- * last result list contains them; those turn clear and link to /t/<id>. Below `sm` there is one
- * row with the matches first.
- */
-export default function TileRows({ pool, matches }: { pool: TrailSummary[]; matches: TourCard[] }) {
+/** True below `sm`, where there is one row with the matches first. */
+export function useNarrow(): boolean {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
@@ -68,12 +64,24 @@ export default function TileRows({ pool, matches }: { pool: TrailSummary[]; matc
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+  return narrow;
+}
 
-  const rows = useMemo(() => {
-    if (!narrow) return arrangeTiles(pool, matches, ROWS, PER_ROW);
-    const [row = []] = arrangeTiles(pool, matches, 1, PER_ROW * 2);
-    return [[...row.filter((t) => t.match), ...row.filter((t) => !t.match)]];
-  }, [pool, matches, narrow]);
+/** The rows TileRows shows; also used to list exactly these photos in the credits. */
+export function layoutTiles(pool: TrailSummary[], matches: TourCard[], narrow: boolean): Tile[][] {
+  if (!narrow) return arrangeTiles(pool, matches, ROWS, PER_ROW);
+  const [row = []] = arrangeTiles(pool, matches, 1, PER_ROW * 2);
+  return [[...row.filter((t) => t.match), ...row.filter((t) => !t.match)]];
+}
+
+/**
+ * Drifting rows of tour tiles behind the chat. Tiles are pale and not clickable until the chat's
+ * last result list contains them; those turn clear and link to /t/<id>. Below `sm` there is one
+ * row with the matches first.
+ */
+export default function TileRows({ pool, matches }: { pool: TrailSummary[]; matches: TourCard[] }) {
+  const narrow = useNarrow();
+  const rows = useMemo(() => layoutTiles(pool, matches, narrow), [pool, matches, narrow]);
 
   return (
     <div className="grid gap-3 overflow-hidden">
