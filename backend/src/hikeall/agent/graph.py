@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from functools import cached_property
 from typing import Any, Literal, TypedDict
 
@@ -323,7 +324,9 @@ def _emit(event: ChatEvent) -> None:
 
 
 def _de(x: float, decimals: int = 1) -> str:
-    s = f"{round(x, decimals):.{decimals}f}"
+    # half-up on the decimal text, like the grounding check (round(4.35, 1) would give 4.3)
+    q = Decimal(str(x)).quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
+    s = f"{q:.{decimals}f}"
     if "." in s:
         s = s.rstrip("0").removesuffix(".")
     return s.replace(".", ",")

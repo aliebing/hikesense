@@ -233,3 +233,19 @@ def test_ranges_and_compounds_keep_working_with_signs():
     assert grounding_check("10 - 14 km", known).unsupported == []
     assert grounding_check("eine 3-Tage-Tour über 3 km", known).unsupported == []
     assert grounding_check("-3 bis 4 °C", Evidence(numbers=["-3 °C", "4 °C"])).unsupported == []
+
+
+# --- plan 3, task 13: the numbers the code shows the model must pass the check ------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "unit"), [(4.35, "h"), (15.05, "km"), (-4.35, "°C"), (2.25, "h")]
+)
+def test_numbers_formatted_for_the_model_are_supported(value, unit):
+    """Smoke case 8: the plan line said "Gehzeit 4,3 h" (float rounding of 4.35) while the
+    evidence 4,35 h rounds half-up to 4,4 – the model's faithful copy was replaced by "?"."""
+    from hikeall.agent.graph import _de
+
+    ev = Evidence()
+    ev.add(value, unit)
+    assert grounding_check(f"Es sind {_de(value)} {unit}.", ev).unsupported == []
