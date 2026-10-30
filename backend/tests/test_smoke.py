@@ -577,3 +577,9 @@ def test_smoke_cmd_checks_the_token_like_chat(monkeypatch, capsys):
     monkeypatch.setattr(sm, "sign_in", lambda http, settings: token)
     assert cli.smoke_cmd() == 0
     assert called[0]["user_hash"] == hash_user("user-1")
+
+
+def test_sign_in_with_a_non_json_body_is_an_auth_error(respx_mock):
+    respx_mock.post(f"{AUTH}/token").mock(return_value=httpx.Response(200, text="<html>502</html>"))
+    with httpx.Client() as http, pytest.raises(sm.SmokeAuthError, match="make smoke-user"):
+        sm.sign_in(http, auth_settings())

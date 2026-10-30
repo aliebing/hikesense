@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from hikeall.agent.request import Constraint, HikeRequest, Preference
 from hikeall.hiking_time import din33466
+from hikeall.numfmt import de
 
 MAX_MATCHES = 5
 _LABEL = {
@@ -71,10 +72,7 @@ class Selection:
 
 
 def _num(x: float, decimals: int = 1) -> str:
-    s = f"{round(x, decimals):.{decimals}f}"
-    if "." in s:
-        s = s.rstrip("0").removesuffix(".")
-    return s.replace(".", ",")
+    return de(x, decimals)  # half-up, like the grounding check
 
 
 def _num_distinct(actual: float, bound: float | None) -> str:

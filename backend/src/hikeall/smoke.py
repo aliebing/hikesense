@@ -405,7 +405,11 @@ def _auth_call(http: httpx.Client, settings: Settings, path: str, **params: str)
 def sign_in(http: httpx.Client, settings: Settings) -> str:
     """Access token of the smoke user (password grant)."""
     r = _auth_call(http, settings, "token", grant_type="password")
-    token = r.json().get("access_token") if r.status_code == 200 else None
+    try:
+        data = r.json() if r.status_code == 200 else None
+    except ValueError:  # e.g. an HTML error page from a proxy
+        data = None
+    token = data.get("access_token") if isinstance(data, dict) else None
     if not isinstance(token, str) or not token:
         raise SmokeAuthError(
             f"Anmeldung als {SMOKE_EMAIL} fehlgeschlagen (HTTP {r.status_code}) – "

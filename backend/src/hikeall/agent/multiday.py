@@ -20,6 +20,7 @@ import psycopg
 from pydantic import BaseModel
 
 from hikeall.hiking_time import din33466
+from hikeall.numfmt import de, round_half_up
 
 NEAR_M = 1000
 FAR_M = 2000
@@ -92,9 +93,8 @@ class RainVariant(BaseModel):
 
 
 def _fmt(x: float) -> str:
-    """German number: one decimal with comma, without a trailing ',0'."""
-    s = f"{x:.1f}".replace(".", ",")
-    return s.removesuffix(",0")
+    """German number: one decimal with comma, without a trailing ',0' (half-up, see numfmt)."""
+    return de(x, 1)
 
 
 def _access(stop: Stop | None) -> float:
@@ -180,7 +180,7 @@ def _notes(
         n = len(days)
         notes.append(
             f"Ab {start_name or 'km ' + _fmt(start)} bleiben {_fmt(rest)} km bis "
-            f"{end_name or 'zum Wegende'} – {n} Tag(e) bei ~{round(rest / n)} km"
+            f"{end_name or 'zum Wegende'} – {n} Tag(e) bei ~{round_half_up(rest / n)} km"
         )
     for d in days:
         if d.stop is not None and d.stop.dist_m > NEAR_M:

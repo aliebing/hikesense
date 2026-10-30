@@ -264,6 +264,13 @@ def test_wikivoyage_noise_removed_from_real_excerpt():
             "Flughafen (IATA: FRA) nördlich.",
         ),
         ("Ruf an: +49 7652 382 oder komm vorbei.", "Ruf an: oder komm vorbei."),
+        ("Hütte. Tel. 07652 382, sonst Fax: 07652 383.", "Hütte. sonst."),
+        ("Info +41 61 6814344 am Tor.", "Info am Tor."),
+        # legitimate numbers stay: signed differences and plain counts are no phone numbers
+        ("Aufstieg +200 Hm, Abstieg +350 m.", "Aufstieg +200 Hm, Abstieg +350 m."),
+        ("Heute +15 km mehr als gestern.", "Heute +15 km mehr als gestern."),
+        ("Mobil 2000 Stück verkauft.", "Mobil 2000 Stück verkauft."),
+        ("Tel. 2 Minuten entfernt.", "Tel. 2 Minuten entfernt."),
         (
             "Die Mobilität ist gut, 4,5 km und 1.200 Hm.",
             "Die Mobilität ist gut, 4,5 km und 1.200 Hm.",

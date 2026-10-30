@@ -35,9 +35,11 @@ _WV_NOISE = [
     re.compile(rf"(?<![\d.]){_LAT}\s*,\s*{_LON}(?!\d)"),  # "47.9, 8.1"
     re.compile(rf"(?<![\d.]){_LAT}{_LON}(?!\d)"),  # lat and lon glued together
     re.compile(r"\b(?:lat|long|lon)\s*=\s*-?[\d.]+"),
-    re.compile(r"\b(?:Tel\.|Telefon|Fax|Mobil)\s*:?\s*\+?[\d\s()/-]*\d"),
+    # after a label only a phone-like number (+CC or a leading 0), not "Mobil 2000 Stück"
+    re.compile(r"\b(?:Tel\.|Telefon|Fax|Mobil)\s*:?\s*(?:\+\d{2}|0\d)[\d\s()/-]*\d"),
     re.compile(r"\bE-Mail\s*:?\s*[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),
-    re.compile(r"\+\d{2}\s*(?:\(0\))?[\d\s/-]*\d"),  # a bare international number
+    # a bare international number: a real country prefix, not "+200 Hm" or "+15 km"
+    re.compile(r"(?<![\w+])\+(?:49|41|43|33|39)(?=[\s(])\s*(?:\(0\))?[\d\s/-]*\d"),
     re.compile(r"\d+\u200b"),  # listing marker "4\u200b"
     re.compile(r"\u200b"),
 ]
