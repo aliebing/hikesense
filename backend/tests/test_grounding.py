@@ -213,3 +213,23 @@ def test_weather_units_and_clock_times_are_checked():
     )
     assert g.unsupported == ["2 Grad", "12 mm", "15 Uhr"]
     assert "Bis 11 °C, 85 % Regen, 7,5 mm, an um 13:30 Uhr" in g.text
+
+
+def test_minus_sign_is_part_of_the_number():
+    ev = Evidence()
+    ev.add(-3.0, "°C")
+    ev.add(4.0, "°C")
+    g = grounding_check("Tiefstwert 3 °C, höchstens 4 °C, nachts -3 °C, früh −3 °C.", ev)
+    assert g.unsupported == ["3 °C"]
+    assert g.text.startswith("Tiefstwert ? °C, höchstens 4 °C, nachts -3 °C, früh −3 °C.")
+    assert grounding_check("Tiefstwert −3 °C", Evidence(numbers=["-3 °C"])).unsupported == []
+    assert grounding_check("Tiefstwert -3 °C", Evidence(numbers=["3 °C"])).unsupported == ["-3 °C"]
+
+
+def test_ranges_and_compounds_keep_working_with_signs():
+    known = Evidence(numbers=["10 km", "14 km", "3 km"])
+    assert grounding_check("10–14 km", known).unsupported == []
+    assert grounding_check("10-14 km", known).unsupported == []
+    assert grounding_check("10 - 14 km", known).unsupported == []
+    assert grounding_check("eine 3-Tage-Tour über 3 km", known).unsupported == []
+    assert grounding_check("-3 bis 4 °C", Evidence(numbers=["-3 °C", "4 °C"])).unsupported == []

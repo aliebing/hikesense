@@ -76,36 +76,53 @@ class OpenMeteoClient:
         self._backoff_s = backoff_s
 
     def daily(self, lat: float, lon: float, start: date, end: date) -> list[DayWeather]:
+        return self.daily_many([(lat, lon)], start, end)[0]
+
+    def daily_many(
+        self, points: list[tuple[float, float]], start: date, end: date
+    ) -> list[list[DayWeather]]:
+        """Daily weather for several locations in ONE request (Open-Meteo takes comma-separated
+        coordinates and answers with a list, one entry per location, in the same order)."""
+        if not points:
+            return []
         data = request_json(
             self._http, "GET", FORECAST_URL, error_cls=WeatherUnavailable,
             params={
-                "latitude": lat, "longitude": lon, "daily": DAILY_FIELDS,
-                "timezone": "Europe/Berlin",
+                "latitude": ",".join(f"{lat:.5f}" for lat, _ in points),
+                "longitude": ",".join(f"{lon:.5f}" for _, lon in points),
+                "daily": DAILY_FIELDS, "timezone": "Europe/Berlin",
                 "start_date": start.isoformat(), "end_date": end.isoformat(),
             },
             retries=2, backoff_s=self._backoff_s, rate_limit_wait_s=5.0,
         )
-        try:
-            daily = data["daily"]
-            times = daily["time"]
-        except (KeyError, TypeError) as exc:
-            raise WeatherUnavailable("unexpected forecast format") from exc
+        entries = data if isinstance(data, list) else [data]
+        if len(entries) != len(points):
+            raise WeatherUnavailable("unexpected forecast format")
+        return [_parse_daily(entry) for entry in entries]
 
-        def value(key: str, i: int):
-            values = daily.get(key) or []
-            return values[i] if i < len(values) else None
 
-        result = []
-        try:
-            for i, day in enumerate(times):
-                code = value("weather_code", i)
-                code = int(code) if code is not None else None
-                result.append(DayWeather(
-                    date=date.fromisoformat(day), code=code, text=weather_text(code),
-                    t_min_c=value("temperature_2m_min", i), t_max_c=value("temperature_2m_max", i),
-                    precip_mm=value("precipitation_sum", i),
-                    precip_prob_pct=value("precipitation_probability_max", i),
-                ))
-        except (TypeError, ValueError) as exc:
-            raise WeatherUnavailable("unexpected forecast format") from exc
-        return result
+def _parse_daily(data: object) -> list[DayWeather]:
+    try:
+        daily = data["daily"]  # type: ignore[index]
+        times = daily["time"]
+    except (KeyError, TypeError) as exc:
+        raise WeatherUnavailable("unexpected forecast format") from exc
+
+    def value(key: str, i: int):
+        values = daily.get(key) or []
+        return values[i] if i < len(values) else None
+
+    result = []
+    try:
+        for i, day in enumerate(times):
+            code = value("weather_code", i)
+            code = int(code) if code is not None else None
+            result.append(DayWeather(
+                date=date.fromisoformat(day), code=code, text=weather_text(code),
+                t_min_c=value("temperature_2m_min", i), t_max_c=value("temperature_2m_max", i),
+                precip_mm=value("precipitation_sum", i),
+                precip_prob_pct=value("precipitation_probability_max", i),
+            ))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise WeatherUnavailable("unexpected forecast format") from exc
+    return result

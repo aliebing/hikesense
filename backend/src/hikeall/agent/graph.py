@@ -64,13 +64,14 @@ from hikeall.agent.prompts import (
     TOOL_UNKNOWN,
     TRAIL_NOT_FOUND,
 )
-from hikeall.agent.request import Clarify, Constraint, HikeRequest, RawRequest
+from hikeall.agent.request import MAX_DAYS, Clarify, Constraint, HikeRequest, RawRequest
 from hikeall.agent.tools import (
     TOOL_SPECS,
     AgentTools,
     KnowledgeHit,
     LodgingBrief,
     SourceBrief,
+    StartNotOnTrail,
     TrailDetails,
 )
 from hikeall.agent.understand import DAYS_QUESTION, echo, parse, resolve, resolve_option
@@ -81,7 +82,7 @@ from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY, leaks_system_prompt, looks_like_injection, sanitize_text
 from hikeall.llm.gateway import LLMGateway
 from hikeall.llm.usage import BudgetExceeded, LLMError, LLMUsage, metered
-from hikeall.tags.vocabulary import TagVocabulary
+from hikeall.tags.vocabulary import TagVocabulary, fold
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +106,17 @@ TOUR_INTENTS = ("day_hike", "change")
 _PROMPTS = (ANSWER_SYSTEM, PLAN_SYSTEM, REACT_SYSTEM, UNDERSTAND_SYSTEM)
 _CHUNK = re.compile(r"\S+\s*|\s+")
 _RAIN_ASK = re.compile(r"regen\s?variante", re.IGNORECASE)
-_RAIN_DAY = re.compile(r"\btag\s*(\d{1,2})\b", re.IGNORECASE)
+_RAIN_DAYS = re.compile(
+    r"\btag(?:e|en)?\s*(\d{1,2}(?:\s*(?:,|und|&|bis|–|-)\s*\d{1,2})*)", re.IGNORECASE
+)
+_DAY_NUMS = re.compile(r"(\d{1,2})(?:\s*(bis|–|-)\s*(\d{1,2}))?")
+# a fresh request, not a follow-up on the stored plan: "3 Tage", "ab Hinterzarten", "Westweg"
+_DAYS_PHRASE = re.compile(
+    r"\b(?:\d+|ein|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf|dreizehn|vierzehn)"
+    r"\s*-?\s*(?:tage|tagen|tägig|tagig|tagestour)\b",
+    re.IGNORECASE,
+)
+_NEW_START = re.compile(r"\b(?:ab|von|in|nach|bei|[Ss]tart(?:ort)?)\s+[A-ZÄÖÜ]")
 _SOON = {"events": EVENTS_SOON, "groups": GROUPS_SOON}  # their nodes come with tasks 11/12
 _WEEKDAY = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 _LABEL = {
@@ -229,7 +240,8 @@ class State(TypedDict, total=False):
     reply: str | None
     reason: str | None
     prefix: str | None  # code-written lines put before the answer verbatim (multi-day notes)
-    rain_day: int | None  # "Regenvariante für Tag 2" on the stored plan
+    plan_request: dict | None  # the request behind `plan` (its start), persists per thread
+    rain_days: list[int] | None  # "Regenvariante für Tag 2 und 3" on the stored plan
     data: str | None
     system: str | None  # answer prompt for `data` (None: ANSWER_SYSTEM)
     draft: str | None
@@ -253,7 +265,7 @@ def _turn(message: str) -> State:
         reply=None,
         reason=None,
         prefix=None,
-        rain_day=None,
+        rain_days=None,
         data=None,
         system=None,
         draft=None,
@@ -403,10 +415,12 @@ def _plan_prefix(
     plan: MultidayPlan,
     weather: dict[int, DayWeather | NoForecast],
     rain: dict[int, RainVariant | None],
+    lead: list[str] | None = None,
 ) -> str:
     """What the code says before the model: gaps, access paths, trail end, missing forecasts,
     missing rain variants and that times are without breaks (spec §8)."""
-    lines = [f"Tag {d.day}: {d.gap}" for d in plan.days if d.gap]
+    lines = list(lead or [])
+    lines += [f"Tag {d.day}: {d.gap}" for d in plan.days if d.gap]
     lines += plan.notes
     if plan.days and plan.days[0].date is None:
         lines.append("Wetter: ohne Datum keine Vorhersage")
@@ -419,6 +433,15 @@ def _plan_prefix(
     if plan.days:
         lines.append("Alle Zeiten ohne Pausen (Gehzeit nach DIN 33466)")
     return "\n".join(dict.fromkeys(_sentence(x) for x in lines))
+
+
+def _days_text(days: list[int]) -> str:
+    """ "Tag 3", "Tag 1–4" (consecutive), "Tag 1, 3 und 5"."""
+    if len(days) == 1:
+        return f"Tag {days[0]}"
+    if days == list(range(days[0], days[-1] + 1)):
+        return f"Tag {days[0]}–{days[-1]}"
+    return "Tag " + ", ".join(map(str, days[:-1])) + f" und {days[-1]}"
 
 
 def _clock(t: Any) -> str:
@@ -527,6 +550,7 @@ def _plan_evidence(
             ev.add(v.walk_km, "km")
             ev.add(v.ascent_m, "Hm")
             ev.add(v.duration_h, "h")
+            ev.numbers.append(v.note)
     ev.numbers += plan.notes
 
 
@@ -697,24 +721,44 @@ def build_graph(deps: AgentDeps) -> Any:
         combined = f"{pending['message']}\nRückfrage: {pending['question']}\nAntwort: {message}"
         return None, None, combined
 
-    def _rain_request(state: State) -> int | None:
-        """ "Regenvariante für Tag 2" on the thread's last plan: answered without the model."""
+    trail_terms = [
+        fold(x) for t in vocab.all() if t.category == "trail" for x in (t.label, *t.synonyms)
+    ]
+
+    def _rain_request(state: State) -> list[int] | None:
+        """ "Regenvariante für Tag 2 (und 3)" as a short follow-up on the thread's last plan:
+        answered without the model. Anything that names a trail, a day count or a start place
+        is a new request and goes through parse."""
         message = state["message"]
-        if not state.get("plan") or not state.get("request") or not _RAIN_ASK.search(message):
+        if not state.get("plan") or not state.get("plan_request") or not _RAIN_ASK.search(message):
             return None
-        m = _RAIN_DAY.search(message)
-        return int(m.group(1)) if m else None
+        folded = f" {fold(message)} "
+        if (
+            "fernweg" in folded
+            or any(term in folded for term in trail_terms)
+            or _DAYS_PHRASE.search(message)
+            or _NEW_START.search(message)
+        ):
+            return None
+        m = _RAIN_DAYS.search(message)
+        if not m:
+            return None
+        days: list[int] = []
+        for a, dash, b in _DAY_NUMS.findall(m.group(1)):
+            days += list(range(int(a), int(b) + 1)) if dash else [int(a)]
+        return list(dict.fromkeys(days))[:MAX_DAYS]
 
     def understand(state: State) -> State:
         message = state["message"]
         previous = HikeRequest.model_validate(state["request"]) if state.get("request") else None
-        rain_day = None if state.get("pending") else _rain_request(state)
-        if rain_day is not None:
+        rain_days = None if state.get("pending") else _rain_request(state)
+        if rain_days:
+            plan_req = state["plan_request"]
             return {
                 "intent": "multiday",
-                "activity": previous.activity if previous else None,
-                "current": state["request"],
-                "rain_day": rain_day,
+                "activity": (plan_req or {}).get("activity"),
+                "current": plan_req,
+                "rain_days": rain_days,
                 "route": "multiday",
             }
         raw, res, base = None, None, message
@@ -749,7 +793,13 @@ def build_graph(deps: AgentDeps) -> Any:
         if req.trail_id is not None and req.intent in ("multiday", "change"):
             return out | {"request": out["current"], "route": "multiday"}
         if req.intent in TOUR_INTENTS:
-            return out | {"request": out["current"], "route": "search"}
+            # a day-hike search ends the multi-day conversation: no follow-ups on the old plan
+            return out | {
+                "request": out["current"],
+                "plan": None,
+                "plan_request": None,
+                "route": "search",
+            }
         if req.intent == "knowledge":
             return out | {"route": "react"}
         return out | {"reply": _SOON.get(req.intent, OTHER_REPLY), "route": "reply"}
@@ -808,46 +858,59 @@ def build_graph(deps: AgentDeps) -> Any:
     def multiday(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
         stored = MultidayPlan.model_validate(state["plan"]) if state.get("plan") else None
-        rain_day = state.get("rain_day")
-        start = req.start.label if req.start else None
+        plan_req = state.get("plan_request")
+        rain_days = state.get("rain_days") or []
+        if stored is not None and plan_req and plan_req.get("start"):
+            start = plan_req["start"]["label"]  # the stored plan's start, not a later request's
+        else:
+            start = req.start.label if req.start else None
+        budget = settings.max_tool_calls
         calls = 0
-        asked = rain_day if rain_day is not None else (req.day_change and req.day_change.day)
-        if asked and stored is not None and not 1 <= asked <= len(stored.days):
-            # the plan can be shorter than asked for (trail end, dead end)
-            return {"fixed": DAY_UNKNOWN.format(n=len(stored.days), day=asked)}
-        if rain_day is not None and stored is not None:
+        lead: list[str] = []
+        out: State = {}
+        if rain_days and stored is not None:
             plan = stored
+            unknown = [n for n in rain_days if not 1 <= n <= len(plan.days)]
+            rain_days = [n for n in rain_days if n not in unknown]
+            lead = [DAY_UNKNOWN.format(n=len(plan.days), day=n) for n in unknown]
+            if not rain_days:
+                return {"fixed": " ".join(lead)}
         elif req.day_change is not None:
             if stored is None:
                 return {"fixed": NO_PLAN_TO_CHANGE}
+            if not 1 <= req.day_change.day <= len(stored.days):
+                # the plan can be shorter than asked for (trail end, dead end)
+                return {"fixed": DAY_UNKNOWN.format(n=len(stored.days), day=req.day_change.day)}
             plan, calls = tools.change_day(stored, req.day_change, start_name=start), 1
         else:
             try:
                 plan, calls = tools.plan_multiday(req), 1
-            except (ValueError, LookupError):  # start at the trail end or off the trail
+            except StartNotOnTrail:
                 tag = vocab.get(f"trail:{req.trail_id}")
                 trail = tag.label if tag else str(req.trail_id)
                 text = NO_PLAN_AT_START.format(start=start or "diesem Ort", trail=trail)
-                return {"tool_calls": 1, "plan": None, "fixed": text}
+                return {"tool_calls": 1, "plan": None, "plan_request": None, "fixed": text}
+            out["plan_request"] = state["current"]
         weather: dict[int, DayWeather | NoForecast] = {}
-        for d in plan.days:
-            if d.date is None:  # no date, no forecast (said once in the prefix)
-                continue
-            point = tools.day_end_point(plan.trail_id, d)
-            weather[d.day] = (
-                tools.weather(point[0], point[1], d.date)
-                if point
-                else NoForecast("Ort für die Vorhersage unbekannt")
-            )
-            calls += 1
+        dated = [d for d in plan.days if d.date is not None]  # no date: said once in the prefix
+        if dated and calls + 2 <= budget:  # one DB lookup, one forecast request
+            points = tools.day_end_points(plan.trail_id, dated)
+            located = [d for d in dated if points.get(d.day)]
+            wanted_points = [(*points[d.day], d.date) for d in located]
+            got = tools.weather_days(wanted_points, deps.today())
+            weather = {d.day: NoForecast("Ort für die Vorhersage unbekannt") for d in dated}
+            weather |= {d.day: w for d, w in zip(located, got, strict=True)}
+            calls += 2
+        elif dated:
+            lead.append(f"Für {_days_text([d.day for d in dated])} keine Vorhersage abgefragt")
+        wanted = [n for n, w in weather.items() if isinstance(w, DayWeather) and is_rain_day(w)]
+        wanted = sorted({*wanted, *rain_days})
         rain: dict[int, RainVariant | None] = {}
-        for n, w in weather.items():
-            if isinstance(w, DayWeather) and is_rain_day(w):
-                rain[n] = tools.rain_variant(plan, n)
-                calls += 1
-        if rain_day is not None and rain_day not in rain:
-            rain[rain_day] = tools.rain_variant(plan, rain_day)
+        if wanted and calls + 1 <= budget:
+            rain = tools.rain_variants(plan, wanted)
             calls += 1
+        elif wanted:
+            lead.append(f"Für {_days_text(wanted)} keine Regenvariante berechnet")
         _emit(
             PlanEvent(
                 plan=plan,
@@ -862,8 +925,8 @@ def build_graph(deps: AgentDeps) -> Any:
             sources.append(
                 SourceBrief(id=meteo.id, name=meteo.name, url=meteo.url, license=meteo.license)
             )
-        prefix = _plan_prefix(plan, weather, rain)
-        out: State = {
+        prefix = _plan_prefix(plan, weather, rain, lead)
+        out |= {
             "plan": plan.model_dump(mode="json"),
             "tool_calls": calls,
             "sources": _add_sources([], sources),

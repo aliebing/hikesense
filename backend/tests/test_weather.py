@@ -93,3 +93,48 @@ def test_expired_cache_refetches(client, monkeypatch):
     now[0] += 2
     weather_for(client, 47.9, 8.1, TODAY, TODAY)
     assert route.call_count == 2
+
+
+def _entry(days, prob):
+    return {
+        "daily": {
+            "time": [d.isoformat() for d in days],
+            "weather_code": [61] * len(days),
+            "temperature_2m_min": [-3.0] * len(days),
+            "temperature_2m_max": [4.0] * len(days),
+            "precipitation_sum": [1.0] * len(days),
+            "precipitation_probability_max": [prob] * len(days),
+        }
+    }
+
+
+@respx.mock
+def test_many_days_and_places_in_one_request_then_cached(client):
+    from datetime import timedelta
+
+    from hikeall.agent.weather import weather_for_days
+
+    days = [TODAY + timedelta(days=n) for n in range(15)]  # 0..14: all in the horizon
+    points = [(47.9 + n / 10, 8.1, d) for n, d in enumerate(days)]
+    body = [_entry(days, n) for n in range(15)]  # one list entry per location
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=body))
+    got = weather_for_days(client, points, TODAY)
+    assert route.call_count == 1
+    params = route.calls[0].request.url.params
+    assert len(params["latitude"].split(",")) == 15
+    assert (params["start_date"], params["end_date"]) == ("2026-10-30", "2026-11-13")
+    assert [w.precip_prob_pct for w in got] == list(range(15))
+    assert weather_for_days(client, points, TODAY) == got  # 1 h cache: no second request
+    assert route.call_count == 1
+    far = weather_for_days(client, [(47.9, 8.1, TODAY + timedelta(days=15))], TODAY)
+    assert far == [NoForecast("Noch keine Vorhersage (mehr als 14 Tage)")]
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_many_days_failure_is_no_forecast_for_each(client):
+    from hikeall.agent.weather import weather_for_days
+
+    respx.get(FORECAST_URL).mock(side_effect=httpx.ConnectError("down"))
+    got = weather_for_days(client, [(47.9, 8.1, TODAY), (48.0, 8.2, TODAY)], TODAY)
+    assert got == [NoForecast("Wetterdienst nicht erreichbar")] * 2

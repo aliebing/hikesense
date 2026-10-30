@@ -19,7 +19,8 @@ _WORDS = {
 _HALVES = {"anderthalb": "1.5", "eineinhalb": "1.5", "halbe": "0.5", "eine halbe": "0.5"}
 _NUM_WORD = r"eine\shalbe|halbe|anderthalb|eineinhalb|eins|eine[nmr]?|ein|zwei|drei|vier|fünf"
 _NUM_WORD += r"|sechs|sieben|acht|neun|zehn|elf|zwölf"
-_NUM = rf"\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?|(?:{_NUM_WORD})(?!\w)"
+# a minus sign ("-" or U+2212) directly before the digits belongs to the number: -3 °C is not 3 °C
+_NUM = rf"[-−]?(?:\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?)|(?:{_NUM_WORD})(?!\w)"
 _UNIT_RE = r"Kilometern?|km|Höhenmetern?|hm|Millimetern?|mm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min"
 _UNIT_RE += r"|Prozent|%|°\s?C|°|Grad|Uhr"
 _HOURS = r"(?:Stunden?|Std\.?|h)"
@@ -109,6 +110,9 @@ class _Found:
 
 
 def _value(raw: str) -> tuple[Decimal, int]:
+    if raw[:1] in ("-", "−"):
+        value, decimals = _value(raw[1:])
+        return -value, decimals
     word = re.sub(r"\s+", " ", raw.lower())
     if word in _HALVES:
         return Decimal(_HALVES[word]), 1

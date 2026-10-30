@@ -31,7 +31,7 @@ from hikeall.agent.request import (
     DayChange,
     HikeRequest,
 )
-from hikeall.agent.weather import REASON_DOWN, NoForecast, weather_for
+from hikeall.agent.weather import REASON_DOWN, NoForecast, weather_for_days
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikeall.models import HikingTime
@@ -338,6 +338,10 @@ def hiking_time(length_km: float, ascent_m: float, descent_m: float) -> HikingTi
     return din33466(length_km, ascent_m, descent_m)
 
 
+class StartNotOnTrail(ValueError):
+    """The start is off the trail (> 2 km) or at its very end: no plan can start there."""
+
+
 class TrailData(BaseModel):
     """Everything the multi-day planner needs about one long-distance trail."""
 
@@ -373,31 +377,39 @@ def load_trail_data(conn: psycopg.Connection, trail_id: str) -> TrailData:
     )
 
 
-def day_end_point(
-    conn: psycopg.Connection, trail_id: str, day: DayPlan
-) -> tuple[float, float] | None:
-    """(lat, lon) where the day ends: the lodging, else the point on the trail at end_km."""
-    if day.stop is not None:
-        row = conn.execute(
-            """
-            select st_y(p), st_x(p) from (
-              select st_pointonsurface(geom) as p from lodgings where id = %s) q
-            """,
-            (day.stop.lodging_id,),
-        ).fetchone()
-    else:
-        row = conn.execute(
-            """
-            select st_y(p), st_x(p) from (
-              select st_lineinterpolatepoint(
-                       geom, least(greatest(%s / nullif(length_km, 0), 0), 1)) as p
-              from trails where id = %s and geom is not null) q
-            """,
-            (day.end_km, trail_id),
-        ).fetchone()
-    if row is None or row[0] is None:
-        return None
-    return float(row[0]), float(row[1])
+def day_end_points(
+    conn: psycopg.Connection, trail_id: str, days: list[DayPlan]
+) -> dict[int, tuple[float, float] | None]:
+    """(lat, lon) where each day ends, in one query: the lodging, else the point on the trail
+    at end_km (the trail end)."""
+    if not days:
+        return {}
+    rows = conn.execute(
+        """
+        with d(day, lodging_id, end_km) as (
+          select * from unnest(%(days)s::int[], %(lodgings)s::bigint[], %(kms)s::float8[]))
+        select d.day, st_y(p.pt), st_x(p.pt)
+        from d
+        left join lodgings l on l.id = d.lodging_id
+        left join trails t on t.id = %(trail)s and t.geom is not null
+        cross join lateral (select case
+            when d.lodging_id is not null then st_pointonsurface(l.geom)
+            else st_lineinterpolatepoint(
+                   t.geom, least(greatest(d.end_km / nullif(t.length_km, 0), 0), 1))
+          end as pt) p
+        """,
+        {
+            "days": [d.day for d in days],
+            "lodgings": [d.stop.lodging_id if d.stop else None for d in days],
+            "kms": [d.end_km for d in days],
+            "trail": trail_id,
+        },
+    ).fetchall()
+    out: dict[int, tuple[float, float] | None] = {d.day: None for d in days}
+    for day, lat, lon in rows:
+        if lat is not None and lon is not None:
+            out[day] = (float(lat), float(lon))
+    return out
 
 
 class AgentTools(Protocol):
@@ -418,18 +430,24 @@ class AgentTools(Protocol):
     def stage_places(self, trail_id: str) -> list[str]: ...
 
     def plan_multiday(self, req: HikeRequest) -> MultidayPlan:
-        """Raises ValueError if the start is not on the trail or at its very end."""
+        """Raises StartNotOnTrail if the start is off the trail or at its very end."""
         ...
 
     def change_day(
         self, plan: MultidayPlan, day_change: DayChange, start_name: str | None = None
     ) -> MultidayPlan: ...
 
-    def day_end_point(self, trail_id: str, day: DayPlan) -> tuple[float, float] | None: ...
+    def day_end_points(
+        self, trail_id: str, days: list[DayPlan]
+    ) -> dict[int, tuple[float, float] | None]: ...
 
-    def weather(self, lat: float, lon: float, day: date) -> DayWeather | NoForecast: ...
+    def weather_days(
+        self, points: list[tuple[float, float, date]], today: date
+    ) -> list[DayWeather | NoForecast]:
+        """Forecast per (lat, lon, day), all fetched in one request."""
+        ...
 
-    def rain_variant(self, plan: MultidayPlan, day: int) -> RainVariant | None: ...
+    def rain_variants(self, plan: MultidayPlan, days: list[int]) -> dict[int, RainVariant | None]: ...
 
     def sources(self, ids: list[str]) -> list[SourceBrief]: ...
 
@@ -492,8 +510,8 @@ class DbTools:
             raise ValueError("start without coordinates")
         trail = self._trail(req.trail_id)
         start_km = self.start_km(req.trail_id, req.start.lat, req.start.lon)
-        if start_km is None:
-            raise ValueError("start not on the trail")
+        if start_km is None or start_km >= trail.length_km:
+            raise StartNotOnTrail(f"{req.start.label} is off {req.trail_id} or at its end")
         return multiday.plan_multiday(
             trail.stops,
             trail.profile,
@@ -525,18 +543,24 @@ class DbTools:
             end_name=trail.end_name,
         )
 
-    def day_end_point(self, trail_id: str, day: DayPlan) -> tuple[float, float] | None:
+    def day_end_points(
+        self, trail_id: str, days: list[DayPlan]
+    ) -> dict[int, tuple[float, float] | None]:
         with self._conn_factory() as conn:
-            return day_end_point(conn, trail_id, day)
+            return day_end_points(conn, trail_id, days)
 
-    def weather(self, lat: float, lon: float, day: date) -> DayWeather | NoForecast:
+    def weather_days(
+        self, points: list[tuple[float, float, date]], today: date
+    ) -> list[DayWeather | NoForecast]:
         if self._weather_client is None:
-            return NoForecast(REASON_DOWN)
-        return weather_for(self._weather_client, lat, lon, day, date.today())
+            return [NoForecast(REASON_DOWN) for _ in points]
+        return weather_for_days(self._weather_client, points, today)
 
-    def rain_variant(self, plan: MultidayPlan, day: int) -> RainVariant | None:
+    def rain_variants(self, plan: MultidayPlan, days: list[int]) -> dict[int, RainVariant | None]:
         trail = self._trail(plan.trail_id)
-        return multiday.rain_variant(plan.days[day - 1], trail.stations, trail.profile)
+        return {
+            n: multiday.rain_variant(plan.days[n - 1], trail.stations, trail.profile) for n in days
+        }
 
     def sources(self, ids: list[str]) -> list[SourceBrief]:
         with self._conn_factory() as conn:
