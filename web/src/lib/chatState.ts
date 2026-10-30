@@ -2,7 +2,14 @@ import type { ChatEvent, HikeRequest, Labels, TourCard } from "./chat";
 import type { Photo } from "./data";
 import type { ChatItem } from "../components/ChatMessages";
 
-export type LastResults = { cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels };
+export type LastResults = {
+  cards: TourCard[];
+  fallback: string | null;
+  runWithoutPace: boolean;
+  labels: Labels;
+  /** the understood request these results belong to (for the chips on /vorschlaege) */
+  request: { request: HikeRequest; labels: Labels } | null;
+};
 
 export type ChatState = {
   threadId: string;
@@ -65,7 +72,7 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
         labels,
       };
       // An empty result list clears "Passend": the page never shows stale tours.
-      return { ...add(s, { kind: "results", ...item }), last: e.cards.length > 0 ? item : null };
+      return { ...add(s, { kind: "results", ...item }), last: e.cards.length > 0 ? { ...item, request: s.request } : null };
     }
     case "token": {
       const last = s.items[s.items.length - 1];
@@ -86,14 +93,20 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
 export const addUser = (s: ChatState, text: string): ChatState => add(s, { kind: "user", text });
 export const addNotice = (s: ChatState, text: string): ChatState => add(s, { kind: "notice", text });
 
+const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+
 /** Never throws: unreadable, corrupt or foreign data starts a fresh conversation. */
 export function loadState(storage: Storage | null, newId: () => string): ChatState {
   try {
     const raw = storage?.getItem(STORAGE_KEY);
     if (raw) {
-      const v = JSON.parse(raw) as Partial<ChatState> & { v?: number };
-      if (v && v.v === 1 && typeof v.threadId === "string" && Array.isArray(v.items)) {
-        return { ...initialState(v.threadId), ...v, v: undefined } as ChatState;
+      const parsed = JSON.parse(raw) as Partial<ChatState> & { v?: number };
+      if (parsed && parsed.v === 1 && typeof parsed.threadId === "string" && Array.isArray(parsed.items)) {
+        const rest: Partial<ChatState> = { ...parsed };
+        delete (rest as { v?: number }).v;
+        const last = isObject(rest.last) && Array.isArray(rest.last.cards) ? { ...rest.last, request: isObject(rest.last.request) ? rest.last.request : null } : null;
+        const request = isObject(rest.request) && isObject(rest.request.request) ? rest.request : null;
+        return { ...initialState(parsed.threadId), ...rest, last, request } as ChatState;
       }
     }
   } catch {
@@ -105,7 +118,7 @@ export function loadState(storage: Storage | null, newId: () => string): ChatSta
 /** Never throws (quota, private mode): losing the history is better than breaking the chat. */
 export function saveState(storage: Storage | null, s: ChatState): void {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...s }));
+    storage?.setItem(STORAGE_KEY, JSON.stringify({ ...s, v: 1 }));
   } catch {
     // ignore
   }

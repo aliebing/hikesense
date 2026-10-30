@@ -91,3 +91,25 @@ it("saveState swallows quota errors", () => {
   const storage = fakeStorage({ setItem: () => { throw new DOMException("full", "QuotaExceededError"); } });
   expect(() => saveState(storage, initialState("t"))).not.toThrow();
 });
+
+it("survives repeated load and save cycles", () => {
+  const storage = fakeStorage();
+  const s = run([results(["a"]), { type: "token", text: "x" }], initialState("thread-1"));
+  saveState(storage, s);
+  const once = loadState(storage, () => "other");
+  saveState(storage, once);
+  const twice = loadState(storage, () => "other");
+  expect(twice.threadId).toBe("thread-1");
+  expect(twice.items).toEqual(s.items);
+  expect(twice.last).toEqual(s.last);
+});
+
+it("drops a malformed last or request but keeps the rest", () => {
+  const storage = fakeStorage();
+  storage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t1", items: [{ kind: "user", text: "hi" }], last: "x", request: 5 }));
+  const s = loadState(storage, () => "other");
+  expect(s.threadId).toBe("t1");
+  expect(s.items).toHaveLength(1);
+  expect(s.last).toBeNull();
+  expect(s.request).toBeNull();
+});

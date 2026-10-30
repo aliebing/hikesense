@@ -52,7 +52,7 @@ it("shares one conversation", async () => {
 it("restores from sessionStorage", async () => {
   const s = {
     ...initialState("saved-thread"),
-    last: { cards: [tour as never], fallback: null, runWithoutPace: false, labels: {} },
+    last: { cards: [tour as never], fallback: null, runWithoutPace: false, labels: {}, request: null },
   };
   saveState(sessionStorage, s);
   render(
