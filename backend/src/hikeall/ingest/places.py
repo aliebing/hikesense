@@ -15,7 +15,8 @@ from hikeall.models import BBox, Place, Poi, Source
 
 POI_BUFFER_M = 300
 RELATION_ID_OFFSET = 10**12  # relation ids live far below any way id (see _position)
-PLACE_KINDS = ("town", "village", "hamlet")
+PLACE_KINDS = ("city", "town", "village", "hamlet")  # OSM place= values we fetch
+STORED_KIND = {"city": "town"}  # a city is a town for tags/ranking (no new kind, no migration)
 MUNICIPALITY_ADMIN_LEVEL = "8"  # Gemeinde
 FOOD_AMENITIES = ("restaurant", "cafe", "biergarten", "pub")
 
@@ -113,7 +114,7 @@ def parse_places(data: dict[str, Any]) -> list[Place]:
         tags = el.get("tags") or {}
         name = (tags.get("name") or "").strip()
         if tags.get("place") in PLACE_KINDS:
-            kind = tags["place"]
+            kind = STORED_KIND.get(tags["place"], tags["place"])
         elif tags.get("natural") == "peak":
             kind = "peak"
         elif tags.get("natural") == "water" and tags.get("water") == "lake":
