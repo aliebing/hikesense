@@ -1,8 +1,11 @@
+from datetime import date, time
+
 import pytest
 
 from hikeall.agent.request import (
     Clarify,
     Constraint,
+    DayChange,
     HikeRequest,
     Preference,
     RawRequest,
@@ -31,6 +34,7 @@ def vocab() -> TagVocabulary:
         _place("place:todtnau", "Todtnau", 47.83, 7.95, 3),
         _place("place:titisee-neustadt", "Titisee-Neustadt", 47.9, 8.2, 4),
         _place("place:hinterzarten", "Hinterzarten", 47.9, 8.1, 5),
+        _place("place:hausach", "Hausach", 48.2836, 8.175, 6),
     ]
     return TagVocabulary(TagVocabulary.from_features(FEATURES_YAML).all() + places)
 
@@ -675,3 +679,329 @@ def test_minute_forms_of_part_hours_are_read():
     assert {45, 0.75} <= _user_numbers("dreiviertel Stunde")
     assert {150, 2.5} <= _user_numbers("2h30")
     assert {45, 0.75} <= _user_numbers("3/4 Stunde")
+
+
+# --- multi-day, events, groups (plan 3, task 6) ------------------------------------------
+
+TODAY = date(2026, 10, 30)
+STAGES = ["Pforzheim", "Forbach", "Hausach", "Hinterzarten", "Basel"]
+
+
+class FakeTrails:
+    """TrailLookup without a database: Hausach is on the trail, Todtnau is not."""
+
+    def start_km(self, trail_id, lat, lon):
+        return 61.0 if abs(lat - 48.2836) < 0.01 else None
+
+    def stage_places(self, trail_id):
+        return STAGES
+
+
+def multi(vocab, message, previous=None, **kw):
+    kw.setdefault("intent", "multiday")
+    return understand(gw_of(**kw), vocab, message, previous, today=TODAY, trails=FakeTrails())
+
+
+def test_three_days_westweg_from_hausach(vocab):
+    req = multi(
+        vocab,
+        "Westweg in drei Tagen ab Hausach, am 12. Juni um 8:30 Uhr, 18 km pro Tag",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+        day_km=18,
+        start_date="2027-06-12",
+        start_time="08:30",
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.trail_id == "westweg-west"
+    assert req.days == 3 and req.day_km == 18
+    assert req.start_date == date(2027, 6, 12)  # relative to TODAY: next 12 June
+    assert req.start_time == time(8, 30)
+    assert req.start.tag_id == "place:hausach"
+    assert "radius_km" not in kinds(req)
+    text = echo(req, vocab)
+    assert "3 Tage" in text and "12.06.2027" in text and "08:30" in text and "18 km" in text
+
+
+def test_defaults_are_visible_in_echo(vocab):
+    req = multi(
+        vocab, "3 Tage Westweg ab Hausach", trail_text="Westweg", start_text="Hausach", days=3
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.day_km is None and req.start_time is None and req.start_date is None
+    text = echo(req, vocab)
+    assert "15 km (Standard)" in text and "09:00" in text
+
+
+def test_bare_westweg_is_west_variant_and_echo_says_so(vocab):
+    req = multi(
+        vocab, "Westweg 3 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=3
+    )
+    assert req.trail_id == "westweg-west" and req.trail_assumed
+    assert "Westweg (Westvariante – Ostvariante möglich)" in echo(req, vocab)
+    east = multi(
+        vocab,
+        "Westweg Ostvariante 3 Tage ab Hausach",
+        trail_text="Westweg Ostvariante",
+        start_text="Hausach",
+        days=3,
+    )
+    assert east.trail_id == "westweg-ost" and not east.trail_assumed
+    assert "Ostvariante" in echo(east, vocab) and "möglich" not in echo(east, vocab)
+
+
+def test_start_off_trail_asks(vocab):
+    res = multi(
+        vocab, "Westweg 3 Tage ab Todtnau", trail_text="Westweg", start_text="Todtnau", days=3
+    )
+    assert isinstance(res, Clarify)
+    assert res.question == "Todtnau liegt nicht am Westweg. Ab welchem Etappenort?"
+    assert res.options == ["Hausach", "Hinterzarten"]  # only stage places that resolve
+
+
+def test_missing_start_and_days_ask(vocab):
+    res = multi(vocab, "Westweg 3 Tage", trail_text="Westweg", days=3)
+    assert isinstance(res, Clarify)
+    assert res.question == "Wo soll die Mehrtagestour starten?"
+    assert res.options == ["Hausach", "Hinterzarten"]
+    res = multi(vocab, "Westweg ab Hausach", trail_text="Westweg", start_text="Hausach")
+    assert isinstance(res, Clarify) and res.question == "Wie viele Tage?"
+
+
+def test_invented_or_invalid_days(vocab):
+    res = multi(vocab, "Westweg ab Hausach", trail_text="Westweg", start_text="Hausach", days=4)
+    assert isinstance(res, Clarify) and res.question == "Wie viele Tage?"  # R27
+    req = multi(
+        vocab, "Westweg 20 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=20
+    )
+    assert isinstance(req, Clarify) or "Tage" in " ".join(req.unmatched)
+
+
+def test_day_change_needs_previous_plan(vocab):
+    res = multi(
+        vocab, "Tag 3 kürzer", intent="change", day_change_day=3, day_change_direction="shorter"
+    )
+    assert isinstance(res, Clarify)
+    day_hike = HikeRequest(intent="day_hike")
+    res = multi(
+        vocab,
+        "Tag 3 kürzer",
+        previous=day_hike,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="shorter",
+    )
+    assert isinstance(res, Clarify)  # no multi-day plan before
+
+
+def test_day_change_on_multiday_plan(vocab):
+    prev = multi(
+        vocab, "Westweg 4 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=4
+    )
+    req = multi(
+        vocab,
+        "Tag 3 kürzer",
+        previous=prev,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="shorter",
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.intent == "change"
+    assert req.day_change == DayChange(day=3, change="shorter")
+    assert (req.trail_id, req.days, req.start.tag_id) == ("westweg-west", 4, "place:hausach")
+    longer = multi(
+        vocab,
+        "Tag 5 länger",
+        previous=prev,
+        intent="change",
+        day_change_day=5,
+        day_change_direction="longer",
+    )
+    assert isinstance(longer, Clarify)  # plan has 4 days
+
+
+def test_halbpension_unmatched(vocab):
+    req = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach, Halbpension, mit Sauna",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+        wishes=[RawWish(text="Halbpension"), RawWish(text="mit Sauna")],
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.preferences == []
+    assert set(req.unmatched) >= {"Halbpension", "mit Sauna"}
+
+
+def test_events_intent(vocab):
+    msg = "Halbmarathon im Juni bei Freiburg"
+    req = understand(gw_of(intent="events", question=msg), vocab, msg, None, today=TODAY)
+    assert isinstance(req, HikeRequest) and req.intent == "events"
+    assert req.question == msg and req.start is None and req.constraints == []
+
+
+def test_groups_intent(vocab):
+    msg = "Lauftreff in Freiburg"
+    req = understand(gw_of(intent="groups", question=msg), vocab, msg, None, today=TODAY)
+    assert isinstance(req, HikeRequest) and req.intent == "groups"
+    assert req.question == msg and req.start is None
+
+
+def test_date_only_if_written(vocab):
+    req = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+        start_date="2027-06-12",
+        start_time="09:00",
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.start_date is None and req.start_time is None
+    assert req.discarded_model_numbers == 2
+
+
+def test_relative_and_numeric_dates(vocab):
+    def date_of(message):
+        req = multi(vocab, message, trail_text="Westweg", start_text="Hausach", days=3)
+        return req.start_date
+
+    assert date_of("Westweg 3 Tage ab Hausach, morgen") == date(2026, 10, 31)
+    assert date_of("Westweg 3 Tage ab Hausach am 5.11.") == date(2026, 11, 5)
+    assert date_of("Westweg 3 Tage ab Hausach am 5.11.2026") == date(2026, 11, 5)
+    assert date_of("Westweg 3 Tage ab Hausach am 3. Januar") == date(2027, 1, 3)
+    assert date_of("Westweg 3 Tage ab Hausach am 30. Oktober") == date(2026, 10, 30)
+    past = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach am 1.1.2025",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+    )
+    assert past.start_date is None and any("Datum" in u for u in past.unmatched)
+    bad = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach am 31. Februar",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+    )
+    assert bad.start_date is None and any("Datum" in u for u in bad.unmatched)
+
+
+def test_leap_day_dates(vocab):
+    def date_of(message, today):
+        req = understand(
+            gw_of(intent="multiday", trail_text="Westweg", start_text="Hausach", days=3),
+            vocab,
+            message,
+            None,
+            today=today,
+            trails=FakeTrails(),
+        )
+        return req
+
+    msg = "Westweg 3 Tage ab Hausach am 29. Februar"
+    assert date_of(msg, date(2028, 3, 5)).start_date == date(2032, 2, 29)  # no crash
+    assert date_of(msg, date(2027, 1, 10)).start_date == date(2028, 2, 29)
+    assert date_of("Westweg 3 Tage ab Hausach am 29.2.2027", TODAY).start_date is None
+
+
+def test_pace_is_not_a_start_time(vocab):
+    req = multi(
+        vocab,
+        "Westweg 3 Tage ab Hausach, Tempo um 5:30 min/km",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=3,
+        start_time="05:30",
+    )
+    assert req.start_time is None
+
+
+def test_mehrtagestour_is_not_longer(vocab):
+    prev = multi(
+        vocab, "Westweg 4 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=4
+    )
+    req = multi(
+        vocab,
+        "Mehrtagestour Tag 3",
+        previous=prev,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="longer",
+    )
+    assert req.day_change is None and any("Änderung nicht erkannt" in u for u in req.unmatched)
+
+
+def test_days_need_a_day_phrase(vocab):
+    res = multi(
+        vocab,
+        "Westweg 20 km pro Tag ab Hausach",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=20,
+    )
+    assert isinstance(res, Clarify) and res.question == "Wie viele Tage?"
+    for msg in ("Westweg dreitägig ab Hausach", "Westweg drei Tage ab Hausach"):
+        req = multi(vocab, msg, trail_text="Westweg", start_text="Hausach", days=3)
+        assert req.days == 3
+
+
+def test_rejected_day_change_is_reported(vocab):
+    prev = multi(
+        vocab, "Westweg 4 Tage ab Hausach", trail_text="Westweg", start_text="Hausach", days=4
+    )
+    req = multi(
+        vocab,
+        "mach es anders",
+        previous=prev,
+        intent="change",
+        day_change_day=3,
+        day_change_direction="shorter",
+    )
+    assert req.day_change is None and any("Änderung nicht erkannt" in u for u in req.unmatched)
+
+
+def _kind_tag(tid, label, kind, pid, lat, lon):
+    rule = NearPlace(place_id=pid, radius_km=15, lat=lat, lon=lon, kind=kind)
+    return Tag(id=tid, label=label, category="place", rule=rule)
+
+
+def test_city_wins_over_same_name_village(vocab):
+    v = TagVocabulary(
+        list(vocab.all())
+        + [
+            _kind_tag(
+                "place:freiburg-im-breisgau", "Freiburg im Breisgau", "town", 1, 47.996, 7.849
+            ),
+            _kind_tag("place:freiburg", "Freiburg", "village", 2, 53.8, 9.2),  # far-away village
+        ]
+    )
+    res = understand(gw_of(start_text="Freiburg"), v, "ab Freiburg", None)
+    assert isinstance(res, HikeRequest)
+    assert res.start.label == "Freiburg im Breisgau" and res.start.lat == 47.996
+
+
+def test_exact_name_city_wins_over_same_name_village(vocab):
+    v = TagVocabulary(
+        list(vocab.all())
+        + [
+            _kind_tag("place:pforzheim", "Pforzheim", "town", 1, 48.89, 8.70),
+            _kind_tag("place:pforzheim-n2", "Pforzheim", "village", 2, 50.0, 9.0),
+        ]
+    )
+    res = understand(gw_of(start_text="Pforzheim"), v, "ab Pforzheim", None)
+    assert isinstance(res, HikeRequest) and res.start.lat == 48.89
+
+
+def test_lone_village_still_resolves(vocab):
+    v = TagVocabulary(
+        list(vocab.all()) + [_kind_tag("place:zzdorf", "Zzdorf", "village", 3, 47.9, 8.0)]
+    )
+    res = understand(gw_of(start_text="Zzdorf"), v, "ab Zzdorf", None)
+    assert isinstance(res, HikeRequest) and res.start.label == "Zzdorf"

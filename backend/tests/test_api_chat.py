@@ -1,7 +1,9 @@
 import json
 import logging
+import time
 import uuid
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -15,6 +17,12 @@ from hikeall.guard import RATE_LIMIT_REPLY
 from hikeall.llm.usage import LLMUsage
 
 ORIGIN = "http://localhost:3000"
+SECRET = "test-secret-with-at-least-32-characters!!"
+
+
+def bearer(sub="u1", exp_in=3600, aud="authenticated"):
+    claims = {"sub": sub, "aud": aud, "exp": int(time.time()) + exp_in}
+    return {"Authorization": "Bearer " + jwt.encode(claims, SECRET, algorithm="HS256")}
 
 
 @pytest.fixture
@@ -24,6 +32,7 @@ def settings(tmp_path):
         chat_log_path=tmp_path / "chat.jsonl",
         chroma_dir=tmp_path / "chroma",
         openrouter_api_key="k",
+        supabase_jwt_secret=SECRET,
     )
 
 
@@ -31,7 +40,7 @@ def settings(tmp_path):
 def seen(monkeypatch):
     calls = []
 
-    def fake_run_chat(deps, thread_id, message):
+    def fake_run_chat(deps, thread_id, message, user_hash=None):
         calls.append((deps, thread_id, message))
         yield UnderstoodEvent(text="Tagestour", request=HikeRequest(intent="day_hike"))
         yield TokenEvent(text="Hallo ")
@@ -46,7 +55,8 @@ def client(settings, seen):
     return TestClient(create_app(settings, deps_factory=lambda: "deps"))
 
 
-def post(client, message="Wanderung", thread_id=None, **kw):
+def post(client, message="Wanderung", thread_id=None, headers=None, **kw):
+    kw["headers"] = bearer() if headers is None else headers
     body = {"thread_id": thread_id or str(uuid.uuid4()), "message": message}
     return client.post("/chat", json=body, **kw)
 
@@ -87,6 +97,63 @@ def test_rate_limit_returns_429(client, seen):
     assert len(seen) == 10
 
 
+def test_rate_limit_per_user_not_ip(client, seen):
+    for _ in range(10):
+        assert post(client, headers=bearer("u1")).status_code == 200
+    assert post(client, headers=bearer("u1")).status_code == 429
+    assert post(client, headers=bearer("u2")).status_code == 200  # same IP, other user
+
+
+def test_missing_token_401(client, seen):
+    r = client.post("/chat", json={"thread_id": str(uuid.uuid4()), "message": "x"})
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Bitte anmelden."}
+    assert seen == []
+
+
+def test_invalid_token_401(client, seen):
+    r = post(client, headers={"Authorization": "Bearer abc.def.ghi"})
+    assert r.status_code == 401 and r.json()["detail"] == "Bitte anmelden."
+    assert post(client, headers={"Authorization": "Basic xyz"}).status_code == 401
+
+
+def test_expired_token_401(client, seen):
+    r = post(client, headers=bearer(exp_in=-10))
+    assert r.status_code == 401 and "erneut anmelden" in r.json()["detail"]
+    assert seen == []
+
+
+def test_unauthenticated_requests_do_not_use_rate_limit(client, seen):
+    for _ in range(12):
+        assert client.post("/chat", json={}).status_code == 401
+    assert post(client).status_code == 200
+
+
+def test_cors_allows_authorization_header(client):
+    r = client.options(
+        "/chat",
+        headers={
+            "Origin": ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert "authorization" in r.headers["access-control-allow-headers"].lower()
+
+
+def test_failure_log_has_user_hash_not_id(settings, monkeypatch):
+    def boom(deps, thread_id, message, user_hash=None):
+        raise RuntimeError("x")
+        yield
+
+    monkeypatch.setattr(chat_api, "run_chat", boom)
+    client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
+    post(client, headers=bearer("user-secret-id"))
+    raw = settings.chat_log_path.read_text()
+    assert "user-secret-id" not in raw
+    assert len(json.loads(raw)["user_hash"]) == 12
+
+
 def test_empty_message_422(client, seen):
     assert post(client, "   ").status_code == 422
     assert post(client, "").status_code == 422
@@ -99,7 +166,7 @@ def test_bad_thread_id_422(client):
 
 def test_health_reports_llm_and_knowledge(settings):
     body = TestClient(create_app(settings)).get("/health").json()
-    assert body == {"status": "ok", "db": False, "llm": True, "knowledge": False}
+    assert body == {"status": "ok", "db": False, "llm": True, "knowledge": False, "auth": True}
     settings.chroma_dir.mkdir()
     (settings.chroma_dir / "chroma.sqlite3").write_bytes(b"x")
     body = TestClient(create_app(settings)).get("/health").json()
@@ -116,7 +183,7 @@ def test_cors_rejects_other_origin(client):
 
 
 def test_unexpected_error_becomes_error_event_and_log(settings, monkeypatch, caplog):
-    def boom(deps, thread_id, message):
+    def boom(deps, thread_id, message, user_hash=None):
         yield TokenEvent(text="x")
         raise RuntimeError("secret db password")
 
@@ -145,6 +212,28 @@ def test_deps_factory_failure_becomes_error_event(settings, seen):
 
 def test_oversized_body_is_rejected_before_parsing(client, seen):
     big = {"thread_id": str(uuid.uuid4()), "message": "a" * (70 * 1024)}
-    r = client.post("/chat", json=big)
+    r = client.post("/chat", json=big, headers=bearer())
     assert r.status_code == 413
     assert seen == []
+
+
+def test_jwks_outage_is_503_not_401(settings, monkeypatch):
+    from hikeall.auth import AuthError
+
+    def down(token, settings):
+        raise AuthError("unavailable")
+
+    monkeypatch.setattr(chat_api, "verify_token", down)
+    client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
+    r = post(client)
+    assert r.status_code == 503
+    assert "gleich noch einmal" in r.json()["detail"]
+
+
+def test_stream_is_not_buffered_by_proxies(client, seen):
+    # the web app proxies /api/chat (Next rewrite): no compression, no proxy buffering
+    r = post(client)
+    assert r.status_code == 200
+    assert "no-transform" in r.headers["cache-control"]
+    assert "no-cache" in r.headers["cache-control"]
+    assert r.headers["x-accel-buffering"] == "no"

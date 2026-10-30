@@ -1,0 +1,10 @@
+# Running calendars shown as plain links when the live search verifies no race (plan 3, task 12).
+# Links only: these pages are never fetched (laufen.de is a blocked domain for fetching).
+- name: BLV „Veranstaltungstermine“ (Baden)
+  url: https://www.blv-online.de/laeufe/veranstaltungstermine
+- name: WLV Veranstaltungstermine (Württemberg)
+  url: https://www.wlv-sport.de/home/breitensport/laufveranstaltungen/veranstaltungstermine
+- name: Schwarzwald Tourismus – Veranstaltungen
+  url: https://www.schwarzwald-tourismus.info/veranstaltungen
+- name: laufen.de-Laufkalender
+  url: https://www.laufen.de/laufkalender

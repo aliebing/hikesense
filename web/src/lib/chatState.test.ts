@@ -113,3 +113,72 @@ it("drops a malformed last or request but keeps the rest", () => {
   expect(s.last).toBeNull();
   expect(s.request).toBeNull();
 });
+
+const planEvent = (days: number): ChatEvent =>
+  ({ type: "plan", plan: { trail_id: "t", trail_name: "T", target_km: 15, days: Array.from({ length: days }, (_, i) => ({ day: i + 1 })), notes: days ? [] : ["Ab hier endet der Weg."], source_ids: [] }, weather: {}, rain: {} }) as unknown as ChatEvent;
+
+it("plan event sets plan, clears last, adds a one-line item; results clears plan", () => {
+  let s = reduceEvent(initialState("t"), results(["a"]));
+  s = reduceEvent(s, planEvent(3));
+  expect(s.last).toBeNull();
+  expect(s.plan?.plan.days).toHaveLength(3);
+  expect(s.items[s.items.length - 1]).toEqual({ kind: "plan", summary: "Plan mit 3 Tagen erstellt" });
+  s = reduceEvent(s, results(["b"]));
+  expect(s.plan).toBeNull();
+  expect(s.last?.cards).toHaveLength(1);
+});
+
+it("a plan without days keeps the plan (notes) and shows the dead-end note", () => {
+  const s = reduceEvent(initialState("t"), planEvent(0));
+  expect(s.plan).not.toBeNull();
+  expect(s.items[0]).toEqual({ kind: "plan", summary: "Ab hier endet der Weg." });
+});
+
+it("plan survives a reload; a corrupt plan is dropped", () => {
+  const s = reduceEvent(initialState("t"), planEvent(2));
+  const store = new Map<string, string>();
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) } as unknown as Storage;
+  saveState(storage, s);
+  expect(loadState(storage, () => "n").plan?.plan.days).toHaveLength(2);
+  store.set(STORAGE_KEY, JSON.stringify({ ...s, v: 1, plan: { plan: "x" } }));
+  expect(loadState(storage, () => "n").plan).toBeNull();
+});
+
+it("the plan keeps the start of the request at that moment", () => {
+  let s = reduceEvent(initialState("t"), { type: "understood", text: "x", request: { ...(request() as object), start: { label: "Hausach" } } as never });
+  s = reduceEvent(s, planEvent(1));
+  s = reduceEvent(s, { type: "understood", text: "y", request: { ...(request() as object), start: { label: "Kandern" } } as never });
+  expect(s.plan?.start_name).toBe("Hausach");
+});
+
+it("the plan's start comes from the event, not from the latest request", () => {
+  // a day change („Tag 2 kürzer“) is understood without a start; the backend names the plan's own
+  let s = reduceEvent(initialState("t"), { type: "understood", text: "x", request: { ...(request() as object), start: { label: "Kandern" } } as never });
+  s = reduceEvent(s, { ...planEvent(1), start_name: "Hausach" } as ChatEvent);
+  expect(s.plan?.start_name).toBe("Hausach");
+  s = reduceEvent(s, { ...planEvent(1), start_name: null } as ChatEvent);
+  expect(s.plan?.start_name).toBeNull(); // null: no start named, never guessed
+});
+
+it("an old stored state without plan loads with plan null; a plan without notes gets []", () => {
+  const store = new Map<string, string>([[STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], last: null, request: null })]]);
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} } as unknown as Storage;
+  expect(loadState(storage, () => "n").plan).toBeNull();
+  store.set(STORAGE_KEY, JSON.stringify({ v: 1, threadId: "t", items: [], plan: { plan: { days: [] } } }));
+  expect(loadState(storage, () => "n").plan?.plan.notes).toEqual([]);
+});
+
+it("groups event adds a groups item with its Stand note; an empty list adds nothing", () => {
+  const g = { name: "SWV", kind: "wanderverein", place: "Hausach", url: "https://x.example", checked_at: "2026-10-02", stale: false, dist_km: 1 };
+  const s = reduceEvent(initialState("t"), { type: "groups", groups: [g], checked_note: "Stand: 02.10.2026" });
+  expect(s.items).toEqual([{ kind: "groups", groups: [g], note: "Stand: 02.10.2026" }]);
+  expect(reduceEvent(initialState("t"), { type: "groups", groups: [], checked_note: "x" }).items).toEqual([]);
+});
+
+it("events event adds an events item inside the chat (also with only calendar links)", () => {
+  const fallback = [{ name: "BLV", url: "https://www.blv-online.de/x" }];
+  const s = reduceEvent(initialState("t"), { type: "events", events: [], fallback, note: "Angaben ohne Gewähr" });
+  expect(s.items).toEqual([{ kind: "events", events: [], fallback, note: "Angaben ohne Gewähr" }]);
+  expect(s.last).toBeNull();
+  expect(s.plan).toBeNull();
+});

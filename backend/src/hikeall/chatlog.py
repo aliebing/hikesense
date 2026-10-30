@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 class ChatLogEntry(BaseModel):
     ts: str = Field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
     request_id: str
+    user_hash: str | None = None  # first 12 chars of sha256(user id), never the id itself
     intent: str | None = None
     activity: str | None = None
     tool_calls: int = 0
@@ -22,6 +24,10 @@ class ChatLogEntry(BaseModel):
     guard: str | None = None
     discarded_model_numbers: int = 0
     error: str | None = None
+
+
+def hash_user(user_id: str) -> str:
+    return hashlib.sha256(user_id.encode()).hexdigest()[:12]
 
 
 def write(path: Path, entry: ChatLogEntry) -> None:

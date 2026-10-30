@@ -82,7 +82,7 @@ class Lodging(BaseModel):
 class Place(BaseModel):
     id: int  # OSM id; ways negative
     name: str
-    kind: str  # town | village | hamlet | peak | lake
+    kind: str  # town (incl. OSM city) | village | hamlet | peak | lake
     lat: float
     lon: float
 

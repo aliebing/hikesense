@@ -1,6 +1,18 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
 import type { TourCard } from "../lib/chat";
+
+const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
+vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }) }));
+vi.mock("../lib/plans", () => ({ savePlan: h.savePlan }));
+
 import TourResultCard from "./TourResultCard";
+
+beforeEach(() => {
+  h.session = null;
+  h.savePlan.mockReset();
+});
 
 const card = (over: Partial<TourCard> = {}): TourCard => ({
   trail_id: "t1",
@@ -111,4 +123,33 @@ it("from=vorschlaege links with ?von and makes the whole card clickable, large h
   expect(link).toHaveAttribute("href", "/t/t1?von=vorschlaege");
   expect(link.className).toContain("after:inset-0");
   expect(container.querySelector("img")?.className).toContain("h-48");
+});
+
+it("offers Merken only with a session", () => {
+  const { unmount } = render(<TourResultCard card={card()} />);
+  expect(screen.queryByRole("button", { name: "Merken" })).toBeNull();
+  unmount();
+  h.session = { user: {} };
+  render(<TourResultCard card={card()} />);
+  expect(screen.getByRole("button", { name: "Merken" })).toBeInTheDocument();
+});
+
+it("Merken saves the card unchanged as day_hike, then shows Gemerkt (disabled)", async () => {
+  h.session = { user: {} };
+  h.savePlan.mockResolvedValue({ error: null });
+  const c = card();
+  render(<TourResultCard card={c} size="large" from="vorschlaege" />);
+  await userEvent.click(screen.getByRole("button", { name: "Merken" }));
+  expect(h.savePlan).toHaveBeenCalledWith("day_hike", "Feldsee-Runde", c);
+  const done = await screen.findByRole("button", { name: "Gemerkt" });
+  expect(done).toBeDisabled();
+});
+
+it("Merken shows a short German error and stays available", async () => {
+  h.session = { user: {} };
+  h.savePlan.mockResolvedValue({ error: "Das Merken hat nicht geklappt – bitte versuche es noch einmal" });
+  render(<TourResultCard card={card()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Merken" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Das Merken hat nicht geklappt"));
+  expect(screen.getByRole("button", { name: "Merken" })).toBeEnabled();
 });

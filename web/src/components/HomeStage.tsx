@@ -19,7 +19,7 @@ export default function HomeStage() {
 
       <ChatShell intro="Hallo! Beschreibe deine Tagestour – zum Beispiel „Rundweg ab Hinterzarten, 10 bis 15 km, wenig Höhenmeter, mit Aussicht“." />
 
-      {state.last && state.last.cards.length > 0 && (
+      {((state.last && state.last.cards.length > 0) || state.plan) && (
         <Link
           href="/vorschlaege"
           className="rounded-full bg-papier px-5 py-2 text-sm font-medium text-wald-dunkel shadow-lg hover:bg-white"

@@ -133,3 +133,71 @@ export function safeWebsite(url: string | null): string | null {
     return null;
   }
 }
+
+/** One plan day on the map: its slice of the trail and where it ends. */
+export type DaySection = {
+  day: number;
+  geom: LineString;
+  end_name: string | null;
+  /** the stop's lodging position (marker); null: the day ends at the trail end or the lodging is not on the map */
+  end: Position | null;
+  /** the day has a lodging stop that could not be placed on the map */
+  lodging_missing: boolean;
+};
+
+/** The whole trail as one line: the trail geometry, else the stage lines in order. */
+export function trailLine(trail: Pick<MapTrail, "geom" | "stages">): Position[] {
+  if (trail.geom && trail.geom.coordinates.length > 1) return trail.geom.coordinates;
+  return [...trail.stages].sort((a, b) => a.seq - b.seq).flatMap((s) => s.geom?.coordinates ?? []);
+}
+
+/**
+ * Cuts the trail line at the plan's km marks with the backend's own measure: along_km is
+ * ST_LineLocatePoint(line, point) × length_km, a fraction of the line's planar (lon/lat degree) length,
+ * so km / totalKm is that fraction here. Without the trail's length nothing can be placed: no sections.
+ * `lodgingAt` gives the lodging position of a stop (marker); a stop without one is flagged, not hidden.
+ */
+export function daySections(
+  line: Position[],
+  days: { day: number; start_km: number; end_km: number; stop: { lodging_id: number; name: string | null } | null }[],
+  totalKm: number | null | undefined,
+  lodgingAt: (id: number) => Position | null = () => null,
+): DaySection[] {
+  if (line.length < 2 || !totalKm || totalKm <= 0) return [];
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]));
+  const total = cum[cum.length - 1];
+  if (total <= 0) return [];
+  const at = (km: number): Position => {
+    const d = (Math.min(Math.max(km, 0), totalKm) / totalKm) * total;
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < d) i++;
+    const span = cum[i] - cum[i - 1];
+    const t = span > 0 ? (d - cum[i - 1]) / span : 0;
+    return [line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t, line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t];
+  };
+  const out: DaySection[] = [];
+  for (const d of days) {
+    const a = (Math.min(d.start_km, d.end_km) / totalKm) * total;
+    const b = (Math.max(d.start_km, d.end_km) / totalKm) * total;
+    const coords: Position[] = [at(d.start_km)];
+    for (let i = 0; i < line.length; i++) if (cum[i] > a && cum[i] < b) coords.push(line[i]);
+    coords.push(at(d.end_km));
+    const end = d.stop ? lodgingAt(d.stop.lodging_id) : null;
+    if (coords.length >= 2) {
+      out.push({ day: d.day, geom: { type: "LineString", coordinates: coords }, end_name: d.stop?.name ?? null, end, lodging_missing: !!d.stop && !end });
+    }
+  }
+  return out;
+}
+
+/** Day sections as map features: lines (`seq` = day, for alternating colours) and a point at every day end. */
+export function dayFeatures(days: DaySection[]): FeatureCollection<Geometry, TrailFeatureProps> {
+  const features: Feature<Geometry, TrailFeatureProps>[] = [];
+  for (const d of days) features.push({ type: "Feature", geometry: d.geom, properties: { kind: "stage", seq: d.day } });
+  for (const d of days) {
+    const c = d.geom.coordinates;
+    features.push(point(d.end ?? c[c.length - 1], d.end_name ? `Tag ${d.day}: ${d.end_name}` : `Ende Tag ${d.day}`));
+  }
+  return { type: "FeatureCollection", features };
+}

@@ -1,4 +1,6 @@
 import type { LineString } from "geojson";
+import type { GroupBrief } from "./chat";
+import { haversineKm } from "./geo";
 import { getSupabase } from "./supabase";
 
 export type Photo = {
@@ -8,6 +10,8 @@ export type Photo = {
   license: string;
   license_url: string | null;
   page_url: string | null;
+  /** set only for the signed-in owner's own upload (never in server-rendered data) */
+  own?: { id: number; path: string };
 };
 
 export type TrailSummary = {
@@ -45,6 +49,8 @@ export type TrailDetail = TrailSummary & {
   stages: Stage[];
   photos: Photo[];
   geom: LineString | null;
+  /** [km, elevation_m] along the trail (max 300 points); null when the import has none */
+  profile?: [number, number][] | null;
   sources: Source[];
 };
 
@@ -103,6 +109,17 @@ function num(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** jsonb [[km, m], …] in a safe shape; anything else is no profile */
+export function toProfile(v: unknown): [number, number][] | null {
+  if (!Array.isArray(v) || v.length < 2) return null;
+  const out: [number, number][] = [];
+  for (const p of v) {
+    if (!Array.isArray(p) || typeof p[0] !== "number" || typeof p[1] !== "number" || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return null;
+    out.push([p[0], p[1]]);
+  }
+  return out;
+}
+
 function fail(what: string, error: { message: string }): never {
   throw new Error(`${what}: ${error.message}`);
 }
@@ -125,7 +142,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
   if (!row) return null;
   const overview = row as unknown as OverviewRow;
 
-  const [geo, stages, stageGeo, photos] = await Promise.all([
+  const [geo, stages, stageGeo, photos, prof] = await Promise.all([
     sb.from("trails_geojson").select("geom").eq("id", id).maybeSingle(),
     sb
       .from("stages")
@@ -134,11 +151,13 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
       .order("seq"),
     sb.from("stages_geojson").select("id,geom").eq("trail_id", id),
     sb.from("photos").select(PHOTO_COLUMNS).eq("trail_id", id).order("id"),
+    sb.from("trails").select("profile").eq("id", id).maybeSingle(),
   ]);
   if (geo.error) fail("trails_geojson", geo.error);
   if (stages.error) fail("stages", stages.error);
   if (stageGeo.error) fail("stages_geojson", stageGeo.error);
   if (photos.error) fail("photos", photos.error);
+  if (prof.error) fail("trails", prof.error);
 
   const stageRows = stages.data ?? [];
   const seqById = new Map(stageRows.map((s) => [s.id as string, s.seq as number]));
@@ -172,6 +191,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
   return {
     ...toSummary(overview),
     geom: (geo.data?.geom as LineString | undefined) ?? null,
+    profile: toProfile(prof.data?.profile),
     photos: photoRows.map(toPhoto),
     sources,
     stages: stageRows.map((s) => ({
@@ -221,6 +241,37 @@ export async function getLodgings(trailId: string): Promise<LodgingOnTrail[]> {
     lon: Number(r.lon),
     lat: Number(r.lat),
   }));
+}
+
+export const GROUP_RADIUS_KM = 15;
+export const GROUP_STALE_DAYS = 180;
+const MAX_GROUPS = 5;
+
+type GroupRow = { name: string; kind: string; place: string; url: string; checked_at: string; lat: number; lon: number; status?: string };
+
+/**
+ * Groups of the curated list within `radiusKm` of any point of the line ([lon, lat] as in
+ * GeoJSON), nearest first, at most 5; `stale` = checked more than 180 days before `today`.
+ */
+export function groupsNearLine(rows: GroupRow[], line: number[][], today: Date, radiusKm = GROUP_RADIUS_KM): GroupBrief[] {
+  const out: GroupBrief[] = [];
+  for (const r of rows) {
+    let best = Infinity;
+    for (const [lon, lat] of line) best = Math.min(best, haversineKm([lat, lon], [r.lat, r.lon]));
+    if (best > radiusKm) continue;
+    const day = new Date(`${today.toISOString().slice(0, 10)}T00:00:00Z`); // whole days, like the backend
+    const age = (day.getTime() - new Date(`${r.checked_at}T00:00:00Z`).getTime()) / 86_400_000;
+    out.push({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, stale: age > GROUP_STALE_DAYS, dist_km: Math.round(best * 10) / 10, status: r.status ?? "vorschlag" });
+  }
+  return out.sort((a, b) => a.dist_km - b.dist_km || a.name.localeCompare(b.name)).slice(0, MAX_GROUPS);
+}
+
+/** The public groups list (view groups_geo); the trail page filters it by distance. */
+export async function getGroups(): Promise<GroupRow[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("groups_geo").select("name,kind,place,url,checked_at,status,lon,lat").order("id");
+  if (error) fail("groups_geo", error);
+  return (data ?? []).map((r) => ({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, status: r.status, lat: Number(r.lat), lon: Number(r.lon) }));
 }
 
 /** Day hikes eligible for the home selection: with a photo and a known position. */

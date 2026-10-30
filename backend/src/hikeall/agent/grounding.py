@@ -19,8 +19,10 @@ _WORDS = {
 _HALVES = {"anderthalb": "1.5", "eineinhalb": "1.5", "halbe": "0.5", "eine halbe": "0.5"}
 _NUM_WORD = r"eine\shalbe|halbe|anderthalb|eineinhalb|eins|eine[nmr]?|ein|zwei|drei|vier|fünf"
 _NUM_WORD += r"|sechs|sieben|acht|neun|zehn|elf|zwölf"
-_NUM = rf"\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?|(?:{_NUM_WORD})(?!\w)"
-_UNIT_RE = r"Kilometern?|km|Höhenmetern?|hm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min|Prozent|%"
+# a minus sign ("-" or U+2212) directly before the digits belongs to the number: -3 °C is not 3 °C
+_NUM = rf"[-−]?(?:\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?)|(?:{_NUM_WORD})(?!\w)"
+_UNIT_RE = r"Kilometern?|km|Höhenmetern?|hm|Millimetern?|mm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min"
+_UNIT_RE += r"|Prozent|%|°\s?C|°|Grad|Uhr"
 _HOURS = r"(?:Stunden?|Std\.?|h)"
 _MINUTES = r"(?:Minuten?|min)"
 # no start inside a word or a number ("12.5", "1.200"); an abbreviation dot ("ca.18 km") is fine
@@ -28,8 +30,10 @@ _START = r"(?<![\w,:])(?<!\d\.)"
 _SEP = r"[\s-]?"  # "15 km", "15km", "15-km-Runde"
 _END = r"(?![\w/²³])"
 _NUMBER_WITH_UNIT = re.compile(
+    # "13:30 Uhr" / "13.30 Uhr": one clock time
+    rf"{_START}(?P<uh>\d{{1,2}})[:.](?P<um>\d{{2}})\s?Uhr{_END}"
     # "2 h 54 min" / "2 Std. 54 Minuten": one duration
-    rf"{_START}(?P<ch>\d+)\s?{_HOURS}\s?(?:und\s)?(?P<cm>\d{{1,2}})\s?{_MINUTES}{_END}"
+    rf"|{_START}(?P<ch>\d+)\s?{_HOURS}\s?(?:und\s)?(?P<cm>\d{{1,2}})\s?{_MINUTES}{_END}"
     # "2:54 h": one duration
     rf"|{_START}(?P<kh>\d+):(?P<km>\d{{2}})\s?{_HOURS}{_END}"
     # "10 bis 15 km", "10–15 km", "zwischen 10 und 15 km": both numbers carry the unit
@@ -50,6 +54,9 @@ _UNITS = {
     **{u: ("time", Decimal(f)) for u, f in _TIME.items()},
     "%": ("percent", Decimal(1)),
     "prozent": ("percent", Decimal(1)),
+    **{u: ("precip", Decimal(1)) for u in ("mm", "millimeter", "millimetern")},
+    **{u: ("temp", Decimal(1)) for u in ("°c", "° c", "°", "grad")},
+    "uhr": ("clock", Decimal(60)),  # minutes after midnight
 }
 
 HINT = "Hinweis: {n} Angabe(n) ließ(en) sich nicht belegen und wurde(n) entfernt."
@@ -103,6 +110,9 @@ class _Found:
 
 
 def _value(raw: str) -> tuple[Decimal, int]:
+    if raw[:1] in ("-", "−"):
+        value, decimals = _value(raw[1:])
+        return -value, decimals
     word = re.sub(r"\s+", " ", raw.lower())
     if word in _HALVES:
         return Decimal(_HALVES[word]), 1
@@ -117,6 +127,11 @@ def _value(raw: str) -> tuple[Decimal, int]:
 def _found(text: str) -> list[_Found]:
     out: list[_Found] = []
     for m in _NUMBER_WITH_UNIT.finditer(text):
+        if m.group("uh") is not None:  # clock time, in minutes after midnight
+            total = Decimal(m.group("uh")) * 60 + Decimal(m.group("um"))
+            number = _Number(total, 0, "clock", Decimal(1))
+            out.append(_Found(number, (m.span("uh"), m.span("um")), m.group(0)))
+            continue
         if m.group("ch") is not None or m.group("kh") is not None:  # compound duration
             h, mins = ("ch", "cm") if m.group("ch") is not None else ("kh", "km")
             total = Decimal(m.group(h)) * 60 + Decimal(m.group(mins))
@@ -124,7 +139,7 @@ def _found(text: str) -> list[_Found]:
             out.append(_Found(number, (m.span(h), m.span(mins)), m.group(0)))
             continue
         unit = m.group("unit")
-        dim, factor = _UNITS[unit.lower()]
+        dim, factor = _UNITS[re.sub(r"\s+", " ", unit.lower())]
         if m.group("lo") is not None:  # range: the first number has the same unit
             value, decimals = _value(m.group("lo"))
             number = _Number(value, decimals, dim, factor)

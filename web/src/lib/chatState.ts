@@ -1,4 +1,4 @@
-import type { ChatEvent, HikeRequest, Labels, TourCard } from "./chat";
+import type { ChatEvent, HikeRequest, Labels, PlanData, TourCard } from "./chat";
 import type { Photo } from "./data";
 import type { ChatItem } from "../components/ChatMessages";
 
@@ -16,6 +16,8 @@ export type ChatState = {
   items: ChatItem[];
   /** null: nothing found yet, or the last search found nothing */
   last: LastResults | null;
+  /** the last multi-day plan (shown on /vorschlaege); a results event clears it, a plan event clears `last` */
+  plan: PlanData | null;
   /** the last understood request (for chips on /vorschlaege); null before the first */
   request: { request: HikeRequest; labels: Labels } | null;
   /** internal: activity "run" without pace, carried from "understood" to "results" */
@@ -38,7 +40,7 @@ export function coverOf(card: TourCard | undefined): Photo | null {
 }
 
 export function initialState(threadId: string): ChatState {
-  return { threadId, items: [], last: null, request: null, runWithoutPace: false };
+  return { threadId, items: [], last: null, plan: null, request: null, runWithoutPace: false };
 }
 
 /** All labels seen so far in this conversation (later ones win). */
@@ -49,6 +51,20 @@ function labelsOf(items: ChatItem[]): Labels {
 }
 
 const add = (s: ChatState, item: ChatItem): ChatState => ({ ...s, items: [...s.items, item] });
+
+/** A plan from the event, storage or the database in a safe shape (notes array, weather/rain objects); null if it is none. */
+export function normalizePlan(p: unknown): PlanData | null {
+  if (!isObject(p) || !isObject(p.plan) || !Array.isArray(p.plan.days)) return null;
+  const plan = { ...p.plan, notes: Array.isArray(p.plan.notes) ? p.plan.notes : [] };
+  return { ...p, plan, weather: isObject(p.weather) ? p.weather : {}, rain: isObject(p.rain) ? p.rain : {} } as unknown as PlanData;
+}
+
+/** One line for the chat: the number of days, or (no day possible) the note that says why. */
+export function planSummary(p: PlanData): string {
+  const n = p.plan.days.length;
+  if (n === 0) return p.plan.notes.join(" ") || "Kein Plan möglich.";
+  return `Plan mit ${n} ${n === 1 ? "Tag" : "Tagen"} erstellt`;
+}
 
 export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
   switch (e.type) {
@@ -72,8 +88,24 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
         labels,
       };
       // An empty result list clears "Passend": the page never shows stale tours.
-      return { ...add(s, { kind: "results", ...item }), last: e.cards.length > 0 ? { ...item, request: s.request } : null };
+      return {
+        ...add(s, { kind: "results", ...item }),
+        last: e.cards.length > 0 ? { ...item, request: s.request } : null,
+        plan: null,
+      };
     }
+    case "plan": {
+      const { type: _type, ...plan } = e;
+      void _type;
+      // the backend names the plan's start; older payloads without it: the request at that moment
+      const start = plan.start_name !== undefined ? plan.start_name : (s.request?.request.start?.label ?? null);
+      const data = normalizePlan({ ...plan, start_name: start })!;
+      return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
+    }
+    case "groups":
+      return e.groups.length > 0 ? add(s, { kind: "groups", groups: e.groups, note: e.checked_note }) : s;
+    case "events":
+      return add(s, { kind: "events", events: e.events, fallback: e.fallback, note: e.note });
     case "token": {
       const last = s.items[s.items.length - 1];
       if (last?.kind === "assistant") {
@@ -85,6 +117,8 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
       return e.sources.length > 0 ? add(s, { kind: "sources", sources: e.sources }) : s;
     case "error":
       return add(s, { kind: "error", text: e.message });
+    case "auth":
+      return add(s, { kind: "auth" });
     case "done":
       return s;
   }
@@ -106,7 +140,8 @@ export function loadState(storage: Storage | null, newId: () => string): ChatSta
         delete (rest as { v?: number }).v;
         const last = isObject(rest.last) && Array.isArray(rest.last.cards) ? { ...rest.last, request: isObject(rest.last.request) ? rest.last.request : null } : null;
         const request = isObject(rest.request) && isObject(rest.request.request) ? rest.request : null;
-        return { ...initialState(parsed.threadId), ...rest, last, request } as ChatState;
+        const plan = normalizePlan(rest.plan);
+        return { ...initialState(parsed.threadId), ...rest, last, plan, request } as ChatState;
       }
     }
   } catch {

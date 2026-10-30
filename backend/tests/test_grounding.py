@@ -200,3 +200,52 @@ def test_tour_name_in_evidence_text_is_supported():
 def test_tour_name_needs_whole_word():
     r = grounding_check("Ein Panoramawegweiser.", ev(), tour_names=["Panoramaweg"])
     assert r.unsupported_names == []
+
+
+def test_weather_units_and_clock_times_are_checked():
+    ev = Evidence()
+    ev.add(11.4, "°C")
+    ev.add(85, "%")
+    ev.add(7.5, "mm")
+    ev.numbers.append("Ankunft 13:30 Uhr")
+    g = grounding_check(
+        "Bis 11 °C, 85 % Regen, 7,5 mm, an um 13:30 Uhr; nachts 2 Grad, 12 mm, an um 15 Uhr.", ev
+    )
+    assert g.unsupported == ["2 Grad", "12 mm", "15 Uhr"]
+    assert "Bis 11 °C, 85 % Regen, 7,5 mm, an um 13:30 Uhr" in g.text
+
+
+def test_minus_sign_is_part_of_the_number():
+    ev = Evidence()
+    ev.add(-3.0, "°C")
+    ev.add(4.0, "°C")
+    g = grounding_check("Tiefstwert 3 °C, höchstens 4 °C, nachts -3 °C, früh −3 °C.", ev)
+    assert g.unsupported == ["3 °C"]
+    assert g.text.startswith("Tiefstwert ? °C, höchstens 4 °C, nachts -3 °C, früh −3 °C.")
+    assert grounding_check("Tiefstwert −3 °C", Evidence(numbers=["-3 °C"])).unsupported == []
+    assert grounding_check("Tiefstwert -3 °C", Evidence(numbers=["3 °C"])).unsupported == ["-3 °C"]
+
+
+def test_ranges_and_compounds_keep_working_with_signs():
+    known = Evidence(numbers=["10 km", "14 km", "3 km"])
+    assert grounding_check("10–14 km", known).unsupported == []
+    assert grounding_check("10-14 km", known).unsupported == []
+    assert grounding_check("10 - 14 km", known).unsupported == []
+    assert grounding_check("eine 3-Tage-Tour über 3 km", known).unsupported == []
+    assert grounding_check("-3 bis 4 °C", Evidence(numbers=["-3 °C", "4 °C"])).unsupported == []
+
+
+# --- plan 3, task 13: the numbers the code shows the model must pass the check ------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "unit"), [(4.35, "h"), (15.05, "km"), (-4.35, "°C"), (2.25, "h")]
+)
+def test_numbers_formatted_for_the_model_are_supported(value, unit):
+    """Smoke case 8: the plan line said "Gehzeit 4,3 h" (float rounding of 4.35) while the
+    evidence 4,35 h rounds half-up to 4,4 – the model's faithful copy was replaced by "?"."""
+    from hikeall.agent.graph import _de
+
+    ev = Evidence()
+    ev.add(value, unit)
+    assert grounding_check(f"Es sind {_de(value)} {unit}.", ev).unsupported == []

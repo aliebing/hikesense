@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ROOT_ENV, extra="ignore")
 
     supabase_db_url: str
+    supabase_jwt_secret: str | None = None
+    supabase_url: str | None = None  # JWKS: {supabase_url}/auth/v1/.well-known/jwks.json
+    supabase_anon_key: str | None = None  # smoke run: sign-in at the local Supabase auth
+    hikeall_smoke_password: SecretStr | None = None  # smoke user smoke@hikeall.local
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None
@@ -34,6 +38,7 @@ class Settings(BaseSettings):
     max_cost_usd: float = 0.05
     chat_log_path: Path = Path("logs/chat.jsonl")
     chroma_dir: Path = Path("chroma")
+    hikeall_user_agent: str | None = None  # own User-Agent for event pages (None: neutral default)
 
     @model_validator(mode="after")
     def _resolve_data_paths(self) -> Settings:

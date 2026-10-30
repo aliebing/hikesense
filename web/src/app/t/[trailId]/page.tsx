@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import ChatShell from "../../../components/ChatShell";
-import MapPanel from "../../../components/MapPanel";
 import Notice from "../../../components/Notice";
 import Panorama from "../../../components/Panorama";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
-import { getLodgings, getTrail, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
+import TrailMap from "../../../components/TrailMap";
+import GroupList from "../../../components/GroupList";
+import { GROUP_RADIUS_KM, getGroups, getLodgings, getTrail, groupsNearLine, type LodgingOnTrail, type TrailDetail } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
 
@@ -50,6 +52,14 @@ export default async function TrailPage({
     console.error(`getLodgings(${trailId}) failed:`, e);
   }
 
+  // „Gruppen in der Nähe“: failure or no geometry just leaves the section out.
+  let groups: ReturnType<typeof groupsNearLine> = [];
+  try {
+    if (trail.geom) groups = groupsNearLine(await getGroups(), trail.geom.coordinates, new Date());
+  } catch (e) {
+    console.error("getGroups failed:", e);
+  }
+
   const longDistance = trail.kind === "long_distance";
   const meta = [
     longDistance ? `Fernweg · ${trail.stages.length} Etappen` : "Tagestour",
@@ -77,19 +87,41 @@ export default async function TrailPage({
           variant="drawer"
         />
         <div data-slot="map" className="grid">
-          <MapPanel trail={mapTrail(trail)} lodgings={lodgings} />
+          <TrailMap
+            trailId={trailId}
+            fromSuggestions={von === "vorschlaege"}
+            trail={mapTrail(trail)}
+            lodgings={lodgings}
+            lengthKm={trail.length_km}
+          />
+          <Link
+            href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
+            className="mt-2 self-start justify-self-start rounded-full border border-white/25 bg-papier/15 px-4 py-2 text-sm text-papier shadow-lg backdrop-blur-xl hover:bg-papier/25 focus-visible:outline-2 focus-visible:outline-papier"
+          >
+            Unterwegs
+          </Link>
         </div>
       </div>
 
       <div className="flex-1" />
 
       <div className="flex justify-end">
-        <PhotoSwitcher photos={trail.photos} />
+        <PhotoSwitcher photos={trail.photos} trailId={trailId} />
       </div>
 
       <section aria-label={longDistance ? "Etappen" : "Tour"}>
         <StageCards trail={trail} />
       </section>
+
+      {groups.length > 0 && (
+        <section aria-label="Gruppen in der Nähe" className="max-w-2xl">
+          <h2 className="mb-1 font-serif text-xl drop-shadow">Gruppen in der Nähe</h2>
+          <GroupList
+            groups={groups}
+            note={`Stand: ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`))} · bis ${GROUP_RADIUS_KM} km vom Weg`}
+          />
+        </section>
+      )}
 
       <footer className="text-[11px] text-papier/75">
         Quellen:{" "}

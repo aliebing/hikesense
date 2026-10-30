@@ -1,4 +1,4 @@
-"""Command line: `hikeall import-trails [--only ID]`, `scan-day-hikes`, `import-day-hikes`."""
+"""Command line: `hikeall import-trails [--only ID]`, `scan-day-hikes`, `import-day-hikes`, `import-groups`."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from hikeall.ingest.day_hikes import (
     scan,
     write_candidates,
 )
+from hikeall.ingest.groups import import_groups, read_groups
 from hikeall.ingest.lodgings import fetch_lodgings, import_lodgings
 from hikeall.ingest.photos import import_photos, load_targets
 from hikeall.ingest.places import (
@@ -45,6 +46,7 @@ from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRAILS_YAML = REPO_ROOT / "data" / "curated" / "trails.yaml"
 DAY_HIKES_CSV = REPO_ROOT / "data" / "curated" / "day_hikes.csv"
+GROUPS_CSV = REPO_ROOT / "data" / "curated" / "groups.csv"
 KNOWLEDGE_DIR = REPO_ROOT / "data" / "knowledge"
 CHROMA_DIR = REPO_ROOT / "data" / "chroma"
 OSM_SOURCE_ID = "osm"
@@ -168,6 +170,26 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
     return 1 if rep.failed else 0
 
 
+def import_groups_cmd(csv_path: Path) -> int:
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        rows = read_groups(csv_path)
+    except (HikeAllError, OSError) as e:
+        print(f"Fehler: {csv_path}: {e}", file=sys.stderr)
+        return 2
+    with connect(settings.supabase_db_url) as conn:
+        try:
+            n = import_groups(conn, rows)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+    print(f"{n} Gruppen importiert ({sum(r.status == 'vorschlag' for r in rows)} Vorschläge)")
+    return 0
+
+
 def import_shares_cmd(only: str | None) -> int:
     settings = _settings()
     if settings is None:
@@ -216,9 +238,10 @@ def import_shares_cmd(only: str | None) -> int:
 
 
 STAGE_COUNT_SQL = """
-    select s.id, s.trail_id, s.seq, count(l.id)
-    from stages s
-    left join lodgings l on st_dwithin(s.geom::geography, l.geom::geography, 1000)
+    select s.id, s.trail_id, s.seq, count(distinct l.id)
+    from (select id, trail_id, seq, st_subdivide(geom, 64) as geom from stages) s
+    left join lodgings l on l.geom && st_expand(s.geom, 0.015)  -- index prefilter, > 1 km
+      and st_dwithin(s.geom::geography, l.geom::geography, 1000)
     where s.trail_id like 'westweg%%'
     group by s.id, s.trail_id, s.seq
     order by s.trail_id, s.seq
@@ -433,21 +456,39 @@ def build_knowledge_cmd() -> int:
 
 
 def smoke_cmd() -> int:
+    from hikeall import smoke as sm
     from hikeall.api.chat import default_deps_factory
-    from hikeall.smoke import smoke
 
     settings = _settings()
     if settings is None:
         return 2
     try:
-        return smoke(
+        user_hash = sm.authorize(settings)  # the same token check as POST /chat
+        return sm.smoke(
             default_deps_factory(settings),
             REPO_ROOT / "data" / "smoke" / "prompts.yaml",
             REPO_ROOT / "data" / "smoke",
+            user_hash=user_hash,
         )
     except (HikeAllError, psycopg.Error) as e:  # e.g. database down: a message, no traceback
         print(f"Smoke abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
         return 2
+
+
+def smoke_user_cmd() -> int:
+    from hikeall import smoke as sm
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        with make_http_client(sm.AUTH_TIMEOUT_S) as http:
+            state = sm.create_user(http, settings)
+    except HikeAllError as e:
+        print(f"Smoke-Nutzer – {e}", file=sys.stderr)
+        return 2
+    print(f"Smoke-Nutzer {sm.SMOKE_EMAIL} {state}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -469,7 +510,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
-    sub.add_parser("smoke", help="6 Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    sub.add_parser("smoke", help="Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    sub.add_parser("smoke-user", help="Testkonto smoke@hikeall.local in der lokalen Supabase-Auth")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
@@ -479,6 +521,8 @@ def main(argv: list[str] | None = None) -> int:
     ):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--csv", type=Path, default=DAY_HIKES_CSV, help="Kurations-CSV")
+    p = sub.add_parser("import-groups", help="Gruppenliste aus der Kurations-CSV importieren")
+    p.add_argument("--csv", type=Path, default=GROUPS_CSV, help="Gruppen-CSV")
     args = parser.parse_args(argv)
     if args.command == "import-trails":
         return import_trails(args.only)
@@ -492,6 +536,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_knowledge_cmd()
     if args.command == "smoke":
         return smoke_cmd()
+    if args.command == "smoke-user":
+        return smoke_user_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":
@@ -500,6 +546,8 @@ def main(argv: list[str] | None = None) -> int:
         return scan_day_hikes(_repo_path(args.csv))
     if args.command == "import-day-hikes":
         return import_day_hikes_cmd(_repo_path(args.csv))
+    if args.command == "import-groups":
+        return import_groups_cmd(_repo_path(args.csv))
     return 2
 
 

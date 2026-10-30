@@ -121,7 +121,7 @@ def test_chatlog_has_no_message_text(tmp_path):
     assert len(lines) == 2
     row = json.loads(lines[0])
     assert set(row) == {
-        "ts", "request_id", "intent", "activity", "tool_calls", "input_tokens",
+        "ts", "request_id", "user_hash", "intent", "activity", "tool_calls", "input_tokens",
         "output_tokens", "cost_usd", "calls_without_cost", "grounding_unsupported",
         "guard", "discarded_model_numbers", "error",
     }  # fmt: skip

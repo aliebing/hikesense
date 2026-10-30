@@ -1,6 +1,6 @@
 import type { LineString } from "geojson";
 import type { LodgingOnTrail, TrailDetail } from "./data";
-import { bboxOf, BASEMAP_STYLE, lodgingsNearby, mapTrail, safeWebsite, trailToFeatures } from "./map";
+import { bboxOf, dayFeatures, daySections, BASEMAP_STYLE, lodgingsNearby, mapTrail, safeWebsite, trailToFeatures } from "./map";
 
 const line = (...coords: [number, number][]): LineString => ({ type: "LineString", coordinates: coords });
 
@@ -82,4 +82,36 @@ test("safeWebsite links only http(s) and adds a missing scheme", () => {
   expect(safeWebsite("www.pension.de")).toBe("https://www.pension.de/");
   expect(safeWebsite("javascript:alert(1)")).toBeNull();
   expect(safeWebsite(null)).toBeNull();
+});
+
+describe("daySections", () => {
+  const days = (stops: { id: number; km: number }[]) =>
+    stops.map((st, i) => ({ day: i + 1, start_km: i ? stops[i - 1].km : 0, end_km: st.km, stop: { lodging_id: st.id, name: `L${st.id}` } }));
+
+  it("cuts at the backend's along_km: fraction of the planar line length", () => {
+    // planar length 0.2 + 0.2 = 0.4; a lodging at (8.05, 48.21) projects to (8.05, 48.2) = fraction 0.625
+    const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
+    const length = 40;
+    const along = 0.625 * length; // ST_LineLocatePoint * length_km
+    const secs = daySections(line, days([{ id: 1, km: along }, { id: 2, km: length }]), length);
+    const c = secs[0].geom.coordinates;
+    expect(c[0]).toEqual([8, 48]);
+    expect(c[c.length - 1][0]).toBeCloseTo(8.05, 9);
+    expect(c[c.length - 1][1]).toBeCloseTo(48.2, 9);
+    expect(c).toContainEqual([8, 48.2]); // the vertex before the cut stays
+    expect(secs[1].geom.coordinates[0][0]).toBeCloseTo(8.05, 9);
+  });
+
+  it("puts the day-end marker at the lodging, flags a stop that is not loaded", () => {
+    const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
+    const secs = daySections(line, days([{ id: 1, km: 25 }, { id: 2, km: 40 }]), 40, (id) => (id === 1 ? [8.05, 48.21] : null));
+    expect(secs.map((s) => s.lodging_missing)).toEqual([false, true]);
+    const ends = dayFeatures(secs).features.filter((f) => f.properties?.kind === "boundary");
+    expect((ends[0].geometry as { coordinates: number[] }).coordinates).toEqual([8.05, 48.21]);
+  });
+
+  it("draws nothing without a line or the trail length", () => {
+    expect(daySections([[8, 48]], days([{ id: 1, km: 1 }]), 1)).toEqual([]);
+    expect(daySections([[8, 48], [8, 49]], days([{ id: 1, km: 1 }]), null)).toEqual([]);
+  });
 });

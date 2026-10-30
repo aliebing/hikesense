@@ -85,13 +85,22 @@ def link_trail_lodgings(conn: psycopg.Connection) -> int:
     conn.execute("delete from trail_lodgings")
     cur = conn.execute(
         """
+        with pieces as (  -- short pieces keep bbox and geography checks cheap on long trails
+          select id, st_subdivide(geom, 64) as geom from trails
+        ), near as (
+          select s.id as trail_id, l.id as lodging_id,
+                 min(st_distance(s.geom::geography, l.geom::geography)) as dist
+          from pieces s
+          join lodgings l on l.geom && st_expand(s.geom, 0.03)  -- index prefilter, > 2 km
+            and st_dwithin(s.geom::geography, l.geom::geography, %s)
+          group by s.id, l.id
+        )
         insert into trail_lodgings (trail_id, lodging_id, dist_m, along_km)
-        select t.id, l.id,
-               round(st_distance(t.geom::geography, l.geom::geography))::int,
+        select n.trail_id, n.lodging_id, round(n.dist)::int,
                (st_linelocatepoint(t.geom, l.geom) * t.length_km)::numeric(8, 3)
-        from trails t
-        join lodgings l on t.geom && st_expand(l.geom, 0.03)  -- index prefilter, > 2 km
-          and st_dwithin(t.geom::geography, l.geom::geography, %s)
+        from near n
+        join trails t on t.id = n.trail_id
+        join lodgings l on l.id = n.lodging_id
         """,
         [BUFFER_M],
     )

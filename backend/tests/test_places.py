@@ -156,3 +156,21 @@ def test_parse_places_municipality():
     }
     (p,) = parse_places(data)
     assert (p.kind, p.name, p.id) == ("municipality", "Todtnau", -(10**12 + 7))
+
+
+def test_parse_places_keeps_city_as_town():
+    data = {
+        "elements": [
+            {"type": "node", "id": 71, "lat": 47.99, "lon": 7.85,
+             "tags": {"place": "city", "name": "Freiburg im Breisgau"}},
+            {"type": "node", "id": 72, "lat": 48.89, "lon": 8.69,
+             "tags": {"place": "city", "name": "Pforzheim"}},
+            {"type": "node", "id": 73, "lat": 48.0, "lon": 7.9,
+             "tags": {"place": "hamlet", "name": "Freiburg"}},
+            {"type": "node", "id": 74, "lat": 48.1, "lon": 7.9, "tags": {"place": "city"}},
+        ]
+    }
+    got = {p.id: p for p in parse_places(data)}
+    assert got.keys() == {71, 72, 73}  # unnamed city dropped
+    assert got[71].kind == got[72].kind == "town" and got[73].kind == "hamlet"
+    assert 'node["place"="city"]' in places_query(BLACK_FOREST_BBOX)

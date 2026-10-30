@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke osm-extract places
+.PHONY: test lint up down import scan knowledge tags smoke smoke-user osm-extract places groups
 
 test:
 	cd backend && uv run pytest -q
@@ -38,8 +38,13 @@ tags:
 	cd backend && uv run hikeall build-tags
 
 # Durchstich gegen das echte Modell (OPENROUTER_API_KEY in .env; kostet wenige Cent).
+# Meldet sich als smoke@hikeall.local an (vorher einmal `make smoke-user`).
 smoke:
 	cd backend && uv run hikeall smoke
+
+# Testkonto smoke@hikeall.local in der lokalen Supabase-Auth (Passwort: HIKEALL_SMOKE_PASSWORD).
+smoke-user:
+	cd backend && uv run hikeall smoke-user
 
 # Geofabrik-Extrakt Baden-Württemberg (ODbL, ~700 MB); FORCE=1 lädt neu.
 OSM_PBF = data/osm/baden-wuerttemberg-latest.osm.pbf
@@ -51,3 +56,7 @@ osm-extract:
 places: osm-extract
 	cd backend && uv run hikeall import-places --pbf $(OSM_PBF)
 	cd backend && uv run hikeall build-tags
+
+# Kuratierte Gruppenliste (data/curated/groups.csv) in die DB.
+groups:
+	cd backend && uv run hikeall import-groups

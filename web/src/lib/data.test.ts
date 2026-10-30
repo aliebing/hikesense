@@ -1,4 +1,4 @@
-import { getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
+import { groupsNearLine, toProfile, getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
 
 const t = (id: string, lat: number | null, withCover = true): TrailSummary => ({
   id, name: id, kind: "day_hike", length_km: 10, ascent_m: 100, descent_m: 100,
@@ -43,4 +43,27 @@ test("toSummary keeps missing numbers as null instead of 0", () => {
 
 test("photoPool counts only day hikes with a photo", () => {
   expect(photoPool([t("a", 48), t("b", 48.2, false), t("c", null)]).map((h) => h.id)).toEqual(["a"]);
+});
+
+test("toProfile keeps [km, m] pairs and refuses anything else", () => {
+  expect(toProfile([[0, 100], [1.5, 120]])).toEqual([[0, 100], [1.5, 120]]);
+  expect(toProfile(null)).toBeNull();
+  expect(toProfile([[0, 100]])).toBeNull();
+  expect(toProfile([[0, "x"], [1, 2]])).toBeNull();
+});
+
+test("groupsNearLine: within 15 km of any point, nearest first, stale after 180 days", () => {
+  const line = [[8, 48], [8.1, 48.1]];
+  const row = (name: string, lat: number, lon: number, checked_at: string) => ({ name, kind: "wanderverein", place: "P", url: "https://x.example/" + name, checked_at, lat, lon });
+  const got = groupsNearLine(
+    [row("B", 48.1, 8.2, "2026-10-01"), row("A", 48.0, 8.0, "2026-05-03"), row("C", 48.0, 8.0, "2026-05-02"), row("far", 49, 9, "2026-10-01")],
+    line,
+    new Date("2026-10-30T12:00:00Z"),
+  );
+  expect(got.map((g) => g.name)).toEqual(["A", "C", "B"]);
+  expect(got.map((g) => g.stale)).toEqual([false, true, false]);
+  expect(got[0].dist_km).toBe(0);
+  expect(got[0].status).toBe("vorschlag"); // no status: never presented as checked by hand
+  const hand = groupsNearLine([{ ...row("H", 48.0, 8.0, "2026-10-01"), status: "geprüft" }], line, new Date("2026-10-30T12:00:00Z"));
+  expect(hand[0].status).toBe("geprüft");
 });

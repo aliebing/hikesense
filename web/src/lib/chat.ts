@@ -23,6 +23,14 @@ export type HikeRequest = {
   pace_min_per_km: number | null;
   unmatched: string[];
   question: string | null;
+  // multi-day (only values the user wrote; null otherwise)
+  trail_id?: string | null;
+  trail_assumed?: boolean;
+  days?: number | null;
+  day_km?: number | null;
+  start_date?: string | null;
+  start_time?: string | null;
+  day_change?: { day: number; change: "shorter" | "longer" } | null;
 };
 
 export type ConstraintResult = {
@@ -62,6 +70,110 @@ export type SourceBrief = {
   status: string | null;
 };
 
+/** Multi-day plan, as serialised by backend PlanEvent (agent/multiday.py, adapters/open_meteo.py). */
+export type PlanStop = {
+  lodging_id: number;
+  name: string | null;
+  kind: string | null;
+  website: string | null;
+  along_km: number;
+  dist_m: number;
+};
+
+export type DayPlan = {
+  day: number;
+  /** ISO date; null: the user gave no date */
+  date: string | null;
+  start_km: number;
+  end_km: number;
+  walk_km: number;
+  access_km: number;
+  length_km: number;
+  ascent_m: number;
+  descent_m: number;
+  duration_h: number;
+  /** "09:00:00" */
+  start_time: string;
+  /** null: the day would end after midnight (see gap) */
+  arrival: string | null;
+  /** null: the day ends at the trail end */
+  stop: PlanStop | null;
+  gap: string | null;
+  within_band: boolean;
+};
+
+export type MultidayPlan = {
+  trail_id: string;
+  trail_name: string;
+  target_km: number;
+  days: DayPlan[];
+  notes: string[];
+  source_ids: string[];
+};
+
+export type DayWeather = {
+  date: string;
+  code: number | null;
+  text: string | null;
+  t_min_c: number | null;
+  t_max_c: number | null;
+  precip_mm: number | null;
+  precip_prob_pct: number | null;
+  source_id: string;
+};
+
+export type NoForecast = { reason: string };
+
+export type RainVariant = {
+  station_name: string;
+  walk_km: number;
+  ascent_m: number;
+  duration_h: number;
+  note: string;
+};
+
+/** The plan event without its type (what is stored and saved with „Merken“). Keys of weather/rain: day number. */
+export type PlanData = {
+  plan: MultidayPlan;
+  weather: Record<string, DayWeather | NoForecast>;
+  rain: Record<string, RainVariant | null>;
+  labels?: Labels;
+  /** the plan's start place (backend PlanEvent; payloads saved before it: added by the web app) */
+  start_name?: string | null;
+};
+
+/** A group of the curated list (no persons, no event dates); `checked_at` is an ISO date. */
+export type GroupBrief = {
+  name: string;
+  kind: string;
+  place: string;
+  url: string;
+  checked_at: string;
+  stale: boolean;
+  dist_km: number;
+  /** "geprüft": confirmed by hand; "vorschlag" (or missing, older payloads): page and name fetched automatically */
+  status?: string;
+};
+
+/** One race field: the value and the verbatim quote from the source page; value null = „nicht angegeben“. */
+export type RaceField = { value: string | null; quote: string | null };
+
+/** A race found live on the web: every field with a value is quoted on `source_url` (ISO dates). */
+export type VerifiedRace = {
+  name: RaceField;
+  date: RaceField;
+  place: RaceField;
+  distances: RaceField;
+  registration_url: RaceField;
+  registration_deadline: RaceField;
+  fee: RaceField;
+  source_url: string;
+  day: string;
+};
+
+/** A running calendar to search yourself (shown when no race is verified). */
+export type CalendarLink = { name: string; url: string };
+
 /** tag_id -> vocabulary label */
 export type Labels = Record<string, string>;
 
@@ -69,15 +181,24 @@ export type ChatEvent =
   | { type: "understood"; text: string; request: HikeRequest; labels?: Labels }
   | { type: "clarify"; question: string; options: string[] }
   | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
+  | ({ type: "plan" } & PlanData)
+  | { type: "groups"; groups: GroupBrief[]; checked_note: string }
+  | { type: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
   | { type: "done"; usage: unknown; unsupported: number }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** 401 from /chat: no or expired session */
+  | { type: "auth"; message: string };
 
 export const ERROR_INTERRUPTED = "Die Antwort wurde unterbrochen. Bitte stelle die Frage noch einmal.";
 
 export const ERROR_REJECTED =
   "Die Nachricht konnte nicht verarbeitet werden. Bitte formuliere sie neu oder kürzer.";
+
+export const ERROR_AUTH = "Sitzung abgelaufen – bitte erneut anmelden";
+
+export const ERROR_AUTH_UNAVAILABLE = "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.";
 
 export const ERROR_UNREACHABLE =
   "Der Planungs-Dienst ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.";
@@ -118,14 +239,22 @@ export async function streamChat(
   message: string,
   onEvent: (e: ChatEvent) => void,
   signal?: AbortSignal,
+  accessToken?: string | null,
 ): Promise<void> {
   try {
     const res = await fetch(`${apiUrl}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({ thread_id: threadId, message }),
       signal,
     });
+    // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
+    if (res.status === 401) return onEvent({ type: "auth", message: ERROR_AUTH });
+    if (res.status === 503) return onEvent({ type: "error", message: ERROR_AUTH_UNAVAILABLE });
     // a rejected request (e.g. 422, 413) answers with JSON, not with events
     const rejected = res.status >= 400 && res.status < 500 ? ERROR_REJECTED : ERROR_UNREACHABLE;
     if (!res.body) {

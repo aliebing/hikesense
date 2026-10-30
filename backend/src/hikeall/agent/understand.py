@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import difflib
 import re
+from datetime import date, time, timedelta
+from typing import Protocol
 
 from hikeall.agent.request import (
+    DEFAULT_DAY_KM,
     DEFAULT_RADIUS_KM,
+    DEFAULT_START_TIME,
+    MAX_DAYS,
     MAX_PREFERENCES,
+    MIN_DAYS,
     Clarify,
     Constraint,
+    DayChange,
     HikeRequest,
     Preference,
     RawRequest,
@@ -19,11 +26,12 @@ from hikeall.agent.request import (
 )
 from hikeall.geo import haversine_km
 from hikeall.llm.gateway import LLMGateway
-from hikeall.tags.vocabulary import Area, NearPlace, Tag, TagVocabulary, fold
+from hikeall.tags.vocabulary import Area, LongTrail, NearPlace, Tag, TagVocabulary, fold
 
 __all__ = [
     "Clarify",
     "RawRequest",
+    "TrailLookup",
     "Understood",
     "echo",
     "parse",
@@ -47,6 +55,15 @@ und füllst daraus ein strukturiertes Formular. Erfinde nichts und lass nichts w
 Felder:
 - intent: day_hike (Tagestour suchen), multiday (mehrtägige Tour), knowledge (Wissensfrage \
 zum Schwarzwald), change (Änderung einer vorherigen Suche, z. B. "kürzer bitte"), other.
+- intent events: Frage nach Läufen/Wanderveranstaltungen (z. B. "Halbmarathon im Juni bei \
+Freiburg"); intent groups: Frage nach Lauf- oder Wandergruppen (z. B. "Lauftreff in Freiburg"). \
+Bei beiden die Frage mit Ort, Monat und Distanzen in question, genau wie geschrieben.
+- Mehrtagestour (intent multiday): trail_text (Fernweg wie genannt, z. B. "Westweg"), days \
+(Anzahl Tage), day_km (Tagesziel in km, z. B. "18 km pro Tag"), start_date (ISO, nur wenn ein \
+Datum geschrieben steht), start_time (HH:MM, nur wenn eine Uhrzeit geschrieben steht). \
+Unterkunftswünsche ohne Tag (Halbpension, Sauna …) als wishes.
+- "Tag 3 kürzer/länger" (Änderung eines Mehrtagesplans): intent change, day_change_day (3), \
+day_change_direction (shorter oder longer).
 - activity: hike oder run; nur setzen, wenn die Person Laufen/Joggen oder Wandern erwähnt.
 - start_text: Ort oder Gegend genau so, wie die Person ihn nennt (nicht korrigieren, nicht raten).
 - Bedingungen (nur setzen, wenn genannt): roundtrip (true für Rundweg, false für Streckentour), \
@@ -71,10 +88,24 @@ _CLARIFY_CHANGE = Clarify(
 _CLARIFY_PACE = Clarify(question="Welches Tempo läufst du ungefähr (min/km)?")
 
 
+class TrailLookup(Protocol):
+    """What understand needs to know about a long-distance trail (AgentTools provides it)."""
+
+    def start_km(self, trail_id: str, lat: float, lon: float) -> float | None: ...
+
+    def stage_places(self, trail_id: str) -> list[str]: ...
+
+
 def understand(
-    gw: LLMGateway, vocab: TagVocabulary, message: str, previous: HikeRequest | None
+    gw: LLMGateway,
+    vocab: TagVocabulary,
+    message: str,
+    previous: HikeRequest | None,
+    today: date | None = None,
+    trails: TrailLookup | None = None,
 ) -> Understood:
-    return resolve(vocab, parse(gw, vocab, message, previous), message, previous)
+    raw = parse(gw, vocab, message, previous)
+    return resolve(vocab, raw, message, previous, today=today, trails=trails)
 
 
 def parse(
@@ -93,27 +124,60 @@ def resolve(
     message: str,
     previous: HikeRequest | None,
     start: ResolvedStart | None = None,
+    today: date | None = None,
+    trails: TrailLookup | None = None,
 ) -> Understood:
     """Everything after the model call, in code. `start` (already resolved, e.g. the option the
-    user picked after a clarify question) skips resolving raw.start_text."""
+    user picked after a clarify question) skips resolving raw.start_text. `today` anchors
+    relative dates; `trails` answers "is the start on the trail" and lists the stage places."""
     is_change = raw.intent == "change"
     if is_change and previous is None:
         return _CLARIFY_CHANGE
+
+    nums, unread = _scan(message)
+    day_change = None
+    change_note = None
+    if is_change and raw.day_change_day is not None and raw.day_change_direction is not None:
+        if previous is None or previous.days is None:  # no multi-day plan to change
+            return _CLARIFY_CHANGE
+        day_change = _day_change(raw, message, nums, previous.days)
+        if isinstance(day_change, Clarify):
+            return day_change
+        if day_change is None:  # never a silent no-op
+            change_note = "Änderung nicht erkannt – bitte z. B. „Tag 3 kürzer“ schreiben"
+
+    is_multiday = raw.intent == "multiday"
+    trail: tuple[Tag, bool] | None = None
+    if is_multiday:
+        found = _resolve_trail(vocab, raw.trail_text, message)
+        if isinstance(found, Clarify):
+            return found
+        trail = found
 
     wants_tour = raw.intent in ("day_hike", "multiday", "change")
     start_text = raw.start_text.strip() if raw.start_text else None
     if start is not None:
         start_text = start.label
-    elif wants_tour and start_text:
+    elif (wants_tour or raw.intent == "groups") and start_text:
         resolved = _resolve_start(vocab, start_text)
         if isinstance(resolved, Clarify):
             return resolved
         start = resolved
+    if trail is not None:
+        clarify = _check_multiday_start(vocab, trail[0], start, trails)
+        if clarify is not None:
+            return clarify
 
     preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes)
-    nums, unread = _scan(message)
     constraints, invalid, discarded = _constraints(raw, nums, unread)
     unmatched += invalid
+    multi, problems, dropped = _multiday_fields(raw, message, nums, today or date.today())
+    unmatched += problems
+    if change_note:
+        unmatched.append(change_note)
+    discarded += dropped
+    if is_multiday and multi["days"] is None:
+        return Clarify(question=DAYS_QUESTION)
     for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
         if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
             constraints.append(Constraint(kind="roundtrip", required=required))
@@ -138,8 +202,16 @@ def resolve(
         preferences=preferences[:MAX_PREFERENCES],
         pace_min_per_km=pace,
         unmatched=unmatched,
-        question=(raw.question or message) if raw.intent == "knowledge" else raw.question,
+        question=(
+            (raw.question or message)
+            if raw.intent in ("knowledge", "events", "groups")
+            else raw.question
+        ),
+        trail_id=trail[0].rule.trail_id if trail and isinstance(trail[0].rule, LongTrail) else None,
+        trail_assumed=bool(trail and trail[1]),
+        day_change=day_change,
         discarded_model_numbers=discarded,
+        **multi,
     )
     overflow = preferences[MAX_PREFERENCES:]
     if overflow:  # never drop a wish silently
@@ -336,8 +408,13 @@ def _merge(
         label = _text_for(vocab, p.tag_id)
         if label not in unmatched:
             unmatched.append(label)
+    intent = previous.intent
+    if delta.day_change is not None:
+        intent = "change"
+    elif intent == "change":  # a plan after a day change is a multi-day plan again
+        intent = "multiday" if previous.trail_id else "day_hike"
     return HikeRequest(
-        intent=previous.intent,
+        intent=intent,
         activity=activity or previous.activity,
         start_text=delta.start_text if delta.start else previous.start_text,
         start=delta.start or previous.start,
@@ -349,6 +426,13 @@ def _merge(
         ),
         unmatched=unmatched,
         question=previous.question,
+        trail_id=previous.trail_id,
+        trail_assumed=previous.trail_assumed,
+        days=delta.days if delta.days is not None else previous.days,
+        day_km=delta.day_km if delta.day_km is not None else previous.day_km,
+        start_date=delta.start_date or previous.start_date,
+        start_time=delta.start_time or previous.start_time,
+        day_change=delta.day_change,
         discarded_model_numbers=delta.discarded_model_numbers,
     )
 
@@ -359,6 +443,7 @@ def _finish(req: HikeRequest, vocab: TagVocabulary) -> HikeRequest:
     if (
         req.start is not None
         and req.start.kind == "place"
+        and req.trail_id is None  # a multi-day plan has no search radius
         and not any(c.kind == "radius_km" for c in req.constraints)
     ):
         req.constraints.append(Constraint(kind="radius_km", max=DEFAULT_RADIUS_KM))
@@ -459,12 +544,12 @@ def _tier(needle: str, terms: list[str]) -> int | None:
 SAME_PLACE_KM = 5.0
 
 
-_MERGE_RANK = {"town": 0, "village": 0, "municipality": 1, "lake": 2}  # peaks never merge
+_MERGE_RANK = {"town": 0, "village": 1, "municipality": 2, "lake": 3}  # peaks never merge
 
 
 def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
-    """R25/R26: same-name (ignoring "(…)") town/village, municipality and lake within 5 km are
-    one place; keep the highest-priority one (town/village > municipality > lake)."""
+    """R25/R26: same-name (ignoring "(…)") town, village, municipality and lake within 5 km are
+    one place; keep the highest-priority one (town > village > municipality > lake; cities are towns)."""
     ranked = [
         (t, _MERGE_RANK[t.rule.kind])
         for t in tags
@@ -483,6 +568,27 @@ def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
     return [t for t in tags if id(t) not in dropped]
 
 
+_CITY_SUFFIX = re.compile(r" (?:im|an der|am) .*$")
+
+
+def _city_for(tags: list[Tag], needle: str) -> list[Tag] | None:
+    """The one town (OSM cities are stored as towns) whose name is `needle` or `needle` plus a
+    suffix like " im Breisgau"; None if there is not exactly one. Only decides between
+    towns and villages: a peak or lake of that name stays a clarify option."""
+    if any(
+        not isinstance(t.rule, NearPlace) or t.rule.kind not in ("town", "village") for t in tags
+    ):
+        return None
+    towns = [
+        t
+        for t in tags
+        if isinstance(t.rule, NearPlace)
+        and t.rule.kind == "town"
+        and needle in (_strip(t.label), _CITY_SUFFIX.sub("", _strip(t.label)))
+    ]
+    return towns if len(towns) == 1 else None
+
+
 def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []
@@ -498,11 +604,16 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
         needle = _strip(text)
         tiers: dict[int, list[Tag]] = {}
         for t in cands:
-            tier = _tier(needle, [_strip(x) for x in [t.label, *t.synonyms] if _strip(x)])
+            terms = [_strip(x) for x in [t.label, *t.synonyms] if _strip(x)]
+            if isinstance(t.rule, NearPlace) and t.rule.kind == "town":  # "Freiburg im Breisgau"
+                terms.append(_CITY_SUFFIX.sub("", _strip(t.label)))
+            tier = _tier(needle, terms)
             if tier is not None:
                 tiers.setdefault(tier, []).append(t)
         best = tiers[min(tiers)] if tiers else []
     best = _drop_shadowed_places(best)
+    if len(best) > 1:  # "Freiburg" = the city "Freiburg im Breisgau" over a same-name village
+        best = _city_for(best, _strip(text)) or best
     if len(best) == 1:
         return _to_start(best[0])
     if best:
@@ -634,17 +745,24 @@ _INTENTS = {
     "multiday": "Mehrtagestour",
     "knowledge": "Wissensfrage",
     "change": "Änderung",
+    "events": "Veranstaltungen",
+    "groups": "Gruppen",
     "other": "Sonstiges",
 }
 
 
 def echo(req: HikeRequest, vocab: TagVocabulary) -> str:
     """German "Verstanden: …" sentence, built from fields only."""
-    parts = [_INTENTS[req.intent], "Laufen" if req.activity == "run" else "Wandern"]
+    parts = [_INTENTS[req.intent]]
+    if req.intent not in ("events", "groups"):
+        parts.append("Laufen" if req.activity == "run" else "Wandern")
+    if req.trail_id is not None:
+        parts.append(_trail_echo(req, vocab))
     if req.start is not None:
         parts.append(f"Start: {req.start.label}")
     elif req.start_text:
         parts.append(f"Start: {req.start_text} (nicht aufgelöst)")
+    parts += _multiday_echo(req)
     for c in req.constraints:
         if c.kind == "roundtrip":
             parts.append("Rundweg" if c.required else "kein Rundweg")
@@ -662,6 +780,227 @@ def echo(req: HikeRequest, vocab: TagVocabulary) -> str:
         text += "; Vorlieben: " + ", ".join(wishes)
     if req.unmatched:
         text += "; nicht prüfbar: " + ", ".join(req.unmatched)
-    if req.question and req.intent == "knowledge":
+    if req.question and req.intent in ("knowledge", "events", "groups"):
         text += f"; Frage: {req.question}"
     return text + "."
+
+
+def _trail_echo(req: HikeRequest, vocab: TagVocabulary) -> str:
+    tag = vocab.get(f"trail:{req.trail_id}")
+    label = tag.label if tag else str(req.trail_id)
+    if req.trail_id == "westweg-west":
+        return (
+            f"{label} (Westvariante – Ostvariante möglich)"
+            if req.trail_assumed
+            else (f"{label} (Westvariante)")
+        )
+    return label
+
+
+def _multiday_echo(req: HikeRequest) -> list[str]:
+    parts = []
+    if req.days is not None:
+        parts.append(f"{req.days} Tage" if req.days != 1 else "1 Tag")
+    if req.trail_id is not None:  # defaults stay visible
+        std = " (Standard)" if req.day_km is None else ""
+        parts.append(f"Tagesziel {_num(req.day_km or DEFAULT_DAY_KM)} km{std}")
+    if req.start_date is not None:
+        parts.append(f"am {req.start_date:%d.%m.%Y}")
+    if req.trail_id is not None:
+        std = " (Standard)" if req.start_time is None else ""
+        parts.append(f"Start {(req.start_time or DEFAULT_START_TIME):%H:%M} Uhr{std}")
+    if req.day_change is not None:
+        word = "kürzer" if req.day_change.change == "shorter" else "länger"
+        parts.append(f"Tag {req.day_change.day} {word}")
+    return parts
+
+
+# --- multi-day ----------------------------------------------------------------------------
+
+_START_QUESTION = "Wo soll die Mehrtagestour starten?"
+DAYS_QUESTION = "Wie viele Tage?"
+_DIRECTION_WORDS = {
+    "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
+    "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
+}
+_DAYS_PHRASE = re.compile(r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag)\b")
+_PACE_UNIT = re.compile(r"\s*min\b")
+_MONTHS = {
+    "januar": 1, "februar": 2, "marz": 3, "maerz": 3, "april": 4, "mai": 5, "juni": 6,
+    "juli": 7, "august": 8, "september": 9, "oktober": 10, "november": 11, "dezember": 12,
+}  # fmt: skip
+_DATE_NAMED = re.compile(r"\b(\d{1,2})\.?\s*(" + "|".join(_MONTHS) + r")\b(?:\s*(\d{4}))?")
+_DATE_NUMERIC = re.compile(r"\b(\d{1,2})\.\s*(\d{1,2})\.(?:\s*(\d{4}|\d{2})\b)?")
+_TIME_UHR = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*uhr\b")
+_TIME_WORD_UHR = re.compile(r"\b([a-z]+)\s+uhr\b")
+_TIME_AT = re.compile(r"\b(?:um|ab|gegen)\s+(\d{1,2}):(\d{2})\b")
+_MONTH_WORD = re.compile(r"\b(?:" + "|".join(_MONTHS) + r")\b")
+
+
+def _days_written(days: int, text: str) -> bool:
+    """The count is tied to a day word: "3 Tage", "drei Tage", "dreitägig", "3-Tages-Tour"."""
+    for m in _DAYS_PHRASE.finditer(text):
+        word = m.group(1)
+        value = float(word) if word.isdigit() else _word_value(word)
+        if value is not None and value == days:
+            return True
+    return False
+
+
+def _day_change(
+    raw: RawRequest, message: str, nums: set[float], plan_days: int
+) -> DayChange | Clarify | None:
+    """ "Tag 3 kürzer": the day number must be written, the direction word as well."""
+    day, direction = raw.day_change_day, raw.day_change_direction
+    if day is None or direction is None:
+        return None
+    text = _plain(message)
+    if not _written(day, nums) or not _DIRECTION_WORDS[direction].search(text):
+        return None
+    if not MIN_DAYS <= day <= plan_days:
+        return Clarify(question=f"Der Plan hat {plan_days} Tage. Welchen Tag meinst du?")
+    return DayChange(day=day, change=direction)
+
+
+def _resolve_trail(
+    vocab: TagVocabulary, text: str | None, message: str
+) -> tuple[Tag, bool] | Clarify:
+    """Trail tag by name (the model's wording first, then the message itself); `assumed` is True
+    when only the bare name was given and another variant would also fit ("Westweg")."""
+    cands = [t for t in vocab.all() if t.category == "trail"]
+    for source in (text, message):
+        if not source:
+            continue
+        haystack = f" {fold(source)} "
+        hits = [(term, t) for t in cands for term in _terms(t) if f" {term} " in haystack]
+        if hits:
+            term, tag = max(hits, key=lambda h: len(h[0]))
+            siblings = [
+                o
+                for o in cands
+                if o is not tag and any(x.startswith(term + " ") for x in _terms(o))
+            ]
+            return tag, bool(siblings)
+    shown = [t.label for t in cands]
+    if text and text.strip():
+        return Clarify(
+            question=f"Welchen Fernweg meinst du? „{text.strip()}“ kenne ich nicht.", options=shown
+        )
+    return Clarify(question="Auf welchem Fernweg?", options=shown)
+
+
+def _trail_name(tag: Tag) -> str:
+    return tag.label.split()[0]
+
+
+def _check_multiday_start(
+    vocab: TagVocabulary, trail: Tag, start: ResolvedStart | None, trails: TrailLookup | None
+) -> Clarify | None:
+    """The start must be a place on the trail (<= 2 km from the line); otherwise ask for a
+    stage place of that trail (names from the stages table). Only stage places that resolve to
+    one known place are offered: an option must work when the user clicks it."""
+    trail_id = trail.rule.trail_id if isinstance(trail.rule, LongTrail) else ""
+    places = trails.stage_places(trail_id) if trails is not None else []
+    options = [p for p in places if _is_point(_resolve_start(vocab, p))]
+    if start is None or start.lat is None or start.lon is None:
+        return Clarify(question=_START_QUESTION, options=options)
+    if trails is not None and trails.start_km(trail_id, start.lat, start.lon) is None:
+        return Clarify(
+            question=f"{start.label} liegt nicht am {_trail_name(trail)}. Ab welchem Etappenort?",
+            options=options,
+        )
+    return None
+
+
+def _is_point(res: ResolvedStart | Clarify) -> bool:
+    return isinstance(res, ResolvedStart) and res.lat is not None and res.lon is not None
+
+
+def _multiday_fields(
+    raw: RawRequest, message: str, nums: set[float], today: date
+) -> tuple[dict, list[str], int]:
+    """days, day_km, start_date, start_time -- each only if the message says so (R27)."""
+    text = _plain(message)
+    out: dict = {"days": None, "day_km": None, "start_date": None, "start_time": None}
+    problems: list[str] = []
+    discarded = 0
+    if raw.days is not None:
+        if not _days_written(raw.days, text):
+            discarded += 1
+        elif not MIN_DAYS <= raw.days <= MAX_DAYS:
+            problems.append(f"Tage: {raw.days} ist kein gültiger Wert ({MIN_DAYS}–{MAX_DAYS})")
+        else:
+            out["days"] = raw.days
+    if raw.day_km is not None:
+        if not _written(raw.day_km, nums):
+            discarded += 1
+        elif raw.day_km <= 0:
+            problems.append(_invalid("Tagesziel", raw.day_km))
+        else:
+            out["day_km"] = raw.day_km
+    when, problem = _parse_date(text, today)
+    out["start_date"] = when
+    if problem:
+        problems.append(problem)
+    elif when is None and raw.start_date is not None:
+        discarded += 1
+        if _MONTH_WORD.search(text):  # a date-like wording we could not read: never silent
+            problems.append(_UNSURE.format("Datum"))
+    clock, problem = _parse_time(text)
+    out["start_time"] = clock
+    if problem:
+        problems.append(problem)
+    elif clock is None and raw.start_time is not None:
+        discarded += 1
+    return out, problems, discarded
+
+
+def _parse_date(text: str, today: date) -> tuple[date | None, str | None]:
+    """Date from the (folded) message: "12. Juni", "12.6.", "12.06.2027", heute/morgen/übermorgen.
+    No year: the next such day from today on."""
+    day = month = year = None
+    if m := _DATE_NAMED.search(text):
+        day, month, year = int(m.group(1)), _MONTHS[m.group(2)], m.group(3)
+    elif m := _DATE_NUMERIC.search(text):
+        day, month, year = int(m.group(1)), int(m.group(2)), m.group(3)
+    if day is not None:
+        label = f"{day}.{month}."
+        if year is not None and len(year) == 2:
+            year = "20" + year
+        found = None
+        # no year: the next year (from this one on) in which the day exists and is not past
+        for y in [int(year)] if year else range(today.year, today.year + 9):
+            try:
+                found = date(y, month, day)
+            except ValueError:
+                continue
+            if year or found >= today:
+                break
+            found = None
+        if found is None:
+            return None, f"Datum: {label} gibt es nicht"
+        if found < today:
+            return None, f"Datum: {found:%d.%m.%Y} liegt in der Vergangenheit"
+        return found, None
+    for word, offset in (("ubermorgen", 2), ("morgen", 1), ("heute", 0)):
+        if re.search(rf"\b{word}\b", text):
+            return today + timedelta(days=offset), None
+    return None, None
+
+
+def _parse_time(text: str) -> tuple[time | None, str | None]:
+    """Start time: "8 Uhr", "8:30 Uhr", "acht Uhr", "um 8:30"."""
+    hour = minute = None
+    if m := _TIME_UHR.search(text):
+        hour, minute = int(m.group(1)), int(m.group(2) or 0)
+    elif (m := _TIME_AT.search(text)) and not _PACE_UNIT.match(text, m.end()):
+        hour, minute = int(m.group(1)), int(m.group(2))  # "um 5:30 min/km" is a pace
+    elif m := _TIME_WORD_UHR.search(text):
+        value = _word_value(m.group(1))
+        if value is not None and value == int(value):
+            hour, minute = int(value), 0
+    if hour is None or minute is None:
+        return None, None
+    if hour > 23 or minute > 59:
+        return None, f"Uhrzeit: {hour}:{minute:02d} ist kein gültiger Wert"
+    return time(hour, minute), None

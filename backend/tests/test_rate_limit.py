@@ -77,3 +77,34 @@ def test_retry_after_is_max_of_blocking_windows(fake_clock):
     decision = rl.acquire("ip")
     assert not decision.allowed
     assert decision.retry_after_s == 86400 - 100
+
+
+def test_prune_drops_idle_keys(fake_clock):
+    rl = RateLimiter(clock=fake_clock)
+    rl.acquire("old")
+    fake_clock.advance(86400 + 1)
+    rl.acquire("new")  # more than a minute since the last prune: prunes "old"
+    assert "old" not in rl._hits and "new" in rl._hits
+
+
+def test_prune_keeps_recent_keys(fake_clock):
+    rl = RateLimiter(clock=fake_clock)
+    rl.acquire("a")
+    fake_clock.advance(3600)
+    rl.prune(fake_clock())
+    assert "a" in rl._hits
+
+
+def test_acquire_prunes_at_most_once_a_minute(fake_clock):
+    rl = RateLimiter(clock=fake_clock)
+    calls = []
+    real = rl._prune_locked
+    rl._prune_locked = lambda now: (calls.append(now), real(now))[1]
+    for _ in range(5):
+        rl.acquire("a")
+        fake_clock.advance(5)
+    assert calls == []
+    fake_clock.advance(60)
+    rl.acquire("a")
+    rl.acquire("a")
+    assert len(calls) == 1

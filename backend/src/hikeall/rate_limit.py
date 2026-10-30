@@ -1,4 +1,4 @@
-"""Per-IP caps on chat requests, so a bot cannot run up the provider bill."""
+"""Per-user caps on chat requests, so a bot cannot run up the provider bill."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class RateDecision:
 
 
 class RateLimiter:
-    """Sliding windows (60 s and 24 h) per client IP. Process-wide state."""
+    """Sliding windows (60 s and 24 h) per key (user id). Process-wide state."""
 
     def __init__(
         self,
@@ -32,12 +32,25 @@ class RateLimiter:
         self._clock = clock
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
+        self._last_prune = clock()
 
-    def acquire(self, ip: str) -> RateDecision:
+    def prune(self, now: float) -> None:
+        """Drops keys without a hit in the last 24 h (bounds memory). Caller holds no lock."""
+        with self._lock:
+            self._prune_locked(now)
+
+    def _prune_locked(self, now: float) -> None:
+        for key in [k for k, h in self._hits.items() if not h or now - h[-1] >= DAY_S]:
+            del self._hits[key]
+        self._last_prune = now
+
+    def acquire(self, key: str) -> RateDecision:
         """Counts the call only if every window allows it."""
         now = self._clock()
         with self._lock:
-            hits = self._hits[ip]
+            if now - self._last_prune >= MINUTE_S:  # at most once a minute
+                self._prune_locked(now)
+            hits = self._hits[key]
             while hits and now - hits[0] >= DAY_S:
                 hits.popleft()
             wait = 0

@@ -20,7 +20,7 @@ from hikeall.models import BBox
 
 FEATURES_YAML = data_root() / "tags" / "features.yaml"
 
-TagCategory = Literal["feature", "surface", "place", "area"]
+TagCategory = Literal["feature", "surface", "place", "area", "trail"]
 # municipality last: same-name collisions keep the existing bare ids of towns, peaks and lakes
 PLACE_KINDS = ("town", "village", "peak", "lake", "municipality")
 PLACE_RADIUS_KM = 15.0
@@ -86,8 +86,15 @@ class Area(BaseModel):
     bbox: BBox
 
 
+class LongTrail(BaseModel):
+    """A long-distance trail (trails.id); resolved by name, never checked spatially."""
+
+    type: Literal["trail"] = "trail"
+    trail_id: str = Field(min_length=1)
+
+
 TagRule = Annotated[
-    PoiNear | ShareAtLeast | ShareAtMost | Attribute | NearPlace | Area,
+    PoiNear | ShareAtLeast | ShareAtMost | Attribute | NearPlace | Area | LongTrail,
     Field(discriminator="type"),
 ]
 
@@ -131,7 +138,7 @@ class TagVocabulary:
         """Feature/surface tags from YAML plus the three area tags (no database needed)."""
         raw = yaml.safe_load(features_path.read_text(encoding="utf-8")) or []
         tags = [Tag.model_validate(item) for item in raw]
-        return cls(tags + _area_tags())
+        return cls(tags + _area_tags() + _trail_tags())
 
     @classmethod
     def load(cls, conn: psycopg.Connection, features_path: Path) -> TagVocabulary:
@@ -177,6 +184,30 @@ def _area_tags() -> list[Tag]:
             rule=Area(bbox=BBox(south=south, west=_BF[0], north=north, east=_BF[1])),
         )
         for tid, label, syn, south, north in AREAS
+    ]
+
+
+# "Westweg" alone is the west variant (understand says so in the echo)
+TRAILS = (
+    (
+        "trail:westweg-west",
+        "Westweg",
+        ["Westweg Westvariante", "Westweg West", "Westweg West Variante"],
+        "westweg-west",
+    ),
+    (
+        "trail:westweg-ost",
+        "Westweg Ostvariante",
+        ["Westweg Ost", "Westweg Ost Variante"],
+        "westweg-ost",
+    ),
+)
+
+
+def _trail_tags() -> list[Tag]:
+    return [
+        Tag(id=tid, label=label, category="trail", synonyms=syn, rule=LongTrail(trail_id=trail_id))
+        for tid, label, syn, trail_id in TRAILS
     ]
 
 

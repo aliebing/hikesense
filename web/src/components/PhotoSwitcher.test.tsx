@@ -35,3 +35,37 @@ test("PhotoSwitcher without photos renders gradient fallback", () => {
   render(<PhotoSwitcher photos={[]} />);
   expect(screen.getByTestId("panorama-fallback")).toBeInTheDocument();
 });
+
+describe("own photos", () => {
+  const h = vi.hoisted(() => ({ session: null as null | { user: { id: string } }, list: vi.fn(), del: vi.fn() }));
+  vi.mock("../lib/auth", () => ({
+    useSession: () => ({ session: h.session, loading: false }),
+    getBrowserSupabase: () => ({}),
+  }));
+  vi.mock("../lib/photo", () => ({ listOwnPhotos: h.list, deleteOwnPhoto: h.del, prepareUpload: vi.fn(), uploadOwnPhoto: vi.fn() }));
+
+  const mine: Photo = { ...p("m", "Eigenes Foto"), license: "privat", license_url: null, page_url: null, own: { id: 7, path: "u1/t1/m.jpg" } };
+
+  beforeEach(() => {
+    h.list.mockReset();
+    h.del.mockReset();
+  });
+
+  it("shows own photos only with a session and offers delete", async () => {
+    h.session = null;
+    const { unmount } = render(<PhotoSwitcher photos={[p("a", "Anna")]} trailId="t1" />);
+    expect(h.list).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Nächstes Bild" })).toBeNull();
+    unmount();
+
+    h.session = { user: { id: "u1" } };
+    h.list.mockResolvedValue([mine]);
+    render(<PhotoSwitcher photos={[p("a", "Anna")]} trailId="t1" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Nächstes Bild" }));
+    expect(screen.getByText(/Foto: Eigenes Foto/)).toBeInTheDocument();
+    h.list.mockResolvedValue([]);
+    await userEvent.click(screen.getByRole("button", { name: "Foto löschen" }));
+    expect(h.del).toHaveBeenCalledWith({}, { id: 7, path: "u1/t1/m.jpg" });
+    expect(await screen.findByText(/Anna/)).toBeInTheDocument();
+  });
+});

@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import logging
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 import psycopg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
+from hikeall.adapters.open_meteo import weather_source
 from hikeall.api.chat import default_deps_factory, make_router
 from hikeall.config import Settings
+from hikeall.db import upsert_source
 from hikeall.rate_limit import RateLimiter
+
+log = logging.getLogger(__name__)
 
 ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
@@ -31,15 +38,30 @@ def _knowledge_ok(settings: Settings) -> bool:
     return d.is_dir() and any(d.iterdir())
 
 
+def _register_sources(settings: Settings) -> None:
+    """Weather is fetched live, so its source row is written at startup (best effort)."""
+    try:
+        with psycopg.connect(settings.supabase_db_url, connect_timeout=2) as conn:
+            upsert_source(conn, weather_source())
+    except Exception:
+        log.warning("could not register the open-meteo source", exc_info=True)
+
+
 def create_app(
     settings: Settings | None = None, deps_factory: Callable[[], Any] | None = None
 ) -> FastAPI:
-    app = FastAPI(title="Hike all about")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if cfg is not None:
+            await run_in_threadpool(_register_sources, cfg)
+        yield
+
+    app = FastAPI(title="Hike all about", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Authorization"],
     )
     try:
         cfg = settings or Settings()
@@ -53,6 +75,7 @@ def create_app(
             "db": _db_ok(settings),
             "llm": bool(cfg and cfg.openrouter_api_key),
             "knowledge": bool(cfg and _knowledge_ok(cfg)),
+            "auth": bool(cfg and (cfg.supabase_jwt_secret or cfg.supabase_url)),
         }
 
     if cfg is not None:
