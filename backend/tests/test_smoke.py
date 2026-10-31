@@ -430,6 +430,18 @@ def test_days_unchanged_and_day_shorter_compare_with_the_previous_turn():
     assert sm.check([], exp, prev=before)
 
 
+def test_day_longer_compares_with_the_previous_turn():
+    before = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 45))]
+    after = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 50, band=False))]
+    exp = {"days_unchanged": [1, 2], "day_longer": 3}
+    assert sm.check(after, exp, prev=before) == []
+    shorter = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 40))]
+    assert sm.check(shorter, exp, prev=before)  # day 3 shorter, not longer
+    assert sm.check(before, exp, prev=before)  # day 3 unchanged
+    assert sm.check(after, {"day_longer": 4}, prev=before)  # no day 4
+    assert sm.check(after, exp, prev=[])  # no plan to compare with
+
+
 def group(name="Schwarzwaldverein Freiburg"):
     return GroupBrief(
         name=name, kind="wanderverein", place="Freiburg im Breisgau", url="https://example.org/",

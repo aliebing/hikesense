@@ -45,6 +45,7 @@ EXPECT_KINDS = {
     "plan_band_or_named",
     "days_unchanged",
     "day_shorter",
+    "day_longer",
     "min_groups",
     "no_groups",
     "events_quoted",
@@ -190,8 +191,13 @@ def _band_errors(events: list[ChatEvent]) -> list[str]:
 
 
 def _change_errors(
-    events: list[ChatEvent], prev: list[ChatEvent] | None, unchanged: list[int], shorter: int | None
+    events: list[ChatEvent],
+    prev: list[ChatEvent] | None,
+    unchanged: list[int],
+    changed: int | None,
+    longer: bool = False,
 ) -> list[str]:
+    """Days `unchanged` equal the previous plan; day `changed` is shorter (or `longer`)."""
     before, after = _plan_days(prev), _plan_days(events)
     if before is None or after is None:
         return ["kein Plan zum Vergleichen" if before is None else "kein geänderter Plan"]
@@ -199,12 +205,14 @@ def _change_errors(
     for n in unchanged:
         if n > min(len(before), len(after)) or before[n - 1] != after[n - 1]:
             errors.append(f"Tag {n} verändert")
-    if shorter is not None:
-        if shorter > min(len(before), len(after)):
-            errors.append(f"Tag {shorter} fehlt")
-        elif not after[shorter - 1].length_km < before[shorter - 1].length_km:
-            old, new = before[shorter - 1].length_km, after[shorter - 1].length_km
-            errors.append(f"Tag {shorter} nicht kürzer ({old} -> {new} km)")
+    if changed is not None:
+        if changed > min(len(before), len(after)):
+            errors.append(f"Tag {changed} fehlt")
+        else:
+            old, new = before[changed - 1].length_km, after[changed - 1].length_km
+            if not (new > old if longer else new < old):
+                word = "länger" if longer else "kürzer"
+                errors.append(f"Tag {changed} nicht {word} ({old} -> {new} km)")
     return errors
 
 
@@ -314,6 +322,8 @@ def check(
             errors += _change_errors(events, prev, want, None)
         elif kind == "day_shorter":
             errors += _change_errors(events, prev, [], want)
+        elif kind == "day_longer":
+            errors += _change_errors(events, prev, [], want, longer=True)
         elif kind == "min_groups":
             g = _first(events, "groups")
             n = len(g.groups) if g else 0
