@@ -57,6 +57,7 @@ EXPECT_KINDS = {
     "sources_include",
     "reply_contains",
     "unsatisfiable_named",
+    "no_unsat_claim",
 }
 # case groups of the eval set (data/eval/cases.yaml); optional in smoke, required in eval
 GROUPS = (
@@ -350,6 +351,9 @@ def check(
                 errors.append("kein fallback_reason")
             if not _text(events).lstrip().startswith(UNSAT_HEAD):
                 errors.append(f"Antwort beginnt nicht mit „{UNSAT_HEAD}“")
+        elif kind == "no_unsat_claim":
+            if UNSAT_HEAD.casefold() in _text(events).casefold():
+                errors.append(f"Antwort behauptet „{UNSAT_HEAD}“")
         elif kind == "reply":
             if _text(events) != REPLIES[want]:
                 errors.append(f"Antwort ist nicht der feste Text '{want}'")

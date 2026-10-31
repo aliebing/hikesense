@@ -69,11 +69,12 @@ def results_ev(cards, fallback=None):
     return ResultsEvent(cards=cards, fallback_reason=fallback)
 
 
-def done(calls=1, cost=0.001, unsupported=0, names=()):
+def done(calls=1, cost=0.001, unsupported=0, names=(), claims=0):
     return DoneEvent(
         usage=LLMUsage(calls=calls, cost_usd=cost),
         unsupported=unsupported,
         unsupported_names=list(names),
+        unsat_claims_removed=claims,
     )
 
 
@@ -696,6 +697,15 @@ def test_unsatisfiable_named_needs_fallback_and_the_opening_sentence():
     assert sm.check([fb, TokenEvent(text="Leider " + head)], exp)  # sentence not at the start
     assert sm.check([results_ev([card("a")]), TokenEvent(text=head)], exp)  # no fallback_reason
     assert sm.check([TokenEvent(text=head)], exp)
+
+
+def test_no_unsat_claim_ignores_case():
+    exp = {"no_unsat_claim": True}
+    assert sm.check([TokenEvent(text="Hier sind passende Touren.")], exp) == []
+    for text in ("Keine Tour erfüllt alle Wünsche, aber hier …", "Hallo! keine tour ERFÜLLT alle wünsche."):
+        assert sm.check([TokenEvent(text=text)], exp) == [
+            "Antwort behauptet „Keine Tour erfüllt alle Wünsche“"
+        ]
 
 
 def test_loader_reads_and_checks_the_group(tmp_path):

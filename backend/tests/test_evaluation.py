@@ -71,6 +71,18 @@ def test_unsat_named():
     assert (m.unsat_cases, m.unsat_named) == (2, 1)
 
 
+def test_false_unsat_claims_and_removed_claims():
+    want = [{"no_unsat_claim": True}]
+    clean = result("e1", events=[[TokenEvent(text="Passt."), done(claims=1)]], expects=want)
+    false = result(
+        "e2", ok=False, events=[[TokenEvent(text="Keine Tour erfüllt alle Wünsche.")]], expects=want
+    )
+    plan = result("m1", "mehrtag", events=[[TokenEvent(text="Tag 1"), done()]], expects=want * 1)
+    other = result("u", "unerfuellbar", events=[[TokenEvent(text="Keine Tour erfüllt alle Wünsche")]])
+    m = ev.compute_metrics([clean, false, plan, other])
+    assert (m.claim_cases, m.claim_false, m.claims_removed) == (3, 1, 1)
+
+
 def test_unknown_tour_counts_ids_not_in_db():
     r = result(events=[[results_ev([card("a"), card("erfunden-1")])]])
     m = ev.compute_metrics([r], trail_ids={"a"})
@@ -174,7 +186,8 @@ def metrics(**kw):
         "cases": 3, "passed": 2, "by_group": {"wissen": (1, 2), "mehrtag": (1, 1)},
         "numbers_total": 100, "numbers_unsupported": 1, "tours_total": 10, "unknown_tours": 0,
         "names_unsupported": 0, "unsat_cases": 2, "unsat_named": 1, "recall_cases": 5,
-        "recall_hits": 4, "cost_usd": 0.1234,
+        "recall_hits": 4, "cost_usd": 0.1234, "claim_cases": 21, "claim_false": 0,
+        "claims_removed": 2,
     }  # fmt: skip
     return ev.Metrics(**(base | kw))
 
@@ -197,6 +210,10 @@ def test_report_lists_smart_targets(tmp_path):
     assert "| 1 / 2 |" in rows["wissen"] and "| 1 / 1 |" in rows["mehrtag"]
     assert "w2" in text and "keine Quelle" in text and "Antwort ohne „Basel“" in text
     assert "w1:" not in text  # passed cases list no errors
+    assert (
+        "Falsche Unerfüllbarkeits-Behauptungen: 0 von 21 erfüllbaren Fällen (Ziel 0); "
+        "vom Code vorher entfernt: 2" in text
+    )
 
 
 def test_report_marks_unmeasured_and_invented_targets_as_not_reached(tmp_path):

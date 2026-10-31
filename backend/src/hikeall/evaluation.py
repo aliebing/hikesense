@@ -19,6 +19,11 @@ Metrics (README and presentation use exactly these definitions):
 - Unsatisfiability named openly (target 100 %): `unsat_cases` = cases of group `unerfuellbar`;
   `unsat_named` = those whose LAST turn meets `unsatisfiable_named` (fallback_reason set and the
   answer starts with "Keine Tour erfüllt alle Wünsche").
+- False unsatisfiability claims (not a SMART target; target 0): `claim_cases` = cases with a
+  `no_unsat_claim` expectation (groups `erfuellbar` and `mehrtag`); `claim_false` = those where a
+  turn with that expectation that ran has "Keine Tour erfüllt alle Wünsche" in its answer text
+  (casefold). `claims_removed` = `DoneEvent.unsat_claims_removed` summed over every turn: claims
+  the model wrote without a fallback and the code removed before the text was sent.
 - Recall@5 (target ≥ 0,8): `recall_cases` = cases of group `wissen` with a `sources_include`
   expectation; `recall_hits` = those where every such turn finds each wanted string in the id or
   url of one of the first five sources. A case without a sources event, or one that never ran,
@@ -202,6 +207,9 @@ class Metrics:
     recall_hits: int
     cost_usd: float
     tours_total: int = 0
+    claim_cases: int = 0
+    claim_false: int = 0
+    claims_removed: int = 0
 
 
 def run_eval(
@@ -254,6 +262,15 @@ def compute_metrics(results: list[EvalResult], trail_ids: set[str] | None = None
             m.numbers_unsupported += unsupported
             m.numbers_total += len(numbers_in_text(_text(events))) + unsupported
             m.names_unsupported += len(done.unsupported_names) if done else 0
+            m.claims_removed += done.unsat_claims_removed if done else 0
+        claim_turns = [i for i, e in enumerate(r.expects) if e.get("no_unsat_claim")]
+        if claim_turns:
+            m.claim_cases += 1
+            m.claim_false += any(
+                check(r.all_events[i], {"no_unsat_claim": True})
+                for i in claim_turns
+                if i < len(r.all_events)
+            )
         shown = _shown_tours(r)
         m.tours_total += len(shown)
         if trail_ids is not None:
@@ -437,6 +454,11 @@ def write_report(
             f"| {name} | {actual} | {'erreicht' if ok else 'nicht erreicht'} |"
             for name, actual, ok in _targets(m)
         ],
+        "",
+        (
+            f"Falsche Unerfüllbarkeits-Behauptungen: {m.claim_false} von {m.claim_cases} "
+            f"erfüllbaren Fällen (Ziel 0); vom Code vorher entfernt: {m.claims_removed}"
+        ),
         "",
         "## Gruppen",
         "",

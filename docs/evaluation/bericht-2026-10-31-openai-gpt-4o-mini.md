@@ -3,16 +3,18 @@
 - Modell: `openai/gpt-4o-mini`
 - Datum des Laufs: 2026-10-31; festes „heute“ im Chat: 2026-11-02 (Wetter aus data/eval/weather.json, Open-Meteo.com, CC BY 4.0)
 - Fälle: 52 / 52 bestanden
-- Gesamtkosten: 0,0264 USD
+- Gesamtkosten: 0,0282 USD
 
 ## SMART-Ziele
 
 | Ziel | Ist-Wert | Ergebnis |
 |---|---|---|
 | 0 % erfundene Touren | 0,0 % (0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text) | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0,0 % (0 von 530 Zahlen) | erreicht |
+| ≤ 2 % nicht belegte Zahlen | 0,0 % (0 von 518 Zahlen) | erreicht |
 | 100 % offen benannte Unerfüllbarkeit | 100,0 % (8 von 8 Fällen) | erreicht |
 | Recall@5 ≥ 0,8 | 1,00 (10 von 10 Fällen) | erreicht |
+
+Falsche Unerfüllbarkeits-Behauptungen: 0 von 21 erfüllbaren Fällen (Ziel 0); vom Code vorher entfernt: 0
 
 ## Gruppen
 

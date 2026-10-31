@@ -24,14 +24,14 @@ cases:
     group: erfuellbar
     turns:
       - message: "Rundweg 10–14 km um Hinterzarten, unter 400 Hm"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(roundtrip and length_km <= 10), Ort Freudenstadt
   # -> Kienberg-Spaziergang 6,1, Tannenriesen 8,6, Kniebiser Heimatpfad 9,8, Jubiläumsweg Schopfloch 9,1, …
   - id: e02-rundwanderung-freudenstadt
     group: erfuellbar
     turns:
       - message: "Rundwanderung um Freudenstadt, höchstens 10 km"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(length_km between 10 and 18), Ort Tonbach
   # -> Satteleisteig 10,8, Sankenbachsteig 12,6, Baiersbronner Himmelsweg 15,8, Wiesensteig 13,4, Karlsruher Grat 12,3
   # („Baiersbronn“ wäre mehrdeutig – Ort/Gemeinde – und führte zur Rückfrage, daher Tonbach.)
@@ -39,70 +39,70 @@ cases:
     group: erfuellbar
     turns:
       - message: "Tour bei Tonbach zwischen 10 und 18 km"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(ascent_m >= 500), Ort Ottenhöfen
   # -> Karlsruher Grat 692, Grimmelshausen-Rundweg 693, Peterstaler Schwarzwaldsteig 526
   - id: e04-hoehenmeter-ottenhoefen
     group: erfuellbar
     turns:
       - message: "Wanderung ab Ottenhöfen mit mindestens 500 Hm"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(roundtrip and length_km <= 15), Ort Durbach
   # -> Durbacher Weitblick 11,3, Zeller-Abtsberg Runde 7,8, Gebirger Höfe-Weg 10,4, Bacchus Panorama Runde 5,3, …
   - id: e05-rundweg-durbach
     group: erfuellbar
     turns:
       - message: "Rundweg bei Durbach unter 15 km"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(length_km between 8 and 14), Ort Schluchsee
   # -> Jägersteig 11,6, Viadukt- und Schluchtentour 12,2, Rappenfelsensteig 13,0, Geißenpfad 9,8, Schinkenweg 11,7
   - id: e06-wanderung-schluchsee
     group: erfuellbar
     turns:
       - message: "Wanderung am Schluchsee, 8 bis 14 km"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(roundtrip and ascent_m <= 500), Ort Waldkirch
   # -> Kastelburg-Tour 461, Josef-Seger-Weg 173, Mühlenweg 269, Rundweg Dorf-Dobel 170, Rundweg Goldener Kopf 466
   - id: e07-rundtour-waldkirch
     group: erfuellbar
     turns:
       - message: "Rundtour bei Waldkirch unter 500 Hm"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(length_km >= 12), Ort Bad Herrenalb
   # -> Albtalweg 29,6, AugenBlick-Runde Bad Herrenalb Schweizerkopf 15,4
   - id: e08-wanderung-bad-herrenalb
     group: erfuellbar
     turns:
       - message: "Wanderung bei Bad Herrenalb, mindestens 12 km"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # T(roundtrip), Dauer nach DIN 33466 aus Länge/Auf-/Abstieg ≤ 4 h, Ort Sasbachwalden
   # -> Schnapsbrunnenweg 1 7,9/269, Alde Gott Panoramarunde 10,0/407, Mummelsee-Hornisgrindepfad 6,6/254, …
   - id: e09-rundweg-sasbachwalden-dauer
     group: erfuellbar
     turns:
       - message: "Rundweg bei Sasbachwalden, höchstens 4 Stunden"
-        expect: {min_results: 1, all_constraints_ok: true}
+        expect: {min_results: 1, all_constraints_ok: true, no_unsat_claim: true}
   # Laufen: „8 km“ ohne Grenzwort -> Band 6,8–9,2 km; T(roundtrip and length_km between 6.8 and 9.2), Ort Titisee
   # -> Hochschwarzwälder Hirtenpfad 7,9, Tarodunum-Rundweg 7,8
   - id: e10-laufrunde-titisee
     group: erfuellbar
     turns:
       - message: "Laufrunde 8 km ab Titisee, wenig Asphalt"
-        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true}
+        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true, no_unsat_claim: true}
   # Laufen: „um die 10 km“ -> Band 8,5–11,5 km; T(roundtrip and length_km between 8.5 and 11.5), Ort Freudenstadt
   # -> Kniebiser Heimatpfad 9,8, Tannenriesen 8,6, Satteleisteig 10,8, Jubiläumsweg Schopfloch 9,1, …
   - id: e11-laufen-freudenstadt
     group: erfuellbar
     turns:
       - message: "Ich will bei Freudenstadt laufen gehen, Rundkurs um die 10 km"
-        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true}
+        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true, no_unsat_claim: true}
   # Laufen: T(roundtrip and length_km <= 10), Ort Baden-Baden
   # -> Beutig-Rundweg 9,4, Sängerrundweg Winden 8,9, Yburg Rundweg 6,8, Betende-Hände-Weg 6,8, …
   - id: e12-joggingrunde-baden-baden
     group: erfuellbar
     turns:
       - message: "Joggingrunde bei Baden-Baden, höchstens 10 km"
-        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true}
+        expect: {min_results: 1, all_constraints_ok: true, activity: run, no_pace: true, no_duration_without_pace: true, no_unsat_claim: true}
 
   # --- unerfuellbar (8): Unerfüllbarkeit offen benannt, Ausweichtouren mit genau 1 Verletzung --
   # Rückfrage (Feldberg mehrdeutig), dann Gemeinde Feldberg (Gebiet):
@@ -173,7 +173,7 @@ cases:
     group: mehrtag
     turns:
       - message: "3 Tage Westweg ab Hausach, ~15 km pro Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
   # Mit Datum über Regentage (10.–12.11. in weather.json ≥ 5 mm), Regenvariante:
   # westweg-ost ab Titisee (Weg über Bärental): 19,4/965 m, 18,0/1497 m (Zuweg 1,5 km genannt),
   # 15,4/1054 m (Zuweg genannt). Haltestellen am Weg (trail_pois, kind station):
@@ -184,7 +184,7 @@ cases:
     group: mehrtag
     turns:
       - message: "3 Tage Westweg Ostvariante ab Titisee ab dem 10. November, 18 km pro Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_rain_variant: [1]}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_rain_variant: [1], no_unsat_claim: true}
   # Mit Datum über Regentage (10.–12.11. in weather.json für Hinterzarten–Kandern ≥ 5 mm), keine
   # Haltestelle zwischen km 200 und 250 (Kandern km 260): „Regenvariante nicht möglich“ je Tag
   # (plan_no_rain_variant: Regentag, aber keine Variante).
@@ -193,46 +193,46 @@ cases:
     group: mehrtag
     turns:
       - message: "3 Tage auf dem Westweg ab Hinterzarten ab dem 10. November, 18 km am Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_no_rain_variant: [1, 2, 3]}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_no_rain_variant: [1, 2, 3], no_unsat_claim: true}
   # mittelweg ab Schiltach: 20,0/13 m, 18,8/55 m, 17,8/15 m
   - id: m04-mittelweg-schiltach
     group: mehrtag
     turns:
       - message: "3 Tage Mittelweg ab Schiltach, 18 km pro Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
   # Mit Datum, trockene Tage (4./5.11. Pforzheim/Bad Wildbad < 5 mm und < 60 %), Tagesziel Standard 15 km:
   # mittelweg ab Pforzheim: 12,7/310 m, 12,7/144 m
   - id: m05-mittelweg-pforzheim-datum
     group: mehrtag
     turns:
       - message: "2 Tage Mittelweg ab Pforzheim am 4. November"
-        expect: {plan_days: 2, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true}
+        expect: {plan_days: 2, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, no_unsat_claim: true}
   # mittelweg ab Besenfeld: 21,7/330 m, 21,5/542 m, 22,0/1108 m (Zuweg genannt)
   - id: m06-mittelweg-besenfeld
     group: mehrtag
     turns:
       - message: "3 Tage Mittelweg ab Besenfeld, 20 km pro Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
   # ostweg ab Freudenstadt: 17,2/517 m, 19,3/379 m (außerhalb des Bands, Lücke „Keine Unterkunft ≤ 1 km
   # zwischen km 114,7 und km 120,7“ muss in der Antwort stehen), 14,9/458 m
   - id: m07-ostweg-freudenstadt
     group: mehrtag
     turns:
       - message: "3 Tage Ostweg ab Freudenstadt, ~15 km pro Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
   # ostweg ab Pforzheim: 19,8/45 m, 20,0/75 m, 19,7/818 m, 19,6/115 m
   - id: m08-ostweg-pforzheim
     group: mehrtag
     turns:
       - message: "4 Tage Ostweg ab Pforzheim, 20 km pro Tag"
-        expect: {plan_days: 4, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 4, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
   # ostweg ab Alpirsbach (Standard 15 km): Tag 1 19,8 km außerhalb des Bands, Lücke
   # „Keine Unterkunft ≤ 1 km zwischen km 114,2 und km 120,2“ muss in der Antwort stehen; 14,9, 15,0
   - id: m09-ostweg-alpirsbach-luecke
     group: mehrtag
     turns:
       - message: "3 Tage Ostweg ab Alpirsbach"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, no_unsat_claim: true}
 
   # --- aenderung (5): Folgerunde im Faden eines Mehrtagesfalls -------------------------------
   # Vorab mit DbTools.change_day: Tag 3 14,0 -> 7,9 km, Tag 1–2 gleich
