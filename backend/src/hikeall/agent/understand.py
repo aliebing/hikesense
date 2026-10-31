@@ -46,6 +46,12 @@ APPROX_BAND = 0.15  # "8 km" -> 6,8–9,2 km, shown in the echo
 ROUNDTRIP_TAG = "feature:rundweg"
 # wish words that are the fixed roundtrip condition, never a preference (also "Laufrunde")
 _ROUNDTRIP_WORDS = ("rundweg", "runde", "rundtour", "rundwanderung", "rundkurs")
+# words that state a roundtrip ("Rundweg", "Laufrunde", "Schleife") or a point-to-point tour
+# ("Strecke…", "von A nach B"); the model's roundtrip field counts only with one of them
+_ROUNDTRIP_SAID = re.compile(
+    r"rundweg|runde|rundtour|rundwander|rundkurs|rundgang|rundlauf|schleife|strecke"
+    r"|\bvon\b.+\bnach\b"
+)
 _PAREN = re.compile(r"\s*\([^)]*\)")
 
 SYSTEM_PROMPT = """\
@@ -169,7 +175,7 @@ def resolve(
             return clarify
 
     preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes)
-    constraints, invalid, discarded = _constraints(raw, nums, unread)
+    constraints, invalid, discarded = _constraints(raw, nums, message, unread)
     unmatched += invalid
     multi, problems, dropped = _multiday_fields(raw, message, nums, today or date.today())
     unmatched += problems
@@ -347,14 +353,22 @@ def _written(value: float, nums: set[float], scale: float = 1.0) -> bool:
 _UNSURE = "{}: Angabe nicht sicher erkannt – bitte als Zahl angeben"
 
 
+def _roundtrip_written(message: str) -> bool:
+    """Does the message itself say roundtrip or not (either direction)? "rund 10 km" does not."""
+    return bool(_ROUNDTRIP_SAID.search(_plain(message)))
+
+
 def _constraints(
-    raw: RawRequest, nums: set[float], unread: bool = False
+    raw: RawRequest, nums: set[float], message: str, unread: bool = False
 ) -> tuple[list[Constraint], list[str], int]:
     out: list[Constraint] = []
     invalid: list[str] = []
     discarded = 0
     if raw.roundtrip is not None:
-        out.append(Constraint(kind="roundtrip", required=raw.roundtrip))
+        if _roundtrip_written(message):
+            out.append(Constraint(kind="roundtrip", required=raw.roundtrip))
+        else:  # like R27: a condition the user never wrote is not set by the model
+            discarded += 1
     for kind, lo, hi, approx in (
         ("length_km", raw.length_km_min, raw.length_km_max, raw.length_km_approx),
         ("ascent_m", raw.ascent_m_min, raw.ascent_m_max, raw.ascent_m_approx),

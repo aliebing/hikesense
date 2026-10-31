@@ -1041,3 +1041,35 @@ def test_unknown_trail_lists_all_four(vocab):
     res = multi(vocab, "3 Tage Kandelhöhenweg", trail_text="Kandelhöhenweg", days=3)
     assert isinstance(res, Clarify)
     assert set(res.options) == {"Westweg", "Westweg Ostvariante", "Mittelweg", "Ostweg"}
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Rundweg, unter 200 Hm, über 15 km, Feldberg",
+        "Laufrunde 8 km ab Todtnau",
+        "Rundtour bei Todtnau",
+        "Rundwanderung um Todtnau",
+        "Rundkurs bei Todtnau",
+        "Schleife bei Todtnau",
+        "Streckenwanderung bei Todtnau",
+        "Wanderung von Todtnau nach Feldberg",
+    ],
+)
+def test_model_roundtrip_is_kept_when_the_message_states_it(vocab, message):
+    for required in (True, False):
+        req = understand(gw_of(start_text="Todtnau", roundtrip=required), vocab, message, None)
+        assert kinds(req)["roundtrip"].required is required
+
+
+def test_model_roundtrip_without_a_word_in_the_message_is_dropped(vocab):
+    """Like R27 for numbers: the model set "kein Rundweg" although the user never said so
+    (eval case u08); the condition is dropped and counted as a discarded model value."""
+    message = "Wanderung im Umkreis von 3 km um Todtnau, über 20 km"
+    gw = gw_of(start_text="Todtnau", roundtrip=False, length_km_min=20, radius_km_max=3)
+    req = understand(gw, vocab, message, None)
+    assert "roundtrip" not in kinds(req)
+    assert req.discarded_model_numbers == 1
+    # "rund 20 km" is an approximate value, not a roundtrip
+    gw = gw_of(start_text="Todtnau", roundtrip=True, length_km_approx=20)
+    assert "roundtrip" not in kinds(understand(gw, vocab, "rund 20 km ab Todtnau", None))
