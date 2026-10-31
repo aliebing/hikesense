@@ -1,4 +1,4 @@
-import { etaFromProfile, progressOnLine, upDown } from "./geo";
+import { etaFromProfile, haversineKm, progressOnLine, upDown } from "./geo";
 
 // ~111.2 km per degree of latitude: a straight north-south line of 0.1° ≈ 11.12 km
 const line: [number, number][] = [
@@ -34,8 +34,16 @@ test("eta uses DIN 33466 like the backend (12 km, 600 up, 600 down = 4.7 h)", ()
   expect(etaFromProfile(20, 300, 300, now).toISOString()).toBe("2026-11-02T14:48:00.000Z");
 });
 
-test("fraction is the planar share along the line", () => {
+test("fraction is the metric (geodesic) share along the line, like the backend's along_km", () => {
   expect(progressOnLine(line, { lat: 48.05, lon: 8.0 }).fraction).toBeCloseTo(0.5, 3);
+  // L-shaped line [lat, lon]: north leg ≈ 22.2 km, east leg ≈ 14.8 km; at the corner the planar
+  // degree share would be 0.5, the metric one ≈ 0.6
+  const l: [number, number][] = [[48, 8], [48.2, 8], [48.2, 8.2]];
+  const north = haversineKm([48, 8], [48.2, 8]);
+  const east = haversineKm([48.2, 8], [48.2, 8.2]);
+  const p = progressOnLine(l, { lat: 48.2, lon: 8.0 });
+  expect(p.fraction).toBeCloseTo(north / (north + east), 6);
+  expect(p.fraction).toBeGreaterThan(0.59);
 });
 
 test("upDown on an asymmetric profile: half way almost no climb remains", () => {

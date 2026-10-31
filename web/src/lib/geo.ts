@@ -15,7 +15,7 @@ export type Progress = {
   alongKm: number;
   distToLineM: number;
   remainingKm: number;
-  /** 0..1 along the line by the planar (lon/lat degree) measure — the one daySections and the backend's along_km use */
+  /** 0..1 along the line by its geodesic length — the metric share daySections and the backend's along_km use */
   fraction: number;
 };
 
@@ -28,11 +28,7 @@ export function progressOnLine(line: [number, number][], pos: { lat: number; lon
   const kx = Math.cos(rad(pos.lat)); // lon degrees shrink with latitude
   let bestM = Infinity;
   let bestAlong = 0;
-  let bestPlanar = 0;
   let cum = 0;
-  let cumPlanar = 0;
-  let totalPlanar = 0;
-  for (let i = 1; i < line.length; i++) totalPlanar += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
   let total = 0;
   for (let i = 1; i < line.length; i++) total += haversineKm(line[i - 1], line[i]);
   if (line.length === 1) bestM = haversineKm(line[0], [pos.lat, pos.lon]) * 1000;
@@ -52,12 +48,10 @@ export function progressOnLine(line: [number, number][], pos: { lat: number; lon
     if (distM < bestM) {
       bestM = distM;
       bestAlong = cum + seg * t;
-      bestPlanar = cumPlanar + Math.hypot(bLat - aLat, bLon - aLon) * t;
     }
     cum += seg;
-    cumPlanar += Math.hypot(bLat - aLat, bLon - aLon);
   }
-  return { alongKm: bestAlong, distToLineM: bestM, remainingKm: Math.max(0, total - bestAlong), fraction: totalPlanar > 0 ? bestPlanar / totalPlanar : 0 };
+  return { alongKm: bestAlong, distToLineM: bestM, remainingKm: Math.max(0, total - bestAlong), fraction: total > 0 ? bestAlong / total : 0 };
 }
 
 /** Arrival = now + DIN 33466 time of the rest (same formula as the backend, no breaks). */

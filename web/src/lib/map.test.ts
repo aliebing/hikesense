@@ -1,5 +1,6 @@
 import type { LineString } from "geojson";
 import type { LodgingOnTrail, TrailDetail } from "./data";
+import { haversineKm } from "./geo";
 import { bboxOf, dayFeatures, daySections, BASEMAP_STYLE, lodgingsNearby, mapTrail, safeWebsite, trailToFeatures } from "./map";
 
 const line = (...coords: [number, number][]): LineString => ({ type: "LineString", coordinates: coords });
@@ -88,18 +89,32 @@ describe("daySections", () => {
   const days = (stops: { id: number; km: number }[]) =>
     stops.map((st, i) => ({ day: i + 1, start_km: i ? stops[i - 1].km : 0, end_km: st.km, stop: { lodging_id: st.id, name: `L${st.id}` } }));
 
-  it("cuts at the backend's along_km: fraction of the planar line length", () => {
-    // planar length 0.2 + 0.2 = 0.4; a lodging at (8.05, 48.21) projects to (8.05, 48.2) = fraction 0.625
+  it("cuts at the backend's along_km: fraction of the metric (geodesic) line length", () => {
+    // L-shaped line: north leg 0.2° lat ≈ 22.2 km, east leg 0.2° lon at 48.2° N ≈ 14.8 km.
+    // Planar degree shares are 50/50 there, metric ones ≈ 60/40 — the cut must follow the metric share.
     const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
-    const length = 40;
-    const along = 0.625 * length; // ST_LineLocatePoint * length_km
+    const north = haversineKm([48, 8], [48.2, 8]);
+    const east = haversineKm([48.2, 8], [48.2, 8.2]);
+    const length = 40; // trails.length_km; along_km = metric fraction × length_km
+    const along = 0.75 * length;
     const secs = daySections(line, days([{ id: 1, km: along }, { id: 2, km: length }]), length);
     const c = secs[0].geom.coordinates;
+    const expectedLon = 8 + 0.2 * ((0.75 * (north + east) - north) / east); // ≈ 8.075, planar would give 8.1
     expect(c[0]).toEqual([8, 48]);
-    expect(c[c.length - 1][0]).toBeCloseTo(8.05, 9);
+    expect(c[c.length - 1][0]).toBeCloseTo(expectedLon, 6);
+    expect(c[c.length - 1][0]).toBeLessThan(8.08);
     expect(c[c.length - 1][1]).toBeCloseTo(48.2, 9);
     expect(c).toContainEqual([8, 48.2]); // the vertex before the cut stays
-    expect(secs[1].geom.coordinates[0][0]).toBeCloseTo(8.05, 9);
+    expect(secs[1].geom.coordinates[0][0]).toBeCloseTo(expectedLon, 6);
+  });
+
+  it("half the length lies on the longer north leg, not at the corner", () => {
+    const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
+    const secs = daySections(line, days([{ id: 1, km: 20 }, { id: 2, km: 40 }]), 40);
+    const end = secs[0].geom.coordinates[secs[0].geom.coordinates.length - 1];
+    expect(end[0]).toBeCloseTo(8, 9);
+    expect(end[1]).toBeGreaterThan(48.15);
+    expect(end[1]).toBeLessThan(48.18);
   });
 
   it("puts the day-end marker at the lodging, flags a stop that is not loaded", () => {

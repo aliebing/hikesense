@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, Geometry, LineString, Position } from "geojson";
 import type { LodgingOnTrail, Stage, TrailDetail } from "./data";
+import { haversineKm } from "./geo";
 
 /** Vector basemap of the BKG (basemap.de), colour variant. */
 export const BASEMAP_STYLE = "https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json";
@@ -152,9 +153,9 @@ export function trailLine(trail: Pick<MapTrail, "geom" | "stages">): Position[] 
 }
 
 /**
- * Cuts the trail line at the plan's km marks with the backend's own measure: along_km is
- * ST_LineLocatePoint(line, point) × length_km, a fraction of the line's planar (lon/lat degree) length,
- * so km / totalKm is that fraction here. Without the trail's length nothing can be placed: no sections.
+ * Cuts the trail line at the plan's km marks with the backend's measure: along_km is the fraction of the
+ * line's metric length (ST_LineLocatePoint in EPSG:25832) × length_km, so km / totalKm is that fraction here,
+ * taken of the line's geodesic (haversine) length — the same share up to the UTM scale error (< 0.1 %). Without the trail's length nothing can be placed: no sections.
  * `lodgingAt` gives the lodging position of a stop (marker); a stop without one is flagged, not hidden.
  */
 export function daySections(
@@ -165,7 +166,8 @@ export function daySections(
 ): DaySection[] {
   if (line.length < 2 || !totalKm || totalKm <= 0) return [];
   const cum = [0];
-  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]));
+  // Position is [lon, lat], haversineKm takes [lat, lon]
+  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + haversineKm([line[i - 1][1], line[i - 1][0]], [line[i][1], line[i][0]]));
   const total = cum[cum.length - 1];
   if (total <= 0) return [];
   const at = (km: number): Position => {
