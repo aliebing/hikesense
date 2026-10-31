@@ -238,3 +238,8 @@ def test_duplicate_place_names_get_unambiguous_ids(conn):
 def test_search_exact_match_ranks_first(vocab):
     assert vocab.search("Gipfel")[0].id == "feature:gipfel"
     assert vocab.search("Bahn")[0].id == "feature:bahnhof"  # synonym "Bahn" beats prefix "Bahnhof"
+
+
+def test_trail_tags_cover_all_long_distance_trails(vocab):
+    ids = {t.rule.trail_id for t in vocab.all() if t.category == "trail"}
+    assert ids == {"westweg-west", "westweg-ost", "mittelweg", "ostweg"}

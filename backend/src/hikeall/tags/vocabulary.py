@@ -201,6 +201,8 @@ TRAILS = (
         ["Westweg Ost", "Westweg Ost Variante"],
         "westweg-ost",
     ),
+    ("trail:mittelweg", "Mittelweg", [], "mittelweg"),
+    ("trail:ostweg", "Ostweg", [], "ostweg"),
 )
 
 

@@ -78,3 +78,10 @@ cases:
       - message: "Halbmarathon im Frühjahr bei Freiburg"
         expect:
           events_quoted: true
+  - id: 11-ostweg-3-tage
+    turns:
+      - message: "3 Tage Ostweg ab Freudenstadt, ~15 km pro Tag"
+        expect:
+          plan_days: 3
+          plan_lodgings_near: true
+          plan_band_or_named: true

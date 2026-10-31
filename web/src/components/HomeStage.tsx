@@ -13,7 +13,7 @@ export default function HomeStage() {
       <section className="text-center">
         <h1 className="font-serif text-4xl leading-tight drop-shadow-md sm:text-6xl">Wandern im Schwarzwald</h1>
         <p className="mx-auto mt-3 max-w-lg text-base text-papier/90 drop-shadow sm:text-lg">
-          Westweg-Etappen und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.
+          Fernweg-Etappen (Westweg, Mittelweg, Ostweg) und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.
         </p>
       </section>
 

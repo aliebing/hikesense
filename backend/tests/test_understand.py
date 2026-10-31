@@ -1005,3 +1005,39 @@ def test_lone_village_still_resolves(vocab):
     )
     res = understand(gw_of(start_text="Zzdorf"), v, "ab Zzdorf", None)
     assert isinstance(res, HikeRequest) and res.start.label == "Zzdorf"
+
+
+def test_ostweg_is_not_the_west_variant(vocab):
+    req = multi(
+        vocab, "3 Tage Ostweg ab Freudenstadt", trail_text="Ostweg", start_text="Hausach", days=3
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.trail_id == "ostweg" and req.trail_assumed is False
+    east = multi(
+        vocab,
+        "3 Tage Westweg Ost ab Hausach",
+        trail_text="Westweg Ost",
+        start_text="Hausach",
+        days=3,
+    )
+    assert east.trail_id == "westweg-ost"
+
+
+def test_mittelweg_resolves(vocab):
+    req = multi(
+        vocab, "Mittelweg ab Pforzheim, 4 Tage", trail_text="Mittelweg", start_text="Hausach", days=4
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.trail_id == "mittelweg" and req.trail_assumed is False
+
+
+def test_pforzheim_without_trail_asks_which_trail(vocab):
+    res = multi(vocab, "3 Tage ab Pforzheim", start_text="Pforzheim", days=3)
+    assert isinstance(res, Clarify)
+    assert {"Mittelweg", "Ostweg", "Westweg"} <= set(res.options)
+
+
+def test_unknown_trail_lists_all_four(vocab):
+    res = multi(vocab, "3 Tage Kandelhöhenweg", trail_text="Kandelhöhenweg", days=3)
+    assert isinstance(res, Clarify)
+    assert set(res.options) == {"Westweg", "Westweg Ostvariante", "Mittelweg", "Ostweg"}

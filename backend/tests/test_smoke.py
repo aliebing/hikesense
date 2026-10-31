@@ -82,7 +82,7 @@ def understood(activity="hike", pace=None):
 def test_loader_reads_the_cases():
     cases = sm.load_cases(PROMPTS)
     assert [c.id.split("-")[0] for c in cases] == [
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10",
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10", "11",
     ]  # fmt: skip
     assert cases[7].continues == cases[6].id  # "Tag 3 kürzer" in the thread of case 7
     assert len(cases[1].turns) == 2  # Feldberg: clarify, then the answer

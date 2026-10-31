@@ -1,6 +1,8 @@
 # Artikel für den Wissensindex (CC BY-SA 4.0). Fehlt einer, meldet `hikeall build-knowledge` ihn und macht weiter.
 - {site: de.wikipedia.org, title: Schwarzwald}
 - {site: de.wikipedia.org, title: Westweg}
+- {site: de.wikipedia.org, title: Mittelweg (Fernwanderstrecke)}
+- {site: de.wikipedia.org, title: Ostweg}
 - {site: de.wikipedia.org, title: Feldberg (Schwarzwald)}
 - {site: de.wikipedia.org, title: Titisee}
 - {site: de.wikipedia.org, title: Schluchsee}
@@ -14,3 +16,5 @@
 - {site: de.wikipedia.org, title: Schwarzwaldverein}
 - {site: de.wikivoyage.org, title: Schwarzwald}
 - {site: de.wikivoyage.org, title: Westweg}
+- {site: de.wikivoyage.org, title: Ostweg}
+# Mittelweg: kein Wikivoyage-Artikel, geprüft am 2026-10-31
