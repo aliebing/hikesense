@@ -23,6 +23,14 @@ Metrics (README and presentation use exactly these definitions):
   expectation; `recall_hits` = those where every such turn finds each wanted string in the id or
   url of one of the first five sources. A case without a sources event, or one that never ran,
   is a miss and stays in the denominator.
+- OSM comparison (`osm_rows`): every distinct tour shown as a card (key = trail id) is compared
+  three ways: length on the card, `trails.length_km` in the database, and the length of the
+  stored OSM line (`ST_Length(geom::geography)/1000`); ascent: card vs `trails.ascent_m`. Every
+  day of a multi-day plan (key = `<trail id> Tag <n> km <start>–<end>`, km as in the plan) is one
+  row of its own: the walking length on the trail (`walk_km`; the access path `access_km` to a
+  far lodging is shown separately and not compared) against the length of the line between the
+  day's km positions (`ST_LineSubstring`). A row deviates if the card/day length or the database
+  length is more than `OSM_TOLERANCE` (2 %) away from the line length. One row per key.
 - A target with denominator 0 is "nicht erreicht" (not measured is not reached).
 
 Weather fixture lookup: a request (lat, lon) maps to the NEAREST stored place (great-circle
@@ -61,12 +69,15 @@ from hikeall.smoke import (
 
 __all__ = [
     "EVAL_TODAY",
+    "OSM_TOLERANCE",
     "EvalResult",
     "FixtureWeather",
     "Metrics",
+    "OsmRow",
     "compute_metrics",
     "evaluate",
     "numbers_in_text",
+    "osm_rows",
     "run_eval",
     "write_report",
 ]
@@ -88,6 +99,15 @@ TARGET_UNSAT = "100 % offen benannte Unerfüllbarkeit"
 TARGET_RECALL = "Recall@5 ≥ 0,8"
 MAX_UNSUPPORTED_RATE = 0.02
 MIN_RECALL = 0.8
+OSM_TOLERANCE = 0.02
+TRAIL_OSM_SQL = (
+    "select length_km, ST_Length(geom::geography) / 1000, ascent_m from trails where id = %s"
+)
+SEGMENT_OSM_SQL = (
+    "select ST_Length(ST_LineSubstring(geom, least(greatest(%(a)s / L, 0), 1), "
+    "least(greatest(%(b)s / L, 0), 1))::geography) / 1000 "
+    "from (select geom, ST_Length(geom::geography) / 1000 as L from trails where id = %(id)s) t"
+)
 
 
 # --- stored weather ----------------------------------------------------------------------------
@@ -243,6 +263,95 @@ def compute_metrics(results: list[EvalResult], trail_ids: set[str] | None = None
     return m
 
 
+# --- OSM comparison ----------------------------------------------------------------------------
+
+
+@dataclass
+class OsmRow:
+    """One compared tour (key = trail id) or plan day (key = `<trail id> Tag <n> km <a>–<b>`).
+    For a day, `db_km` is the line section too (the database has no per-day value), `db_hm` is
+    None and `access_km` is the access path that is not part of the comparison."""
+
+    trail_id: str
+    answer_km: float
+    db_km: float
+    line_km: float
+    answer_hm: int | None
+    db_hm: int | None
+    access_km: float = 0.0
+
+    @property
+    def deviates(self) -> bool:
+        limit = OSM_TOLERANCE * self.line_km
+        return abs(self.answer_km - self.line_km) > limit or abs(self.db_km - self.line_km) > limit
+
+
+def _fmt_km(x: float) -> str:
+    return f"{x:.1f}".replace(".", ",").removesuffix(",0")
+
+
+def osm_rows(
+    results: Sequence[CaseResult],
+    lookup: Callable[[str], tuple[float, float, int | None] | None],
+    segment_lookup: Callable[[str, float, float], float] | None = None,
+) -> list[OsmRow]:
+    """Rows as defined in the module docstring. `lookup(trail_id)` -> (db_km, line_km, db_hm) or
+    None (unknown id: no row, `unknown_tours` counts it); `segment_lookup(trail_id, start_km,
+    end_km)` -> line section km (None: plan days are not compared)."""
+    rows: dict[str, OsmRow] = {}
+    for r in results:
+        for events in r.all_events:
+            shown = _first(events, "results")
+            for c in shown.cards if shown else []:
+                found = None if c.trail_id in rows or c.length_km is None else lookup(c.trail_id)
+                if found:
+                    db_km, line_km, db_hm = found
+                    rows[c.trail_id] = OsmRow(
+                        c.trail_id, float(c.length_km), float(db_km), float(line_km),
+                        c.ascent_m, db_hm,
+                    )  # fmt: skip
+            plan = _first(events, "plan")
+            for d in plan.plan.days if plan and segment_lookup else []:
+                tid = plan.plan.trail_id
+                key = f"{tid} Tag {d.day} km {_fmt_km(d.start_km)}–{_fmt_km(d.end_km)}"
+                if key not in rows:
+                    line = float(segment_lookup(tid, d.start_km, d.end_km))  # type: ignore[misc]
+                    rows[key] = OsmRow(
+                        key, d.walk_km, line, line, d.ascent_m, None, access_km=d.access_km
+                    )
+    return list(rows.values())
+
+
+def _osm_section(osm: Sequence[OsmRow]) -> list[str]:
+    bad = [o for o in osm if o.deviates]
+    lines = [
+        "## Abgleich mit OSM",
+        "",
+        (
+            f"{len(osm)} Touren verglichen (Tourkarten und Mehrtagesplan-Tage; Karte gegen "
+            f"Datenbank gegen gespeicherte OSM-Linie), {len(bad)} mit Abweichung > "
+            f"{OSM_TOLERANCE * 100:.0f} %."
+        ),
+        "",
+    ]
+    if bad:
+        lines += [
+            "| Tour | Antwort km | Datenbank km | OSM-Linie km | Zuweg km | Antwort hm | DB hm |",
+            "|---|---|---|---|---|---|---|",
+        ]
+
+        def n(v: int | None) -> str:
+            return "–" if v is None else str(v)
+
+        lines += [
+            f"| {o.trail_id} | {_fmt_km(o.answer_km)} | {_fmt_km(o.db_km)} | "
+            f"{_fmt_km(o.line_km)} | {_fmt_km(o.access_km)} | {n(o.answer_hm)} | {n(o.db_hm)} |"
+            for o in bad
+        ]
+        lines.append("")
+    return lines
+
+
 # --- report ------------------------------------------------------------------------------------
 
 
@@ -274,11 +383,15 @@ def _targets(m: Metrics) -> list[tuple[str, str, bool]]:
         else "keine Fälle"
     )  # fmt: skip
     return [
-        (TARGET_TOURS, tours, m.unknown_tours == 0 and m.names_unsupported == 0),
+        (
+            TARGET_TOURS,
+            tours,
+            m.tours_total > 0 and m.unknown_tours == 0 and m.names_unsupported == 0,
+        ),
         (
             TARGET_NUMBERS,
             numbers,
-            m.numbers_unsupported <= MAX_UNSUPPORTED_RATE * m.numbers_total,
+            m.numbers_total > 0 and m.numbers_unsupported <= MAX_UNSUPPORTED_RATE * m.numbers_total,
         ),
         (TARGET_UNSAT, unsat, m.unsat_cases > 0 and m.unsat_named == m.unsat_cases),
         (
@@ -294,7 +407,7 @@ def write_report(
     metrics: Metrics,
     results: Sequence[CaseResult],
     model: str,
-    osm: Sequence[Any],  # OsmRow rows of the OSM comparison (Task 5); empty until then
+    osm: Sequence[OsmRow],
     day: date | None = None,
 ) -> None:
     m = metrics
@@ -325,6 +438,7 @@ def write_report(
         "|---|---|",
         *[f"| {g} | {p} / {n} |" for g, (p, n) in m.by_group.items()],
         "",
+        *_osm_section(osm),
         "## Nicht bestandene Fälle",
         "",
     ]
@@ -369,6 +483,36 @@ def _db_trail_ids(deps: AgentDeps) -> set[str]:
         return {row[0] for row in conn.execute(TRAIL_IDS_SQL)}
 
 
+def _osm_lookups(
+    deps: AgentDeps,
+) -> tuple[
+    Callable[[str], tuple[float, float, int | None] | None], Callable[[str, float, float], float]
+]:
+    from hikeall.db import connect
+
+    conns: list[Any] = []  # opened on the first lookup: a run without tours needs no database
+
+    class _Conn:
+        def execute(self, *a: Any) -> Any:
+            if not conns:
+                conns.append(connect(deps.settings.supabase_db_url))
+            return conns[0].execute(*a)
+
+    conn = _Conn()
+
+    def lookup(trail_id: str) -> tuple[float, float, int | None] | None:
+        row = conn.execute(TRAIL_OSM_SQL, (trail_id,)).fetchone()
+        if row is None or row[0] is None or row[1] is None:
+            return None
+        return float(row[0]), float(row[1]), row[2]
+
+    def segment(trail_id: str, a: float, b: float) -> float:
+        row = conn.execute(SEGMENT_OSM_SQL, {"id": trail_id, "a": a, "b": b}).fetchone()
+        return float(row[0])
+
+    return lookup, segment
+
+
 def evaluate(
     deps_factory: Callable[[], AgentDeps],
     cases_path: Path,
@@ -376,10 +520,12 @@ def evaluate(
     today: date | None = None,
     user_hash: str | None = None,
     trail_ids: set[str] | None = None,
+    osm_lookups: tuple[Any, Any] | None = None,
 ) -> int:
     """Runs the eval cases and writes results-<date>-<model>.csv and bericht-<date>-<model>.md
     to `out_dir`; `today` = run date for file names and report (the chat itself always sees
-    EVAL_TODAY). `trail_ids` None: read from the database. Returns 1 if a case failed."""
+    EVAL_TODAY). `trail_ids` None: read from the database; `osm_lookups` = (lookup, segment_lookup) for
+    `osm_rows`, None: SQL on the database. Returns 1 if a case failed."""
     cases = load_cases(cases_path, require_group=True)
     deps = deps_factory()
     deps.today = lambda: EVAL_TODAY
@@ -389,7 +535,8 @@ def evaluate(
     stem = f"{day.isoformat()}-{_slug(model)}"
     csv_path, report = out_dir / f"results-{stem}.csv", out_dir / f"bericht-{stem}.md"
     write_csv(csv_path, results)
-    write_report(report, metrics, results, model, [], day=day)
+    lookup, segment = osm_lookups or _osm_lookups(deps)
+    write_report(report, metrics, results, model, osm_rows(results, lookup, segment), day=day)
     for r in results:
         errors = "; ".join(r.errors)
         print(f"{'ok  ' if r.ok else 'FAIL'} {r.case}" + (f": {errors}" if errors else ""))

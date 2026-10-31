@@ -287,3 +287,79 @@ def test_eval_cmd_wires_fixture_weather_and_sign_in(monkeypatch, tmp_path):
     assert seen["cases"] == tmp_path / "c.yaml"
     assert seen["out"] == REPO / "docs" / "evaluation"
     assert seen["user_hash"] == "h123"
+
+
+# --- OSM comparison ----------------------------------------------------------------------------
+
+
+def lookup_of(db_km, line_km, db_hm=100):
+    return lambda trail_id: (db_km, line_km, db_hm)
+
+
+def test_osm_rows_flag_deviation_over_two_percent():
+    r = result(events=[[results_ev([card("a")])]])
+    r.all_events[0][0].cards[0].length_km = 12.0
+    (row,) = ev.osm_rows([r], lookup_of(12.0, 12.5))
+    assert (row.trail_id, row.answer_km, row.db_km, row.line_km) == ("a", 12.0, 12.0, 12.5)
+    assert (row.answer_hm, row.db_hm) == (100, 100)
+    assert row.deviates
+    (ok,) = ev.osm_rows([r], lookup_of(12.0, 12.2))  # 1,6 % < 2 %
+    assert not ok.deviates
+
+
+def test_osm_rows_once_per_trail():
+    cases = [result(f"c{i}", events=[[results_ev([card("a")])]]) for i in range(3)]
+    assert [x.trail_id for x in ev.osm_rows(cases, lookup_of(10.0, 10.0))] == ["a"]
+
+
+def test_osm_rows_skip_trails_unknown_to_database():
+    r = result(events=[[results_ev([card("erfunden")])]])
+    assert ev.osm_rows([r], lambda t: None) == []
+
+
+def test_osm_rows_compare_plan_days_with_trail_segment():
+    from test_smoke import _day, plan_ev
+
+    plan = plan_ev(_day(1, 0, 15), _day(2, 15, 30, access=1.5))
+    seen = []
+
+    def segment(trail_id, a, b):
+        seen.append((trail_id, a, b))
+        return 15.0 if a == 0 else 16.0
+
+    r = result(events=[[plan], [plan]])  # same plan twice: still one row per day
+    rows = ev.osm_rows([r], lookup_of(1, 1), segment)
+    rows = [x for x in rows if "Tag" in x.trail_id]
+    assert [x.trail_id for x in rows] == ["westweg Tag 1 km 0–15", "westweg Tag 2 km 15–30"]
+    assert [(x.answer_km, x.line_km, x.access_km) for x in rows] == [
+        (15.0, 15.0, 0.0), (15.0, 16.0, 1.5),
+    ]  # fmt: skip
+    assert [x.deviates for x in rows] == [False, True]  # 15 vs 16 km: 6,25 %
+    assert len(seen) == 2
+
+
+def test_report_has_osm_section(tmp_path):
+    rows = [
+        ev.OsmRow("a", 12.0, 12.0, 12.5, 100, 100),
+        ev.OsmRow("b", 10.0, 10.0, 10.0, 50, 50),
+    ]
+    out = tmp_path / "b.md"
+    ev.write_report(out, ev.compute_metrics([]), [], "m", rows, day=date(2026, 11, 2))
+    text = out.read_text(encoding="utf-8")
+    assert "## Abgleich mit OSM" in text
+    assert "2 Touren verglichen" in text and "1 mit Abweichung > 2 %" in text
+    assert "| a |" in text and "| b |" not in text
+
+
+def test_report_osm_section_without_rows(tmp_path):
+    out = tmp_path / "b.md"
+    ev.write_report(out, ev.compute_metrics([]), [], "m", [], day=date(2026, 11, 2))
+    assert "0 Touren verglichen" in out.read_text(encoding="utf-8")
+
+
+def test_targets_with_zero_denominator_are_not_reached():
+    by_name = {n: ok for n, _, ok in ev._targets(ev.compute_metrics([]))}
+    assert not any(by_name.values())
+    r = result(events=[[results_ev([card("a")]), TokenEvent(text="Etappe 12 km"), done()]])
+    reached = {n: ok for n, _, ok in ev._targets(ev.compute_metrics([r], trail_ids={"a"}))}
+    assert reached[ev.TARGET_TOURS] and reached[ev.TARGET_NUMBERS]
