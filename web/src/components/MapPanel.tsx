@@ -50,8 +50,9 @@ export default function MapPanel({
   position,
 }: {
   trail: MapTrail;
-  /** null when the lodgings could not be loaded — then the legend says so instead of „0“ */
-  lodgings: LodgingOnTrail[] | null;
+  /** null when the lodgings could not be loaded — then the legend says so instead of „0“;
+   *  omitted: no lodging layer at all (e.g. „Unterwegs“), and the legend names none */
+  lodgings?: LodgingOnTrail[] | null;
   /** plan days: drawn instead of the stages, alternating colours; `lodgings` are then the day-end lodgings */
   days?: DaySection[];
   /** own position (Unterwegs): shown as a dot, never sent anywhere */
@@ -106,7 +107,7 @@ function MapOverlay({
   onClose,
 }: {
   trail: MapTrail;
-  lodgings: LodgingOnTrail[] | null;
+  lodgings?: LodgingOnTrail[] | null;
   days?: DaySection[];
   position?: { lat: number; lon: number } | null;
   closer: React.RefObject<HTMLButtonElement | null>;
@@ -261,15 +262,17 @@ function MapOverlay({
             <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
             {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
           </span>
-          <span>
-            <span aria-hidden="true">🛏 </span>
-            {lodgings === null
-              ? "Unterkünfte konnten nicht geladen werden"
-              : planDays
-                ? "Unterkünfte am Tagesende"
-                : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
-          </span>
-          {days?.filter((d) => d.lodging_missing).map((d) => (
+          {lodgings !== undefined && (
+            <span>
+              <span aria-hidden="true">🛏 </span>
+              {lodgings === null
+                ? "Unterkünfte konnten nicht geladen werden"
+                : planDays
+                  ? "Unterkünfte am Tagesende"
+                  : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
+            </span>
+          )}
+          {lodgings !== undefined && days?.filter((d) => d.lodging_missing).map((d) => (
             <span key={d.day}>Unterkunft für Tag {d.day} nicht auf der Karte</span>
           ))}
           <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>

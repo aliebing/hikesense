@@ -35,3 +35,11 @@ it("Abmelden also resets the conversation", async () => {
   expect(h.signOut).toHaveBeenCalled();
   expect(chat.reset).toHaveBeenCalled();
 });
+
+it("keeps the header narrow on phones: e-mail only from sm up, links never break inside", () => {
+  h.session = { user: { email: "smoke@hikeall.local" } };
+  render(<AccountMenu />);
+  expect(screen.getByText("smoke@hikeall.local")).toHaveClass("hidden", "sm:inline");
+  expect(screen.getByRole("link", { name: "Meine Pläne" })).toHaveClass("whitespace-nowrap");
+  expect(screen.getByRole("button", { name: "Abmelden" })).toHaveClass("whitespace-nowrap");
+});

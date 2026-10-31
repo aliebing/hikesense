@@ -119,7 +119,7 @@ export default function Unterwegs({
             Unterwegs starten
           </button>
         )}
-        <MapPanel trail={trail} lodgings={null} days={days} position={fix} />
+        <MapPanel trail={trail} days={days} position={fix} />
       </div>
       <p className="text-xs text-papier/85">Dein Standort bleibt auf diesem Gerät: Er wird weder gesendet noch gespeichert, und die Ortung läuft nur, solange diese Seite offen ist.</p>
       {error && (

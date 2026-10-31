@@ -2,7 +2,13 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MapTrail } from "../lib/map";
 
-vi.mock("./MapPanel", () => ({ default: () => <div data-testid="map" /> }));
+const mapProps = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
+vi.mock("./MapPanel", () => ({
+  default: (p: Record<string, unknown>) => {
+    mapProps.last = p;
+    return <div data-testid="map" />;
+  },
+}));
 
 import Unterwegs from "./Unterwegs";
 
@@ -132,4 +138,10 @@ test("Beenden clears the position and the progress", async () => {
   expect(screen.getByText(/Noch/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Beenden" }));
   expect(screen.queryByText(/Noch/)).not.toBeInTheDocument();
+});
+
+test("the map gets no lodging layer (none loaded here), so it shows no loading error", () => {
+  render(view());
+  expect(mapProps.last).not.toBeNull();
+  expect(mapProps.last).not.toHaveProperty("lodgings");
 });

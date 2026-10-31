@@ -156,3 +156,12 @@ test("legend says lodgings could not be loaded instead of showing 0", async () =
   expect(dialog).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
   expect(dialog).not.toHaveTextContent("0 Unterkünfte");
 });
+
+test("without a lodging layer the legend names no lodgings and no loading error", async () => {
+  const user = userEvent.setup();
+  render(<MapPanel trail={trail} />);
+  await user.click(screen.getByRole("button", { name: /Karte/ }));
+  const dialog = screen.getByRole("dialog", { name: /Karte/ });
+  expect(dialog).not.toHaveTextContent("Unterkünfte");
+  expectAttribution(dialog);
+});
