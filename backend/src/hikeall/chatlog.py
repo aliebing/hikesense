@@ -24,6 +24,8 @@ class ChatLogEntry(BaseModel):
     grounding_unsupported_names: int = 0  # count only, never the names
     unsat_claims_removed: int = 0  # false "no tour meets all wishes" claims removed
     guard: str | None = None
+    # model-filled conditions the user never wrote, discarded (R27): numbers (length, ascent, duration,
+    # radius, …) and also a roundtrip yes/no — the name is historical, the count covers both
     discarded_model_numbers: int = 0
     error: str | None = None
 

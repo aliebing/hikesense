@@ -305,6 +305,13 @@ def test_number_hint_comes_before_name_hint():
             "Keine Tour erfüllt alle Wünsche, z. B. die Länge. Der Jägersteig passt.",
             "Der Jägersteig passt.",
         ),
+        # up to two words between der/dieser and the verb
+        ("Keine der drei Touren erfüllt alle Wünsche. Der Jägersteig passt.", "Der Jägersteig passt."),
+        # list numbering is not a sentence end: the item goes as a whole, the line break stays
+        (
+            "1. Tour A\n2. Keine Tour erfüllt alle Wünsche\n3. Tour B",
+            "1. Tour A\n3. Tour B",
+        ),
     ],
 )
 def test_unsat_claim_removed_and_counted(text, want):

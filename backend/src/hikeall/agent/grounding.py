@@ -231,15 +231,17 @@ def grounding_check(
     return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)
 
 
-# a sentence ends at . ! ? : or a line break, but not inside common abbreviations ("z. B.")
+# a sentence ends at . ! ? : or a line break, but not inside common abbreviations ("z. B.") and not
+# at list numbering at a line start ("2. "), so a removed list item takes its number and line along
 _ABBR = r"z\.\s?B\.|d\.\s?h\.|u\.\s?a\.|ca\.|bzw\.|evtl\.|ggf\.|inkl\.|usw\."
-_SENTENCE = re.compile(rf"(?:{_ABBR}|[^.!?:\n])*(?:[.!?:]+|\n|$)\s*", re.IGNORECASE)
+_LIST_NO = r"(?<![^\n])[ \t]*\d+\.(?=[ \t])"
+_SENTENCE = re.compile(rf"(?:{_LIST_NO}|{_ABBR}|[^.!?:\n])*(?:[.!?:]+|\n|$)\s*", re.IGNORECASE)
 # "Keine Tour erfüllt alle Wünsche" and its variants ("Leider erfüllt keine der Touren alle
 # deine Bedingungen"): only the code may say that, and only when it fell back (spec §2 Ziel 3)
 # the negation must govern the fulfilment within one clause (only words and spaces between):
-# "Keine (der|dieser) Tour(en) erfüllt alle (deine) Wünsche" or "erfüllt keine der Touren alle …"
+# "Keine (der|dieser) (drei) Tour(en) erfüllt alle (deine) Wünsche" or "erfüllt keine der Touren alle …"
 _CLAIM_NOUNS = r"(?:wünsche|bedingungen|anforderungen|kriterien|vorgaben|angaben)\b"
-_CLAIM_SUBJECT = r"kein\w*(?:\s+(?:der|dieser|von\s+den))?(?:\s+\w+)?"
+_CLAIM_SUBJECT = r"kein\w*(?:\s+(?:der|dieser|von\s+den))?(?:\s+\w+){0,2}"
 _CLAIM_ALL = r"(?:alle|sämtliche)\w*\s+(?:\w+\s+)?" + _CLAIM_NOUNS
 _UNSAT_CLAIM = re.compile(
     rf"\b{_CLAIM_SUBJECT}\s+erfüll\w*\s+(?:\w+\s+)?{_CLAIM_ALL}"

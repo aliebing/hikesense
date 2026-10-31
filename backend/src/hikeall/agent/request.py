@@ -79,7 +79,8 @@ class HikeRequest(BaseModel):
     start_date: date | None = None
     start_time: time | None = None
     day_change: DayChange | None = None
-    # numbers the model filled in that the user never wrote (discarded, R27); for the log only
+    # numbers (and a roundtrip yes/no) the model filled in that the user never wrote (discarded, R27);
+    # for the log only
     discarded_model_numbers: int = Field(default=0, exclude=True)
 
 
