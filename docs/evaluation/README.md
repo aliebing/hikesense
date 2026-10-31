@@ -5,7 +5,8 @@ Antworten werden mit Code geprüft, nicht von Hand und nicht von einem zweiten M
 Ergebnissen berechnet der Lauf die Kennzahlen für die vier SMART-Ziele und gleicht alle gezeigten
 Touren mit OpenStreetMap ab.
 
-**Aktueller Bericht:** [bericht-2026-10-31-openai-gpt-4o-mini.md](bericht-2026-10-31-openai-gpt-4o-mini.md)
+**Aktueller Bericht:** [bericht-2026-10-31-openai-gpt-4o-mini.md](bericht-2026-10-31-openai-gpt-4o-mini.md)  
+**Modell- und Temperaturvergleich:** [vergleich.md](vergleich.md)
 (Einzelergebnisse: [results-2026-10-31-openai-gpt-4o-mini.csv](results-2026-10-31-openai-gpt-4o-mini.csv))
 
 | Ziel | Ist-Wert (Lauf vom 2026-10-31) | Ergebnis |
