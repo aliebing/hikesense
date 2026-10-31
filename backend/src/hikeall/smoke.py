@@ -19,6 +19,7 @@ import httpx
 import yaml
 
 from hikeall.adapters.http import make_http_client
+from hikeall.adapters.open_meteo import DayWeather
 from hikeall.agent.events import FIELDS
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
 from hikeall.agent.multiday import ACCESS_STRAIGHT, FAR_M, NEAR_M
@@ -46,6 +47,8 @@ EXPECT_KINDS = {
     "days_unchanged",
     "day_shorter",
     "day_longer",
+    "plan_weather",
+    "plan_rain_variant",
     "min_groups",
     "no_groups",
     "events_quoted",
@@ -216,6 +219,29 @@ def _change_errors(
     return errors
 
 
+def _weather_errors(events: list[ChatEvent]) -> list[str]:
+    """Every day of the plan has a date and a forecast (not "keine Vorhersage")."""
+    plan = _first(events, "plan")
+    if plan is None:
+        return ["kein Plan"]
+    errors = []
+    for d in plan.plan.days:
+        w = plan.weather.get(d.day)
+        if d.date is None:
+            errors.append(f"Tag {d.day} ohne Datum")
+        elif not isinstance(w, DayWeather):
+            errors.append(f"Tag {d.day} ohne Vorhersage" + (f" ({w.reason})" if w else ""))
+    return errors
+
+
+def _rain_errors(events: list[ChatEvent], days: list[int]) -> list[str]:
+    """The listed days have a rain variant (a station on the trail to end the day early)."""
+    plan = _first(events, "plan")
+    if plan is None:
+        return ["kein Plan"]
+    return [f"Tag {n} ohne Regenvariante" for n in days if plan.rain.get(n) is None]
+
+
 def _event_errors(events: list[ChatEvent]) -> list[str]:
     """Races with every given field quoted, or calendar links; never a field without a quote."""
     ev = _first(events, "events")
@@ -324,6 +350,10 @@ def check(
             errors += _change_errors(events, prev, [], want)
         elif kind == "day_longer":
             errors += _change_errors(events, prev, [], want, longer=True)
+        elif kind == "plan_weather":
+            errors += _weather_errors(events)
+        elif kind == "plan_rain_variant":
+            errors += _rain_errors(events, want)
         elif kind == "min_groups":
             g = _first(events, "groups")
             n = len(g.groups) if g else 0

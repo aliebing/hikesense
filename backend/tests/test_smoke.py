@@ -1,5 +1,6 @@
 import csv
 import json
+from dataclasses import replace
 from datetime import date, time
 
 import httpx
@@ -15,6 +16,7 @@ from test_agent_graph import (  # noqa: F401 (fixture)
 )
 
 from hikeall import smoke as sm
+from hikeall.adapters.open_meteo import DayWeather
 from hikeall.agent import multiday as md
 from hikeall.agent.constraints import ConstraintResult, PreferenceMatch
 from hikeall.agent.events import CalendarLink, Field, RaceInfo, VerifiedRace
@@ -35,6 +37,7 @@ from hikeall.agent.graph import (
 from hikeall.agent.prompts import OTHER_REPLY
 from hikeall.agent.request import HikeRequest, RawRequest
 from hikeall.agent.tools import GroupBrief, SourceBrief
+from hikeall.agent.weather import NoForecast
 from hikeall.chatlog import hash_user
 from hikeall.config import Settings
 from hikeall.guard import INJECTION_REPLY
@@ -428,6 +431,32 @@ def test_days_unchanged_and_day_shorter_compare_with_the_previous_turn():
     assert sm.check(before, exp, prev=before)  # day 3 not shorter
     assert sm.check(after, exp, prev=[])  # no plan to compare with
     assert sm.check([], exp, prev=before)
+
+
+def test_plan_weather_needs_a_forecast_for_every_day():
+    d1, d2 = _day(1, 0, 15), _day(2, 15, 30)
+    d1.date, d2.date = date(2026, 11, 10), date(2026, 11, 11)
+    rainy = DayWeather(date=date(2026, 11, 10), code=61, text="Regen", t_min_c=2, t_max_c=6,
+                       precip_mm=11.0, precip_prob_pct=30)  # fmt: skip
+    ok = plan_ev(d1, d2)
+    ok.weather = {1: rainy, 2: replace(rainy, date=date(2026, 11, 11))}
+    assert sm.check([ok], {"plan_weather": True}) == []
+    missing = ok.model_copy(update={"weather": {1: rainy, 2: NoForecast("keine Vorhersage")}})
+    assert sm.check([missing], {"plan_weather": True})  # day 2 without a forecast
+    assert sm.check([ok.model_copy(update={"weather": {1: rainy}})], {"plan_weather": True})
+    assert sm.check([plan_ev(_day(1, 0, 15))], {"plan_weather": True})  # no date, no forecast
+    assert sm.check([], {"plan_weather": True})
+
+
+def test_plan_rain_variant_per_day():
+    variant = md.RainVariant(station_name="Feldberg-Bärental", walk_km=8.0, ascent_m=200,
+                             duration_h=2.5)  # fmt: skip
+    ev = plan_ev(_day(1, 0, 15), _day(2, 15, 30))
+    ev.rain = {1: variant, 2: None}
+    assert sm.check([ev], {"plan_rain_variant": [1]}) == []
+    assert sm.check([ev], {"plan_rain_variant": [1, 2]})  # day 2: no station, no variant
+    assert sm.check([ev.model_copy(update={"rain": {}})], {"plan_rain_variant": [1]})
+    assert sm.check([], {"plan_rain_variant": [1]})
 
 
 def test_day_longer_compares_with_the_previous_turn():
