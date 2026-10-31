@@ -90,10 +90,12 @@ Nenner 0 ist, gilt als „nicht erreicht“: Was nicht gemessen wurde, gilt nich
   - Nenner: Fälle mit `no_unsat_claim` (die 12 erfüllbaren und die 9 Mehrtagesfälle).
   - Zähler: Fälle, in denen der Antworttext „Keine Tour erfüllt alle Wünsche“ enthält
     (Groß-/Kleinschreibung egal), obwohl der Code nicht ausgewichen ist.
+  - Seit dem Code-Schutz ist dieser Zähler für jede erkennbare Formulierung konstruktionsbedingt 0:
+    Er zeigt nur, was der Schutz übersieht, nicht wie sich das Modell verhält.
   - Daneben steht `vom Code vorher entfernt`: Seit Commit `023ba23` entfernt der Code solche
     Sätze aus der Modellantwort, wenn kein `fallback_reason` gesetzt ist, und zählt sie
-    (`DoneEvent.unsat_claims_removed`). Der Zähler zeigt also, wie oft das Modell den Satz
-    trotzdem schrieb.
+    (`DoneEvent.unsat_claims_removed`). Dieser Zähler misst das Verhalten des Modells: wie oft es
+    den Satz trotzdem schrieb.
 - **Recall@5 (Ziel ≥ 0,8).**
   - Nenner: Fälle der Gruppe `wissen` mit `sources_include` (10).
   - Zähler: Fälle, in denen jeder gesuchte String in ID oder URL einer der ersten fünf Quellen

@@ -294,7 +294,7 @@ Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Wa
 **Agent**
 
 - **Falsche Unerfüllbarkeits-Behauptungen fängt der Code nur in erkennbarer Form ab.** Bis zum Fix vom 2026-10-31 schrieb das Modell „Keine Tour erfüllt alle Wünsche“ auch bei erfüllbaren Anfragen, weil der Prompt den Satz zitierte ([Befunde](docs/evaluation/README.md#befunde)). Jetzt nennt der Prompt ihn nicht mehr, und ohne Ausweichen entfernt der Code Sätze mit „kein…“, „erfüll…“ und „alle Wünsche/Bedingungen/Anforderungen/Kriterien …“. Eine anders formulierte Behauptung („Leider passt nichts ganz“) bliebe stehen. Verlässlich sind die Karten mit ✓/✗.
-- **Eine Streckentour ohne Signalwort verliert die Bedingung.** Das Rundweg-Feld zählt nur, wenn die Nachricht es nennt (Rundweg, Runde, Schleife, Strecke, „von … nach …“ u. a.). Ein Wunsch wie „bis zum Titisee“ ohne eines dieser Wörter wird deshalb verworfen. Er fehlt dann sichtbar im Verständnis-Echo (siehe [Befunde der Evaluation](docs/evaluation/README.md#befunde)).
+- **Eine Streckentour ohne Signalwort verliert die Bedingung.** Das Rundweg-Feld zählt nur, wenn die Nachricht es nennt (Rundweg, Runde, Schleife, Strecke, „von … nach …“ u. a.). Ein Wunsch wie „bis zum Titisee“ ohne eines dieser Wörter wird deshalb verworfen. Für den Rundweg gilt dasselbe: „zurück zum Start“, „im Kreis“ oder „Start und Ziel gleich“ werden nicht erkannt. Die Bedingung fehlt dann sichtbar im Verständnis-Echo (siehe [Befunde der Evaluation](docs/evaluation/README.md#befunde)).
 - **Die Evaluation deckt ein Modell und einen selbst geschriebenen Testsatz ab.** Es gab je Konfiguration einen Lauf, siehe [Evaluation](#evaluation).
 
 **Oberfläche**

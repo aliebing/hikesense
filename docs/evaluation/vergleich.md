@@ -33,7 +33,7 @@ eingecheckte Basislauf (nach dem Fix); er hat keine Temperatur im Dateinamen.
 ## Wahl des zweiten Modells
 
 `google/gemini-2.5-flash-lite` (0,10 USD je Mio. Eingabe-Token, 0,40 USD je Mio. Ausgabe-Token
-laut OpenRouter; gpt-4o-mini: 0,15 / 0,60). Gewählt, weil es günstiger ist als der Basislauf,
+laut OpenRouter; gpt-4o-mini: 0,15 / 0,60). Preise laut OpenRouter-Modellseite, abgerufen 2026-10-31. Gewählt, weil es günstiger ist als der Basislauf,
 von einem anderen Anbieter kommt und laut OpenRouter Werkzeugaufrufe und strukturierte Ausgabe
 unterstützt; beides braucht der Agent. Vorher versucht und nicht nutzbar: `mistralai/mistral-small-3.2-24b-instruct`
 (erster Lauf: 4 von 52, 0 USD). Ursache war kein Modellfehler: Das OpenRouter-Konto der Entwicklung
@@ -52,8 +52,9 @@ Touren, Längen und Höhenmeter kommen aus der Datenbank und werden vom Code gep
 formuliert nur. Gemini 2.5 Flash Lite ist etwa 18 % billiger als der Basislauf vor dem Fix (0,0264 USD) und besteht 51 von 52 Fällen; der
 eine Fehler (w08, Gründung des Nationalparks) ist ein Wissensfall, in dem die Antwort die
 erwartete Jahreszahl „2014“ nicht nennt. Ein Verstoß gegen eines der vier Ziele war es nicht.
-Für den Betrieb spricht das für Gemini als Rückfalloption, solange der Preisunterschied (rund
-0,005 USD je Lauf) gering bleibt, aber nicht für einen Wechsel des Standardmodells.
+Ein einzelner Lauf mit 51 von 52 Fällen zeigt nur, dass Gemini mit diesem Agenten grundsätzlich
+funktioniert. Ob es als Rückfalloption taugt, müssten wiederholte Läufe zeigen; für einen Wechsel
+des Standardmodells spricht er nicht (Preisunterschied rund 0,005 USD je Lauf).
 
 Grenzen: Je Konfiguration gibt es genau einen Lauf, ohne Wiederholung und ohne
 Konfidenzintervall. Ein Fall mehr oder weniger (hier w08) liegt im Rauschen eines einzelnen

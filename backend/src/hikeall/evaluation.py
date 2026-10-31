@@ -22,8 +22,10 @@ Metrics (README and presentation use exactly these definitions):
 - False unsatisfiability claims (not a SMART target; target 0): `claim_cases` = cases with a
   `no_unsat_claim` expectation (groups `erfuellbar` and `mehrtag`); `claim_false` = those where a
   turn with that expectation that ran has "Keine Tour erfüllt alle Wünsche" in its answer text
-  (casefold). `claims_removed` = `DoneEvent.unsat_claims_removed` summed over every turn: claims
-  the model wrote without a fallback and the code removed before the text was sent.
+  (casefold). Since the code guard (strip_unsat_claims) `claim_false` is 0 by construction for every
+  claim in recognisable form; it only catches what the guard misses. `claims_removed` =
+  `DoneEvent.unsat_claims_removed` summed over every turn: claims the model wrote without a fallback
+  and the code removed before the text was sent — this measures the model's behaviour.
 - Recall@5 (target ≥ 0,8): `recall_cases` = cases of group `wissen` with a `sources_include`
   expectation; `recall_hits` = those where every such turn finds each wanted string in the id or
   url of one of the first five sources. A case without a sources event, or one that never ran,

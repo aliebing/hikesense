@@ -32,7 +32,8 @@
 #   7 Schramberg - Villingen 29.1 vs 26.5, 8 Villingen - Sunthausen 18.4 vs 16.5,
 #   9 Sunthausen - Geisingen 16.9 vs 16, 11 Achdorf - Stühlingen 15.0 vs 18,
 #   12 Stühlingen - Schaffhausen 19.8 vs 18.5. Total 244.5 km vs 246 km official.
-# Uncertain: stage 5 (-26 %) may officially run via Loßburg (the OSM "Variante Loßburg").
+# Cause: where the stage ends are placed on the line, not a shorter route — stages 5-7 together are
+# only 2.7 % off (66.2 vs 68 km).
 # Every Ostweg stage has lodgings within 1 km (import 2026-10-31; stage 9 only 5). Swiss side of
 # stage 12 has none (BW-only lodging data).
 sources:

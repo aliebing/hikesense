@@ -88,7 +88,7 @@ Danach arbeitet nur noch der Code. Er sucht die Touren in der Datenbank, prüft 
 
 **Auf der Folie:**
 
-- 4 Fernwege mit 46 Etappen, 122 geprüfte Tagestouren, 1814 Unterkünfte
+- 4 Fernwege mit 46 Etappen, 122 Tagestouren, 1814 Unterkünfte
 - Wege und Orte aus OSM (ODbL), Höhen aus Copernicus DEM, Karte von basemap.de, Wetter von Open-Meteo
 - 849 Bilder von Wikimedia Commons mit Urheber und Lizenz, 551 Abschnitte im Wissensindex
 - Fester Datenstand vom 2026-10-28 bis 2026-10-31
