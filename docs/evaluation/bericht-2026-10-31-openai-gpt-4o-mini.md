@@ -2,15 +2,15 @@
 
 - Modell: `openai/gpt-4o-mini`
 - Datum des Laufs: 2026-10-31; festes „heute“ im Chat: 2026-11-02 (Wetter aus data/eval/weather.json, Open-Meteo.com, CC BY 4.0)
-- Fälle: 51 / 52 bestanden
-- Gesamtkosten: 0,0261 USD
+- Fälle: 52 / 52 bestanden
+- Gesamtkosten: 0,0264 USD
 
 ## SMART-Ziele
 
 | Ziel | Ist-Wert | Ergebnis |
 |---|---|---|
-| 0 % erfundene Touren | 0,0 % (0 von 73 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text) | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0,0 % (0 von 517 Zahlen) | erreicht |
+| 0 % erfundene Touren | 0,0 % (0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text) | erreicht |
+| ≤ 2 % nicht belegte Zahlen | 0,0 % (0 von 530 Zahlen) | erreicht |
 | 100 % offen benannte Unerfüllbarkeit | 100,0 % (8 von 8 Fällen) | erreicht |
 | Recall@5 ≥ 0,8 | 1,00 (10 von 10 Fällen) | erreicht |
 
@@ -19,7 +19,7 @@
 | Gruppe | bestanden / gesamt |
 |---|---|
 | erfuellbar | 12 / 12 |
-| unerfuellbar | 7 / 8 |
+| unerfuellbar | 8 / 8 |
 | mehrtag | 9 / 9 |
 | aenderung | 5 / 5 |
 | wissen | 10 / 10 |
@@ -32,4 +32,4 @@
 
 ## Nicht bestandene Fälle
 
-- u08-feldberg-ort-umkreis: keine Ausweichtouren
+Keine.

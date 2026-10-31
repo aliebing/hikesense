@@ -530,8 +530,8 @@ def evaluate(
 ) -> int:
     """Runs the eval cases and writes results-<date>-<model>.csv and bericht-<date>-<model>.md
     to `out_dir`; `today` = run date for file names and report (the chat itself always sees
-    EVAL_TODAY). `trail_ids` None: read from the database; `osm_lookups` = (lookup, segment_lookup) for
-    `osm_rows`, None: SQL on the database. Returns 1 if a case failed."""
+    EVAL_TODAY). `trail_ids` None: read from the database; `osm_lookups` = (lookup,
+    segment_lookup) for `osm_rows`, None: SQL on the database. Returns 1 if a case failed."""
     cases = load_cases(cases_path, require_group=True)
     deps = deps_factory()
     deps.today = lambda: EVAL_TODAY

@@ -278,12 +278,14 @@ cases:
   # Antwort „mit einer roten Raute auf weißem Grund markiert“ fiel daran durch (Deklination).
   # Kernbegriffe deshalb einzeln: „rote“ (auch in „roten“) und „Raute“. Damit die naheliegende
   # falsche Antwort „schwarz-rote Raute“ (das Zeichen des Ostwegs) nicht durchrutscht, darf
-  # „schwarz“ nicht in der Antwort stehen (reply_not_contains) – die Prüfung ist so nicht lockerer.
+  # sie nicht in der Antwort stehen (reply_not_contains) – die Prüfung ist so nicht lockerer.
+  # Nicht bloß „schwarz“: das steckt in „Schwarzwald(verein)“, eine richtige Antwort fiel daran
+  # durch (Lauf 4 am 2026-10-31). Geprüft werden die Schreibweisen der Ostweg-Farbe.
   - id: w01-westweg-markierung
     group: wissen
     turns:
       - message: "Wie ist der Westweg markiert?"
-        expect: {sources_include: ["title=Westweg"], reply_contains: ["rote", "Raute"], reply_not_contains: ["schwarz"]}
+        expect: {sources_include: ["title=Westweg"], reply_contains: ["rote", "Raute"], reply_not_contains: ["schwarz-rot", "schwarzrot", "schwarz/rot", "schwarz und rot"]}
   # mittelweg-fernwanderstrecke-wikipedia-0 „rote Raute mit weißem Balken auf weißem Grund“
   - id: w02-mittelweg-markierung
     group: wissen

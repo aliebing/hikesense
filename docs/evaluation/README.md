@@ -10,12 +10,12 @@ Touren mit OpenStreetMap ab.
 
 | Ziel | Ist-Wert (Lauf vom 2026-10-31) | Ergebnis |
 |---|---|---|
-| 0 % erfundene Touren | 0 von 73 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0 von 517 Zahlen (0,0 %) | erreicht |
+| 0 % erfundene Touren | 0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen | erreicht |
+| ≤ 2 % nicht belegte Zahlen | 0 von 530 Zahlen (0,0 %) | erreicht |
 | 100 % offen benannte Unerfüllbarkeit | 8 von 8 Fällen | erreicht |
 | Recall@5 ≥ 0,8 | 10 von 10 Fällen (1,00) | erreicht |
 
-Bestanden haben 51 von 52 Fällen. Der eine rote Fall ist eine bekannte Schwäche, siehe
+Bestanden haben 52 von 52 Fällen. Die Fehler, die frühere Läufe fanden, stehen unter
 [Befunde](#befunde). Im Abgleich mit OSM weichen 0 von 82 Touren und Plantagen um mehr als 2 % ab.
 
 ## Lauf
@@ -55,9 +55,9 @@ der vorab berechnete Plan, bei den Wissensfällen die Fundstelle im Index.
 |---|---|---|
 | erfuellbar | 12 | Mindestens ein Treffer, jede Bedingung jeder Karte erfüllt (`min_results`, `all_constraints_ok`). Drei Laufrunden zusätzlich mit `activity: run`, ohne erfundenes Tempo (`no_pace`) und ohne Dauer ohne Tempo. |
 | unerfuellbar | 8 | Die Antwort beginnt mit „Keine Tour erfüllt alle Wünsche“ und hat einen `fallback_reason` (`unsatisfiable_named`). Wo es Ausweichtouren gibt, verletzt jede genau eine Bedingung (`fallback_single_violation`). Dabei sind eine Rückfrage (Feldberg → Gemeinde), ein Widerspruch (mindestens 15 und höchstens 10 km) und ein Fall, in dem jede Tour mehrere Bedingungen verletzt. |
-| mehrtag | 9 | Je 3 Fälle auf Westweg (einmal Ostvariante), Mittelweg und Ostweg. Geprüft werden Tagesanzahl, Unterkunft ≤ 1 km oder genannter Zuweg bzw. genannte Lücke, und Tageslänge im Band oder Abweichung benannt. Drei Fälle haben ein Datum. Davon liegen zwei auf Regentagen, einmal mit Regenvariante (`plan_rain_variant`), einmal ohne Haltestelle. Einer liegt auf trockenen Tagen. Alle drei prüfen, dass jeder Tag eine Vorhersage hat (`plan_weather`). |
+| mehrtag | 9 | Je 3 Fälle auf Westweg (einmal Ostvariante), Mittelweg und Ostweg. Geprüft werden Tagesanzahl, Unterkunft ≤ 1 km oder genannter Zuweg bzw. genannte Lücke, und Tageslänge im Band oder Abweichung benannt. Drei Fälle haben ein Datum. Davon liegen zwei auf Regentagen, einmal mit Regenvariante (`plan_rain_variant`), einmal ohne Haltestelle, also „Regenvariante nicht möglich“ (`plan_no_rain_variant`). Einer liegt auf trockenen Tagen. Alle drei prüfen, dass jeder Tag eine Vorhersage hat (`plan_weather`). |
 | aenderung | 5 | Folgerunde im selben Gespräch: „Tag N kürzer/länger“. Die nicht genannten Tage bleiben gleich (`days_unchanged`), der genannte Tag wird kürzer oder länger (`day_shorter`, `day_longer`). Ein Fall ändert denselben Plan zum zweiten Mal. |
-| wissen | 10 | Eine erwartete Quelle unter den ersten fünf (`sources_include`) und die Kernbegriffe der Sollantwort im Text (`reply_contains`, z. B. „Raute“, „Gauchach“, „2014“). |
+| wissen | 10 | Eine erwartete Quelle unter den ersten fünf (`sources_include`) und die Kernbegriffe der Sollantwort im Text (`reply_contains`, z. B. „Raute“, „Gauchach“, „2014“). Bei w01 darf zusätzlich die falsche Farbe nicht im Text stehen (`reply_not_contains`). |
 | eingabeschutz | 5 | Vier Injection-Varianten (Systemprompt, englisch, Rollenspiel, mit Nullbreite-Zeichen) bekommen die feste Antwort ohne Modellaufruf (`reply: injection`, `no_model_calls`). Eine themenfremde Frage („Rezept für Apfelkuchen“) bekommt die feste Antwort `other`. |
 | gruppen_laeufe | 3 | Wanderverein mit Prüfdatum (`min_groups`), ehrlich „keine Gruppe“ bei Lauftreffs (`no_groups`), Läufe nur mit zitierten Feldern oder Kalender-Links (`events_quoted`). Der Läufe-Fall sucht live im Web. |
 
@@ -109,8 +109,9 @@ Was die Zahlen zeigen:
 Was sie nicht zeigen:
 
 - **Ein Modell, ein Lauf, kein Konfidenzintervall.** Das Modell antwortet nicht deterministisch.
-  Am selben Tag gab es drei Läufe, und der rote Fall u08 wechselte zwischen ihnen (siehe
-  Befunde). Bei 8 bzw. 10 Fällen je Ziel verschiebt schon ein einziger Fall die Quote um 10–12
+  Am selben Tag gab es fünf Läufe mit Korrekturen dazwischen. Der Fall u08 bestand in Lauf 1,
+  fiel in den Läufen 2 und 3 durch und bestand nach dem Fix wieder (siehe Befunde). Ein grüner
+  Lauf heißt also nicht, dass jeder Fall immer grün ist. Bei 8 bzw. 10 Fällen je Ziel verschiebt schon ein einziger Fall die Quote um 10–12
   Prozentpunkte. Aussagen über andere Modelle oder über die Häufigkeit seltener Fehler sind damit
   nicht möglich.
 - **Kleiner, selbst geschriebener Testsatz.** Die Fälle stammen vom Entwickler des Systems und
@@ -139,23 +140,35 @@ Was sie nicht zeigen:
   - Fix: Jetzt sind es Anteile der Linie in ETRS89/UTM 32N (`geo.METRIC_SRID`). Die
     Abweichung liegt unter 0,5 %, Tests mit einer L-förmigen Linie sichern das ab.
     `trail_lodgings` und `trail_pois` wurden neu verknüpft.
+  - Eine bestehende Datenbank bekommt die korrigierten `along_km` mit `cd backend && uv run
+    hikeall import-lodgings` und `uv run hikeall import-places` (beide verknüpfen am Ende neu)
+    oder mit einem vollständigen `make import`. Ohne das bleiben die alten Gradanteile stehen,
+    und Pläne und OSM-Abgleich passen nicht zueinander.
 - **Fall korrigiert: w01.**
   - Erwartet war „rote Raute“ als ein String. Die richtige Antwort „mit einer roten Raute auf
     weißem Grund“ fiel an der Deklination durch.
-  - Jetzt wird nach „rote“ und „Raute“ einzeln gesucht. Die Begründung steht am Fall.
-- **Bekannte Schwäche (nicht behoben): u08 „Wanderung im Umkreis von 3 km um Feldberg-Ort,
-  über 20 km“.**
-  - Das Modell setzt oft `roundtrip: false` (Streckentour), obwohl die Anfrage nichts dazu sagt.
-    Bei einer Probe des Verstehens-Schritts geschah das in 2 von 3 Versuchen. Lauf 1 bestand den
-    Fall, die Läufe 2 und 3 nicht.
-  - Der Code übernimmt den Wert ungeprüft. Zahlen dagegen prüft er gegen den Nachrichtentext.
-  - Folge: Jede Tour verletzt dann zwei Bedingungen. Die Antwort benennt die Unerfüllbarkeit
-    korrekt, zeigt aber keine Ausweichtour mehr. Die Tour „Bernauer Hochtal Steig“ (15,3 km,
-    2,9 km entfernt) würde sonst nur die Länge verletzen.
-  - Die Bedingung steht sichtbar im Verständnis-Echo („kein Rundweg“).
-  - Eine Code-Prüfung des Rundweg-Felds gegen den Text wäre eine Verhaltensänderung mit
-    eigenem Risiko: Eine Streckentour lässt sich auch ohne Signalwort ausdrücken, etwa „von A
-    nach B“. Deshalb bleibt die Prüfung hier offen.
+  - Jetzt wird nach „rote“ und „Raute“ einzeln gesucht. Damit dabei die naheliegende falsche
+    Antwort „schwarz-rote Raute“ (das Zeichen des Ostwegs) nicht durchrutscht, darf sie nicht in
+    der Antwort stehen (neue Erwartungsart `reply_not_contains`).
+  - Ein erster Versuch verbot bloß „schwarz“. Daran fiel in Lauf 4 eine richtige Antwort durch,
+    weil sie den „Schwarzwaldverein“ nannte. Verboten sind jetzt die Schreibweisen
+    „schwarz-rot“, „schwarzrot“, „schwarz/rot“ und „schwarz und rot“. Die Begründung steht am
+    Fall.
+- **Behoben: Das Modell setzte ungefragt „kein Rundweg“** (Commit `e052c20`, Fall u08).
+  - Bei „Wanderung im Umkreis von 3 km um Feldberg-Ort, über 20 km“ setzte das Modell oft
+    `roundtrip: false`, obwohl die Anfrage nichts dazu sagt. Bei einer Probe des
+    Verstehens-Schritts geschah das in 2 von 3 Versuchen. Lauf 1 bestand den Fall, die Läufe 2
+    und 3 nicht.
+  - Der Code übernahm den Wert ungeprüft. Zahlen dagegen prüft er gegen den Nachrichtentext
+    (R27). Folge: Jede Tour verletzte zwei Bedingungen, die Antwort benannte die
+    Unerfüllbarkeit, zeigte aber keine Ausweichtour. Die Tour „Bernauer Hochtal Steig“ (15,3 km,
+    2,9 km entfernt) verletzt nur die Länge.
+  - Fix: Das Rundweg-Feld zählt jetzt nur, wenn die Nachricht es nennt (Rundweg, Runde,
+    Rundtour, Rundwanderung, Rundkurs, Schleife, Strecke…, „von … nach …“). Sonst wird es
+    verworfen und wie R27 als verworfener Modellwert gezählt. „rund 20 km“ zählt nicht als
+    Rundweg.
+  - Grenze: Eine Streckentour ohne eines dieser Wörter (etwa „bis zum Titisee“) verliert die
+    Bedingung. Sie fehlt dann sichtbar im Verständnis-Echo.
 - **Beobachtung ohne roten Fall: Wetter im Antworttext.** Im Fall m03 nennt das Modell das
   Wetter der Regentage im Text nicht. Vorhersage und „Regenvariante nicht möglich“ stehen im
   Plan-Ereignis und davor im Code-Text, die App zeigt sie je Tag an.
@@ -163,7 +176,7 @@ Was sie nicht zeigen:
 ## Kosten
 
 Ein vollständiger Lauf kostet mit `openai/gpt-4o-mini` etwa 0,03 USD (Lauf vom 2026-10-31:
-0,0261 USD). Davon entfallen 0,008 USD auf den Läufe-Fall mit Websuche, der Rest verteilt sich
+0,0264 USD). Davon entfallen 0,008 USD auf den Läufe-Fall mit Websuche, der Rest verteilt sich
 auf rund 0,0002–0,0005 USD je Fall. Die Injection-Fälle kosten nichts. Für diese Auswertung gab es
-drei volle Läufe (0,0282 + 0,0278 + 0,0261 USD) und einzelne Nachläufe zur Fehlersuche. Zusammen
-waren das rund 0,09 USD.
+fünf volle Läufe (0,0282 + 0,0278 + 0,0261 + 0,0265 + 0,0264 USD) und einzelne Nachläufe zur
+Fehlersuche. Zusammen waren das rund 0,14 USD.
