@@ -483,6 +483,28 @@ def smoke_cmd() -> int:
         return 2
 
 
+def eval_cmd(cases: Path | None = None) -> int:
+    from hikeall import evaluation as ev
+    from hikeall import smoke as sm
+    from hikeall.api import chat
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        user_hash = sm.authorize(settings)  # signs in as the smoke user, like `hikeall smoke`
+        weather = ev.FixtureWeather(ev.WEATHER_PATH)  # stored forecasts, never live
+        return ev.evaluate(
+            chat.default_deps_factory(settings, weather_client=weather),
+            cases or ev.CASES_PATH,
+            ev.OUT_DIR,
+            user_hash=user_hash,
+        )
+    except (HikeAllError, psycopg.Error) as e:  # e.g. database down: a message, no traceback
+        print(f"Eval abgebrochen – {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+
+
 def smoke_user_cmd() -> int:
     from hikeall import smoke as sm
 
@@ -519,6 +541,8 @@ def main(argv: list[str] | None = None) -> int:
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
     sub.add_parser("smoke", help="Chat-Fälle gegen das echte Modell (kostet wenig, braucht Key)")
+    p = sub.add_parser("eval", help="Eval-Testsatz gegen das echte Modell, Kennzahlen und Bericht")
+    p.add_argument("--cases", type=Path, help="Fall-Datei (Standard: data/eval/cases.yaml)")
     sub.add_parser("smoke-user", help="Testkonto smoke@hikeall.local in der lokalen Supabase-Auth")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
@@ -544,6 +568,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_knowledge_cmd()
     if args.command == "smoke":
         return smoke_cmd()
+    if args.command == "eval":
+        return eval_cmd(_repo_path(args.cases) if args.cases else None)
     if args.command == "smoke-user":
         return smoke_user_cmd()
     if args.command == "build-tags":

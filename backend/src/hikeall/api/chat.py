@@ -59,9 +59,12 @@ class ChatRequest(BaseModel):
     message: str
 
 
-def default_deps_factory(settings: Settings) -> Callable[[], AgentDeps]:
+def default_deps_factory(
+    settings: Settings, weather_client: Any | None = None
+) -> Callable[[], AgentDeps]:
     """Builds the real deps on first use and keeps them (the conversation memory lives in them).
-    Raises (e.g. LLMUnavailable without OPENROUTER_API_KEY) until it can build them."""
+    Raises (e.g. LLMUnavailable without OPENROUTER_API_KEY) until it can build them.
+    `weather_client` replaces the live Open-Meteo client (the eval passes stored forecasts)."""
     lock = threading.Lock()
     cache: list[AgentDeps] = []
 
@@ -76,7 +79,9 @@ def default_deps_factory(settings: Settings) -> Callable[[], AgentDeps]:
                     lambda: connect(settings.supabase_db_url),
                     try_open(settings.chroma_dir),
                     knowledge_opener=lambda: try_open(settings.chroma_dir),
-                    weather_client=OpenMeteoClient(make_http_client(WEATHER_TIMEOUT_S)),
+                    weather_client=OpenMeteoClient(make_http_client(WEATHER_TIMEOUT_S))
+                    if weather_client is None
+                    else weather_client,
                     # redirects are followed by the page fetcher itself (each hop checked);
                     # every connection is pinned to a vetted public address
                     event_finder=EventFinder(

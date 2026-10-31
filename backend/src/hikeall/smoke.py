@@ -48,7 +48,22 @@ EXPECT_KINDS = {
     "min_groups",
     "no_groups",
     "events_quoted",
+    "sources_include",
+    "reply_contains",
+    "unsatisfiable_named",
 }
+# case groups of the eval set (data/eval/cases.yaml); optional in smoke, required in eval
+GROUPS = (
+    "erfuellbar",
+    "unerfuellbar",
+    "mehrtag",
+    "aenderung",
+    "wissen",
+    "eingabeschutz",
+    "gruppen_laeufe",
+)
+UNSAT_HEAD = "Keine Tour erfüllt alle Wünsche"  # the code's own opening sentence of a fallback
+SOURCES_TOP = 5  # sources_include looks at the first five sources (recall@5)
 REPLIES = {"injection": INJECTION_REPLY, "other": OTHER_REPLY}
 CSV_FIELDS = ["Fall", "ok", "unsupported", "unsupported_names", "cost_usd", "Fehler"]
 SMOKE_EMAIL = "smoke@hikeall.local"
@@ -72,6 +87,7 @@ class Case:
     id: str
     turns: list[Turn]
     continues: str | None = None  # id of an earlier case whose thread this one continues
+    group: str | None = None  # one of GROUPS (eval)
 
 
 @dataclass
@@ -84,9 +100,11 @@ class CaseResult:
     errors: list[str] = field(default_factory=list)
     thread: str = ""
     last: list[ChatEvent] = field(default_factory=list, repr=False)  # events of the last turn
+    all_events: list[list[ChatEvent]] = field(default_factory=list, repr=False)  # every turn
 
 
-def load_cases(path: Path) -> list[Case]:
+def load_cases(path: Path, require_group: bool = False) -> list[Case]:
+    """Cases of a smoke/eval file; `require_group`: every case needs a `group` (eval)."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     cases: list[Case] = []
     for raw in data["cases"]:
@@ -107,7 +125,12 @@ def load_cases(path: Path) -> list[Case]:
         cont = raw.get("continues")
         if cont is not None and cont not in {c.id for c in cases}:
             raise ValueError(f"{raw['id']}: continues '{cont}' ist kein früherer Fall")
-        cases.append(Case(id=raw["id"], turns=turns, continues=cont))
+        group = raw.get("group")
+        if group is None and require_group:
+            raise ValueError(f"{raw['id']}: group fehlt (eine von {', '.join(GROUPS)})")
+        if group is not None and group not in GROUPS:
+            raise ValueError(f"{raw['id']}: unbekannte group '{group}'")
+        cases.append(Case(id=raw["id"], turns=turns, continues=cont, group=group))
     if len({c.id for c in cases}) != len(cases):
         raise ValueError("doppelte Fall-IDs")
     return cases
@@ -258,6 +281,22 @@ def check(
             s = _first(events, "sources")
             if not (s and s.sources):
                 errors.append("keine Quelle")
+        elif kind == "sources_include":
+            s = _first(events, "sources")
+            top = s.sources[:SOURCES_TOP] if s else []
+            if not top:
+                errors.append("keine Quelle")
+            for part in want if top else []:
+                if not any(part in (x.id or "") or part in (x.url or "") for x in top):
+                    errors.append(f"keine der ersten {SOURCES_TOP} Quellen enthält „{part}“")
+        elif kind == "reply_contains":
+            text = _text(events).casefold()
+            errors += [f"Antwort ohne „{part}“" for part in want if part.casefold() not in text]
+        elif kind == "unsatisfiable_named":
+            if not results or not results.fallback_reason:
+                errors.append("kein fallback_reason")
+            if not _text(events).lstrip().startswith(UNSAT_HEAD):
+                errors.append(f"Antwort beginnt nicht mit „{UNSAT_HEAD}“")
         elif kind == "reply":
             if _text(events) != REPLIES[want]:
                 errors.append(f"Antwort ist nicht der feste Text '{want}'")
@@ -333,6 +372,7 @@ def run_case(
         res.errors += check(events, turn.expect, prev)
         prev = events
         res.last = events
+        res.all_events.append(events)
     if res.unsupported:
         res.errors.append(f"{res.unsupported} unbelegte Zahlen")
     if res.unsupported_names:

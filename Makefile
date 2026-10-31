@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke smoke-user osm-extract places groups
+.PHONY: test lint up down import scan knowledge tags smoke smoke-user eval osm-extract places groups
 
 test:
 	cd backend && uv run pytest -q
@@ -41,6 +41,11 @@ tags:
 # Meldet sich als smoke@hikeall.local an (vorher einmal `make smoke-user`).
 smoke:
 	cd backend && uv run hikeall smoke
+
+# Eval-Testsatz (data/eval/cases.yaml) gegen das echte Modell; Wetter aus data/eval/weather.json,
+# festes „heute“ 2026-11-02. Ergebnisse und Bericht unter docs/evaluation/. Braucht `make smoke-user`.
+eval:
+	cd backend && uv run hikeall eval
 
 # Testkonto smoke@hikeall.local in der lokalen Supabase-Auth (Passwort: HIKEALL_SMOKE_PASSWORD).
 smoke-user:

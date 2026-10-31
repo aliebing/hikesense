@@ -1,0 +1,4413 @@
+{
+ "source": "Open-Meteo.com (CC BY 4.0)",
+ "url": "https://open-meteo.com/",
+ "retrieved_at": "2026-10-31",
+ "start": "2026-11-02",
+ "end": "2026-11-15",
+ "lookup": "nächster gespeicherter Ort innerhalb von 25 km Luftlinie, sonst Fehler",
+ "places": [
+  {
+   "name": "Pforzheim",
+   "lat": 48.877493,
+   "lon": 8.6991006,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.7,
+     "t_max_c": 8.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.0,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 2,
+     "t_min_c": 2.2,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 7.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 7.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 2
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -1.3,
+     "t_max_c": 10.8,
+     "precip_mm": 0.15,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.1,
+     "t_max_c": 11.1,
+     "precip_mm": 4.35,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 5.6,
+     "t_max_c": 7.9,
+     "precip_mm": 1.0,
+     "precip_prob_pct": 16
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.6,
+     "t_max_c": 16.4,
+     "precip_mm": 9.6,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 9.1,
+     "t_max_c": 14.6,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 7.8,
+     "t_max_c": 14.5,
+     "precip_mm": 2.8,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 7.9,
+     "t_max_c": 12.0,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 4.4,
+     "t_max_c": 11.7,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 3.3,
+     "t_max_c": 5.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Dobel",
+   "lat": 48.79699,
+   "lon": 8.49363,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 5.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.4,
+     "t_max_c": 3.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.6,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 5.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.0,
+     "t_max_c": 6.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.1,
+     "t_max_c": 12.4,
+     "precip_mm": 0.15,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.7,
+     "t_max_c": 9.5,
+     "precip_mm": 8.55,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.9,
+     "t_max_c": 6.3,
+     "precip_mm": 1.4,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.2,
+     "t_max_c": 16.8,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 6.4,
+     "t_max_c": 12.7,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 11.4,
+     "precip_mm": 3.4,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 8.0,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 2.0,
+     "t_max_c": 10.7,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 3.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Forbach",
+   "lat": 48.68034,
+   "lon": 8.36149,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 1.9,
+     "t_max_c": 10.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 1.7,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 4.7,
+     "t_max_c": 8.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 2,
+     "t_min_c": 0.3,
+     "t_max_c": 8.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -2.0,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.6,
+     "t_max_c": 7.6,
+     "precip_mm": 0.3,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 5.8,
+     "t_max_c": 12.4,
+     "precip_mm": 11.7,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 5.3,
+     "t_max_c": 9.7,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 8.2,
+     "t_max_c": 19.9,
+     "precip_mm": 10.6,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 8.4,
+     "t_max_c": 15.6,
+     "precip_mm": 11.6,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 8.1,
+     "t_max_c": 13.5,
+     "precip_mm": 2.2,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 8.1,
+     "t_max_c": 10.1,
+     "precip_mm": 7.0,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 4.0,
+     "t_max_c": 13.4,
+     "precip_mm": 0.4,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 2.0,
+     "t_max_c": 5.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Unterstmatt",
+   "lat": 48.62904,
+   "lon": 8.20689,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -0.0,
+     "t_max_c": 2.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.0,
+     "t_max_c": 3.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 2,
+     "t_min_c": -0.5,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -3.2,
+     "t_max_c": 4.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 80,
+     "t_min_c": -1.8,
+     "t_max_c": 9.5,
+     "precip_mm": 0.98,
+     "precip_prob_pct": 11
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 0.9,
+     "t_max_c": 8.0,
+     "precip_mm": 12.37,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": -0.1,
+     "t_max_c": 5.5,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 4.2,
+     "t_max_c": 13.4,
+     "precip_mm": 12.6,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.0,
+     "t_max_c": 11.0,
+     "precip_mm": 10.8,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.0,
+     "t_max_c": 9.1,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 4.3,
+     "t_max_c": 6.0,
+     "precip_mm": 12.0,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 0.4,
+     "t_max_c": 8.5,
+     "precip_mm": 0.6,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -1.7,
+     "t_max_c": 2.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Alexanderschanze",
+   "lat": 48.48006,
+   "lon": 8.27614,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.6,
+     "t_max_c": 4.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -1.1,
+     "t_max_c": 1.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": -0.7,
+     "t_max_c": 2.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 3.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -1.5,
+     "t_max_c": 5.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 80,
+     "t_min_c": -0.3,
+     "t_max_c": 10.8,
+     "precip_mm": 0.9,
+     "precip_prob_pct": 11
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.7,
+     "t_max_c": 7.7,
+     "precip_mm": 10.5,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 1.8,
+     "t_max_c": 4.4,
+     "precip_mm": 3.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 3.8,
+     "t_max_c": 14.5,
+     "precip_mm": 8.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 3.5,
+     "t_max_c": 10.5,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 3.5,
+     "t_max_c": 8.5,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-13",
+     "code": 80,
+     "t_min_c": 3.8,
+     "t_max_c": 5.4,
+     "precip_mm": 16.6,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 0.1,
+     "t_max_c": 8.5,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -3.2,
+     "t_max_c": 0.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Hark",
+   "lat": 48.37542,
+   "lon": 8.18749,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.5,
+     "t_max_c": 6.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 1.3,
+     "t_max_c": 3.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.6,
+     "t_max_c": 4.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 1.7,
+     "t_max_c": 6.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.9,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 0.2,
+     "t_max_c": 12.0,
+     "precip_mm": 0.3,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 0.3,
+     "t_max_c": 10.0,
+     "precip_mm": 8.1,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 1.1,
+     "t_max_c": 6.1,
+     "precip_mm": 4.4,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 4.8,
+     "t_max_c": 14.1,
+     "precip_mm": 11.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 5.2,
+     "t_max_c": 12.4,
+     "precip_mm": 12.2,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 5.2,
+     "t_max_c": 10.6,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 4.2,
+     "t_max_c": 7.1,
+     "precip_mm": 15.4,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 1.1,
+     "t_max_c": 10.2,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 2.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Hausach",
+   "lat": 48.28363,
+   "lon": 8.17497,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 1.3,
+     "t_max_c": 10.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 4.5,
+     "t_max_c": 7.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 5.1,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 2.6,
+     "t_max_c": 9.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.2,
+     "t_max_c": 10.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.6,
+     "t_max_c": 15.1,
+     "precip_mm": 0.23,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 1.7,
+     "t_max_c": 13.4,
+     "precip_mm": 5.62,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 2.2,
+     "t_max_c": 9.0,
+     "precip_mm": 5.4,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.7,
+     "t_max_c": 16.4,
+     "precip_mm": 12.4,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 7.3,
+     "t_max_c": 15.7,
+     "precip_mm": 11.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 7.3,
+     "t_max_c": 13.9,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 6.4,
+     "t_max_c": 10.7,
+     "precip_mm": 10.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 3.3,
+     "t_max_c": 13.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": 3.2,
+     "t_max_c": 5.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Wilhelmshöhe",
+   "lat": 48.14497,
+   "lon": 8.17343,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.7,
+     "t_max_c": 3.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -0.5,
+     "t_max_c": 2.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": -0.3,
+     "t_max_c": 3.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": -1.0,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -3.2,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-07",
+     "code": 3,
+     "t_min_c": -0.7,
+     "t_max_c": 12.4,
+     "precip_mm": 0.08,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 1.9,
+     "t_max_c": 8.0,
+     "precip_mm": 7.87,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 1.9,
+     "t_max_c": 6.4,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 4.6,
+     "t_max_c": 14.2,
+     "precip_mm": 11.4,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 5.1,
+     "t_max_c": 11.3,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 4.6,
+     "t_max_c": 9.0,
+     "precip_mm": 5.8,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 2.1,
+     "t_max_c": 6.0,
+     "precip_mm": 7.4,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.6,
+     "t_max_c": 9.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -2.5,
+     "t_max_c": -0.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Kalte Herberge",
+   "lat": 47.998,
+   "lon": 8.19861,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -1.0,
+     "t_max_c": 3.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -1.0,
+     "t_max_c": 2.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": -0.7,
+     "t_max_c": 2.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.5,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.9,
+     "t_max_c": 8.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-07",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 11.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 13
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 1.8,
+     "t_max_c": 7.6,
+     "precip_mm": 7.8,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 0.9,
+     "t_max_c": 5.9,
+     "precip_mm": 6.2,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 4.3,
+     "t_max_c": 12.7,
+     "precip_mm": 17.2,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.2,
+     "t_max_c": 11.4,
+     "precip_mm": 9.0,
+     "precip_prob_pct": 28
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 3.9,
+     "t_max_c": 8.9,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-13",
+     "code": 55,
+     "t_min_c": 3.0,
+     "t_max_c": 6.1,
+     "precip_mm": 9.6,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.0,
+     "t_max_c": 9.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -2.2,
+     "t_max_c": -0.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Hinterzarten",
+   "lat": 47.8968863,
+   "lon": 8.1020267,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.6,
+     "t_max_c": 4.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.1,
+     "t_max_c": 3.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": -0.0,
+     "t_max_c": 3.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.0,
+     "t_max_c": 7.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.8,
+     "t_max_c": 8.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-07",
+     "code": 3,
+     "t_min_c": 2.2,
+     "t_max_c": 11.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 13
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 1.1,
+     "t_max_c": 7.8,
+     "precip_mm": 6.6,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 1.0,
+     "t_max_c": 7.2,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.4,
+     "t_max_c": 15.6,
+     "precip_mm": 15.4,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.7,
+     "t_max_c": 11.4,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.1,
+     "t_max_c": 8.6,
+     "precip_mm": 4.6,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-13",
+     "code": 55,
+     "t_min_c": 2.9,
+     "t_max_c": 5.8,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 9.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -1.6,
+     "t_max_c": 0.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Wiedener Eck",
+   "lat": 47.84486,
+   "lon": 7.867,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.3,
+     "t_max_c": 4.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.4,
+     "t_max_c": 3.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.1,
+     "t_max_c": 5.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 1,
+     "t_min_c": -0.4,
+     "t_max_c": 8.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 2,
+     "t_min_c": -1.2,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.8,
+     "t_max_c": 12.3,
+     "precip_mm": 0.08,
+     "precip_prob_pct": 13
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 3.7,
+     "t_max_c": 7.9,
+     "precip_mm": 8.47,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 3.7,
+     "t_max_c": 7.9,
+     "precip_mm": 8.0,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 6.4,
+     "t_max_c": 15.8,
+     "precip_mm": 14.2,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 4.6,
+     "t_max_c": 11.3,
+     "precip_mm": 9.0,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.4,
+     "t_max_c": 8.3,
+     "precip_mm": 6.2,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-13",
+     "code": 80,
+     "t_min_c": 3.8,
+     "t_max_c": 5.9,
+     "precip_mm": 15.4,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.5,
+     "t_max_c": 9.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -4.0,
+     "t_max_c": -0.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Kandern",
+   "lat": 47.71469,
+   "lon": 7.66109,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.5,
+     "t_max_c": 8.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 3.4,
+     "t_max_c": 7.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 2.2,
+     "t_max_c": 7.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.9,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.2,
+     "t_max_c": 9.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.2,
+     "t_max_c": 12.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.7,
+     "t_max_c": 10.3,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 4.6,
+     "t_max_c": 7.9,
+     "precip_mm": 6.2,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.5,
+     "t_max_c": 14.3,
+     "precip_mm": 16.4,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 7.7,
+     "t_max_c": 14.6,
+     "precip_mm": 9.0,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 6.6,
+     "t_max_c": 12.6,
+     "precip_mm": 6.6,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 6.4,
+     "t_max_c": 10.7,
+     "precip_mm": 8.0,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 2.5,
+     "t_max_c": 11.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -0.1,
+     "t_max_c": 4.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Basel",
+   "lat": 47.5673,
+   "lon": 7.6069,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": 1.8,
+     "t_max_c": 8.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.1,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 9.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.0,
+     "t_max_c": 9.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 1.9,
+     "t_max_c": 10.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.1,
+     "t_max_c": 11.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 1.8,
+     "t_max_c": 11.1,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 55,
+     "t_min_c": 3.6,
+     "t_max_c": 8.6,
+     "precip_mm": 12.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.2,
+     "t_max_c": 13.3,
+     "precip_mm": 17.6,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 7.7,
+     "t_max_c": 15.7,
+     "precip_mm": 7.4,
+     "precip_prob_pct": 39
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 6.8,
+     "t_max_c": 13.3,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 37
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 4.9,
+     "t_max_c": 12.6,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 2.9,
+     "t_max_c": 10.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": 2.4,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Bärental",
+   "lat": 47.86986,
+   "lon": 8.09548,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.5,
+     "t_max_c": 4.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -0.3,
+     "t_max_c": 2.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 3.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 8.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 2,
+     "t_min_c": 0.8,
+     "t_max_c": 9.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 3.9,
+     "t_max_c": 11.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 13
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 1.1,
+     "t_max_c": 7.8,
+     "precip_mm": 6.6,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 1.0,
+     "t_max_c": 7.2,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.4,
+     "t_max_c": 15.6,
+     "precip_mm": 15.4,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.7,
+     "t_max_c": 11.4,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.1,
+     "t_max_c": 8.6,
+     "precip_mm": 4.6,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-13",
+     "code": 55,
+     "t_min_c": 2.9,
+     "t_max_c": 5.8,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 28
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 9.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -1.9,
+     "t_max_c": 0.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Weißenbachsattel",
+   "lat": 47.76278,
+   "lon": 7.97722,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.5,
+     "t_max_c": 4.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -0.4,
+     "t_max_c": 2.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": -0.3,
+     "t_max_c": 4.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.9,
+     "t_max_c": 7.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 2,
+     "t_min_c": 0.1,
+     "t_max_c": 8.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 3.2,
+     "t_max_c": 11.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 13
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.6,
+     "t_max_c": 6.8,
+     "precip_mm": 4.8,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 2.6,
+     "t_max_c": 6.9,
+     "precip_mm": 7.8,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 4.8,
+     "t_max_c": 14.4,
+     "precip_mm": 13.8,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 53,
+     "t_min_c": 3.9,
+     "t_max_c": 9.5,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 3.8,
+     "t_max_c": 6.9,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-13",
+     "code": 80,
+     "t_min_c": 3.2,
+     "t_max_c": 5.3,
+     "precip_mm": 12.2,
+     "precip_prob_pct": 28
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 1.0,
+     "t_max_c": 8.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -3.4,
+     "t_max_c": 0.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Schweigmatt",
+   "lat": 47.68148,
+   "lon": 7.88257,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 1.2,
+     "t_max_c": 7.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.7,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 7.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 2,
+     "t_min_c": 0.3,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 2,
+     "t_min_c": 0.3,
+     "t_max_c": 7.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.3,
+     "t_max_c": 10.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 4.4,
+     "t_max_c": 7.3,
+     "precip_mm": 5.4,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 5.0,
+     "t_max_c": 8.1,
+     "precip_mm": 6.4,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.6,
+     "t_max_c": 13.1,
+     "precip_mm": 18.6,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.5,
+     "t_max_c": 11.4,
+     "precip_mm": 7.4,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 5.4,
+     "t_max_c": 9.0,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-13",
+     "code": 55,
+     "t_min_c": 4.8,
+     "t_max_c": 7.3,
+     "precip_mm": 12.2,
+     "precip_prob_pct": 28
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 2.2,
+     "t_max_c": 9.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -1.1,
+     "t_max_c": 1.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Oberminseln",
+   "lat": 47.60854,
+   "lon": 7.78431,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.7,
+     "t_max_c": 9.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 4.7,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 9.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 2,
+     "t_min_c": 1.5,
+     "t_max_c": 7.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.8,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.3,
+     "t_max_c": 9.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 3.0,
+     "t_max_c": 8.2,
+     "precip_mm": 9.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 4.4,
+     "t_max_c": 8.8,
+     "precip_mm": 6.8,
+     "precip_prob_pct": 30
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.7,
+     "t_max_c": 11.4,
+     "precip_mm": 15.2,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 6.7,
+     "t_max_c": 13.1,
+     "precip_mm": 6.8,
+     "precip_prob_pct": 36
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 6.5,
+     "t_max_c": 10.9,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 33
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 5.7,
+     "t_max_c": 9.6,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 3.1,
+     "t_max_c": 8.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": 1.9,
+     "t_max_c": 4.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Bad Wildbad",
+   "lat": 48.7502439,
+   "lon": 8.550301,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 7.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.1,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 2.3,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 3.5,
+     "t_max_c": 7.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 1.7,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.6,
+     "t_max_c": 14.1,
+     "precip_mm": 0.15,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 4.4,
+     "t_max_c": 11.2,
+     "precip_mm": 8.55,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 5.6,
+     "t_max_c": 8.0,
+     "precip_mm": 1.4,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.9,
+     "t_max_c": 18.5,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 8.1,
+     "t_max_c": 14.4,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 6.5,
+     "t_max_c": 13.1,
+     "precip_mm": 3.4,
+     "precip_prob_pct": 35
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 6.5,
+     "t_max_c": 9.7,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 3.7,
+     "t_max_c": 12.4,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 0.6,
+     "t_max_c": 4.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Besenfeld",
+   "lat": 48.5970072,
+   "lon": 8.4216888,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 2.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.4,
+     "t_max_c": 4.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.9,
+     "t_max_c": 5.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.5,
+     "t_max_c": 7.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-07",
+     "code": 80,
+     "t_min_c": -0.5,
+     "t_max_c": 12.4,
+     "precip_mm": 0.9,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 80,
+     "t_min_c": 3.8,
+     "t_max_c": 8.7,
+     "precip_mm": 16.5,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 2.3,
+     "t_max_c": 6.1,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 4.9,
+     "t_max_c": 16.8,
+     "precip_mm": 11.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.9,
+     "t_max_c": 12.1,
+     "precip_mm": 11.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.9,
+     "t_max_c": 10.0,
+     "precip_mm": 2.6,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 5.2,
+     "t_max_c": 6.8,
+     "precip_mm": 10.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 0.9,
+     "t_max_c": 10.1,
+     "precip_mm": 0.4,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -2.7,
+     "t_max_c": 1.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Zwieselberg",
+   "lat": 48.436405,
+   "lon": 8.3615172,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.1,
+     "t_max_c": 5.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.0,
+     "t_max_c": 2.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.3,
+     "t_max_c": 3.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 4.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.8,
+     "t_max_c": 6.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 80,
+     "t_min_c": 0.5,
+     "t_max_c": 11.5,
+     "precip_mm": 0.9,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 4.0,
+     "t_max_c": 9.1,
+     "precip_mm": 10.5,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.2,
+     "t_max_c": 5.8,
+     "precip_mm": 3.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.1,
+     "t_max_c": 15.8,
+     "precip_mm": 8.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 4.8,
+     "t_max_c": 11.8,
+     "precip_mm": 11.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 9.9,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-13",
+     "code": 80,
+     "t_min_c": 5.1,
+     "t_max_c": 6.8,
+     "precip_mm": 16.6,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 1.1,
+     "t_max_c": 9.9,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -2.5,
+     "t_max_c": 1.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Schiltach",
+   "lat": 48.2901774,
+   "lon": 8.3436346,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.7,
+     "t_max_c": 9.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 3.8,
+     "t_max_c": 6.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 4.3,
+     "t_max_c": 7.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 2.4,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 48,
+     "t_min_c": 0.2,
+     "t_max_c": 9.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 0.1,
+     "t_max_c": 14.7,
+     "precip_mm": 0.15,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 1.2,
+     "t_max_c": 12.4,
+     "precip_mm": 8.35,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 2.0,
+     "t_max_c": 7.9,
+     "precip_mm": 5.8,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.3,
+     "t_max_c": 17.0,
+     "precip_mm": 10.8,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 6.7,
+     "t_max_c": 15.0,
+     "precip_mm": 11.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 6.7,
+     "t_max_c": 13.5,
+     "precip_mm": 2.8,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 6.3,
+     "t_max_c": 10.2,
+     "precip_mm": 7.4,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 3.0,
+     "t_max_c": 12.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 1.7,
+     "t_max_c": 4.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "St. Georgen",
+   "lat": 48.1257642,
+   "lon": 8.3330247,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.2,
+     "t_max_c": 4.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": -0.1,
+     "t_max_c": 3.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.4,
+     "t_max_c": 4.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 6.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -2.1,
+     "t_max_c": 7.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": -1.1,
+     "t_max_c": 12.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 0.4,
+     "t_max_c": 8.3,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 12
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 0.4,
+     "t_max_c": 5.9,
+     "precip_mm": 4.6,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.0,
+     "t_max_c": 12.9,
+     "precip_mm": 12.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 5.3,
+     "t_max_c": 12.1,
+     "precip_mm": 9.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 4.4,
+     "t_max_c": 10.6,
+     "precip_mm": 4.0,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 2.3,
+     "t_max_c": 8.4,
+     "precip_mm": 4.4,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.8,
+     "t_max_c": 9.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -1.6,
+     "t_max_c": 0.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Lenzkirch",
+   "lat": 47.8682042,
+   "lon": 8.2022783,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.1,
+     "t_max_c": 5.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.6,
+     "t_max_c": 3.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.7,
+     "t_max_c": 4.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.9,
+     "t_max_c": 8.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.1,
+     "t_max_c": 9.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-07",
+     "code": 3,
+     "t_min_c": 2.9,
+     "t_max_c": 12.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 2.6,
+     "t_max_c": 8.0,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 2.6,
+     "t_max_c": 7.6,
+     "precip_mm": 9.4,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 5.8,
+     "t_max_c": 13.8,
+     "precip_mm": 13.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.2,
+     "t_max_c": 11.6,
+     "precip_mm": 7.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 9.4,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 4.5,
+     "t_max_c": 7.9,
+     "precip_mm": 6.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.8,
+     "t_max_c": 9.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": -0.9,
+     "t_max_c": 1.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Häusern",
+   "lat": 47.7540444,
+   "lon": 8.1672955,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.3,
+     "t_max_c": 4.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.7,
+     "t_max_c": 3.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 4.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": -0.1,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 2,
+     "t_min_c": -0.5,
+     "t_max_c": 6.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 1.8,
+     "t_max_c": 10.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.5,
+     "t_max_c": 6.2,
+     "precip_mm": 4.8,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 2.5,
+     "t_max_c": 6.9,
+     "precip_mm": 7.4,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 5.0,
+     "t_max_c": 12.8,
+     "precip_mm": 12.8,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.0,
+     "t_max_c": 10.1,
+     "precip_mm": 6.2,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 3.6,
+     "t_max_c": 7.9,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 3.6,
+     "t_max_c": 7.2,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.2,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 51,
+     "t_min_c": -1.0,
+     "t_max_c": 1.1,
+     "precip_mm": 0.3,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Waldshut",
+   "lat": 47.6226655,
+   "lon": 8.212487,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 2.1,
+     "t_max_c": 9.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 5.4,
+     "t_max_c": 7.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 4.4,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 1.6,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.3,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 1.0,
+     "t_max_c": 11.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 3.2,
+     "t_max_c": 8.3,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 5.3,
+     "t_max_c": 8.9,
+     "precip_mm": 9.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 53,
+     "t_min_c": 6.7,
+     "t_max_c": 12.4,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 30
+    },
+    {
+     "date": "2026-11-11",
+     "code": 53,
+     "t_min_c": 7.2,
+     "t_max_c": 13.1,
+     "precip_mm": 5.4,
+     "precip_prob_pct": 37
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 5.9,
+     "t_max_c": 11.3,
+     "precip_mm": 9.0,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 5.9,
+     "t_max_c": 10.6,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 4.2,
+     "t_max_c": 9.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-15",
+     "code": 3,
+     "t_min_c": 2.9,
+     "t_max_c": 5.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Bad Liebenzell",
+   "lat": 48.7712716,
+   "lon": 8.7321279,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.6,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.3,
+     "t_max_c": 6.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 2.3,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 2.7,
+     "t_max_c": 6.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 2.0,
+     "t_max_c": 6.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 2
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": 0.1,
+     "t_max_c": 12.4,
+     "precip_mm": 0.08,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 3.4,
+     "t_max_c": 10.8,
+     "precip_mm": 4.88,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 5.7,
+     "t_max_c": 7.6,
+     "precip_mm": 1.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.9,
+     "t_max_c": 17.5,
+     "precip_mm": 10.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 8.4,
+     "t_max_c": 14.3,
+     "precip_mm": 12.4,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 7.3,
+     "t_max_c": 14.3,
+     "precip_mm": 3.4,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 7.3,
+     "t_max_c": 11.3,
+     "precip_mm": 6.6,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 51,
+     "t_min_c": 4.2,
+     "t_max_c": 12.4,
+     "precip_mm": 0.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 1.9,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Oberhaugstett",
+   "lat": 48.6549696,
+   "lon": 8.6796529,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.4,
+     "t_max_c": 6.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 1.1,
+     "t_max_c": 4.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.3,
+     "t_max_c": 5.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 1.2,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 5.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -1.6,
+     "t_max_c": 11.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 5
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.7,
+     "t_max_c": 7.7,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.6,
+     "t_max_c": 5.8,
+     "precip_mm": 1.8,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.1,
+     "t_max_c": 14.6,
+     "precip_mm": 8.6,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 5.2,
+     "t_max_c": 11.6,
+     "precip_mm": 10.6,
+     "precip_prob_pct": 29
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.7,
+     "t_max_c": 11.6,
+     "precip_mm": 2.2,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 9.2,
+     "precip_mm": 3.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 2.3,
+     "t_max_c": 10.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -0.3,
+     "t_max_c": 3.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Pfalzgrafenweiler",
+   "lat": 48.5259787,
+   "lon": 8.5648793,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.3,
+     "t_max_c": 6.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.7,
+     "t_max_c": 4.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.2,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 1.2,
+     "t_max_c": 4.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.5,
+     "t_max_c": 5.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -1.0,
+     "t_max_c": 11.8,
+     "precip_mm": 0.08,
+     "precip_prob_pct": 5
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 2.3,
+     "t_max_c": 9.1,
+     "precip_mm": 4.88,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.2,
+     "t_max_c": 6.0,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 5.1,
+     "t_max_c": 13.6,
+     "precip_mm": 7.8,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.2,
+     "t_max_c": 12.1,
+     "precip_mm": 9.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.7,
+     "t_max_c": 12.1,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 4.9,
+     "t_max_c": 9.5,
+     "precip_mm": 4.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 1.8,
+     "t_max_c": 10.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -0.7,
+     "t_max_c": 2.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Freudenstadt",
+   "lat": 48.4637727,
+   "lon": 8.4111727,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.0,
+     "t_max_c": 5.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 0.2,
+     "t_max_c": 3.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 0.8,
+     "t_max_c": 4.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.5,
+     "t_max_c": 4.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -0.8,
+     "t_max_c": 6.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-07",
+     "code": 80,
+     "t_min_c": -0.5,
+     "t_max_c": 11.4,
+     "precip_mm": 0.75,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 4.1,
+     "t_max_c": 8.7,
+     "precip_mm": 9.15,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.4,
+     "t_max_c": 5.6,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 5.0,
+     "t_max_c": 13.9,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.2,
+     "t_max_c": 12.0,
+     "precip_mm": 9.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 5.2,
+     "t_max_c": 10.7,
+     "precip_mm": 5.6,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-13",
+     "code": 53,
+     "t_min_c": 5.4,
+     "t_max_c": 7.6,
+     "precip_mm": 7.0,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 1.3,
+     "t_max_c": 9.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -1.7,
+     "t_max_c": 1.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Alpirsbach",
+   "lat": 48.3456021,
+   "lon": 8.4033079,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": 0.0,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.6,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 3.0,
+     "t_max_c": 6.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 1.5,
+     "t_max_c": 6.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 1.0,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.3,
+     "t_max_c": 13.5,
+     "precip_mm": 0.08,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 0.9,
+     "t_max_c": 10.6,
+     "precip_mm": 7.88,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 1.0,
+     "t_max_c": 6.9,
+     "precip_mm": 7.2,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 5.6,
+     "t_max_c": 15.0,
+     "precip_mm": 10.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 6.4,
+     "t_max_c": 13.9,
+     "precip_mm": 9.6,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 5.6,
+     "t_max_c": 13.0,
+     "precip_mm": 4.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 5.7,
+     "t_max_c": 9.6,
+     "precip_mm": 5.6,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-14",
+     "code": 3,
+     "t_min_c": 2.2,
+     "t_max_c": 11.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 0.3,
+     "t_max_c": 3.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Schramberg",
+   "lat": 48.225478,
+   "lon": 8.3852168,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": 0.8,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.8,
+     "t_max_c": 5.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 3.3,
+     "t_max_c": 6.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 1.7,
+     "t_max_c": 7.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 48,
+     "t_min_c": -0.5,
+     "t_max_c": 9.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 61,
+     "t_min_c": -0.6,
+     "t_max_c": 14.1,
+     "precip_mm": 0.15,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-08",
+     "code": 61,
+     "t_min_c": 1.3,
+     "t_max_c": 11.1,
+     "precip_mm": 7.95,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 0.3,
+     "t_max_c": 7.8,
+     "precip_mm": 6.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-10",
+     "code": 80,
+     "t_min_c": 6.1,
+     "t_max_c": 15.3,
+     "precip_mm": 9.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-11",
+     "code": 80,
+     "t_min_c": 7.1,
+     "t_max_c": 14.3,
+     "precip_mm": 9.4,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 6.3,
+     "t_max_c": 13.3,
+     "precip_mm": 4.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 10.4,
+     "precip_mm": 3.8,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 2.1,
+     "t_max_c": 11.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 1.2,
+     "t_max_c": 3.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Villingen",
+   "lat": 48.0596619,
+   "lon": 8.4598995,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 0.4,
+     "t_max_c": 5.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 1.0,
+     "t_max_c": 5.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.6,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.6,
+     "t_max_c": 7.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": -1.0,
+     "t_max_c": 8.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": -0.1,
+     "t_max_c": 13.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 51,
+     "t_min_c": 0.4,
+     "t_max_c": 7.7,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": -0.6,
+     "t_max_c": 6.0,
+     "precip_mm": 4.0,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 4.5,
+     "t_max_c": 12.0,
+     "precip_mm": 10.0,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 3.5,
+     "t_max_c": 11.2,
+     "precip_mm": 8.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 3.5,
+     "t_max_c": 10.2,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 2.4,
+     "t_max_c": 9.5,
+     "precip_mm": 1.8,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.5,
+     "t_max_c": 9.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -0.4,
+     "t_max_c": 1.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Sunthausen",
+   "lat": 48.006394,
+   "lon": 8.5934917,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 45,
+     "t_min_c": -0.1,
+     "t_max_c": 6.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 1.2,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.6,
+     "t_max_c": 5.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 0.9,
+     "t_max_c": 6.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 0.4,
+     "t_max_c": 11.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 51,
+     "t_min_c": 0.3,
+     "t_max_c": 7.6,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": -0.7,
+     "t_max_c": 6.0,
+     "precip_mm": 4.0,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 55,
+     "t_min_c": 4.5,
+     "t_max_c": 12.0,
+     "precip_mm": 10.0,
+     "precip_prob_pct": 31
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 3.4,
+     "t_max_c": 11.2,
+     "precip_mm": 8.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 3.4,
+     "t_max_c": 10.1,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 2.4,
+     "t_max_c": 9.4,
+     "precip_mm": 1.8,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.4,
+     "t_max_c": 9.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 21
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": -0.2,
+     "t_max_c": 1.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Geisingen",
+   "lat": 47.922968,
+   "lon": 8.6491814,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": -0.2,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 2.0,
+     "t_max_c": 5.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 1.7,
+     "t_max_c": 5.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 1.2,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.4,
+     "t_max_c": 7.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 12.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 51,
+     "t_min_c": 1.5,
+     "t_max_c": 6.6,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 10
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 1.9,
+     "t_max_c": 5.9,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-10",
+     "code": 51,
+     "t_min_c": 4.8,
+     "t_max_c": 12.8,
+     "precip_mm": 3.4,
+     "precip_prob_pct": 26
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 4.6,
+     "t_max_c": 10.2,
+     "precip_mm": 7.0,
+     "precip_prob_pct": 25
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.2,
+     "t_max_c": 8.6,
+     "precip_mm": 1.8,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 3.0,
+     "t_max_c": 9.4,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 0.6,
+     "t_max_c": 9.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 0.1,
+     "t_max_c": 1.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Achdorf",
+   "lat": 47.8372519,
+   "lon": 8.5007404,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 1.2,
+     "t_max_c": 7.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 3.1,
+     "t_max_c": 5.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 2.8,
+     "t_max_c": 6.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 45,
+     "t_min_c": 1.2,
+     "t_max_c": 7.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.6,
+     "t_max_c": 7.7,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 7
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 1.0,
+     "t_max_c": 12.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 53,
+     "t_min_c": 2.4,
+     "t_max_c": 7.6,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 1.9,
+     "t_max_c": 7.7,
+     "precip_mm": 5.2,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 51,
+     "t_min_c": 6.0,
+     "t_max_c": 13.9,
+     "precip_mm": 4.4,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 6.1,
+     "t_max_c": 11.5,
+     "precip_mm": 7.8,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 51,
+     "t_min_c": 4.9,
+     "t_max_c": 9.8,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 4.4,
+     "t_max_c": 10.8,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 1.4,
+     "t_max_c": 10.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 1.4,
+     "t_max_c": 2.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Stühlingen",
+   "lat": 47.7470397,
+   "lon": 8.4474495,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 2.0,
+     "t_max_c": 8.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 3.8,
+     "t_max_c": 6.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 3.4,
+     "t_max_c": 7.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 2.0,
+     "t_max_c": 6.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 6.5,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 0.3,
+     "t_max_c": 8.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 51,
+     "t_min_c": 1.0,
+     "t_max_c": 7.1,
+     "precip_mm": 3.0,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-09",
+     "code": 51,
+     "t_min_c": 3.0,
+     "t_max_c": 7.1,
+     "precip_mm": 4.6,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-10",
+     "code": 51,
+     "t_min_c": 4.4,
+     "t_max_c": 12.1,
+     "precip_mm": 1.6,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.6,
+     "t_max_c": 12.0,
+     "precip_mm": 8.2,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 3.5,
+     "t_max_c": 10.0,
+     "precip_mm": 5.4,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 3.5,
+     "t_max_c": 10.1,
+     "precip_mm": 2.4,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 1.4,
+     "t_max_c": 8.6,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 1.8,
+     "t_max_c": 4.1,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  },
+  {
+   "name": "Schaffhausen",
+   "lat": 47.6960491,
+   "lon": 8.634513,
+   "days": [
+    {
+     "date": "2026-11-02",
+     "code": 3,
+     "t_min_c": 2.7,
+     "t_max_c": 8.2,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-03",
+     "code": 3,
+     "t_min_c": 4.1,
+     "t_max_c": 6.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-04",
+     "code": 3,
+     "t_min_c": 3.8,
+     "t_max_c": 7.4,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 0
+    },
+    {
+     "date": "2026-11-05",
+     "code": 3,
+     "t_min_c": 2.5,
+     "t_max_c": 6.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 3
+    },
+    {
+     "date": "2026-11-06",
+     "code": 45,
+     "t_min_c": 1.1,
+     "t_max_c": 7.0,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 4
+    },
+    {
+     "date": "2026-11-07",
+     "code": 45,
+     "t_min_c": 0.7,
+     "t_max_c": 8.8,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 9
+    },
+    {
+     "date": "2026-11-08",
+     "code": 51,
+     "t_min_c": 0.9,
+     "t_max_c": 6.8,
+     "precip_mm": 3.6,
+     "precip_prob_pct": 8
+    },
+    {
+     "date": "2026-11-09",
+     "code": 53,
+     "t_min_c": 2.7,
+     "t_max_c": 6.5,
+     "precip_mm": 5.8,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-10",
+     "code": 51,
+     "t_min_c": 4.1,
+     "t_max_c": 11.4,
+     "precip_mm": 0.6,
+     "precip_prob_pct": 22
+    },
+    {
+     "date": "2026-11-11",
+     "code": 55,
+     "t_min_c": 5.2,
+     "t_max_c": 11.6,
+     "precip_mm": 8.0,
+     "precip_prob_pct": 27
+    },
+    {
+     "date": "2026-11-12",
+     "code": 53,
+     "t_min_c": 3.5,
+     "t_max_c": 10.2,
+     "precip_mm": 4.2,
+     "precip_prob_pct": 24
+    },
+    {
+     "date": "2026-11-13",
+     "code": 51,
+     "t_min_c": 3.5,
+     "t_max_c": 10.3,
+     "precip_mm": 1.8,
+     "precip_prob_pct": 23
+    },
+    {
+     "date": "2026-11-14",
+     "code": 45,
+     "t_min_c": 1.0,
+     "t_max_c": 7.9,
+     "precip_mm": 0.0,
+     "precip_prob_pct": 20
+    },
+    {
+     "date": "2026-11-15",
+     "code": 45,
+     "t_min_c": 2.5,
+     "t_max_c": 4.3,
+     "precip_mm": 0.0,
+     "precip_prob_pct": null
+    }
+   ]
+  }
+ ]
+}

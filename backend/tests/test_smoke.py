@@ -602,3 +602,51 @@ def test_sign_in_with_a_non_json_body_is_an_auth_error(respx_mock):
     respx_mock.post(f"{AUTH}/token").mock(return_value=httpx.Response(200, text="<html>502</html>"))
     with httpx.Client() as http, pytest.raises(sm.SmokeAuthError, match="make smoke-user"):
         sm.sign_in(http, auth_settings())
+
+
+# --- plan 4: eval expectations and case groups ---------------------------------------------------
+
+
+def src(id_, url=None):
+    return SourceBrief(id=id_, name=id_, url=url, license="CC BY-SA 4.0")
+
+
+def test_sources_include_looks_at_id_or_url_of_the_first_five():
+    srcs = [src(f"s{i}") for i in range(5)] + [src("spaet")]
+    wiki = src("wiki-westweg", "https://de.wikipedia.org/wiki/Westweg")
+    ev = [SourcesEvent(sources=[wiki, *srcs])]
+    assert sm.check(ev, {"sources_include": ["westweg", "wikipedia.org/wiki/Westweg"]}) == []
+    assert sm.check(ev, {"sources_include": ["spaet"]})  # 7th source: not among the first five
+    assert sm.check(ev, {"sources_include": ["mittelweg"]})
+    assert sm.check([], {"sources_include": ["westweg"]})
+
+
+def test_reply_contains_ignores_case():
+    ev = [TokenEvent(text="Der Westweg führt von Pforzheim "), TokenEvent(text="nach Basel.")]
+    assert sm.check(ev, {"reply_contains": ["pforzheim", "BASEL"]}) == []
+    assert sm.check(ev, {"reply_contains": ["Pforzheim", "Freiburg"]}) == [
+        "Antwort ohne „Freiburg“"
+    ]
+
+
+def test_unsatisfiable_named_needs_fallback_and_the_opening_sentence():
+    exp = {"unsatisfiable_named": True}
+    head = "Keine Tour erfüllt alle Wünsche, weil es keine 5-km-Tour mit 2000 hm gibt. Rest"
+    fb = results_ev([card("a", [res(False)])], "Keine Tour …")
+    assert sm.check([fb, TokenEvent(text=head)], exp) == []
+    assert sm.check([fb, TokenEvent(text="Leider " + head)], exp)  # sentence not at the start
+    assert sm.check([results_ev([card("a")]), TokenEvent(text=head)], exp)  # no fallback_reason
+    assert sm.check([TokenEvent(text=head)], exp)
+
+
+def test_loader_reads_and_checks_the_group(tmp_path):
+    p = tmp_path / "p.yaml"
+    turn = "turns: [{message: x, expect: {}}]"
+    p.write_text(f"cases:\n  - {{id: a, group: wissen, {turn}}}\n  - {{id: b, {turn}}}\n")
+    a, b = sm.load_cases(p)
+    assert a.group == "wissen" and b.group is None  # optional in smoke
+    with pytest.raises(ValueError, match="group"):
+        sm.load_cases(p, require_group=True)  # eval: every case needs one
+    p.write_text(f"cases:\n  - {{id: a, group: sonstiges, {turn}}}\n")
+    with pytest.raises(ValueError, match="group"):
+        sm.load_cases(p)
