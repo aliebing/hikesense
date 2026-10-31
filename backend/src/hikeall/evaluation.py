@@ -29,7 +29,8 @@ Metrics (README and presentation use exactly these definitions):
   day of a multi-day plan (key = `<trail id> Tag <n> km <start>–<end>`, km as in the plan) is one
   row of its own: the walking length on the trail (`walk_km`; the access path `access_km` to a
   far lodging is shown separately and not compared) against the length of the line between the
-  day's km positions (`ST_LineSubstring`). A row deviates if the card/day length or the database
+  day's km positions (`ST_LineSubstring` on the line in metres, `geo.METRIC_SRID`, km / `trails.length_km`
+  as fraction – the same measure the km positions are made with). A row deviates if the card/day length or the database
   length is more than `OSM_TOLERANCE` (2 %) away from the line length. One row per key.
 - A target with denominator 0 is "nicht erreicht" (not measured is not reached).
 
@@ -57,6 +58,7 @@ from hikeall.adapters.open_meteo import DayWeather, weather_text
 from hikeall.agent.graph import AgentDeps
 from hikeall.agent.grounding import numbers_in_text
 from hikeall.errors import HikeAllError
+from hikeall.geo import METRIC_SRID
 from hikeall.smoke import (
     Case,
     CaseResult,
@@ -103,10 +105,13 @@ OSM_TOLERANCE = 0.02
 TRAIL_OSM_SQL = (
     "select length_km, ST_Length(geom::geography) / 1000, ascent_m from trails where id = %s"
 )
+# km positions are fractions of the line in metres times trails.length_km (geo.METRIC_SRID),
+# so the section is cut with the same fractions and measured on the ellipsoid
 SEGMENT_OSM_SQL = (
-    "select ST_Length(ST_LineSubstring(geom, least(greatest(%(a)s / L, 0), 1), "
-    "least(greatest(%(b)s / L, 0), 1))::geography) / 1000 "
-    "from (select geom, ST_Length(geom::geography) / 1000 as L from trails where id = %(id)s) t"
+    "select ST_Length(ST_Transform(ST_LineSubstring(g, least(greatest(%(a)s / L, 0), 1), "
+    "least(greatest(%(b)s / L, 0), 1)), 4326)::geography) / 1000 "
+    f"from (select ST_Transform(geom, {METRIC_SRID}) as g, length_km as L "
+    "from trails where id = %(id)s) t"
 )
 
 

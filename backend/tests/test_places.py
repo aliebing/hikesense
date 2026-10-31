@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
-from conftest import LINE
+from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
@@ -121,6 +121,15 @@ def test_link_trail_pois_respects_300m(conn, trail):
     assert 150 < rows[0][1] < 250 and abs(float(rows[0][2]) - 3.7) < 0.1
     # the far one is not kept; linking directly is stable too
     assert link_trail_pois(conn) >= 1
+
+
+@pytest.mark.db
+def test_poi_along_km_counts_metres_not_degrees(conn):
+    upsert_source(conn, SRC)
+    upsert_l_trail(conn, TRAIL, SRC.id)
+    import_places(conn, [], [Poi(id=9100004, kind="station", lat=48.05, lon=8.0)], SRC)
+    rows = {r[0]: float(r[2]) for r in _links(conn)}
+    assert abs(rows[9100004] - L_CORNER_KM) < 0.05  # degree fraction: 4,46 km
 
 
 @pytest.mark.db

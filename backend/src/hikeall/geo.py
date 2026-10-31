@@ -10,6 +10,12 @@ from typing import NamedTuple
 from hikeall.models import BBox
 
 EARTH_RADIUS_KM = 6371.0088
+# km positions along a trail (along_km, start_km, a plan's day ends) are fractions of the line
+# in a metric projection times trails.length_km. A fraction of the line in degrees is not: a
+# degree of longitude is only ~0.67 of a degree of latitude here, so north-south pieces would
+# count too short and east-west pieces too long (up to ~6 % per plan day on the Westweg).
+# ETRS89 / UTM 32N covers the Black Forest (6-12 deg E) with < 0.1 % scale error.
+METRIC_SRID = 25832
 Point = tuple[float, float]
 Segments = Sequence[Sequence[Point]]
 

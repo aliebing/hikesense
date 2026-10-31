@@ -19,6 +19,7 @@ from typing import Literal
 import psycopg
 from pydantic import BaseModel
 
+from hikeall.geo import METRIC_SRID
 from hikeall.hiking_time import din33466
 from hikeall.numfmt import de, round_half_up
 
@@ -508,9 +509,10 @@ def load_trail_for_multiday(
 def start_km_for(conn: psycopg.Connection, trail_id: str, lat: float, lon: float) -> float | None:
     """Foot of the perpendicular on the trail line (km); None if > 2 km from the trail."""
     row = conn.execute(
-        """
+        f"""
         with p as (select st_setsrid(st_makepoint(%(lon)s, %(lat)s), 4326) as g)
-        select st_linelocatepoint(t.geom, p.g) * t.length_km,
+        select st_linelocatepoint(st_transform(t.geom, {METRIC_SRID}),
+                                  st_transform(p.g, {METRIC_SRID})) * t.length_km,
                st_distance(t.geom::geography, p.g::geography)
         from trails t, p where t.id = %(id)s and t.geom is not null
         """,

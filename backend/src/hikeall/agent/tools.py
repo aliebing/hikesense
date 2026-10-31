@@ -34,6 +34,7 @@ from hikeall.agent.request import (
     HikeRequest,
 )
 from hikeall.agent.weather import REASON_DOWN, NoForecast, weather_for_days
+from hikeall.geo import METRIC_SRID
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikeall.models import HikingTime
@@ -441,7 +442,7 @@ def day_end_points(
     if not days:
         return {}
     rows = conn.execute(
-        """
+        f"""
         with d(day, lodging_id, end_km) as (
           select * from unnest(%(days)s::int[], %(lodgings)s::bigint[], %(kms)s::float8[]))
         select d.day, st_y(p.pt), st_x(p.pt)
@@ -450,8 +451,9 @@ def day_end_points(
         left join trails t on t.id = %(trail)s and t.geom is not null
         cross join lateral (select case
             when d.lodging_id is not null then st_pointonsurface(l.geom)
-            else st_lineinterpolatepoint(
-                   t.geom, least(greatest(d.end_km / nullif(t.length_km, 0), 0), 1))
+            else st_transform(st_lineinterpolatepoint(  -- km in metres (geo.METRIC_SRID)
+                   st_transform(t.geom, {METRIC_SRID}),
+                   least(greatest(d.end_km / nullif(t.length_km, 0), 0), 1)), 4326)
           end as pt) p
         """,
         {

@@ -1,13 +1,15 @@
-from datetime import date
+from datetime import date, time
 
 import pytest
-from conftest import LINE
+from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
+from hikeall.agent.multiday import DayPlan, start_km_for
 from hikeall.agent.request import Constraint, HikeRequest, ResolvedStart
 from hikeall.agent.tools import (
     TOOL_SPECS,
     DbTools,
     KnowledgeHit,
+    day_end_points,
     find_accommodation,
     get_trail_details,
     hiking_time,
@@ -387,3 +389,20 @@ def test_dbtools_multiday_on_the_real_westweg(db):
     basel = hausach.model_copy(update={"label": "Basel", "lat": 47.5673009, "lon": 7.6069164})
     with pytest.raises(StartNotOnTrail):  # the trail end: nothing left to plan
         tools.plan_multiday(request.model_copy(update={"start": basel}))
+
+
+@pytest.mark.db
+def test_km_positions_on_the_trail_count_metres_not_degrees(conn):
+    """start_km and the point at a day's end_km are inverse and measured in metres: the corner
+    of the L lies at 5,56 km (as a degree fraction it would be 4,46 km)."""
+    upsert_source(conn, SRC)
+    upsert_l_trail(conn, "test-l-trail", SRC.id)
+    km = start_km_for(conn, "test-l-trail", 48.05, 8.0)
+    assert km is not None and abs(km - L_CORNER_KM) < 0.05
+    day = DayPlan(
+        day=1, date=None, start_km=0.0, end_km=L_CORNER_KM, walk_km=L_CORNER_KM, access_km=0.0,
+        length_km=L_CORNER_KM, ascent_m=0, descent_m=0, duration_h=1.5, start_time=time(9),
+        arrival=time(10, 30), stop=None, gap=None, within_band=True,
+    )  # fmt: skip
+    lat, lon = day_end_points(conn, "test-l-trail", [day])[1]
+    assert abs(lat - 48.05) < 0.0005 and abs(lon - 8.0) < 0.0007  # within ~50 m of the corner

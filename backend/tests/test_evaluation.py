@@ -363,3 +363,21 @@ def test_targets_with_zero_denominator_are_not_reached():
     r = result(events=[[results_ev([card("a")]), TokenEvent(text="Etappe 12 km"), done()]])
     reached = {n: ok for n, _, ok in ev._targets(ev.compute_metrics([r], trail_ids={"a"}))}
     assert reached[ev.TARGET_TOURS] and reached[ev.TARGET_NUMBERS]
+
+
+@pytest.mark.db
+def test_segment_sql_reads_km_positions_in_metres(conn):
+    """The line section between two km positions of a plan: km positions are metres along the
+    trail (like trail_lodgings.along_km), so the L's first 5,56 km are its north leg."""
+    from conftest import L_CORNER_KM, L_LEN_KM, upsert_l_trail
+
+    from hikeall.db import upsert_source
+    from hikeall.models import Source
+
+    upsert_source(conn, Source(id="test-eval-src", name="t", url="https://example.org",
+                               license="ODbL", retrieved_at=date(2026, 10, 31)))  # fmt: skip
+    upsert_l_trail(conn, "test-eval-l", "test-eval-src")
+    seg = conn.execute(ev.SEGMENT_OSM_SQL, {"id": "test-eval-l", "a": 0.0, "b": L_CORNER_KM})
+    assert abs(seg.fetchone()[0] - L_CORNER_KM) < 0.05  # degree fraction: ~6,9 km
+    rest = conn.execute(ev.SEGMENT_OSM_SQL, {"id": "test-eval-l", "a": L_CORNER_KM, "b": L_LEN_KM})
+    assert abs(rest.fetchone()[0] - (L_LEN_KM - L_CORNER_KM)) < 0.05

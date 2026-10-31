@@ -10,6 +10,7 @@ import psycopg
 
 from hikeall.adapters.overpass import OverpassClient
 from hikeall.db import upsert_place, upsert_poi, upsert_source
+from hikeall.geo import METRIC_SRID
 from hikeall.ingest.day_hikes import tiles
 from hikeall.models import BBox, Place, Poi, Source
 
@@ -161,7 +162,7 @@ def link_trail_pois(conn: psycopg.Connection) -> int:
     """Rebuild trail_pois: every pair within 300 m; returns the row count."""
     conn.execute("delete from trail_pois")
     cur = conn.execute(
-        """
+        f"""
         with pieces as (  -- short pieces keep bbox and geography checks cheap on long trails
           select id, st_subdivide(geom, 64) as geom from trails
         ), near as (
@@ -171,12 +172,15 @@ def link_trail_pois(conn: psycopg.Connection) -> int:
           join pois p on p.geom && st_expand(s.geom, 0.01)  -- index prefilter, > 300 m
             and st_dwithin(s.geom::geography, p.geom::geography, %s)
           group by s.id, p.id
+        ), metric as materialized (  -- km positions in metres, not degrees (see geo.METRIC_SRID)
+          select id, length_km, st_transform(geom, {METRIC_SRID}) as geom from trails
         )
         insert into trail_pois (trail_id, poi_id, dist_m, along_km)
         select n.trail_id, n.poi_id, round(n.dist)::int,
-               (st_linelocatepoint(t.geom, p.geom) * t.length_km)::numeric(8, 3)
+               (st_linelocatepoint(t.geom, st_transform(p.geom, {METRIC_SRID}))
+                * t.length_km)::numeric(8, 3)
         from near n
-        join trails t on t.id = n.trail_id
+        join metric t on t.id = n.trail_id
         join pois p on p.id = n.poi_id
         """,
         [POI_BUFFER_M],

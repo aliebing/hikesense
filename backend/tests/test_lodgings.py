@@ -3,7 +3,7 @@ from datetime import date
 import httpx
 import pytest
 import respx
-from conftest import LINE
+from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
@@ -181,6 +181,16 @@ def test_along_km_is_plausible(conn, trail_on_line_48_8):
     rows = {r[0]: float(r[2]) for r in _links(conn)}
     assert abs(rows[9000103] - 3.7) < 0.1
     assert rows[9000104] < 0.1
+
+
+@pytest.mark.db
+def test_along_km_counts_metres_not_degrees(conn):
+    upsert_source(conn, SRC)
+    upsert_l_trail(conn, TRAIL, SRC.id)
+    insert_lodging(conn, 9000106, 48.05, 8.0)  # at the corner of the L
+    link_trail_lodgings(conn)
+    rows = {r[0]: float(r[2]) for r in _links(conn)}
+    assert abs(rows[9000106] - L_CORNER_KM) < 0.05  # degree fraction: 4,46 km
 
 
 @pytest.mark.db
