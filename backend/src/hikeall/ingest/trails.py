@@ -38,7 +38,7 @@ def relations_query(relation_ids: list[int]) -> str:
 
 
 def trail_query(spec: TrailSpec) -> str:
-    return relations_query(spec.osm_relation_ids)
+    return relations_query(spec.relation_ids)
 
 
 def relation_segments(data: dict[str, Any], relation_id: int | None = None) -> list[list[Point]]:
@@ -86,29 +86,41 @@ def chain_lines(lines: list[list[Point]], max_gap_m: float = MAX_GAP_M) -> list[
 
 
 def trail_line(spec: TrailSpec, data: dict[str, Any]) -> tuple[list[Point], list[str]]:
-    """Assemble each listed relation on its own, then chain them in trails.yaml order.
+    """Assemble each listed entry on its own (a relation, or a group of relations as one
+    piece), then chain them in trails.yaml order.
 
     Returns the line and warnings about small leftover segments that assembly dropped."""
     lines, warnings = [], []
     for rid in spec.osm_relation_ids:
-        line, warns = relation_line(data, rid, context=f"{spec.id}: relation {rid}")
+        line, warns = relation_line(data, rid, context=f"{spec.id}: relation {_label(rid)}")
         lines.append(line)
         warnings.extend(warns)
     try:
         line = chain_lines(lines)
     except GapError as e:
         raise GapError(e.gap_m, e.at, f"{spec.id}: between child relations") from e
+    if len(lines) == 1 and spec.stages:
+        # One piece has no chaining order to orient it: run it from the first stage start.
+        start = spec.stages[0].start
+        if haversine_km(line[-1], start) < haversine_km(line[0], start):
+            line = line[::-1]
     check_in_region(line, spec.id)
     return line, warnings
 
 
+def _label(relation_id: int | list[int]) -> str:
+    return "+".join(map(str, relation_id)) if isinstance(relation_id, list) else str(relation_id)
+
+
 def relation_line(
-    data: dict[str, Any], relation_id: int, context: str, oriented: bool = False
+    data: dict[str, Any], relation_id: int | list[int], context: str, oriented: bool = False
 ) -> tuple[list[Point], list[str]]:
     """One relation's route members assembled into a line, plus warnings about dropped
-    leftovers. GapError carries `context`. With `oriented`, the line follows OSM member order
+    leftovers. A list of ids is assembled as one piece from the union of their route ways.
+    GapError carries `context`. With `oriented`, the line follows OSM member order
     (see `orient_by_members`); otherwise it keeps the direction `assemble` chose."""
-    segments = relation_segments(data, relation_id)
+    ids = relation_id if isinstance(relation_id, list) else [relation_id]
+    segments = [s for rid in ids for s in relation_segments(data, rid)]
     try:
         res = assemble_with_report(segments, max_gap_m=MAX_GAP_M)
     except GapError as e:
@@ -116,7 +128,7 @@ def relation_line(
     warnings = []
     if res.dropped_count:
         warnings.append(
-            f"Relation {relation_id}: {res.dropped_count} Teilstück(e), zusammen "
+            f"Relation {_label(relation_id)}: {res.dropped_count} Teilstück(e), zusammen "
             f"{res.dropped_m:.0f} m, neben dem Weg verworfen"
         )
     line = orient_by_members(res.line, segments) if oriented else res.line
@@ -143,7 +155,7 @@ def import_trail(
     data = overpass.run(trail_query(spec))
     line, warnings = trail_line(spec, data)
     surface, way_type = trail_shares(
-        data, spec.osm_relation_ids, fetch_way_tags(overpass, spec.osm_relation_ids)
+        data, spec.relation_ids, fetch_way_tags(overpass, spec.relation_ids)
     )
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
@@ -159,7 +171,7 @@ def import_trail(
         kind=spec.kind,
         roundtrip=haversine_km(line[0], line[-1]) < ROUNDTRIP_KM,
         # one relation id only when the trail is exactly one relation; otherwise see trails.yaml
-        osm_relation_id=spec.osm_relation_ids[0] if len(spec.osm_relation_ids) == 1 else None,
+        osm_relation_id=spec.relation_ids[0] if len(spec.relation_ids) == 1 else None,
         length_km=length_km,
         ascent_m=stats.ascent_m,
         descent_m=stats.descent_m,

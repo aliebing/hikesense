@@ -97,7 +97,7 @@ def test_parse_drops_blank_name_prefers_website_and_all_kinds():
 
 def test_query_stays_in_bbox_and_tourism_list():
     q = lodgings_query(BLACK_FOREST_BBOX)
-    assert "47.55,7.55,48.95,8.75" in q and "out center" in q
+    assert "47.55,7.55,48.95,8.8" in q and "out center" in q
     for kind in (
         "hotel",
         "guest_house",

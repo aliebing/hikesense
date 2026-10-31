@@ -7,6 +7,9 @@
 # East variant Basel = end vertex of OSM relation 130310 (its ways stop ~1 km short of the Badischer Bahnhof).
 # kind uses the DB values (long_distance | day_hike). source = stage division, geometry_source =
 # line geometry. A stage may carry `km:` (official length); the Westweg stages have none yet.
+# An osm_relation_ids entry may itself be a list of ids: that group is assembled as one piece
+# (union of the relations' route ways) before it is chained with the other entries. A trail of
+# a single entry is oriented to run from its first stage start.
 # Uncertain: east variant stage 9 end (Bärental vs Hinterzarten, source page is inconsistent).
 # Mittelweg: relations 56703 (Pforzheim - Lenzkirch) + 1158978 (westliche Variante Lenzkirch -
 # Häusern - Waldshut, tagged from=Pforzheim to=Waldshut); 110075 is the superroute. The eastern
@@ -17,9 +20,21 @@
 # Mittelweg km deviations > 5 % (OSM line vs official, import 2026-10-31) are kept, not hidden:
 #   stage 4 Zwieselberg - Schiltach 22.4 vs 25, stage 5 Schiltach - St. Georgen 29.5 vs 31.5,
 #   stage 7 Kalte Herberge - Lenzkirch 24.4 vs 26, stage 9 Häusern - Waldshut 23.9 vs 26.5.
-# Ostweg (OSM 56369, superroute 109884, Variante Loßburg 302255) is not curated yet: its OSM line
-# leaves the import bbox east of 8.75 near Bad Liebenzell, and 56369 has two gaps (Geisingen,
-# Hondingen) that only its child relations 17640011/17640012/18310287/18313354 close.
+# Ostweg: one group [56369 + child relations 17640012, 17640011, 18310287 (Geisingen) and
+# 18313354 (Hondingen)]: 56369 alone has two gaps that only these children close. 109884 is the
+# superroute; its "Variante Loßburg" (302255) is not curated. The OSM line reaches lon 8.79 near
+# Bad Liebenzell (import bbox east = 8.80). Stage places from OSM Nominatim; Sunthausen = vertex of
+# the line nearest the village (centre ~640 m off the trail). Stage names shortened from the
+# Schwarzwaldverein's "VS-Villingen" / "Bad Dürrheim-Sunthausen". Schaffhausen is in Switzerland;
+# the lodging data covers Baden-Württemberg only.
+# Ostweg km deviations > 5 % (OSM line vs official, import 2026-10-31) are kept, not hidden:
+#   stage 5 Freudenstadt - Alpirsbach 16.7 vs 22.5, 6 Alpirsbach - Schramberg 20.5 vs 19,
+#   7 Schramberg - Villingen 29.1 vs 26.5, 8 Villingen - Sunthausen 18.4 vs 16.5,
+#   9 Sunthausen - Geisingen 16.9 vs 16, 11 Achdorf - Stühlingen 15.0 vs 18,
+#   12 Stühlingen - Schaffhausen 19.8 vs 18.5. Total 244.5 km vs 246 km official.
+# Uncertain: stage 5 (-26 %) may officially run via Loßburg (the OSM "Variante Loßburg").
+# Every Ostweg stage has lodgings within 1 km (import 2026-10-31; stage 9 only 5). Swiss side of
+# stage 12 has none (BW-only lodging data).
 sources:
   - id: stages-schwarzwald-tourismus
     name: Schwarzwald Tourismus - Westweg Etappeneinteilung (Fakten, keine Texte uebernommen)
@@ -29,6 +44,11 @@ sources:
   - id: stages-schwarzwaldverein-mittelweg
     name: Schwarzwaldverein - Mittelweg Etappeneinteilung (Fakten, keine Texte uebernommen)
     url: https://www.schwarzwaldverein.de/schwarzwald/wanderwege/fernwanderwege/mittelweg
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-10-31
+  - id: stages-schwarzwaldverein-ostweg
+    name: Schwarzwaldverein - Ostweg Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.schwarzwaldverein.de/schwarzwald/wanderwege/fernwanderwege/ostweg
     license: Fakten, keine Texte übernommen
     retrieved_at: 2026-10-31
   - id: osm
@@ -169,3 +189,58 @@ trails:
         start: {name: Häusern, lat: 47.7540444, lon: 8.1672955}
         end: {name: Waldshut, lat: 47.6226655, lon: 8.212487}
         km: 26.5
+  - id: ostweg
+    name: Ostweg
+    kind: long_distance
+    osm_relation_ids: [[56369, 17640012, 17640011, 18310287, 18313354]]
+    source: stages-schwarzwaldverein-ostweg
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}
+        end: {name: Bad Liebenzell, lat: 48.7712716, lon: 8.7321279}
+        km: 25
+      - seq: 2
+        start: {name: Bad Liebenzell, lat: 48.7712716, lon: 8.7321279}
+        end: {name: Oberhaugstett, lat: 48.6549696, lon: 8.6796529}
+        km: 21
+      - seq: 3
+        start: {name: Oberhaugstett, lat: 48.6549696, lon: 8.6796529}
+        end: {name: Pfalzgrafenweiler, lat: 48.5259787, lon: 8.5648793}
+        km: 22
+      - seq: 4
+        start: {name: Pfalzgrafenweiler, lat: 48.5259787, lon: 8.5648793}
+        end: {name: Freudenstadt, lat: 48.4637727, lon: 8.4111727}
+        km: 17.5
+      - seq: 5
+        start: {name: Freudenstadt, lat: 48.4637727, lon: 8.4111727}
+        end: {name: Alpirsbach, lat: 48.3456021, lon: 8.4033079}
+        km: 22.5
+      - seq: 6
+        start: {name: Alpirsbach, lat: 48.3456021, lon: 8.4033079}
+        end: {name: Schramberg, lat: 48.225478, lon: 8.3852168}
+        km: 19
+      - seq: 7
+        start: {name: Schramberg, lat: 48.225478, lon: 8.3852168}
+        end: {name: Villingen, lat: 48.0596619, lon: 8.4598995}
+        km: 26.5
+      - seq: 8
+        start: {name: Villingen, lat: 48.0596619, lon: 8.4598995}
+        end: {name: Sunthausen, lat: 48.006394, lon: 8.5934917}
+        km: 16.5
+      - seq: 9
+        start: {name: Sunthausen, lat: 48.006394, lon: 8.5934917}
+        end: {name: Geisingen, lat: 47.922968, lon: 8.6491814}
+        km: 16
+      - seq: 10
+        start: {name: Geisingen, lat: 47.922968, lon: 8.6491814}
+        end: {name: Achdorf, lat: 47.8372519, lon: 8.5007404}
+        km: 23
+      - seq: 11
+        start: {name: Achdorf, lat: 47.8372519, lon: 8.5007404}
+        end: {name: Stühlingen, lat: 47.7470397, lon: 8.4474495}
+        km: 18
+      - seq: 12
+        start: {name: Stühlingen, lat: 47.7470397, lon: 8.4474495}
+        end: {name: Schaffhausen, lat: 47.6960491, lon: 8.634513}
+        km: 18.5

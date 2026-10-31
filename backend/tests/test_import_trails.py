@@ -92,6 +92,64 @@ def test_trail_query_asks_for_all_relations_with_geometry(small_spec):
     assert "relation(id:1001,1002)" in q and "out geom" in q
 
 
+def _gap_data() -> dict:
+    """Parent 2001 has a ~1.5 km gap (8.02-8.04) that only its child relation 2002 closes."""
+
+    def way(ref, pts):
+        return {
+            "type": "way",
+            "ref": ref,
+            "role": "",
+            "geometry": [{"lat": a, "lon": b} for a, b in pts],
+        }
+
+    return {
+        "elements": [
+            {
+                "type": "relation",
+                "id": 2001,
+                "members": [
+                    way(31, [(48.0, 8.0), (48.0, 8.01), (48.0, 8.02)]),
+                    {"type": "relation", "ref": 2002, "role": ""},
+                    way(32, [(48.0, 8.06), (48.0, 8.05), (48.0, 8.04)]),
+                ],
+            },
+            {
+                "type": "relation",
+                "id": 2002,
+                "members": [way(33, [(48.0, 8.02), (48.0, 8.03), (48.0, 8.04)])],
+            },
+        ]
+    }
+
+
+def test_relation_group_is_assembled_as_one_piece(small_spec):
+    grouped = small_spec.model_copy(update={"osm_relation_ids": [[2001, 2002]]})
+    line, warnings = trail_line(grouped, _gap_data())
+    assert sorted([line[0], line[-1]]) == [(48.0, 8.0), (48.0, 8.06)]
+    assert len(line) == 7 and warnings == []
+    assert grouped.relation_ids == [2001, 2002]
+    assert "relation(id:2001,2002)" in trail_query(grouped)
+
+
+def test_single_entry_line_runs_from_the_first_stage_start(small_spec):
+    stages = [StageSpec(seq=1, start_name="O", end_name="W", start=(48.0, 8.06), end=(48.0, 8.0))]
+    spec = small_spec.model_copy(update={"osm_relation_ids": [[2001, 2002]], "stages": stages})
+    line, _ = trail_line(spec, _gap_data())
+    assert line[0] == (48.0, 8.06) and line[-1] == (48.0, 8.0)
+    spec.stages[0] = StageSpec(
+        seq=1, start_name="W", end_name="O", start=(48.0, 8.0), end=(48.0, 8.06)
+    )
+    line, _ = trail_line(spec, _gap_data())
+    assert line[0] == (48.0, 8.0)
+
+
+def test_without_group_the_parent_gap_still_raises(small_spec):
+    plain = small_spec.model_copy(update={"osm_relation_ids": [2001, 2002]})
+    with pytest.raises(GapError):
+        trail_line(plain, _gap_data())
+
+
 @pytest.mark.db
 def test_import_trail_writes_trail_and_stages(conn, small_spec, overpass_fixture):
     rep = import_trail(conn, small_spec, overpass_fixture, Ramp())
@@ -134,9 +192,7 @@ def test_import_stores_sources_geometry_and_stage_ids(conn, small_spec, overpass
 @pytest.mark.db
 def test_import_records_the_elevation_source(conn, small_spec, overpass_fixture):
     import_trail(conn, small_spec, overpass_fixture, Ramp())
-    row = conn.execute(
-        "select name, license from sources where id = 'copernicus-glo30'"
-    ).fetchone()
+    row = conn.execute("select name, license from sources where id = 'copernicus-glo30'").fetchone()
     assert row and "Copernicus" in row[0] and "DLR" in row[1]
 
 
@@ -179,17 +235,7 @@ def test_dropped_leftovers_become_warnings(small_spec):
     "tid,start,end",
     [
         ("mittelweg", "Pforzheim", "Waldshut"),
-        pytest.param(
-            "ostweg",
-            "Pforzheim",
-            "Schaffhausen",
-            marks=pytest.mark.xfail(
-                raises=KeyError,
-                strict=True,
-                reason="Ostweg not curated yet: OSM line leaves the bbox (lon 8.79) and its "
-                "relation 56369 needs its child relations to close two gaps",
-            ),
-        ),
+        ("ostweg", "Pforzheim", "Schaffhausen"),
     ],
 )
 def test_curated_trail_chains_its_stages(tid, start, end):

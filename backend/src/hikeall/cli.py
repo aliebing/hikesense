@@ -194,7 +194,7 @@ def import_shares_cmd(only: str | None) -> int:
     settings = _settings()
     if settings is None:
         return 2
-    long_distance = {s.id: s.osm_relation_ids for s in load_trail_specs(TRAILS_YAML)}
+    long_distance = {s.id: s.relation_ids for s in load_trail_specs(TRAILS_YAML)}
     with (
         make_http_client(240) as http,
         connect(settings.supabase_db_url) as conn,

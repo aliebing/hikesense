@@ -27,7 +27,7 @@ PLACE_RADIUS_KM = 15.0
 STORED_CATEGORIES = ("feature", "surface")
 
 # Latitude bands from HikeAI data/regions.yaml (boundaries 48.30 and 47.95).
-_BF = (7.55, 8.75)
+_BF = (7.55, 8.80)  # = BLACK_FOREST_BBOX west/east
 AREAS = (
     ("area:nord", "Nordschwarzwald", ["Nordschwarzwald", "Nord", "Norden"], 48.30, 48.95),
     (

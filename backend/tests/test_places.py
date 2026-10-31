@@ -72,7 +72,7 @@ def test_places_query_includes_relation_lakes():
 
 def test_queries_stay_in_bbox():
     for q in (places_query(BLACK_FOREST_BBOX), pois_query(BLACK_FOREST_BBOX)):
-        assert "47.55,7.55,48.95,8.75" in q and "out center" in q
+        assert "47.55,7.55,48.95,8.8" in q and "out center" in q
 
 
 @respx.mock

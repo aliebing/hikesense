@@ -33,7 +33,7 @@ class BBox(BaseModel):
 
 
 # Global import area (Black Forest only).
-BLACK_FOREST_BBOX = BBox(south=47.55, west=7.55, north=48.95, east=8.75)
+BLACK_FOREST_BBOX = BBox(south=47.55, west=7.55, north=48.95, east=8.80)
 
 
 class HikingTime(BaseModel):
@@ -64,10 +64,17 @@ class TrailSpec(BaseModel):
     id: str
     name: str
     kind: str
-    osm_relation_ids: list[int]
+    # Walking order. An entry may be a list of ids: that group is assembled as one piece
+    # (union of its route ways), e.g. a parent relation whose gaps only its child relations close.
+    osm_relation_ids: list[int | list[int]]
     source: Source  # stage division
     geometry_source: Source  # line geometry (OSM, ODbL)
     stages: list[StageSpec]
+
+    @property
+    def relation_ids(self) -> list[int]:
+        """All relation ids, groups flattened, in order."""
+        return [r for e in self.osm_relation_ids for r in (e if isinstance(e, list) else [e])]
 
 
 class Lodging(BaseModel):
