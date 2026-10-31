@@ -6,14 +6,31 @@
 # Hinterzarten = vertex of relation 62897 nearest to the village (trail passes ~1 km from centre).
 # East variant Basel = end vertex of OSM relation 130310 (its ways stop ~1 km short of the Badischer Bahnhof).
 # kind uses the DB values (long_distance | day_hike). source = stage division, geometry_source =
-# line geometry. A stage may carry `km:` (official length) once it is curated; none is set yet.
+# line geometry. A stage may carry `km:` (official length); the Westweg stages have none yet.
 # Uncertain: east variant stage 9 end (Bärental vs Hinterzarten, source page is inconsistent).
+# Mittelweg: relations 56703 (Pforzheim - Lenzkirch) + 1158978 (westliche Variante Lenzkirch -
+# Häusern - Waldshut, tagged from=Pforzheim to=Waldshut); 110075 is the superroute. The eastern
+# variant 1158977 (Lenzkirch - Rothaus - Waldshut, official 8b/9b) is not curated. Stage places are
+# town centres from OSM Nominatim (Zwieselberg = hamlet near Freudenstadt; Kalte Herberge as in the
+# Westweg); Pforzheim = end vertex of relation 56703. The Schwarzwaldverein page gives 249 km in
+# total, but its stage lengths sum to 233 km; the stage km below are the per-stage values.
+# Mittelweg km deviations > 5 % (OSM line vs official, import 2026-10-31) are kept, not hidden:
+#   stage 4 Zwieselberg - Schiltach 22.4 vs 25, stage 5 Schiltach - St. Georgen 29.5 vs 31.5,
+#   stage 7 Kalte Herberge - Lenzkirch 24.4 vs 26, stage 9 Häusern - Waldshut 23.9 vs 26.5.
+# Ostweg (OSM 56369, superroute 109884, Variante Loßburg 302255) is not curated yet: its OSM line
+# leaves the import bbox east of 8.75 near Bad Liebenzell, and 56369 has two gaps (Geisingen,
+# Hondingen) that only its child relations 17640011/17640012/18310287/18313354 close.
 sources:
   - id: stages-schwarzwald-tourismus
     name: Schwarzwald Tourismus - Westweg Etappeneinteilung (Fakten, keine Texte uebernommen)
     url: https://www.schwarzwald-tourismus.info/erleben/wandern/fernwandern/westweg
     license: Fakten, keine Texte übernommen
     retrieved_at: 2026-10-28
+  - id: stages-schwarzwaldverein-mittelweg
+    name: Schwarzwaldverein - Mittelweg Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.schwarzwaldverein.de/schwarzwald/wanderwege/fernwanderwege/mittelweg
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-10-31
   - id: osm
     name: OpenStreetMap contributors (Overpass API)
     url: https://www.openstreetmap.org/relation/62900
@@ -109,3 +126,46 @@ trails:
       - seq: 13
         start: {name: Oberminseln, lat: 47.60854, lon: 7.78431}
         end: {name: Basel, lat: 47.5589549, lon: 7.6127482}
+  - id: mittelweg
+    name: Mittelweg
+    kind: long_distance
+    osm_relation_ids: [56703, 1158978]
+    source: stages-schwarzwaldverein-mittelweg
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Pforzheim, lat: 48.877493, lon: 8.6991006}
+        end: {name: Bad Wildbad, lat: 48.7502439, lon: 8.550301}
+        km: 23
+      - seq: 2
+        start: {name: Bad Wildbad, lat: 48.7502439, lon: 8.550301}
+        end: {name: Besenfeld, lat: 48.5970072, lon: 8.4216888}
+        km: 31
+      - seq: 3
+        start: {name: Besenfeld, lat: 48.5970072, lon: 8.4216888}
+        end: {name: Zwieselberg, lat: 48.436405, lon: 8.3615172}
+        km: 25
+      - seq: 4
+        start: {name: Zwieselberg, lat: 48.436405, lon: 8.3615172}
+        end: {name: Schiltach, lat: 48.2901774, lon: 8.3436346}
+        km: 25
+      - seq: 5
+        start: {name: Schiltach, lat: 48.2901774, lon: 8.3436346}
+        end: {name: St. Georgen, lat: 48.1257642, lon: 8.3330247}
+        km: 31.5
+      - seq: 6
+        start: {name: St. Georgen, lat: 48.1257642, lon: 8.3330247}
+        end: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+        km: 25
+      - seq: 7
+        start: {name: Kalte Herberge, lat: 47.998, lon: 8.19861}
+        end: {name: Lenzkirch, lat: 47.8682042, lon: 8.2022783}
+        km: 26
+      - seq: 8
+        start: {name: Lenzkirch, lat: 47.8682042, lon: 8.2022783}
+        end: {name: Häusern, lat: 47.7540444, lon: 8.1672955}
+        km: 20
+      - seq: 9
+        start: {name: Häusern, lat: 47.7540444, lon: 8.1672955}
+        end: {name: Waldshut, lat: 47.6226655, lon: 8.212487}
+        km: 26.5

@@ -208,3 +208,26 @@ def test_import_is_idempotent(conn, trail_on_line_48_8):
     n = conn.execute("select count(*) from lodgings where id in (9000105, -9000106)").fetchone()[0]
     assert n == 2
     assert [r[0] for r in _links(conn)] == [-9000106, 9000105]
+
+
+@pytest.mark.db
+def test_stage_count_covers_every_long_distance_trail(conn):
+    from hikeall.cli import STAGE_COUNT_SQL
+    from hikeall.db import upsert_stage
+
+    upsert_source(conn, SRC)
+    for tid, kind in (("test-lodg-mittelweg", "long_distance"), ("test-lodg-day", "day_hike")):
+        upsert_trail(
+            conn, id=tid, name=tid, kind=kind, roundtrip=False, osm_relation_id=None,
+            length_km=7.4, ascent_m=0, descent_m=0, profile=[(0.0, 500.0)], line=LINE,
+            source_id=SRC.id,
+        )
+        upsert_stage(
+            conn, id=f"{tid}-01", trail_id=tid, seq=1, name="A – B", start_name="A",
+            end_name="B", length_km=7.4, ascent_m=0, descent_m=0, profile=[(0.0, 500.0)],
+            line=LINE, source_id=SRC.id,
+        )
+    insert_lodging(conn, 9000201, 48.005, 8.05)  # ~0.5 km from LINE
+    rows = {r[0]: r[3] for r in conn.execute(STAGE_COUNT_SQL).fetchall()}
+    assert rows["test-lodg-mittelweg-01"] >= 1
+    assert "test-lodg-day-01" not in rows

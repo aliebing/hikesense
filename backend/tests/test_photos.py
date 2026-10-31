@@ -231,3 +231,12 @@ def test_rerun_of_one_stage_keeps_other_stages_photos(conn):
         assert _count(conn) == 2  # stage 2 gets B: A is taken by stage 1
         import_photos(conn, client, [t1], pause_s=0)
     assert _count(conn) == 2
+
+
+def test_photo_summary_counts_every_long_distance_trail():
+    from hikeall.cli import photo_summary
+
+    counts = {"westweg-west": 5, "mittelweg": 3, "feldberg": 2}
+    lines = photo_summary(counts, long_distance={"westweg-west", "mittelweg"})
+    assert lines[:2] == ["mittelweg: 3 Bilder", "westweg-west: 5 Bilder"]
+    assert lines[2] == "10 Bilder, 2 Fernwege, 1 Tagestouren (2 Bilder an Tagestouren)"

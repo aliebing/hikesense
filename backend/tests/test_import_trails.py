@@ -173,3 +173,32 @@ def test_dropped_leftovers_become_warnings(small_spec):
     line, warnings = trail_line(small_spec, data)
     assert len(line) == 9
     assert len(warnings) == 1 and "Relation 1001" in warnings[0] and "1 Teilstück" in warnings[0]
+
+
+@pytest.mark.parametrize(
+    "tid,start,end",
+    [
+        ("mittelweg", "Pforzheim", "Waldshut"),
+        pytest.param(
+            "ostweg",
+            "Pforzheim",
+            "Schaffhausen",
+            marks=pytest.mark.xfail(
+                raises=KeyError,
+                strict=True,
+                reason="Ostweg not curated yet: OSM line leaves the bbox (lon 8.79) and its "
+                "relation 56369 needs its child relations to close two gaps",
+            ),
+        ),
+    ],
+)
+def test_curated_trail_chains_its_stages(tid, start, end):
+    from hikeall.cli import TRAILS_YAML
+    from hikeall.ingest.stages import load_trail_specs
+
+    spec = {t.id: t for t in load_trail_specs(TRAILS_YAML)}[tid]
+    assert spec.kind == "long_distance"
+    assert spec.stages[0].start_name == start and spec.stages[-1].end_name == end
+    for a, b in zip(spec.stages, spec.stages[1:], strict=False):
+        assert (a.end_name, a.end) == (b.start_name, b.start) and b.seq == a.seq + 1
+    assert all(s.official_km for s in spec.stages)

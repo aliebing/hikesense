@@ -240,9 +240,9 @@ def import_shares_cmd(only: str | None) -> int:
 STAGE_COUNT_SQL = """
     select s.id, s.trail_id, s.seq, count(distinct l.id)
     from (select id, trail_id, seq, st_subdivide(geom, 64) as geom from stages) s
+    join trails t on t.id = s.trail_id and t.kind = 'long_distance'
     left join lodgings l on l.geom && st_expand(s.geom, 0.015)  -- index prefilter, > 1 km
       and st_dwithin(s.geom::geography, l.geom::geography, 1000)
-    where s.trail_id like 'westweg%%'
     group by s.id, s.trail_id, s.seq
     order by s.trail_id, s.seq
 """
@@ -275,7 +275,7 @@ def import_lodgings_cmd() -> int:
         f"importiert, {links} Weg-Verknüpfungen"
     )
     print(
-        "Westweg-Etappen: Unterkünfte mit Abstand <= 1000 m zur Etappe (ST_DWithin auf stages.geom)"
+        "Fernweg-Etappen: Unterkünfte mit Abstand <= 1000 m zur Etappe (ST_DWithin auf stages.geom)"
     )
     for sid, _trail, _seq, n in rows:
         print(f"  {sid}: {n}")
@@ -357,6 +357,17 @@ COMMONS_USER_AGENT = os.environ.get(
 )
 
 
+def photo_summary(counts: dict[str, int], long_distance: set[str]) -> list[str]:
+    """Photos per long-distance trail, then one total line (day hikes summed)."""
+    fern = {k: v for k, v in counts.items() if k in long_distance}
+    lines = [f"{tid}: {n} Bilder" for tid, n in sorted(fern.items())]
+    lines.append(
+        f"{sum(counts.values())} Bilder, {len(fern)} Fernwege, {len(counts) - len(fern)} "
+        f"Tagestouren ({sum(v for k, v in counts.items() if k not in fern)} Bilder an Tagestouren)"
+    )
+    return lines
+
+
 def import_photos_cmd(only: str | None) -> int:
     settings = _settings()
     if settings is None:
@@ -413,14 +424,11 @@ def import_photos_cmd(only: str | None) -> int:
             done += 1
             counts.update(rep.counts)
             empty += rep.empty
-    westweg = {k: v for k, v in counts.items() if k.startswith("westweg")}
-    for tid, n in sorted(westweg.items()):
-        print(f"{tid}: {n} Bilder")
-    hikes = len(counts) - len(westweg)
-    print(
-        f"{sum(counts.values())} Bilder, {len(westweg)} Fernwege, {hikes} Tagestouren "
-        f"({sum(v for k, v in counts.items() if k not in westweg)} Bilder an Tagestouren)"
-    )
+        long_distance = {
+            r[0] for r in conn.execute("select id from trails where kind = 'long_distance'")
+        }
+    for line in photo_summary(counts, long_distance):
+        print(line)
     if empty:
         print("Ohne Bild: " + ", ".join(empty))
     if failed:
