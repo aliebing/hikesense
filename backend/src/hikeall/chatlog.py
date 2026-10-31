@@ -20,7 +20,8 @@ class ChatLogEntry(BaseModel):
     output_tokens: int = 0
     cost_usd: float = 0.0
     calls_without_cost: int = 0
-    grounding_unsupported: int = 0
+    grounding_unsupported: int = 0  # numbers only
+    grounding_unsupported_names: int = 0  # count only, never the names
     guard: str | None = None
     discarded_model_numbers: int = 0
     error: str | None = None

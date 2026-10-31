@@ -365,7 +365,14 @@ def write_csv(path: Path, results: list[CaseResult]) -> None:
         w.writerow(CSV_FIELDS)
         for r in results:
             w.writerow(
-                [r.case, str(r.ok).lower(), r.unsupported, "; ".join(r.unsupported_names), f"{r.cost_usd:.6f}", "; ".join(r.errors)]
+                [
+                    r.case,
+                    str(r.ok).lower(),
+                    r.unsupported,
+                    "; ".join(r.unsupported_names),
+                    f"{r.cost_usd:.6f}",
+                    "; ".join(r.errors),
+                ]
             )
 
 

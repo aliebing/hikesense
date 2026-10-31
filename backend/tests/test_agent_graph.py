@@ -954,7 +954,9 @@ def test_unknown_tour_name_is_counted_not_removed(vocab, settings):
     done = one(events, "done")
     assert done.unsupported == 0 and done.unsupported_names == ["Wutach-Pfad"]
     assert "Wutach-Pfad kommt in den Suchergebnissen" in text_of(events)
-    assert log_lines(settings)[-1]["grounding_unsupported"] == 0
+    last = log_lines(settings)[-1]
+    assert last["grounding_unsupported"] == 0 and last["grounding_unsupported_names"] == 1
+    assert "Wutach-Pfad" not in str(last)
 
 
 def test_area_start_shows_no_distance(vocab, settings):

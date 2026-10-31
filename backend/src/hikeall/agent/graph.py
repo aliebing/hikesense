@@ -1171,7 +1171,8 @@ def build_graph(deps: AgentDeps) -> Any:
         _write_log(
             settings, conf["request_id"], state, usage, None, conf.get("user_hash")
         )
-        _emit(DoneEvent(
+        _emit(
+            DoneEvent(
                 usage=usage,
                 unsupported=state.get("unsupported", 0),
                 unsupported_names=state.get("unsupported_names", []),
@@ -1236,6 +1237,7 @@ def _write_log(
             cost_usd=usage.cost_usd,
             calls_without_cost=usage.calls_without_cost,
             grounding_unsupported=state.get("unsupported", 0),
+            grounding_unsupported_names=len(state.get("unsupported_names", [])),
             guard=state.get("guard"),
             discarded_model_numbers=state.get("discarded_numbers", 0),
             error=error,  # exception class name only, never a message text
