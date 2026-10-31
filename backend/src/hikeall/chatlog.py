@@ -22,6 +22,7 @@ class ChatLogEntry(BaseModel):
     calls_without_cost: int = 0
     grounding_unsupported: int = 0  # numbers only
     grounding_unsupported_names: int = 0  # count only, never the names
+    unsat_claims_removed: int = 0  # false "no tour meets all wishes" claims removed
     guard: str | None = None
     discarded_model_numbers: int = 0
     error: str | None = None

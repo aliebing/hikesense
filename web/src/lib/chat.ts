@@ -186,7 +186,13 @@ export type ChatEvent =
   | { type: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { type: "token"; text: string }
   | { type: "sources"; sources: SourceBrief[] }
-  | { type: "done"; usage: unknown; unsupported: number; unsupported_names?: string[] }
+  | {
+      type: "done";
+      usage: unknown;
+      unsupported: number;
+      unsupported_names?: string[];
+      unsat_claims_removed?: number;
+    }
   | { type: "error"; message: string }
   /** 401 from /chat: no or expired session */
   | { type: "auth"; message: string };

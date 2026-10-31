@@ -18,6 +18,7 @@ from hikeall.agent.prompts import (
     LEAK_REPLY,
     NO_SOURCE_REPLY,
     OTHER_REPLY,
+    PLAN_SYSTEM,
     TOOL_LIMIT,
 )
 from hikeall.agent.request import RawRequest, RawWish
@@ -1446,3 +1447,36 @@ def test_no_plan_at_start_names_the_current_start(vocab, settings):
     assert not [e for e in events if e.type == "plan"]
     text = text_of(events)
     assert "Todtnau" in text and "Hausach" not in text
+
+
+def test_unsat_claim_without_fallback_is_removed_and_counted(vocab, settings):
+    # every wish is met (Feldberg-Runde, 16,2 km): the model must not claim the opposite
+    model_text = "Keine Tour erfüllt alle Wünsche, aber hier ist eine. Die Feldberg-Runde hat 16,2 km."
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]},
+        answers=[model_text],
+    )
+    events = run(deps, "Rundweg ab Feldberg über 15 km")
+    assert one(events, "results").fallback_reason is None
+    assert text_of(events) == "Die Feldberg-Runde hat 16,2 km."
+    assert one(events, "done").unsat_claims_removed == 1
+    assert log_lines(settings)[-1]["unsat_claims_removed"] == 1
+
+
+def test_fallback_round_keeps_its_sentence(vocab, settings):
+    model_text = "Die Feldberg-Runde hat 450 Hm statt höchstens 200 Hm."
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=[model_text])
+    events = run(deps, FELDBERG_MSG)
+    reason = one(events, "results").fallback_reason
+    assert reason.startswith("Keine Tour erfüllt alle Wünsche, weil ")
+    assert text_of(events) == f"{reason}.\n\n{model_text}"
+    assert one(events, "done").unsat_claims_removed == 0
+    assert log_lines(settings)[-1]["unsat_claims_removed"] == 0
+
+
+def test_answer_prompt_does_not_offer_the_unsat_sentence():
+    # quoting it made gpt-4o-mini open satisfiable answers with it (3 of 3 runs, Task 8b)
+    for prompt in (ANSWER_SYSTEM, PLAN_SYSTEM):
+        assert "erfüllt alle" not in prompt.casefold()

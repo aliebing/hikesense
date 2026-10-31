@@ -42,7 +42,7 @@ from hikeall.agent.constraints import (
     format_deviation,
 )
 from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace
-from hikeall.agent.grounding import Evidence, grounding_check, has_number
+from hikeall.agent.grounding import Evidence, grounding_check, has_number, strip_unsat_claims
 from hikeall.agent.multiday import (
     ACCESS_STRAIGHT,
     NEAR_M,
@@ -253,6 +253,7 @@ class DoneEvent(ChatEvent):
     usage: LLMUsage
     unsupported: int  # numbers only
     unsupported_names: list[str] = []
+    unsat_claims_removed: int = 0  # "Keine Tour erfüllt alle Wünsche" written without a fallback
 
 
 class ErrorEvent(ChatEvent):
@@ -305,6 +306,7 @@ class State(TypedDict, total=False):
     guard: str | None
     unsupported: int
     unsupported_names: list[str]
+    unsat_claims_removed: int
     discarded_numbers: int
 
 
@@ -330,6 +332,7 @@ def _turn(message: str) -> State:
         guard=None,
         unsupported=0,
         unsupported_names=[],
+        unsat_claims_removed=0,
         discarded_numbers=0,
     )
 
@@ -1152,10 +1155,17 @@ def build_graph(deps: AgentDeps) -> Any:
         if draft and any(leaks_system_prompt(draft, p) for p in _PROMPTS):
             body, out = LEAK_REPLY, {"guard": "leak"}
         elif draft:
+            claims = 0
+            if not reason:  # the code did not fall back: no claim that no tour meets all wishes
+                draft, claims = strip_unsat_claims(draft)
             g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
             # numbers are replaced; unknown tour names stay but get a hint (R21)
             body = g.text
-            out = {"unsupported": len(g.unsupported), "unsupported_names": g.unsupported_names}
+            out = {
+                "unsupported": len(g.unsupported),
+                "unsupported_names": g.unsupported_names,
+                "unsat_claims_removed": claims,
+            }
         # the code's honest sentences come first, verbatim, whatever the model wrote
         lead = state.get("prefix") or ""
         text = "\n\n".join(x for x in (lead, f"{reason}." if reason else "", body) if x)
@@ -1176,6 +1186,7 @@ def build_graph(deps: AgentDeps) -> Any:
                 usage=usage,
                 unsupported=state.get("unsupported", 0),
                 unsupported_names=state.get("unsupported_names", []),
+                unsat_claims_removed=state.get("unsat_claims_removed", 0),
             )
         )
         return {}
@@ -1238,6 +1249,7 @@ def _write_log(
             calls_without_cost=usage.calls_without_cost,
             grounding_unsupported=state.get("unsupported", 0),
             grounding_unsupported_names=len(state.get("unsupported_names", [])),
+            unsat_claims_removed=state.get("unsat_claims_removed", 0),
             guard=state.get("guard"),
             discarded_model_numbers=state.get("discarded_numbers", 0),
             error=error,  # exception class name only, never a message text

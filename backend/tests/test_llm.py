@@ -135,7 +135,7 @@ def test_chatlog_has_no_message_text(tmp_path):
     assert set(row) == {
         "ts", "request_id", "user_hash", "intent", "activity", "tool_calls", "input_tokens",
         "output_tokens", "cost_usd", "calls_without_cost", "grounding_unsupported",
-        "grounding_unsupported_names",
+        "grounding_unsupported_names", "unsat_claims_removed",
         "guard", "discarded_model_numbers", "error",
     }  # fmt: skip
     assert not any(k in row for k in ("message", "text", "content", "answer"))

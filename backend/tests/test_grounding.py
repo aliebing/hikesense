@@ -1,6 +1,12 @@
 import pytest
 
-from hikeall.agent.grounding import NAME_HINT, Evidence, grounding_check, numbers_in_text
+from hikeall.agent.grounding import (
+    NAME_HINT,
+    Evidence,
+    grounding_check,
+    numbers_in_text,
+    strip_unsat_claims,
+)
 
 
 def ev(numbers=(), names=()) -> Evidence:
@@ -282,3 +288,31 @@ def test_known_names_get_no_hint():
 def test_number_hint_comes_before_name_hint():
     r = grounding_check("Feldbergsteig, 999 Hm.", ev(), tour_names=["Feldbergsteig"])
     assert r.text.index("Angabe(n)") < r.text.index("Feldbergsteig kommt")
+
+
+@pytest.mark.parametrize(
+    "text, want",
+    [
+        (
+            "Keine Tour erfüllt alle Wünsche, aber hier sind Vorschläge:\n\n1. Säbelthomaweg",
+            "1. Säbelthomaweg",
+        ),
+        ("Keine Tour erfüllt alle Wünsche, weil es regnet. Der Jägersteig passt.", "Der Jägersteig passt."),
+        ("Hallo! Leider erfüllt keine der Touren alle deine Bedingungen. Gut.", "Hallo! Gut."),
+        ("Keine dieser Wanderungen erfüllt sämtliche Anforderungen.", ""),
+    ],
+)
+def test_unsat_claim_removed_and_counted(text, want):
+    assert strip_unsat_claims(text) == (want, 1)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Der Jägersteig erfüllt alle Wünsche.",
+        "Die Tour erfüllt nicht alle Vorlieben: Aussicht fehlt.",
+        "Keine Tour ist kürzer als 10 km.",
+    ],
+)
+def test_other_sentences_stay(text):
+    assert strip_unsat_claims(text) == (text, 0)

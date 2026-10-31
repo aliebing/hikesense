@@ -229,3 +229,26 @@ def grounding_check(
         hint = NAME_HINT if len(names) == 1 else NAME_HINT_PLURAL
         text = text.rstrip() + "\n\n" + hint.format(names=", ".join(names))
     return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)
+
+
+# "Keine Tour erfüllt alle Wünsche" and its variants ("Leider erfüllt keine der Touren alle
+# deine Bedingungen"): only the code may say that, and only when it fell back (spec §2 Ziel 3)
+_SENTENCE = re.compile(r"[^.!?:\n]*(?:[.!?:]+|\n|$)\s*")
+_UNSAT_CLAIM = re.compile(
+    r"(?=.*\bkein\w*\b)(?=.*\berfüll\w*)"
+    r"(?=.*\b(?:alle|sämtliche)\w*\s+(?:\w+\s+)?"
+    r"(?:wünsche|bedingungen|anforderungen|kriterien|vorgaben|angaben)\b)",
+    re.IGNORECASE,
+)
+
+
+def strip_unsat_claims(text: str) -> tuple[str, int]:
+    """The text without sentences claiming no tour meets all wishes, and how many were removed."""
+    kept: list[str] = []
+    removed = 0
+    for sentence in _SENTENCE.findall(text):
+        if _UNSAT_CLAIM.match(sentence):
+            removed += 1
+        else:
+            kept.append(sentence)
+    return (text, 0) if not removed else ("".join(kept).strip(), removed)
