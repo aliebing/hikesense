@@ -289,6 +289,34 @@ def test_eval_cmd_wires_fixture_weather_and_sign_in(monkeypatch, tmp_path):
     assert seen["user_hash"] == "h123"
 
 
+def test_eval_cli_overrides_model(monkeypatch):
+    from hikeall import cli
+    from hikeall.api import chat
+
+    monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
+    monkeypatch.setattr(sm, "authorize", lambda settings: "h")
+    seen = {}
+
+    def factory(settings, weather_client=None):
+        seen["settings"] = settings
+        return lambda: None
+
+    monkeypatch.setattr(chat, "default_deps_factory", factory)
+    monkeypatch.setattr(ev, "evaluate", lambda *a, **kw: 0)
+    assert cli.main(["eval", "--model", "mistralai/x", "--temperature", "0"]) == 0
+    assert seen["settings"].hikeall_model == "mistralai/x"
+    assert seen["settings"].hikeall_temperature == 0.0
+    assert cli.main(["eval"]) == 0
+    assert seen["settings"].hikeall_model == "openai/gpt-4o-mini"
+    assert seen["settings"].hikeall_temperature is None
+
+
+def test_run_stem_includes_temperature_only_when_set():
+    assert ev._slug("openai/gpt-4o-mini", None) == "openai-gpt-4o-mini"
+    assert ev._slug("openai/gpt-4o-mini", 0.0) == "openai-gpt-4o-mini-t0"
+    assert ev._slug("openai/gpt-4o-mini", 0.7) == "openai-gpt-4o-mini-t0-7"
+
+
 # --- OSM comparison ----------------------------------------------------------------------------
 
 

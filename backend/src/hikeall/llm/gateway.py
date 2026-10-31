@@ -54,7 +54,9 @@ class OpenRouterGateway:
         if not settings.openrouter_api_key:
             raise LLMUnavailable("OPENROUTER_API_KEY fehlt")
 
-        def make(temperature: float) -> ChatOpenAI:
+        def make(default: float) -> ChatOpenAI:
+            override = settings.hikeall_temperature
+            temperature = default if override is None else override
             return ChatOpenAI(
                 base_url=_BASE_URL,
                 api_key=settings.openrouter_api_key,

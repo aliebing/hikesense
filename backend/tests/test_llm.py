@@ -77,6 +77,18 @@ def test_gateway_from_settings_configures_openrouter():
     assert isinstance(gw, OpenRouterGateway)
 
 
+def test_temperature_is_sent_when_set():
+    base = Settings(supabase_db_url="x", openrouter_api_key="k-test", _env_file=None)
+    assert base.hikeall_temperature is None
+    default = OpenRouterGateway.from_settings(base)
+    assert (default._structured_model.temperature, default._answer_model.temperature) == (0.0, 0.3)
+    s = Settings(
+        supabase_db_url="x", openrouter_api_key="k-test", hikeall_temperature=0.7, _env_file=None
+    )
+    gw = OpenRouterGateway.from_settings(s)
+    assert gw._structured_model.temperature == 0.7 and gw._answer_model.temperature == 0.7
+
+
 class Out(BaseModel):
     n: int
 

@@ -478,8 +478,11 @@ def write_csv(path: Path, results: Sequence[EvalResult]) -> None:
 # --- run ---------------------------------------------------------------------------------------
 
 
-def _slug(model: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")
+def _slug(model: str, temperature: float | None = None) -> str:
+    """File-name slug of a run; the temperature is part of it only when set (`-t0`, `-t0-7`),
+    so runs with different temperatures do not overwrite each other."""
+    slug = re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")
+    return slug if temperature is None else f"{slug}-t{temperature:g}".replace(".", "-")
 
 
 def _db_trail_ids(deps: AgentDeps) -> set[str]:
@@ -538,7 +541,8 @@ def evaluate(
     results = run_eval(deps, cases, user_hash)
     metrics = compute_metrics(results, _db_trail_ids(deps) if trail_ids is None else trail_ids)
     day, model = today or date.today(), deps.settings.hikeall_model
-    stem = f"{day.isoformat()}-{_slug(model)}"
+    temperature = deps.settings.hikeall_temperature
+    stem = f"{day.isoformat()}-{_slug(model, temperature)}"
     csv_path, report = out_dir / f"results-{stem}.csv", out_dir / f"bericht-{stem}.md"
     write_csv(csv_path, results)
     lookup, segment = osm_lookups or _osm_lookups(deps)

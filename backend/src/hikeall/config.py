@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None
     hikeall_model: str = "openai/gpt-4o-mini"
+    # None: the gateway keeps its fixed values (0.0 structured/tools, 0.3 answers); set (eval
+    # comparison): used for every call
+    hikeall_temperature: float | None = None
     max_tool_calls: int = 8
     max_cost_usd: float = 0.05
     chat_log_path: Path = Path("logs/chat.jsonl")
