@@ -8,25 +8,25 @@ Ein Wanderplaner für den Schwarzwald, den man über einen KI-Chat bedient. Er p
 
 | Unerfüllbarer Wunsch: ehrlich benannt, Ausweichtouren mit genau einer verletzten Bedingung | Mehrtagesplan mit Unterkünften, Ankunftszeiten und Wetter | „Unterwegs“ auf dem Handy |
 |---|---|---|
-| ![Ausweichtouren für „Rundweg, unter 200 Hm, über 15 km, Feldberg“](docs/showcase/04-unerfuellbar-ausweichtouren.png) | ![Plan „3 Tage Westweg ab Hausach“ mit Wetter](docs/showcase/05-mehrtagesplan-wetter.png) | ![Restkilometer und Ankunft auf Tag 1](docs/showcase/10-unterwegs-handy.png) |
+| ![Ausweichtouren für „Rundweg, unter 200 Hm, über 15 km, Feldberg“](docs/showcase/04-unerfuellbar-ausweichtouren.png) | ![Plan „3 Tage Westweg ab Hausach“ mit Wetter](docs/showcase/05-mehrtagesplan-wetter.png) | ![Restkilometer und Ankunft auf Tag 1](docs/showcase/10-unterwegs-handy.jpg) |
 
-Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echten Modell (`openai/gpt-4o-mini`). Die Position für „Unterwegs“ ist simuliert: ein Punkt auf Tag 1 des Plans.
+Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echten Modell (`openai/gpt-4o-mini`). Die Position für „Unterwegs“ ist simuliert: ein Punkt auf Tag 1 des Plans, die Uhr des Browsers steht auf 10:00. Die Bilder 02, 10, 11 und 12 sind nach den Fixes vom selben Tag neu aufgenommen.
 
 <details>
 <summary>Alle Screenshots</summary>
 
-1. [Startseite](docs/showcase/01-startseite.png)
-2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](docs/showcase/02-tagestouren.png): Karten mit ✓ je Bedingung. Der Antworttext beginnt trotzdem fälschlich mit „Keine Tour erfüllt alle Wünsche“, siehe [Bekannte Lücken](#bekannte-lücken).
-3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](docs/showcase/03-unerfuellbar-chat.png)
+1. [Startseite](docs/showcase/01-startseite.jpg)
+2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](docs/showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, der Antworttext nennt passende Touren ohne Unerfüllbarkeits-Satz. Die Sternchen im Text sind Markdown des Modells, das die App nicht darstellt, siehe [Bekannte Lücken](#bekannte-lücken).
+3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](docs/showcase/03-unerfuellbar-chat.jpg)
 4. [Ausweichtouren mit der einen verletzten Bedingung](docs/showcase/04-unerfuellbar-ausweichtouren.png)
 5. [Mehrtagesplan mit Wetter (Open-Meteo)](docs/showcase/05-mehrtagesplan-wetter.png)
 6. [Karte mit Tagesabschnitten](docs/showcase/06-tagesabschnitte-karte.png)
 7. [Routenseite mit Fotos, Lizenzen und Gruppen in der Nähe](docs/showcase/07-routenseite-fotos.png)
 8. [Karte einer Tagestour mit Unterkünften (basemap.de)](docs/showcase/08-routenkarte.png)
-9. [Wissensfrage mit Quellen und Lizenz](docs/showcase/09-wissensfrage-quellen.png)
-10. [„Unterwegs“ auf dem Handy](docs/showcase/10-unterwegs-handy.png)
-11. [„Unterwegs“ mit Position auf der Karte](docs/showcase/11-unterwegs-karte-handy.png)
-12. [Startseite auf dem Handy](docs/showcase/12-startseite-handy.png)
+9. [Wissensfrage mit Quellen und Lizenz](docs/showcase/09-wissensfrage-quellen.jpg)
+10. [„Unterwegs“ auf dem Handy](docs/showcase/10-unterwegs-handy.jpg)
+11. [„Unterwegs“ mit Position auf der Karte](docs/showcase/11-unterwegs-karte-handy.jpg)
+12. [Startseite auf dem Handy](docs/showcase/12-startseite-handy.jpg)
 
 </details>
 
@@ -124,9 +124,9 @@ Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikeall im
 | Datenart | Quelle und Lizenz | Menge |
 |---|---|---|
 | Fernwege und Etappen | Wegverlauf: OSM-Relationen (ODbL). Etappeneinteilung (Start, Ziel, km) als Fakten von Schwarzwald Tourismus (Westweg) und vom Schwarzwaldverein (Mittelweg, Ostweg), ohne übernommene Texte | 4 Linien: Westweg West 286,1 km, Westweg Ost 288,6 km, Mittelweg 224,8 km, Ostweg 244,5 km; zusammen 46 Etappen <!-- select id, round(length_km::numeric,1) from trails where kind='long_distance'; select count(*) from stages; --> |
-| Tagestouren | OSM-Wanderrelationen (ODbL). 1712 gescannt, automatisch gefiltert (Lücken, Länge), danach durchgesehen; Entscheidung und Grund je Relation in `data/curated/day_hikes.csv` | 122 Touren <!-- select count(*) from trails where kind='day_hike'; CSV: 1712 Zeilen, 1335 automatisch verworfen, 255 bei der Durchsicht verworfen --> |
+| Tagestouren | OSM-Wanderrelationen (ODbL). 1712 gescannt, automatisch gefiltert (Lücken, Länge), danach 255 weitere abgelehnt. Diese Ablehnungen sind von Claude vorgeschlagen, noch nicht von Ali bestätigt (siehe [Offene Prüfungen](#offene-prüfungen-vor-abgabe)). Entscheidung und Grund je Relation in `data/curated/day_hikes.csv` | 122 Touren <!-- select count(*) from trails where kind='day_hike'; CSV: 1712 Zeilen, 1335 automatisch verworfen, 255 mit manual_reason „Vorschlag Claude: …“ verworfen --> |
 | Unterkünfte | OSM (Hotel, Pension, Ferienwohnung, Chalet, Hostel, Hütte, Campingplatz; ODbL), Website-Link, falls vorhanden | 1814 Unterkünfte, 3115 Verknüpfungen mit Wegen <!-- select count(*) from lodgings; select kind, count(*) from lodgings group by kind; select count(*) from trail_lodgings; --> |
-| Einkehr, Aussicht, Gipfel, Wasserfälle, Hütten, Bahnhöfe | OSM (Overpass oder Geofabrik-Extrakt Baden-Württemberg, `make places`; ODbL) | 767 Einkehr, 460 Aussichtspunkte, 179 Gipfel, 57 Wasserfälle, 31 Hütten, 40 Bahnhöfe und Haltepunkte <!-- select kind, count(*) from pois group by kind; --> |
+| Einkehr, Aussicht, Gipfel, Wasserfälle, Hütten, Bahnhöfe | OSM (ODbL). In `sources` steht für alle OSM-Daten eine Zeile `osm`: „OpenStreetMap contributors (Overpass API)“, abgerufen 2026-10-28. Orte und Punkte kann der Import auch aus dem Geofabrik-Extrakt Baden-Württemberg lesen (`make places`, Extrakt mit Stand 2026-10-28); welcher der beiden Wege den aktuellen Stand erzeugt hat, hält `sources` nicht fest | 767 Einkehr, 460 Aussichtspunkte, 179 Gipfel, 57 Wasserfälle, 31 Hütten, 40 Bahnhöfe und Haltepunkte <!-- select kind, count(*) from pois group by kind; --> |
 | Orte (Startorte) | OSM (wie oben; ODbL) | 3955 Orte <!-- select count(*) from places; --> |
 | Höhenprofile | Copernicus DEM GLO-30 (© DLR e.V. 2010–2014 und © Airbus Defence and Space GmbH 2014–2018, bereitgestellt unter COPERNICUS von EU und ESA), beim Import auf jede Linie gerechnet | alle Linien |
 | Bilder | Wikimedia Commons (Geo-Suche entlang der Linie). Urheber und Lizenz stehen je Bild in der Datenbank und am Bild. Eigene Uploads sind privat (Supabase Storage) | 849 Commons-Bilder zu 118 Touren und Wegen <!-- select source, count(*) from photos group by source; select count(distinct trail_id) from photos where source='commons'; --> |
@@ -144,19 +144,21 @@ SMART-Ziele, Lauf vom 2026-10-31 mit `openai/gpt-4o-mini` ([Bericht](docs/evalua
 | Ziel | Ist-Wert | Ergebnis |
 |---|---|---|
 | 0 % erfundene Touren | 0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0 von 530 Zahlen (0,0 %) | erreicht |
+| ≤ 2 % nicht belegte Zahlen | 0 von 518 Zahlen (0,0 %) | erreicht |
 | 100 % offen benannte Unerfüllbarkeit | 8 von 8 Fällen | erreicht |
 | Recall@5 ≥ 0,8 | 10 von 10 Fällen (1,00) | erreicht |
 
-Bestanden sind 52 von 52 Fällen, aufgeteilt in die Gruppen erfüllbar 12, unerfüllbar 8, Mehrtag 9, Änderung 5, Wissen 10, Eingabeschutz 5 sowie Gruppen und Läufe 3. Im Abgleich mit OSM wichen 0 von 82 Touren und Plantagen um mehr als 2 % von der OSM-Linie ab. Ein Lauf kostete 0,0264 USD.
+Bestanden sind 52 von 52 Fällen, aufgeteilt in die Gruppen erfüllbar 12, unerfüllbar 8, Mehrtag 9, Änderung 5, Wissen 10, Eingabeschutz 5 sowie Gruppen und Läufe 3. Im Abgleich mit OSM wichen 0 von 82 Touren und Plan-Tagen um mehr als 2 % von der OSM-Linie ab. Ein Lauf kostete 0,0282 USD.
 
-Der [Modell- und Temperaturvergleich](docs/evaluation/vergleich.md) nutzt denselben Testsatz. gpt-4o-mini besteht mit T = 0, mit den Standardwerten und mit T = 0,7 jeweils 52 von 52 Fällen. `google/gemini-2.5-flash-lite` besteht 51 von 52 Fällen bei 0,0216 USD je Lauf; ihm fehlte bei einer Wissensfrage die erwartete Jahreszahl. Alle vier SMART-Ziele werden in allen vier Läufen erreicht.
+Zusätzlich zu den SMART-Zielen zählt der Lauf falsche Unerfüllbarkeits-Behauptungen: Antworten, die „Keine Tour erfüllt alle Wünsche“ sagen, obwohl der Code nicht ausweichen musste. Ergebnis: 0 von 21 erfüllbaren Fällen (12 Tagestouren, 9 Mehrtagespläne), der Code musste keinen solchen Satz entfernen. Vor dem Fix schrieb das Modell den Satz in 12 von 12 erfüllbaren Tagestour-Fällen, ohne dass ein Fall rot wurde ([Befunde](docs/evaluation/README.md#befunde)).
+
+Der [Modell- und Temperaturvergleich](docs/evaluation/vergleich.md) nutzt denselben Testsatz. gpt-4o-mini besteht mit T = 0, mit den Standardwerten und mit T = 0,7 jeweils 52 von 52 Fällen. `google/gemini-2.5-flash-lite` besteht 51 von 52 Fällen bei 0,0216 USD je Lauf; ihm fehlte bei einer Wissensfrage die erwartete Jahreszahl. Alle vier SMART-Ziele werden in allen vier Läufen erreicht. Die drei Vergleichsläufe liefen vor dem Fix der Unerfüllbarkeits-Behauptung und wurden nicht wiederholt.
 
 Was die Zahlen **nicht** zeigen:
 
-- **Je Konfiguration gab es nur einen Lauf, ohne Konfidenzintervall.** Bei 8 bzw. 10 Fällen je Ziel verschiebt ein einziger Fall die Quote um 10–12 Prozentpunkte.
+- **Je Konfiguration gab es nur einen Lauf, ohne Konfidenzintervall.** Bei 8 bzw. 10 Fällen je Ziel verschiebt ein einziger Fall die Quote um 12,5 bzw. 10 Prozentpunkte.
 - **Der Testsatz ist klein und selbst geschrieben.** Er ist mit gpt-4o-mini entwickelt worden und so gewählt, dass die Daten die Fälle tragen. Er misst, ob der Agent richtig mit den Daten umgeht, nicht, wie gut er echte Anfragen abdeckt.
-- **Die Zahlenquote erfasst nur Zahlen mit Einheit.** Falsche Aussagen ohne Zahl misst sie nicht. Ein Beispiel steht unter [Bekannte Lücken](#bekannte-lücken).
+- **Die Zahlenquote erfasst nur Zahlen mit Einheit.** Falsche Aussagen ohne Zahl misst sie nicht. Ein Beispiel: Die falsche Behauptung „Keine Tour erfüllt alle Wünsche“ bei erfüllbaren Anfragen fiel keiner Kennzahl auf, sondern erst beim Aufnehmen der Screenshots ([Befunde](docs/evaluation/README.md#befunde)). Seitdem prüft der Testsatz genau diesen Satz, andere falsche Sätze ohne Zahl weiterhin nicht.
 
 ## Ethik und Datenschutz
 
@@ -173,9 +175,9 @@ Grenzen, die die App nicht wegnehmen kann:
 - **Zimmerverfügbarkeit ist unbekannt.** Die App prüft und bucht keine Zimmer. Sie verlinkt die Website der Unterkunft oder eine Suche. Eine Unterkunft im Plan heißt nicht, dass dort ein Zimmer frei ist oder dass sie noch geöffnet hat.
 - **OSM-Daten können veraltet oder unvollständig sein.** Das betrifft Wegverläufe, Unterkünfte, Einkehr und Haltestellen, mit dem Stand des Imports (2026-10-28 bis 2026-10-31). <!-- select min(retrieved_at)::date, max(retrieved_at)::date from sources; -->
 - **Gut kartierte Gebiete sind bevorzugt.** Touren, Unterkünfte und Fotos gibt es dort, wo OSM und Commons viele Daten haben. Weniger kartierte Orte kommen seltener vor, Orte außerhalb Baden-Württembergs gar nicht (siehe Bekannte Lücken).
-- **Das Modell kann trotz Grounding falsch formulieren.** Geprüft werden Zahlen mit Einheit und Tournamen, nicht die Aussagen dazwischen. Ein Beispiel steht unter [Bekannte Lücken](#bekannte-lücken).
+- **Das Modell kann trotz Grounding falsch formulieren.** Geprüft werden Zahlen mit Einheit, Tournamen und der Satz „Keine Tour erfüllt alle Wünsche“, nicht die übrigen Aussagen dazwischen. Ein Beispiel steht unter [Bekannte Lücken](#bekannte-lücken).
 - **Angaben zu Läufen sind ohne Gewähr.** Sie stammen live aus dem Web, jedes Feld mit wörtlichem Zitat von der Seite des Veranstalters. Termine können sich trotzdem ändern, deshalb bitte beim Veranstalter prüfen.
-- **KI-Kosten:** Jede Nachricht kostet Geld bei OpenRouter, gedeckelt auf 0,05 USD und 8 Werkzeugaufrufe je Nachricht. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag. Ein Eval-Lauf über 52 Fälle kostete 0,0264 USD. Die Websuche für Läufe kostet etwa 0,007 USD je Suche.
+- **KI-Kosten:** Jede Nachricht kostet Geld bei OpenRouter, gedeckelt auf 0,05 USD und 8 Werkzeugaufrufe je Nachricht. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag. Ein Eval-Lauf über 52 Fälle kostete 0,0282 USD. Die Websuche für Läufe kostet etwa 0,007 USD je Suche.
 
 ## Schnellstart
 
@@ -291,14 +293,15 @@ Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Wa
 
 **Agent**
 
-- **Das Modell schreibt bei erfüllbaren Wünschen „Keine Tour erfüllt alle Wünsche“.** Bei „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“ waren alle vier Touren erfüllt (vier ✓ je Karte, kein `fallback_reason`). Trotzdem begann der Antworttext in drei von drei Versuchen am 2026-10-31 mit diesem Satz ([Screenshot](docs/showcase/02-tagestouren.png)). Der Systemprompt nennt den Satz, um ihn zu verbieten, und gpt-4o-mini übernimmt ihn. Die Grounding-Prüfung fängt das nicht ab, weil sie nur Zahlen und Tournamen prüft. Die Evaluation fängt es nicht ab, weil kein erfüllbarer Fall diesen Satz verbietet. Verlässlich sind hier die Karten mit ✓/✗, nicht der Satz.
+- **Falsche Unerfüllbarkeits-Behauptungen fängt der Code nur in erkennbarer Form ab.** Bis zum Fix vom 2026-10-31 schrieb das Modell „Keine Tour erfüllt alle Wünsche“ auch bei erfüllbaren Anfragen, weil der Prompt den Satz zitierte ([Befunde](docs/evaluation/README.md#befunde)). Jetzt nennt der Prompt ihn nicht mehr, und ohne Ausweichen entfernt der Code Sätze mit „kein…“, „erfüll…“ und „alle Wünsche/Bedingungen/Anforderungen/Kriterien …“. Eine anders formulierte Behauptung („Leider passt nichts ganz“) bliebe stehen. Verlässlich sind die Karten mit ✓/✗.
 - **Eine Streckentour ohne Signalwort verliert die Bedingung.** Das Rundweg-Feld zählt nur, wenn die Nachricht es nennt (Rundweg, Runde, Schleife, Strecke, „von … nach …“ u. a.). Ein Wunsch wie „bis zum Titisee“ ohne eines dieser Wörter wird deshalb verworfen. Er fehlt dann sichtbar im Verständnis-Echo (siehe [Befunde der Evaluation](docs/evaluation/README.md#befunde)).
 - **Die Evaluation deckt ein Modell und einen selbst geschriebenen Testsatz ab.** Es gab je Konfiguration einen Lauf, siehe [Evaluation](#evaluation).
 
 **Oberfläche**
 
-- **Auf 390 px Breite passt die Kopfzeile nicht.** Der letzte Link („Abmelden“ bzw. „← Zur Startseite“) wird abgeschnitten ([Screenshot](docs/showcase/12-startseite-handy.png)).
-- **Die Karte in „Unterwegs“ meldet „Unterkünfte konnten nicht geladen werden“**, obwohl dort gar keine geladen werden ([Screenshot](docs/showcase/11-unterwegs-karte-handy.png)).
+- **Markdown im Antworttext wird nicht dargestellt.** Das Modell schreibt manchmal `**fett**` oder Links als `[Text](URL)`. Die App zeigt den Text als Klartext, die Zeichen erscheinen wörtlich ([Screenshot 02](docs/showcase/02-tagestouren.jpg), [Screenshot 09](docs/showcase/09-wissensfrage-quellen.jpg)).
+- **„Unterwegs“ zeigt auf der Karte keine Unterkünfte.** Die Karte zeigt dort nur Weg und Position, ohne Unterkunftsebene ([Screenshot](docs/showcase/11-unterwegs-karte-handy.jpg)).
+- **Auf dem Handy steht die E-Mail-Adresse nicht in der Kopfzeile.** Damit die Kopfzeile auf 390 px passt, erscheint sie erst ab 640 px Breite; „Abmelden“ bleibt sichtbar ([Screenshot](docs/showcase/12-startseite-handy.jpg)).
 
 ## Offene Prüfungen (vor Abgabe)
 
@@ -307,3 +310,4 @@ Diese Prüfungen kann nur Ali selbst machen. Der Abschnitt wird danach entfernt.
 - [ ] Die 24 Gruppen in `data/curated/groups.csv` von Hand prüfen (`geprüft` setzen, `make groups`) und danach die Angaben zu „vorschlag“ in diesem README anpassen.
 - [ ] Ein echtes Foto hochladen und prüfen, dass EXIF- und GPS-Daten im gespeicherten Bild fehlen.
 - [ ] „Unterwegs“ auf dem Handy über `cloudflared` testen, mit echter Ortung. Die Screenshots oben nutzen eine simulierte Position.
+- [ ] Die 255 Ablehnungen in `data/curated/day_hikes.csv` (`manual_decision = rejected`, Grund „Vorschlag Claude: …“) durchsehen. Sie sind von Claude vorgeschlagen, noch nicht von Ali bestätigt. Danach die Angabe in [Daten und Lizenzen](#daten-und-lizenzen) anpassen.
