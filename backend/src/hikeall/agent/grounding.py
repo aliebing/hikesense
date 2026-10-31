@@ -60,6 +60,14 @@ _UNITS = {
 }
 
 HINT = "Hinweis: {n} Angabe(n) ließ(en) sich nicht belegen und wurde(n) entfernt."
+NAME_HINT = (
+    "Hinweis: {names} kommt in den Suchergebnissen dieser Antwort nicht vor"
+    " – bitte nicht als Vorschlag verstehen."
+)
+NAME_HINT_PLURAL = (
+    "Hinweis: {names} kommen in den Suchergebnissen dieser Antwort nicht vor"
+    " – bitte nicht als Vorschlag verstehen."
+)
 
 
 @dataclass
@@ -89,7 +97,7 @@ class Evidence:
 class GroundingResult:
     text: str
     unsupported: list[str]  # numbers, replaced by "?"
-    unsupported_names: list[str] = field(default_factory=list)  # tour names, counted only
+    unsupported_names: list[str] = field(default_factory=list)  # tour names, kept in the text with NAME_HINT
 
 
 @dataclass(frozen=True)
@@ -217,4 +225,7 @@ def grounding_check(
     if unsupported:
         text = text.rstrip() + "\n\n" + HINT.format(n=len(unsupported))
     names = _unsupported_names(answer, evidence, list(tour_names))
+    if names:
+        hint = NAME_HINT if len(names) == 1 else NAME_HINT_PLURAL
+        text = text.rstrip() + "\n\n" + hint.format(names=", ".join(names))
     return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)

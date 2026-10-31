@@ -50,7 +50,7 @@ EXPECT_KINDS = {
     "events_quoted",
 }
 REPLIES = {"injection": INJECTION_REPLY, "other": OTHER_REPLY}
-CSV_FIELDS = ["Fall", "ok", "unsupported", "cost_usd", "Fehler"]
+CSV_FIELDS = ["Fall", "ok", "unsupported", "unsupported_names", "cost_usd", "Fehler"]
 SMOKE_EMAIL = "smoke@hikeall.local"
 NO_GROUP_TEXT = "keine Gruppe"
 AUTH_TIMEOUT_S = 10.0
@@ -79,6 +79,7 @@ class CaseResult:
     case: str
     ok: bool
     unsupported: int = 0
+    unsupported_names: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     errors: list[str] = field(default_factory=list)
     thread: str = ""
@@ -327,12 +328,16 @@ def run_case(
         done = _first(events, "done")
         if done:
             res.unsupported += done.unsupported
+            res.unsupported_names += done.unsupported_names
             res.cost_usd += done.usage.cost_usd
         res.errors += check(events, turn.expect, prev)
         prev = events
         res.last = events
     if res.unsupported:
         res.errors.append(f"{res.unsupported} unbelegte Zahlen")
+    if res.unsupported_names:
+        names = ", ".join(res.unsupported_names)
+        res.errors.append(f"{len(res.unsupported_names)} unbelegte Tournamen: {names}")
     res.ok = not res.errors
     return res
 
@@ -360,7 +365,7 @@ def write_csv(path: Path, results: list[CaseResult]) -> None:
         w.writerow(CSV_FIELDS)
         for r in results:
             w.writerow(
-                [r.case, str(r.ok).lower(), r.unsupported, f"{r.cost_usd:.6f}", "; ".join(r.errors)]
+                [r.case, str(r.ok).lower(), r.unsupported, "; ".join(r.unsupported_names), f"{r.cost_usd:.6f}", "; ".join(r.errors)]
             )
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.agent.grounding import Evidence, grounding_check, numbers_in_text
+from hikeall.agent.grounding import NAME_HINT, Evidence, grounding_check, numbers_in_text
 
 
 def ev(numbers=(), names=()) -> Evidence:
@@ -185,7 +185,8 @@ def test_unknown_tour_name_is_counted_not_removed():
     )
     assert r.unsupported == []
     assert r.unsupported_names == ["Wutachschlucht-Pfad"]
-    assert "Wutachschlucht-Pfad" in r.text  # counted, never removed
+    assert "Wutachschlucht-Pfad" in r.text  # hinted, never removed
+    assert r.text.endswith(NAME_HINT.format(names="Wutachschlucht-Pfad"))
 
 
 def test_tour_name_in_evidence_text_is_supported():
@@ -249,3 +250,35 @@ def test_numbers_formatted_for_the_model_are_supported(value, unit):
     ev = Evidence()
     ev.add(value, unit)
     assert grounding_check(f"Es sind {_de(value)} {unit}.", ev).unsupported == []
+
+
+def test_unknown_tour_name_gets_a_hint():
+    r = grounding_check(
+        "Probier den Feldbergsteig, die Hochfirstrunde ist auch schön.",
+        ev(names=["Hochfirstrunde"]),
+        tour_names=["Feldbergsteig", "Hochfirstrunde"],
+    )
+    assert r.unsupported_names == ["Feldbergsteig"] and r.unsupported == []
+    assert "Feldbergsteig" in r.text
+    assert r.text.endswith(
+        "Hinweis: Feldbergsteig kommt in den Suchergebnissen dieser Antwort nicht vor"
+        " – bitte nicht als Vorschlag verstehen."
+    )
+
+
+def test_several_unknown_names_use_plural_hint():
+    r = grounding_check("Feldbergsteig und Seeweg.", ev(), tour_names=["Feldbergsteig", "Seeweg"])
+    assert r.text.endswith("Hinweis: Feldbergsteig, Seeweg kommen in den Suchergebnissen"
+                           " dieser Antwort nicht vor – bitte nicht als Vorschlag verstehen.")
+
+
+def test_known_names_get_no_hint():
+    r = grounding_check(
+        "Die Hochfirstrunde.", ev(names=["Hochfirstrunde"]), tour_names=["Hochfirstrunde"]
+    )
+    assert r.unsupported_names == [] and r.text == "Die Hochfirstrunde."
+
+
+def test_number_hint_comes_before_name_hint():
+    r = grounding_check("Feldbergsteig, 999 Hm.", ev(), tour_names=["Feldbergsteig"])
+    assert r.text.index("Angabe(n)") < r.text.index("Feldbergsteig kommt")

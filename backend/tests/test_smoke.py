@@ -66,8 +66,12 @@ def results_ev(cards, fallback=None):
     return ResultsEvent(cards=cards, fallback_reason=fallback)
 
 
-def done(calls=1, cost=0.001, unsupported=0):
-    return DoneEvent(usage=LLMUsage(calls=calls, cost_usd=cost), unsupported=unsupported)
+def done(calls=1, cost=0.001, unsupported=0, names=()):
+    return DoneEvent(
+        usage=LLMUsage(calls=calls, cost_usd=cost),
+        unsupported=unsupported,
+        unsupported_names=list(names),
+    )
 
 
 def understood(activity="hike", pace=None):
@@ -293,6 +297,15 @@ def test_unsupported_numbers_fail_the_case(monkeypatch):
     assert not r.ok and r.unsupported == 2
 
 
+def test_unsupported_names_fail_the_case(monkeypatch):
+    evs = [TokenEvent(text=OTHER_REPLY), done(names=["Feldbergsteig", "Seeweg"])]
+    monkeypatch.setattr(sm, "run_chat", lambda *a: iter(evs))
+    case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "other"})])
+    r = sm.run_case(None, case)
+    assert not r.ok and r.unsupported_names == ["Feldbergsteig", "Seeweg"]
+    assert "2 unbelegte Tournamen: Feldbergsteig, Seeweg" in r.errors
+
+
 def test_smoke_writes_csv_and_exit_code(deps, tmp_path, capsys):
     p = tmp_path / "p.yaml"
     p.write_text(
@@ -303,7 +316,7 @@ def test_smoke_writes_csv_and_exit_code(deps, tmp_path, capsys):
     assert code == 0
     rows = list(csv.DictReader((tmp_path / "result-2026-10-30.csv").open()))
     assert rows == [
-        {"Fall": "inj", "ok": "true", "unsupported": "0", "cost_usd": "0.000000", "Fehler": ""}
+        {"Fall": "inj", "ok": "true", "unsupported": "0", "unsupported_names": "", "cost_usd": "0.000000", "Fehler": ""}
     ]
     assert "Kosten gesamt" in capsys.readouterr().out
     p.write_text(p.read_text().replace("injection", "other"))

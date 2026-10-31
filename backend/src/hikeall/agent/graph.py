@@ -251,7 +251,8 @@ class SourcesEvent(ChatEvent):
 class DoneEvent(ChatEvent):
     type: Literal["done"] = "done"
     usage: LLMUsage
-    unsupported: int
+    unsupported: int  # numbers only
+    unsupported_names: list[str] = []
 
 
 class ErrorEvent(ChatEvent):
@@ -303,6 +304,7 @@ class State(TypedDict, total=False):
     tool_calls: int
     guard: str | None
     unsupported: int
+    unsupported_names: list[str]
     discarded_numbers: int
 
 
@@ -327,6 +329,7 @@ def _turn(message: str) -> State:
         tool_calls=0,
         guard=None,
         unsupported=0,
+        unsupported_names=[],
         discarded_numbers=0,
     )
 
@@ -1150,8 +1153,9 @@ def build_graph(deps: AgentDeps) -> Any:
             body, out = LEAK_REPLY, {"guard": "leak"}
         elif draft:
             g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
-            # numbers are replaced, unknown tour names only counted (R21)
-            body, out = g.text, {"unsupported": len(g.unsupported) + len(g.unsupported_names)}
+            # numbers are replaced; unknown tour names stay but get a hint (R21)
+            body = g.text
+            out = {"unsupported": len(g.unsupported), "unsupported_names": g.unsupported_names}
         # the code's honest sentences come first, verbatim, whatever the model wrote
         lead = state.get("prefix") or ""
         text = "\n\n".join(x for x in (lead, f"{reason}." if reason else "", body) if x)
@@ -1167,7 +1171,12 @@ def build_graph(deps: AgentDeps) -> Any:
         _write_log(
             settings, conf["request_id"], state, usage, None, conf.get("user_hash")
         )
-        _emit(DoneEvent(usage=usage, unsupported=state.get("unsupported", 0)))
+        _emit(DoneEvent(
+                usage=usage,
+                unsupported=state.get("unsupported", 0),
+                unsupported_names=state.get("unsupported_names", []),
+            )
+        )
         return {}
 
     g = StateGraph(State)

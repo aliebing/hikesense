@@ -951,8 +951,10 @@ def test_unknown_tour_name_is_counted_not_removed(vocab, settings):
     deps.trail_names = ["Feldberg-Runde", "Seebuck-Weg", "Wutach-Pfad"]
     events = run(deps, FELDBERG_MSG)
     assert "Wutach-Pfad" in text_of(events)
-    assert one(events, "done").unsupported == 1
-    assert log_lines(settings)[-1]["grounding_unsupported"] == 1
+    done = one(events, "done")
+    assert done.unsupported == 0 and done.unsupported_names == ["Wutach-Pfad"]
+    assert "Wutach-Pfad kommt in den Suchergebnissen" in text_of(events)
+    assert log_lines(settings)[-1]["grounding_unsupported"] == 0
 
 
 def test_area_start_shows_no_distance(vocab, settings):
