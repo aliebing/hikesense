@@ -1,6 +1,6 @@
 # Eval-Testsatz (`make eval`): Erwartungsarten wie data/smoke/prompts.yaml, dazu sources_include,
-# reply_contains, unsatisfiable_named, day_longer, plan_weather, plan_rain_variant (smoke.py,
-# EXPECT_KINDS). Jeder Fall hat eine `group`.
+# reply_contains, reply_not_contains, unsatisfiable_named, day_longer, plan_weather,
+# plan_rain_variant, plan_no_rain_variant (smoke.py, EXPECT_KINDS). Jeder Fall hat eine `group`.
 # Erwartungen werden nie gelockert: fällt ein Fall durch, wird die Ursache gesucht. Ist der Fall
 # selbst falsch (der Code richtig), wird der Fall korrigiert und hier begründet.
 #
@@ -157,7 +157,8 @@ cases:
         expect: {unsatisfiable_named: true}
   # Umkreis 3 km: select name, length_km from trails t where kind='day_hike' and length_km >= 20
   #   and st_dwithin(t.geom::geography, S(Feldberg-Ort)::geography, 3000) -> 0
-  # Ausweich: Bernauer Hochtal Steig 15,3 km, 2,9 km entfernt
+  # Ausweich: Bernauer Hochtal Steig 15,3 km, 2,9 km entfernt. Läufe 2/3 am 2026-10-31 rot: das
+  # Modell setzte ungefragt „kein Rundweg“ (behoben in e052c20, Rundweg nur, wenn die Nachricht ihn nennt).
   - id: u08-feldberg-ort-umkreis
     group: unerfuellbar
     turns:
@@ -185,13 +186,14 @@ cases:
       - message: "3 Tage Westweg Ostvariante ab Titisee ab dem 10. November, 18 km pro Tag"
         expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_rain_variant: [1]}
   # Mit Datum über Regentage (10.–12.11. in weather.json für Hinterzarten–Kandern ≥ 5 mm), keine
-  # Haltestelle zwischen km 200 und 250 (Kandern km 260): „Regenvariante nicht möglich“ je Tag.
+  # Haltestelle zwischen km 200 und 250 (Kandern km 260): „Regenvariante nicht möglich“ je Tag
+  # (plan_no_rain_variant: Regentag, aber keine Variante).
   # westweg-west ab Hinterzarten: 17,1/59 m, 15,3/814 m, 17,7/22 m
   - id: m03-westweg-hinterzarten-regen
     group: mehrtag
     turns:
       - message: "3 Tage auf dem Westweg ab Hinterzarten ab dem 10. November, 18 km am Tag"
-        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true}
+        expect: {plan_days: 3, plan_lodgings_near: true, plan_band_or_named: true, plan_weather: true, plan_no_rain_variant: [1, 2, 3]}
   # mittelweg ab Schiltach: 20,0/13 m, 18,8/55 m, 17,8/15 m
   - id: m04-mittelweg-schiltach
     group: mehrtag
@@ -274,12 +276,14 @@ cases:
   # westweg-wikipedia-0 „Sein Wegzeichen ist eine rote Raute auf weißem Grund.“
   # Korrigiert nach Lauf 1: „rote Raute“ als ein String verlangte die Grundform; die richtige
   # Antwort „mit einer roten Raute auf weißem Grund markiert“ fiel daran durch (Deklination).
-  # Kernbegriffe deshalb einzeln: „rote“ (auch in „roten“) und „Raute“.
+  # Kernbegriffe deshalb einzeln: „rote“ (auch in „roten“) und „Raute“. Damit die naheliegende
+  # falsche Antwort „schwarz-rote Raute“ (das Zeichen des Ostwegs) nicht durchrutscht, darf
+  # „schwarz“ nicht in der Antwort stehen (reply_not_contains) – die Prüfung ist so nicht lockerer.
   - id: w01-westweg-markierung
     group: wissen
     turns:
       - message: "Wie ist der Westweg markiert?"
-        expect: {sources_include: ["title=Westweg"], reply_contains: ["rote", "Raute"]}
+        expect: {sources_include: ["title=Westweg"], reply_contains: ["rote", "Raute"], reply_not_contains: ["schwarz"]}
   # mittelweg-fernwanderstrecke-wikipedia-0 „rote Raute mit weißem Balken auf weißem Grund“
   - id: w02-mittelweg-markierung
     group: wissen

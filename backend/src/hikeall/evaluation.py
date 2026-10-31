@@ -29,9 +29,10 @@ Metrics (README and presentation use exactly these definitions):
   day of a multi-day plan (key = `<trail id> Tag <n> km <start>–<end>`, km as in the plan) is one
   row of its own: the walking length on the trail (`walk_km`; the access path `access_km` to a
   far lodging is shown separately and not compared) against the length of the line between the
-  day's km positions (`ST_LineSubstring` on the line in metres, `geo.METRIC_SRID`, km / `trails.length_km`
-  as fraction – the same measure the km positions are made with). A row deviates if the card/day length or the database
-  length is more than `OSM_TOLERANCE` (2 %) away from the line length. One row per key.
+  day's km positions (`ST_LineSubstring` on the line in metres, `geo.METRIC_SRID`, with
+  km / `trails.length_km` as fraction – the same measure the km positions are made with). A row
+  deviates if the card/day length or the database length is more than `OSM_TOLERANCE` (2 %) away
+  from the line length. One row per key.
 - A target with denominator 0 is "nicht erreicht" (not measured is not reached).
 
 Weather fixture lookup: a request (lat, lon) maps to the NEAREST stored place (great-circle

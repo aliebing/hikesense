@@ -49,6 +49,8 @@ EXPECT_KINDS = {
     "day_longer",
     "plan_weather",
     "plan_rain_variant",
+    "plan_no_rain_variant",
+    "reply_not_contains",
     "min_groups",
     "no_groups",
     "events_quoted",
@@ -242,6 +244,20 @@ def _rain_errors(events: list[ChatEvent], days: list[int]) -> list[str]:
     return [f"Tag {n} ohne Regenvariante" for n in days if plan.rain.get(n) is None]
 
 
+def _no_rain_errors(events: list[ChatEvent], days: list[int]) -> list[str]:
+    """The listed days are rain days without a variant ("Regenvariante nicht möglich")."""
+    plan = _first(events, "plan")
+    if plan is None:
+        return ["kein Plan"]
+    errors = []
+    for n in days:
+        if n not in plan.rain:
+            errors.append(f"Tag {n} kein Regentag")
+        elif plan.rain[n] is not None:
+            errors.append(f"Tag {n} mit Regenvariante")
+    return errors
+
+
 def _event_errors(events: list[ChatEvent]) -> list[str]:
     """Races with every given field quoted, or calendar links; never a field without a quote."""
     ev = _first(events, "events")
@@ -326,6 +342,9 @@ def check(
         elif kind == "reply_contains":
             text = _text(events).casefold()
             errors += [f"Antwort ohne „{part}“" for part in want if part.casefold() not in text]
+        elif kind == "reply_not_contains":
+            text = _text(events).casefold()
+            errors += [f"Antwort enthält „{part}“" for part in want if part.casefold() in text]
         elif kind == "unsatisfiable_named":
             if not results or not results.fallback_reason:
                 errors.append("kein fallback_reason")
@@ -354,6 +373,8 @@ def check(
             errors += _weather_errors(events)
         elif kind == "plan_rain_variant":
             errors += _rain_errors(events, want)
+        elif kind == "plan_no_rain_variant":
+            errors += _no_rain_errors(events, want)
         elif kind == "min_groups":
             g = _first(events, "groups")
             n = len(g.groups) if g else 0

@@ -459,6 +459,16 @@ def test_plan_rain_variant_per_day():
     assert sm.check([], {"plan_rain_variant": [1]})
 
 
+def test_plan_no_rain_variant_needs_the_rain_day_without_station():
+    variant = md.RainVariant(station_name="Hausach", walk_km=8.0, ascent_m=200, duration_h=2.5)
+    ev = plan_ev(_day(1, 0, 15), _day(2, 15, 30))
+    ev.rain = {1: None, 2: variant}
+    assert sm.check([ev], {"plan_no_rain_variant": [1]}) == []
+    assert sm.check([ev], {"plan_no_rain_variant": [2]})  # day 2 has a variant
+    assert sm.check([ev.model_copy(update={"rain": {}})], {"plan_no_rain_variant": [1]})  # no rain day
+    assert sm.check([], {"plan_no_rain_variant": [1]})
+
+
 def test_day_longer_compares_with_the_previous_turn():
     before = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 45))]
     after = [plan_ev(_day(1, 0, 15), _day(2, 15, 30), _day(3, 30, 50, band=False))]
@@ -668,6 +678,14 @@ def test_reply_contains_ignores_case():
     assert sm.check(ev, {"reply_contains": ["Pforzheim", "Freiburg"]}) == [
         "Antwort ohne „Freiburg“"
     ]
+
+
+def test_reply_not_contains_ignores_case():
+    right = [TokenEvent(text="Der Westweg ist mit einer roten Raute markiert.")]
+    wrong = [TokenEvent(text="Der Westweg hat eine Schwarz-rote Raute.")]
+    exp = {"reply_contains": ["rote", "Raute"], "reply_not_contains": ["schwarz"]}
+    assert sm.check(right, exp) == []
+    assert sm.check(wrong, exp) == ["Antwort enthält „schwarz“"]  # the Ostweg's marking
 
 
 def test_unsatisfiable_named_needs_fallback_and_the_opening_sentence():
