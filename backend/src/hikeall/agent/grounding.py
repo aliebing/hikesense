@@ -231,13 +231,19 @@ def grounding_check(
     return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)
 
 
+# a sentence ends at . ! ? : or a line break, but not inside common abbreviations ("z. B.")
+_ABBR = r"z\.\s?B\.|d\.\s?h\.|u\.\s?a\.|ca\.|bzw\.|evtl\.|ggf\.|inkl\.|usw\."
+_SENTENCE = re.compile(rf"(?:{_ABBR}|[^.!?:\n])*(?:[.!?:]+|\n|$)\s*", re.IGNORECASE)
 # "Keine Tour erfüllt alle Wünsche" and its variants ("Leider erfüllt keine der Touren alle
 # deine Bedingungen"): only the code may say that, and only when it fell back (spec §2 Ziel 3)
-_SENTENCE = re.compile(r"[^.!?:\n]*(?:[.!?:]+|\n|$)\s*")
+# the negation must govern the fulfilment within one clause (only words and spaces between):
+# "Keine (der|dieser) Tour(en) erfüllt alle (deine) Wünsche" or "erfüllt keine der Touren alle …"
+_CLAIM_NOUNS = r"(?:wünsche|bedingungen|anforderungen|kriterien|vorgaben|angaben)\b"
+_CLAIM_SUBJECT = r"kein\w*(?:\s+(?:der|dieser|von\s+den))?(?:\s+\w+)?"
+_CLAIM_ALL = r"(?:alle|sämtliche)\w*\s+(?:\w+\s+)?" + _CLAIM_NOUNS
 _UNSAT_CLAIM = re.compile(
-    r"(?=.*\bkein\w*\b)(?=.*\berfüll\w*)"
-    r"(?=.*\b(?:alle|sämtliche)\w*\s+(?:\w+\s+)?"
-    r"(?:wünsche|bedingungen|anforderungen|kriterien|vorgaben|angaben)\b)",
+    rf"\b{_CLAIM_SUBJECT}\s+erfüll\w*\s+(?:\w+\s+)?{_CLAIM_ALL}"
+    rf"|\berfüll\w*\s+(?:\w+\s+)?{_CLAIM_SUBJECT}\s+{_CLAIM_ALL}",
     re.IGNORECASE,
 )
 
@@ -247,7 +253,7 @@ def strip_unsat_claims(text: str) -> tuple[str, int]:
     kept: list[str] = []
     removed = 0
     for sentence in _SENTENCE.findall(text):
-        if _UNSAT_CLAIM.match(sentence):
+        if _UNSAT_CLAIM.search(sentence):
             removed += 1
         else:
             kept.append(sentence)

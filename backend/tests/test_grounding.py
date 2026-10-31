@@ -300,6 +300,11 @@ def test_number_hint_comes_before_name_hint():
         ("Keine Tour erfüllt alle Wünsche, weil es regnet. Der Jägersteig passt.", "Der Jägersteig passt."),
         ("Hallo! Leider erfüllt keine der Touren alle deine Bedingungen. Gut.", "Hallo! Gut."),
         ("Keine dieser Wanderungen erfüllt sämtliche Anforderungen.", ""),
+        # an abbreviation does not end the sentence: no fragment of the claim is left
+        (
+            "Keine Tour erfüllt alle Wünsche, z. B. die Länge. Der Jägersteig passt.",
+            "Der Jägersteig passt.",
+        ),
     ],
 )
 def test_unsat_claim_removed_and_counted(text, want):
@@ -312,6 +317,10 @@ def test_unsat_claim_removed_and_counted(text, want):
         "Der Jägersteig erfüllt alle Wünsche.",
         "Die Tour erfüllt nicht alle Vorlieben: Aussicht fehlt.",
         "Keine Tour ist kürzer als 10 km.",
+        "Der Plan erfüllt alle Wünsche, es gibt keine Lücke.",
+        "Alle drei Touren erfüllen alle deine Wünsche, keine Abweichung.",
+        "Tag 2 ist länger, weil es keine Unterkunft gibt, und erfüllt damit nicht alle Vorgaben.",
+        "Ca. 3 km bis zur Hütte, z. B. über den Gipfel. Keine Tour ist zu steil.",
     ],
 )
 def test_other_sentences_stay(text):

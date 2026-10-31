@@ -53,6 +53,7 @@ from hikeall.agent.multiday import (
 )
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
+    CLAIM_ONLY_TOURS,
     CLARIFY_START,
     CONTRADICTION_HINT,
     DAY_UNKNOWN,
@@ -1158,6 +1159,8 @@ def build_graph(deps: AgentDeps) -> Any:
             claims = 0
             if not reason:  # the code did not fall back: no claim that no tour meets all wishes
                 draft, claims = strip_unsat_claims(draft)
+                if not draft and state.get("route") == "search":  # the cards are shown
+                    draft = CLAIM_ONLY_TOURS
             g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
             # numbers are replaced; unknown tour names stay but get a hint (R21)
             body = g.text

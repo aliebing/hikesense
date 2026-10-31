@@ -12,6 +12,7 @@ from hikeall.agent.events import CalendarLink, EventsResult
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
+    CLAIM_ONLY_TOURS,
     CLARIFY_START,
     ERROR_BUDGET,
     ERROR_UNAVAILABLE,
@@ -1480,3 +1481,16 @@ def test_answer_prompt_does_not_offer_the_unsat_sentence():
     # quoting it made gpt-4o-mini open satisfiable answers with it (3 of 3 runs, Task 8b)
     for prompt in (ANSWER_SYSTEM, PLAN_SYSTEM):
         assert "erfüllt alle" not in prompt.casefold()
+
+
+def test_answer_that_was_only_a_false_claim_gets_a_code_sentence(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]},
+        answers=["Keine Tour erfüllt alle Wünsche."],
+    )
+    events = run(deps, "Rundweg ab Feldberg über 15 km")
+    assert one(events, "results").cards
+    assert text_of(events) == CLAIM_ONLY_TOURS
+    assert one(events, "done").unsat_claims_removed == 1

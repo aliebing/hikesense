@@ -108,6 +108,8 @@ TOOL_ERROR = (
 )
 TOOL_UNKNOWN = "Fehler: Das Werkzeug {name} gibt es nicht."
 TRAIL_NOT_FOUND = "Keine Tour mit dieser ID gefunden."
+# the model's whole answer was a removed "no tour meets all wishes" claim (no fallback)
+CLAIM_ONLY_TOURS = "Hier sind die passenden Touren."
 NO_TOURS_HINT = (
     "Versuch es mit einem größeren Umkreis, einem anderen Startort oder weniger Bedingungen."
 )
