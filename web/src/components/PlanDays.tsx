@@ -135,7 +135,7 @@ function DayCard({ d, from, weather, asOf, rain, unterwegsHref }: { d: DayPlan; 
  * the rain variant, and „Merken“ (signed-in users only). `save: false` for an already saved plan;
  * its weather is labelled „Vorhersage vom <forecastFrom>“ (the save time), never shown as current.
  */
-export default function PlanDays({ data, save = true, title, mapHref, planId, forecastFrom }: { data: PlanData; save?: boolean; title?: string; mapHref?: string; /** saved plan id: every day links to „Unterwegs“ */ planId?: string; /** saved plan: created_at */ forecastFrom?: string }) {
+export default function PlanDays({ data, save = true, title, planId, forecastFrom }: { data: PlanData; save?: boolean; title?: string; /** saved plan id: every day links to „Unterwegs“ */ planId?: string; /** saved plan: created_at */ forecastFrom?: string }) {
   const { plan, weather, rain } = data;
   const startName = data.start_name ?? null;
   const notes = plan.notes ?? [];
@@ -149,11 +149,6 @@ export default function PlanDays({ data, save = true, title, mapHref, planId, fo
           <MerkenButton kind="multiday" title={planTitle(data)} payload={data} className="[&_button]:bg-papier/90 [&_button]:text-wald-dunkel" />
         )}
       </div>
-      {mapHref && plan.days.length > 0 && (
-        <Link href={mapHref} className="self-start rounded-full bg-papier/90 px-4 py-1.5 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
-          Karte mit Tagesabschnitten
-        </Link>
-      )}
       {(notes.length > 0 || plan.days.length > 0) && (
         <ul aria-label="Hinweise" className="flex flex-col gap-1">
           {notes.map((n, i) => (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
+import { useChat } from "../../components/ChatProvider";
 import PageFrame from "../../components/PageFrame";
 import PlanDays from "../../components/PlanDays";
 import PlanMap from "../../components/PlanMap";
@@ -71,7 +72,6 @@ function SavedPlan() {
           .
         </p>
       )}
-      {signedIn && !id && <p className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Kein Plan ausgewählt.</p>}
       {result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
           {result.error}
@@ -79,20 +79,81 @@ function SavedPlan() {
       )}
       {result && "data" in result && (
         <>
+          {result.trail && <PlanMap trail={result.trail} lodgings={result.lodgings} plan={result.data.plan} lengthKm={result.lengthKm} embedded />}
           <PlanDays data={result.data} save={false} title={result.title} planId={id ?? undefined} forecastFrom={result.createdAt} />
-          {result.trail && <PlanMap trail={result.trail} lodgings={result.lodgings} plan={result.data.plan} lengthKm={result.lengthKm} />}
         </>
       )}
     </main>
   );
 }
 
-export default function PlanPage() {
+type MapData = { trail: MapTrail; lodgings: LodgingOnTrail[] | null; lengthKm: number | null };
+
+/** The plan from the chat (no id): map with the day sections on top, the days below. The map is optional. */
+function ChatPlan() {
+  const { state, hydrated } = useChat();
+  const plan = state.plan;
+  const trailId = plan?.plan.trail_id;
+  const [map, setMap] = useState<MapData | null>(null);
+
+  useEffect(() => {
+    setMap(null);
+    if (!trailId) return;
+    let live = true;
+    (async () => {
+      const t = await getTrail(trailId);
+      if (!t) return null;
+      return { trail: mapTrail(t), lengthKm: t.length_km, lodgings: await getLodgings(trailId).catch(() => null) };
+    })()
+      .catch((e) => {
+        console.error(`plan map ${trailId} failed:`, e);
+        return null;
+      })
+      .then((m) => live && setMap(m));
+    return () => {
+      live = false;
+    };
+  }, [trailId]);
+
+  if (!hydrated) return null;
+  if (!plan) {
+    return (
+      <main className="flex flex-1 flex-col items-start gap-3">
+        <p>Noch kein Plan im Chat.</p>
+        <Link href="/" className="rounded-full bg-papier px-5 py-2 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
+          Zur Startseite
+        </Link>
+      </main>
+    );
+  }
+  return (
+    <main className="flex flex-1 flex-col gap-5 pb-4">
+      {map && <PlanMap trail={map.trail} lodgings={map.lodgings} plan={plan.plan} lengthKm={map.lengthKm} embedded />}
+      <PlanDays data={plan} />
+    </main>
+  );
+}
+
+function PlanView() {
+  const id = useSearchParams().get("id");
+  if (!id) {
+    return (
+      <PageFrame back={{ href: "/", label: "← Zurück zum Chat" }}>
+        <ChatPlan />
+      </PageFrame>
+    );
+  }
   return (
     <PageFrame back={{ href: "/meine-plaene", label: "← Meine Pläne" }}>
-      <Suspense>
-        <SavedPlan />
-      </Suspense>
+      <SavedPlan />
     </PageFrame>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense>
+      <PlanView />
+    </Suspense>
   );
 }

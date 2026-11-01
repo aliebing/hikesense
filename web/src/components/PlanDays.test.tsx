@@ -115,14 +115,6 @@ it("weather fallback says ohne Datum only for an undated day", () => {
   expect(cards[1]).not.toHaveTextContent("ohne Datum");
 });
 
-it("links to the map with day sections only when given and days exist", () => {
-  const { unmount } = render(<PlanDays data={data([day(1)])} mapHref="/t/westweg-west?von=vorschlaege" />);
-  expect(screen.getByRole("link", { name: "Karte mit Tagesabschnitten" })).toHaveAttribute("href", "/t/westweg-west?von=vorschlaege");
-  unmount();
-  render(<PlanDays data={data([])} mapHref="/x" />);
-  expect(screen.queryByRole("link", { name: "Karte mit Tagesabschnitten" })).toBeNull();
-});
-
 it("a plan without notes does not crash", () => {
   const d = data([day(1)]);
   delete (d.plan as { notes?: string[] }).notes;
