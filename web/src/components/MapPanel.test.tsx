@@ -9,6 +9,7 @@ const stub = vi.hoisted(() => ({
   handlers: {} as Record<string, ((e?: unknown) => void)[]>,
   setStyle: vi.fn(),
   markers: [] as HTMLElement[],
+  options: [] as Record<string, unknown>[],
   fire(name: string, e?: unknown) {
     for (const h of this.handlers[name] ?? []) h(e);
   },
@@ -22,7 +23,8 @@ vi.mock("maplibre-gl", () => {
     }
   }
   class Map {
-    constructor() {
+    constructor(o: Record<string, unknown>) {
+      stub.options.push(o);
       if (stub.throwOnCreate) throw stub.throwOnCreate;
     }
     on(name: string, ...args: unknown[]) {
@@ -67,6 +69,7 @@ beforeEach(() => {
   stub.handlers = {};
   stub.setStyle.mockReset();
   stub.markers = [];
+  stub.options = [];
 });
 
 async function openMap(lodgings: Parameters<typeof MapPanel>[0]["lodgings"] = []) {
@@ -193,4 +196,15 @@ test("pois become markers and only present groups are in the legend", async () =
 test("no lodgings near the trail: the legend names none instead of „0 Unterkünfte“", () => {
   render(<MapPanel trail={trail} lodgings={[]} embedded />);
   expect(screen.getByTestId("map-legend")).not.toHaveTextContent("Unterkünfte");
+});
+
+test("embedded map lets one finger scroll the page (cooperative gestures); full screen does not", async () => {
+  const user = userEvent.setup();
+  render(<MapPanel trail={trail} lodgings={[]} embedded />);
+  await vi.waitFor(() => expect(stub.options).toHaveLength(1));
+  expect(stub.options[0].cooperativeGestures).toBe(true);
+  expect((stub.options[0].locale as Record<string, string>)["CooperativeGesturesHandler.MobileHelpText"]).toBe("Mit zwei Fingern die Karte bewegen");
+  await user.click(screen.getByRole("button", { name: "Vollbild" }));
+  await vi.waitFor(() => expect(stub.options).toHaveLength(2));
+  expect(stub.options[1].cooperativeGestures).toBeFalsy();
 });

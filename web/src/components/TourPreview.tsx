@@ -19,7 +19,8 @@ const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 type Loaded = { trail: MapTrail; lengthKm: number | null; lodgings: LodgingOnTrail[] | null; pois: TrailPoi[]; sentence: string | null } | "error" | null;
 
 /** Exactly one tour found: the tour with description and map right on the home page, one click from its page. */
-export default function TourPreview({ card, runWithoutPace }: { card: TourCard; runWithoutPace: boolean; labels: Labels }) {
+/** `fallback`: the search had to relax a wish; then the tour is the nearest match, never „passt“. */
+export default function TourPreview({ card, runWithoutPace, fallback = false }: { card: TourCard; runWithoutPace: boolean; labels: Labels; fallback?: boolean }) {
   const [loaded, setLoaded] = useState<Loaded>(null);
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function TourPreview({ card, runWithoutPace }: { card: TourCard; 
     <article className="flex flex-col gap-4 rounded-2xl bg-papier p-4 text-wald-dunkel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-wald-dunkel/70">Eine Tour passt</p>
+          <p className="text-sm text-wald-dunkel/70">{fallback ? "Nächstbeste Tour" : "Eine Tour passt"}</p>
           <h2 className="font-serif text-2xl sm:text-3xl">{card.name}</h2>
           <p className="tabular-nums">{facts.join(" · ")}</p>
         </div>

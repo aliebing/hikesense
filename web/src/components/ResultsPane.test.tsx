@@ -30,7 +30,7 @@ const seed = (cards: TourCard[], fallback: string | null = null, text = "Hier si
     ],
   });
 
-vi.mock("./TourPreview", () => ({ default: ({ card }: { card: TourCard }) => <p>preview {card.name}</p> }));
+vi.mock("./TourPreview", () => ({ default: ({ card, fallback }: { card: TourCard; fallback?: boolean }) => <p>{fallback ? "fallback " : ""}preview {card.name}</p> }));
 vi.mock("./PlanPreview", () => ({ default: () => <p>plan preview</p> }));
 
 const show = () =>
@@ -95,4 +95,13 @@ it("keeps the chips of its own search after a later knowledge question", () => {
   });
   show();
   expect(within(screen.getByRole("list", { name: "Erkannte Wünsche" })).getByText("Rundweg")).toBeInTheDocument();
+});
+
+it("one tour after relaxing a wish: the honest note stays and nothing claims it fits", () => {
+  const fb = "Keine Tour erfüllt alle Wünsche, weil die Höhenmeter abweichen";
+  seed([mk(1)], fb);
+  show();
+  expect(screen.getByRole("note")).toHaveTextContent(fb);
+  expect(screen.getByText("fallback preview Tour 1")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Erkannte Wünsche" })).toBeInTheDocument();
 });

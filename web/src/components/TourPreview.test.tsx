@@ -48,3 +48,9 @@ it("when the trail does not load: says so and keeps the link", async () => {
   expect(await screen.findByText("Karte konnte nicht geladen werden.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Zur Tour →" })).toBeInTheDocument();
 });
+
+it("after a relaxed search it does not claim the tour fits", () => {
+  render(<TourPreview card={card} runWithoutPace={false} labels={{}} fallback />);
+  expect(screen.queryByText("Eine Tour passt")).toBeNull();
+  expect(screen.getByText("Nächstbeste Tour")).toBeInTheDocument();
+});

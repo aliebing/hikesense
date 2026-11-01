@@ -36,6 +36,13 @@ const STATUS_TEXT: Record<Exclude<Status, "ready">, string> = {
 /** maplibre throws (or fires) this when no WebGL2 context can be created. */
 const isNoWebGL = (e: unknown) => (e as { name?: unknown } | null)?.name === "GPUInitializationError";
 
+/** German hints for cooperative gestures (embedded map); maplibre's defaults are English. */
+const GESTURE_LOCALE = {
+  "CooperativeGesturesHandler.WindowsHelpText": "Strg + Mausrad zum Zoomen der Karte",
+  "CooperativeGesturesHandler.MacHelpText": "⌘ + Mausrad zum Zoomen der Karte",
+  "CooperativeGesturesHandler.MobileHelpText": "Mit zwei Fingern die Karte bewegen",
+};
+
 /** Below this zoom lodgings are drawn as small dots. */
 const LODGING_FULL_ZOOM = 11;
 
@@ -96,7 +103,7 @@ export default function MapPanel({
       <section aria-label={`Karte: ${trail.name}`} className="flex flex-col overflow-hidden rounded-2xl bg-wald-flaeche ring-1 ring-white/10">
         <div className="relative h-[55vh] min-h-80">
           {/* the overlay draws its own map; this one stays mounted underneath */}
-          <MapView {...view} />
+          <MapView {...view} cooperative />
           <button
             ref={opener}
             type="button"
@@ -144,7 +151,8 @@ function useNearby(lodgings: LodgingOnTrail[] | null | undefined, days: DaySecti
   return useMemo(() => (lodgings ? (planDays ? lodgings : lodgingsNearby(lodgings)) : []), [lodgings, planDays]);
 }
 
-function MapView({ trail, lodgings, days, position, pois }: ViewProps) {
+/** `cooperative`: an embedded map lets one finger scroll the page (two fingers / Ctrl+wheel move the map). */
+function MapView({ trail, lodgings, days, position, pois, cooperative = false }: ViewProps & { cooperative?: boolean }) {
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{ map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker } | null>(null);
   const posRef = useRef(position);
@@ -170,6 +178,8 @@ function MapView({ trail, lodgings, days, position, pois }: ViewProps) {
           container: container.current,
           style: BASEMAP_STYLE,
           attributionControl: false, // shown below the map, always visible
+          cooperativeGestures: cooperative,
+          locale: GESTURE_LOCALE,
           ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.1, 48.3], zoom: 8 }),
         });
         map.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
@@ -253,7 +263,7 @@ function MapView({ trail, lodgings, days, position, pois }: ViewProps) {
       markers.forEach((m) => m.remove());
       map?.remove();
     };
-  }, [features, nearby, poiList]);
+  }, [features, nearby, poiList, cooperative]);
 
   useEffect(() => {
     if (live.current) showPosition(live.current, position);
