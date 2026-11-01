@@ -189,3 +189,8 @@ test("pois become markers and only present groups are in the legend", async () =
   expect(legend).toHaveTextContent("Aussicht");
   expect(legend).not.toHaveTextContent("Wasserfall");
 });
+
+test("no lodgings near the trail: the legend names none instead of „0 Unterkünfte“", () => {
+  render(<MapPanel trail={trail} lodgings={[]} embedded />);
+  expect(screen.getByTestId("map-legend")).not.toHaveTextContent("Unterkünfte");
+});

@@ -5,10 +5,10 @@ import type { MapTrail } from "../lib/map";
 import { useChat } from "./ChatProvider";
 import PlanMap from "./PlanMap";
 
-/** Map of the trail page: with `von=vorschlaege` and a plan for this trail in the chat, the plan's days are drawn. */
+/** Map of the trail page: when coming from the chat (`von=chat`) and a plan for this trail in the chat, the plan's days are drawn. */
 export default function TrailMap({
   trailId,
-  fromSuggestions,
+  fromChat,
   trail,
   lodgings,
   lengthKm,
@@ -16,7 +16,7 @@ export default function TrailMap({
   embedded,
 }: {
   trailId: string;
-  fromSuggestions: boolean;
+  fromChat: boolean;
   trail: MapTrail;
   lodgings: LodgingOnTrail[] | null;
   lengthKm: number | null;
@@ -24,6 +24,6 @@ export default function TrailMap({
   embedded?: boolean;
 }) {
   const { state } = useChat();
-  const plan = fromSuggestions && state.plan?.plan.trail_id === trailId ? state.plan.plan : null;
+  const plan = fromChat && state.plan?.plan.trail_id === trailId ? state.plan.plan : null;
   return <PlanMap trail={trail} lodgings={lodgings} plan={plan} lengthKm={lengthKm} pois={pois} embedded={embedded} />;
 }

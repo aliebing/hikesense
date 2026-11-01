@@ -1,14 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import { ChatProvider } from "../../../components/ChatProvider";
-import userEvent from "@testing-library/user-event";
 import type { TrailDetail } from "../../../lib/data";
 
 const mockGetTrail = vi.fn();
 const mockGetLodgings = vi.fn();
 const mockGetGroups = vi.fn();
+const mockGetPois = vi.fn();
+const mockGetTags = vi.fn();
 vi.mock("../../../lib/data", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/data")>();
-  return { ...actual, getTrail: () => mockGetTrail(), getLodgings: () => mockGetLodgings(), getGroups: () => mockGetGroups() };
+  return {
+    ...actual,
+    getTrail: () => mockGetTrail(),
+    getLodgings: () => mockGetLodgings(),
+    getGroups: () => mockGetGroups(),
+    getTrailPois: () => mockGetPois(),
+    getTrailTags: () => mockGetTags(),
+  };
 });
 
 // The map itself is not under test here; no WebGL in jsdom.
@@ -47,6 +55,10 @@ beforeEach(() => {
   mockGetLodgings.mockReset();
   mockGetGroups.mockReset();
   mockGetGroups.mockResolvedValue([]);
+  mockGetPois.mockReset();
+  mockGetPois.mockResolvedValue([]);
+  mockGetTags.mockReset();
+  mockGetTags.mockResolvedValue([]);
 });
 
 test("trail footer credits the elevation data (Copernicus GLO-30)", async () => {
@@ -63,10 +75,12 @@ test("when lodgings fail to load, the map legend says so instead of „0 Unterk�
   mockGetTrail.mockResolvedValue(detail);
   mockGetLodgings.mockRejectedValue(new Error("db down"));
   render(<ChatProvider>{await page()}</ChatProvider>);
-  await userEvent.setup().click(screen.getByRole("button", { name: /Karte/ }));
-  const dialog = screen.getByRole("dialog", { name: /Karte/ });
-  expect(dialog).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
-  expect(dialog).not.toHaveTextContent("0 Unterkünfte");
+  const legend = screen.getByTestId("map-legend");
+  expect(legend).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
+  expect(legend).not.toHaveTextContent("0 Unterkünfte");
+  const block = screen.getByRole("region", { name: "Übernachten in der Nähe" });
+  expect(block).toHaveTextContent("Unterkünfte konnten nicht geladen werden");
+  expect(screen.getByRole("heading", { name: "Tour 1" })).toBeInTheDocument();
 });
 
 describe("back link", () => {
@@ -75,19 +89,24 @@ describe("back link", () => {
     mockGetLodgings.mockResolvedValue([]);
   });
 
-  test("goes back to the suggestions when coming from there", async () => {
+  test("goes back to the suggestions on the home page when coming from the chat", async () => {
+    render(<ChatProvider>{await page({ von: "chat" })}</ChatProvider>);
+    expect(screen.getByRole("link", { name: "← Zurück zu den Vorschlägen" })).toHaveAttribute("href", "/");
+  });
+
+  test("old links with von=vorschlaege behave the same", async () => {
     render(<ChatProvider>{await page({ von: "vorschlaege" })}</ChatProvider>);
-    expect(screen.getByRole("link", { name: "← Zu den Vorschlägen" })).toHaveAttribute("href", "/vorschlaege");
+    expect(screen.getByRole("link", { name: "← Zurück zu den Vorschlägen" })).toHaveAttribute("href", "/");
   });
 
   test("goes back home otherwise", async () => {
     render(<ChatProvider>{await page()}</ChatProvider>);
-    expect(screen.getByRole("link", { name: "← Zur Startseite" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "← Startseite" })).toHaveAttribute("href", "/");
   });
 
   test("unknown von is ignored", async () => {
     render(<ChatProvider>{await page({ von: "https://evil" })}</ChatProvider>);
-    expect(screen.getByRole("link", { name: "← Zur Startseite" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "← Startseite" })).toHaveAttribute("href", "/");
   });
 });
 
@@ -107,4 +126,35 @@ test("shows „Gruppen in der Nähe“ with Stand, nearest first, and leaves the
   mockGetGroups.mockResolvedValue([]);
   render(<ChatProvider>{await page()}</ChatProvider>);
   expect(screen.queryByRole("region", { name: "Gruppen in der Nähe" })).toBeNull();
+});
+
+const poi = (id: number, kind: "food" | "hut" | "viewpoint", name: string, along_km: number) => ({ id, name, kind, dist_m: 30, along_km, lon: 8.05, lat: 48.05 });
+
+test("day hike: map without a click, description from data, lodgings and stops", async () => {
+  mockGetTrail.mockResolvedValue({ ...detail, profile: [[0, 700], [5, 900], [10, 700]], surface_shares: { paved: 0.2, unpaved: 0.8 } });
+  mockGetLodgings.mockResolvedValue([{ id: 1, name: "Hotel Adler", kind: "hotel", website: null, dist_m: 200, along_km: 2, lon: 8.02, lat: 48.02 }]);
+  mockGetPois.mockResolvedValue([poi(1, "food", "Café", 3.2), poi(2, "hut", "Hütte", 7.8), poi(3, "viewpoint", "Blick", 5.1)]);
+  mockGetTags.mockResolvedValue(["feature:rundweg", "surface:naturweg"]);
+  const { container } = render(<ChatProvider>{await page()}</ChatProvider>);
+  expect(screen.getByRole("button", { name: "Vollbild" })).toBeInTheDocument();
+  const desc = screen.getByRole("region", { name: "Beschreibung" });
+  expect(desc).toHaveTextContent("Rundweg, 10,0 km mit 300 m Aufstieg, Gehzeit etwa 3:18 h nach DIN 33466. Unterwegs 2 Einkehrmöglichkeiten und 1 Aussichtspunkt.");
+  expect(desc).toHaveTextContent("Naturweg");
+  expect(desc).toHaveTextContent("Belag: 80 % naturbelassen · 20 % Asphalt");
+  expect(screen.getByRole("img", { name: /Höhenprofil/ })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Übernachten in der Nähe" })).toHaveTextContent("Hotel Adler");
+  expect(screen.getByRole("region", { name: "Einkehr & Aussicht" })).toHaveTextContent("Café");
+  expect(container.querySelector(".fixed")).toBeNull();
+});
+
+test("empty blocks fall away and nothing says 0", async () => {
+  mockGetTrail.mockResolvedValue(detail);
+  mockGetLodgings.mockResolvedValue([]);
+  render(<ChatProvider>{await page()}</ChatProvider>);
+  expect(screen.queryByRole("region", { name: "Übernachten in der Nähe" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Einkehr & Aussicht" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Gruppen in der Nähe" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Fotos" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Beschreibung" })).not.toHaveTextContent("Unterwegs");
+  expect(screen.queryByText(/\b0 (Unterkünfte|Einkehr)/)).toBeNull();
 });

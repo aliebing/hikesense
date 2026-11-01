@@ -32,7 +32,7 @@ const show = (trailId: string, von: boolean, p: PlanData | null, lodgings: Lodgi
   cap.props = null;
   render(
     <ChatProvider>
-      <TrailMap trailId={trailId} fromSuggestions={von} trail={trail} lodgings={lodgings} lengthKm={40} />
+      <TrailMap trailId={trailId} fromChat={von} trail={trail} lodgings={lodgings} lengthKm={40} />
     </ChatProvider>,
   );
   expect(screen.getByText("map")).toBeInTheDocument();
@@ -59,7 +59,7 @@ it("passes pois and embedded through to the map", () => {
   const pois = [{ id: 1, name: null, kind: "food" as const, dist_m: 10, along_km: 1, lon: 8, lat: 48 }];
   render(
     <ChatProvider>
-      <TrailMap trailId="w" fromSuggestions={false} trail={trail} lodgings={[]} lengthKm={40} pois={pois} embedded />
+      <TrailMap trailId="w" fromChat={false} trail={trail} lodgings={[]} lengthKm={40} pois={pois} embedded />
     </ChatProvider>,
   );
   expect(cap.props?.pois).toEqual(pois);

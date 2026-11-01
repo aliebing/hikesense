@@ -8,7 +8,7 @@ import MerkenButton from "./MerkenButton";
 const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 
-const LABEL: Record<string, string> = {
+export const LABEL: Record<string, string> = {
   length_km: "Länge",
   ascent_m: "Höhenmeter",
   duration_h: "Dauer",
@@ -16,7 +16,7 @@ const LABEL: Record<string, string> = {
   roundtrip: "Rundweg",
 };
 
-const UNIT: Record<string, string> = { length_km: "km", ascent_m: "Hm", duration_h: "h", radius_km: "km" };
+export const UNIT: Record<string, string> = { length_km: "km", ascent_m: "Hm", duration_h: "h", radius_km: "km" };
 
 function Row({ r, deviation }: { r: ConstraintResult; deviation: string | null }) {
   const label = LABEL[r.kind] ?? r.kind;

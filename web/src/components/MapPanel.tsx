@@ -290,7 +290,7 @@ function MapLegend({ trail, lodgings, days, pois }: ViewProps) {
         <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
         {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
       </span>
-      {lodgings !== undefined && (
+      {lodgings !== undefined && (lodgings === null || planDays || nearby.length > 0) && (
         <span>
           <span aria-hidden="true">🛏 </span>
           {lodgings === null
