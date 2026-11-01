@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CalendarLink, Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard, VerifiedRace } from "../lib/chat";
+import ChatText from "./ChatText";
 import EventCards from "./EventCards";
 import GroupList from "./GroupList";
 
@@ -99,7 +100,7 @@ export default function ChatMessages({
           )}
           {it.kind === "assistant" && withoutFallback(items, i, it.text) && (
             <p className={`${bubble} rounded-tl-sm bg-papier/90 whitespace-pre-wrap text-wald-dunkel`}>
-              {withoutFallback(items, i, it.text)}
+              <ChatText text={withoutFallback(items, i, it.text)} />
             </p>
           )}
           {it.kind === "understood" && (

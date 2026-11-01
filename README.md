@@ -16,7 +16,7 @@ Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echt
 <summary>Alle Screenshots</summary>
 
 1. [Startseite](docs/showcase/01-startseite.jpg)
-2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](docs/showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, der Antworttext nennt passende Touren ohne Unerfüllbarkeits-Satz. Die Sternchen im Text sind Markdown des Modells, das die App nicht darstellt, siehe [Bekannte Lücken](#bekannte-lücken).
+2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](docs/showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, der Antworttext nennt passende Touren ohne Unerfüllbarkeits-Satz. Die Sternchen im Text sind Markdown des Modells; seit dem 2026-11-01 stellt die App es dar (fett, kursiv, Links, Listen), der Screenshot ist älter.
 3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](docs/showcase/03-unerfuellbar-chat.jpg)
 4. [Ausweichtouren mit der einen verletzten Bedingung](docs/showcase/04-unerfuellbar-ausweichtouren.png)
 5. [Mehrtagesplan mit Wetter (Open-Meteo)](docs/showcase/05-mehrtagesplan-wetter.png)
@@ -299,7 +299,6 @@ Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Wa
 
 **Oberfläche**
 
-- **Markdown im Antworttext wird nicht dargestellt.** Das Modell schreibt manchmal `**fett**` oder Links als `[Text](URL)`. Die App zeigt den Text als Klartext, die Zeichen erscheinen wörtlich ([Screenshot 02](docs/showcase/02-tagestouren.jpg), [Screenshot 09](docs/showcase/09-wissensfrage-quellen.jpg)).
 - **„Unterwegs“ zeigt auf der Karte keine Unterkünfte.** Die Karte zeigt dort nur Weg und Position, ohne Unterkunftsebene ([Screenshot](docs/showcase/11-unterwegs-karte-handy.jpg)).
 - **Auf dem Handy steht die E-Mail-Adresse nicht in der Kopfzeile.** Damit die Kopfzeile auf 390 px passt, erscheint sie erst ab 640 px Breite; „Abmelden“ bleibt sichtbar ([Screenshot](docs/showcase/12-startseite-handy.jpg)).
 
