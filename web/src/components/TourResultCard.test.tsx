@@ -116,11 +116,12 @@ it("verdict rows carry the unit of the bound", () => {
   expect(container).not.toHaveTextContent("Rundweg km");
 });
 
-it("from=vorschlaege links with ?von and makes the whole card clickable, large has a bigger image", () => {
+it("from=chat links with ?von=chat, makes the whole card clickable and says so, large has a bigger image", () => {
   const withCover = card({ cover_thumb_url: "https://img/t.jpg", cover_author: "Anna", cover_license: "CC BY 4.0" });
-  const { container } = render(<TourResultCard card={withCover} size="large" from="vorschlaege" />);
+  const { container } = render(<TourResultCard card={withCover} size="large" from="chat" />);
   const link = screen.getByRole("link", { name: "Feldsee-Runde" });
-  expect(link).toHaveAttribute("href", "/t/t1?von=vorschlaege");
+  expect(link).toHaveAttribute("href", "/t/t1?von=chat");
+  expect(screen.getByText("Details und Karte →")).toBeInTheDocument();
   expect(link.className).toContain("after:inset-0");
   expect(container.querySelector("img")?.className).toContain("h-48");
 });
@@ -138,7 +139,7 @@ it("Merken saves the card unchanged as day_hike, then shows Gemerkt (disabled)",
   h.session = { user: {} };
   h.savePlan.mockResolvedValue({ error: null });
   const c = card();
-  render(<TourResultCard card={c} size="large" from="vorschlaege" />);
+  render(<TourResultCard card={c} size="large" from="chat" />);
   await userEvent.click(screen.getByRole("button", { name: "Merken" }));
   expect(h.savePlan).toHaveBeenCalledWith("day_hike", "Feldsee-Runde", c);
   const done = await screen.findByRole("button", { name: "Gemerkt" });

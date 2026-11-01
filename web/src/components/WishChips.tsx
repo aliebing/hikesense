@@ -6,7 +6,8 @@ import { LABEL, UNIT } from "./TourResultCard";
 
 function chip(r: ConstraintResult): { text: string; tone: string } {
   const label = LABEL[r.kind] ?? r.kind;
-  const bound = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
+  const raw = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
+  const bound = raw === label ? "" : raw; // „Rundweg: Rundweg“ says it twice
   if (r.ok === true) return { text: `✓ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-wald/15 text-wald-dunkel" };
   if (r.ok === false) return { text: `✗ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-red-100 text-red-900" };
   return { text: `? ${label}: unbekannt`, tone: "bg-wald-dunkel/10 text-wald-dunkel" };

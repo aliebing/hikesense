@@ -54,7 +54,7 @@ export default function TourResultCard({
   runWithoutPace?: boolean;
   labels?: Labels;
   size?: "compact" | "large";
-  from?: "vorschlaege";
+  from?: "chat";
 }) {
   const large = size === "large";
   const name = (ids: string[]) => ids.map((t) => labels[t] ?? t).join(", ");
@@ -73,7 +73,7 @@ export default function TourResultCard({
   return (
     <article
       className={`flex flex-col gap-1 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel ${
-        from ? "relative shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl" : ""
+        from ? "relative shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-amber-400" : ""
       }`}
     >
       {!photo && large && (
@@ -111,6 +111,11 @@ export default function TourResultCard({
           {p.missing.length > 0 && <li>Fehlende Vorlieben: {name(p.missing)}</li>}
           {p.avoided_hit.length > 0 && <li>Vermiedenes vorhanden: {name(p.avoided_hit)}</li>}
         </ul>
+      )}
+      {from && (
+        <p aria-hidden="true" className="mt-auto pt-1 text-sm font-medium text-wald">
+          Details und Karte →
+        </p>
       )}
       {/* above the card-wide link overlay, so it is clickable and does not navigate */}
       <MerkenButton kind="day_hike" title={card.name} payload={card} className="relative z-10 mt-1" />

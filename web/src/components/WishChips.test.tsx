@@ -17,7 +17,7 @@ const card = (trail_id: string): TourCard => ({
   cover_license_url: null,
   cover_page_url: null,
   results: [
-    { kind: "roundtrip", ok: true, actual: null, bound: "", deviation_rel: null, bound_value: null },
+    { kind: "roundtrip", ok: true, actual: null, bound: "Rundweg", deviation_rel: null, bound_value: null },
     { kind: "ascent_m", ok: false, actual: 450, bound: "höchstens 400", deviation_rel: 0.12, bound_value: 400 },
   ],
   deviation_text: null,
