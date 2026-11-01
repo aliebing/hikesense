@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { MultidayPlan } from "../lib/chat";
-import type { LodgingOnTrail } from "../lib/data";
+import type { LodgingOnTrail, TrailPoi } from "../lib/data";
 import { daySections, trailLine, type MapTrail } from "../lib/map";
 import MapPanel from "./MapPanel";
 
@@ -16,11 +16,15 @@ export default function PlanMap({
   lodgings,
   plan,
   lengthKm,
+  pois,
+  embedded,
 }: {
   trail: MapTrail;
   lodgings: LodgingOnTrail[] | null;
   plan: MultidayPlan | null;
   lengthKm?: number | null;
+  pois?: TrailPoi[];
+  embedded?: boolean;
 }) {
   const byId = useMemo(() => new Map((lodgings ?? []).map((l) => [l.id, l])), [lodgings]);
   const days = useMemo(() => {
@@ -36,5 +40,5 @@ export default function PlanMap({
     const ids = new Set(plan.days.flatMap((d) => (d.stop ? [d.stop.lodging_id] : [])));
     return lodgings.filter((l) => ids.has(l.id));
   }, [days, plan, lodgings]);
-  return <MapPanel trail={trail} lodgings={stops} days={days} />;
+  return <MapPanel trail={trail} lodgings={stops} days={days} pois={days ? undefined : pois} embedded={embedded} />;
 }

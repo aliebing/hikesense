@@ -5,7 +5,7 @@ import { initialState, saveState } from "../lib/chatState";
 import type { MapTrail } from "../lib/map";
 import { ChatProvider } from "./ChatProvider";
 
-const cap = vi.hoisted(() => ({ props: null as null | { days?: { day: number; lodging_missing: boolean }[]; lodgings: unknown[] | null } }));
+const cap = vi.hoisted(() => ({ props: null as null | { days?: { day: number; lodging_missing: boolean }[]; lodgings: unknown[] | null; pois?: unknown[]; embedded?: boolean } }));
 vi.mock("./MapPanel", () => ({
   default: (p: typeof cap.props) => {
     cap.props = p;
@@ -52,4 +52,16 @@ it("plan for another trail: no sections", () => {
 it("without von: no sections", () => {
   show("w", false, plan("w"));
   expect(cap.props?.days).toBeUndefined();
+});
+
+it("passes pois and embedded through to the map", () => {
+  sessionStorage.clear();
+  const pois = [{ id: 1, name: null, kind: "food" as const, dist_m: 10, along_km: 1, lon: 8, lat: 48 }];
+  render(
+    <ChatProvider>
+      <TrailMap trailId="w" fromSuggestions={false} trail={trail} lodgings={[]} lengthKm={40} pois={pois} embedded />
+    </ChatProvider>,
+  );
+  expect(cap.props?.pois).toEqual(pois);
+  expect(cap.props?.embedded).toBe(true);
 });

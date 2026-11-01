@@ -4,7 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { FeatureCollection } from "geojson";
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LodgingOnTrail } from "../lib/data";
+import type { LodgingOnTrail, TrailPoi } from "../lib/data";
+import { POI_KIND } from "../lib/tour";
 import {
   ATTRIBUTION,
   BASEMAP_STYLE,
@@ -48,6 +49,8 @@ export default function MapPanel({
   lodgings,
   days,
   position,
+  pois,
+  embedded = false,
 }: {
   trail: MapTrail;
   /** null when the lodgings could not be loaded — then the legend says so instead of „0“;
@@ -57,6 +60,10 @@ export default function MapPanel({
   days?: DaySection[];
   /** own position (Unterwegs): shown as a dot, never sent anywhere */
   position?: { lat: number; lon: number } | null;
+  /** food, huts, viewpoints, peaks, waterfalls along the trail: drawn as markers */
+  pois?: TrailPoi[];
+  /** the map sits in the page (no click needed); full screen stays available as an extra button */
+  embedded?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -81,6 +88,31 @@ export default function MapPanel({
     if (wasOpen.current) opener.current?.focus();
   }, [open]);
 
+  const view = { trail, lodgings, days, position, pois };
+  const overlay = open && <MapOverlay {...view} closer={closer} onClose={() => setOpen(false)} />;
+
+  if (embedded) {
+    return (
+      <section aria-label={`Karte: ${trail.name}`} className="flex flex-col overflow-hidden rounded-2xl bg-wald-flaeche ring-1 ring-white/10">
+        <div className="relative h-[55vh] min-h-80">
+          {/* the overlay draws its own map; this one stays mounted underneath */}
+          <MapView {...view} />
+          <button
+            ref={opener}
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setOpen(true)}
+            className="absolute top-2 left-2 rounded-full bg-wald-dunkel/90 px-3 py-1 text-sm text-papier shadow hover:bg-wald-dunkel focus-visible:outline-2 focus-visible:outline-papier"
+          >
+            Vollbild
+          </button>
+        </div>
+        <MapLegend {...view} />
+        {overlay}
+      </section>
+    );
+  }
+
   return (
     <>
       <button
@@ -93,35 +125,34 @@ export default function MapPanel({
       >
         <span aria-hidden="true">🗺 </span>Karte
       </button>
-      {open && <MapOverlay trail={trail} lodgings={lodgings} days={days} position={position} closer={closer} onClose={() => setOpen(false)} />}
+      {overlay}
     </>
   );
 }
 
-function MapOverlay({
-  trail,
-  lodgings,
-  days,
-  position,
-  closer,
-  onClose,
-}: {
+type ViewProps = {
   trail: MapTrail;
   lodgings?: LodgingOnTrail[] | null;
   days?: DaySection[];
   position?: { lat: number; lon: number } | null;
-  closer: React.RefObject<HTMLButtonElement | null>;
-  onClose: () => void;
-}) {
+  pois?: TrailPoi[];
+};
+
+/** Lodgings drawn on the map: with plan days the day-end lodgings (up to 2 km off, all shown), else those near the trail. */
+function useNearby(lodgings: LodgingOnTrail[] | null | undefined, days: DaySection[] | undefined) {
+  const planDays = !!days && days.length > 0;
+  return useMemo(() => (lodgings ? (planDays ? lodgings : lodgingsNearby(lodgings)) : []), [lodgings, planDays]);
+}
+
+function MapView({ trail, lodgings, days, position, pois }: ViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{ map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker } | null>(null);
   const posRef = useRef(position);
   posRef.current = position;
   const [status, setStatus] = useState<Status>("loading");
   const features = useMemo(() => (days && days.length > 0 ? dayFeatures(days) : trailToFeatures(trail)), [trail, days]);
-  const planDays = !!days && days.length > 0;
-  // day-end lodgings may be up to 2 km off the trail (access walk): they are all shown
-  const nearby = useMemo(() => (lodgings ? (planDays ? lodgings : lodgingsNearby(lodgings)) : []), [lodgings, planDays]);
+  const nearby = useNearby(lodgings, days);
+  const poiList = useMemo(() => pois ?? [], [pois]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,6 +228,19 @@ function MapOverlay({
               .addTo(map),
           );
         }
+        for (const q of poiList) {
+          const el = document.createElement("button");
+          el.type = "button";
+          el.className = "map-poi";
+          el.textContent = POI_KIND[q.kind].icon;
+          el.setAttribute("aria-label", poiLabel(q));
+          markers.push(
+            new ml.Marker({ element: el })
+              .setLngLat([q.lon, q.lat])
+              .setPopup(new ml.Popup({ offset: 14, maxWidth: "240px" }).setDOMContent(poiPopup(q)))
+              .addTo(map),
+          );
+        }
       })
       .catch((e) => {
         console.error("map failed:", e);
@@ -209,12 +253,65 @@ function MapOverlay({
       markers.forEach((m) => m.remove());
       map?.remove();
     };
-  }, [features, nearby]);
+  }, [features, nearby, poiList]);
 
   useEffect(() => {
     if (live.current) showPosition(live.current, position);
   }, [position]);
 
+  return (
+    <div className="relative h-full min-h-0 flex-1 bg-papier/10">
+      {/* maplibre's CSS makes its container position: relative, so it fills an absolute wrapper. */}
+      <div className="absolute inset-0">
+        <div ref={container} data-map-status={status} className="h-full w-full bg-[#eef0ea]" />
+      </div>
+      {status !== "ready" && (
+        // Dark box on the light map background, so the text stays readable.
+        <div className="absolute inset-0 grid place-items-center p-4">
+          <p
+            role={status === "loading" ? "status" : "alert"}
+            className="max-w-md rounded-xl bg-wald-dunkel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
+          >
+            {STATUS_TEXT[status]}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MapLegend({ trail, lodgings, days, pois }: ViewProps) {
+  const nearby = useNearby(lodgings, days);
+  const planDays = !!days && days.length > 0;
+  const groups = new Set((pois ?? []).map((q) => POI_KIND[q.kind].group));
+  return (
+    <div data-testid="map-legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[11px] text-papier/85">
+      <span className="flex items-center gap-1">
+        <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
+        {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
+      </span>
+      {lodgings !== undefined && (
+        <span>
+          <span aria-hidden="true">🛏 </span>
+          {lodgings === null
+            ? "Unterkünfte konnten nicht geladen werden"
+            : planDays
+              ? "Unterkünfte am Tagesende"
+              : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
+        </span>
+      )}
+      {lodgings !== undefined && days?.filter((d) => d.lodging_missing).map((d) => (
+        <span key={d.day}>Unterkunft für Tag {d.day} nicht auf der Karte</span>
+      ))}
+      {groups.has("einkehr") && <span><span aria-hidden="true">☕ </span>Einkehr</span>}
+      {groups.has("aussicht") && <span><span aria-hidden="true">👁 </span>Aussicht</span>}
+      {groups.has("wasserfall") && <span><span aria-hidden="true">💧 </span>Wasserfall</span>}
+      <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
+    </div>
+  );
+}
+
+function MapOverlay({ closer, onClose, ...view }: ViewProps & { closer: React.RefObject<HTMLButtonElement | null>; onClose: () => void }) {
   return (
     <div
       role="dialog"
@@ -226,7 +323,7 @@ function MapOverlay({
       <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-2xl bg-wald-dunkel shadow-2xl ring-1 ring-white/15">
         <div className="flex items-center gap-3 px-4 py-2">
           <h2 id="map-title" className="min-w-0 flex-1 truncate font-serif text-lg text-papier">
-            Karte: {trail.name}
+            Karte: {view.trail.name}
           </h2>
           <button
             ref={closer}
@@ -238,45 +335,8 @@ function MapOverlay({
             Schließen <span aria-hidden="true">✕</span>
           </button>
         </div>
-
-        <div className="relative min-h-0 flex-1 bg-papier/10">
-          {/* maplibre's CSS makes its container position: relative, so it fills an absolute wrapper. */}
-          <div className="absolute inset-0">
-            <div ref={container} data-map-status={status} className="h-full w-full bg-[#eef0ea]" />
-          </div>
-          {status !== "ready" && (
-            // Dark box on the light map background, so the text stays readable.
-            <div className="absolute inset-0 grid place-items-center p-4">
-              <p
-                role={status === "loading" ? "status" : "alert"}
-                className="max-w-md rounded-xl bg-wald-dunkel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
-              >
-                {STATUS_TEXT[status]}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[11px] text-papier/85">
-          <span className="flex items-center gap-1">
-            <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
-            {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
-          </span>
-          {lodgings !== undefined && (
-            <span>
-              <span aria-hidden="true">🛏 </span>
-              {lodgings === null
-                ? "Unterkünfte konnten nicht geladen werden"
-                : planDays
-                  ? "Unterkünfte am Tagesende"
-                  : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
-            </span>
-          )}
-          {lodgings !== undefined && days?.filter((d) => d.lodging_missing).map((d) => (
-            <span key={d.day}>Unterkunft für Tag {d.day} nicht auf der Karte</span>
-          ))}
-          <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
-        </div>
+        <MapView {...view} />
+        <MapLegend {...view} />
       </div>
     </div>
   );
@@ -363,5 +423,26 @@ function lodgingPopup(l: LodgingOnTrail): HTMLElement {
     a.textContent = "Website";
     root.append(a);
   }
+  return root;
+}
+
+const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** „Name, Art, km 3,2“; without a name just the kind, without along_km no km. */
+function poiLabel(q: TrailPoi): string {
+  const kind = POI_KIND[q.kind].label;
+  const parts = q.name ? [q.name, kind] : [kind];
+  if (q.along_km !== null) parts.push(`km ${de1.format(q.along_km)}`);
+  return parts.join(", ");
+}
+
+function poiPopup(q: TrailPoi): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "map-popup";
+  const title = document.createElement("strong");
+  title.textContent = q.name ?? POI_KIND[q.kind].label;
+  const meta = document.createElement("div");
+  meta.textContent = q.along_km === null ? POI_KIND[q.kind].label : `${POI_KIND[q.kind].label} · km ${de1.format(q.along_km)} entlang des Wegs`;
+  root.append(title, meta);
   return root;
 }

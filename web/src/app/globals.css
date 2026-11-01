@@ -46,6 +46,21 @@ body {
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
   cursor: pointer;
 }
+/* Food, huts, viewpoints, peaks, waterfalls: light marker, so it differs from the green lodgings also in brightness. */
+.map-poi {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-wald-dunkel);
+  background: var(--color-papier);
+  font-size: 0.75rem;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+}
+.map-poi:focus-visible,
 .map-lodging:focus-visible {
   outline: 2px solid #d62839;
   outline-offset: 2px;
@@ -61,6 +76,7 @@ body {
   color: var(--color-wald);
   text-decoration: underline;
 }
+.map-lodging-dots .map-poi,
 .map-lodging-dots .map-lodging {
   width: 0.7rem;
   height: 0.7rem;

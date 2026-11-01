@@ -8,6 +8,7 @@ const stub = vi.hoisted(() => ({
   throwOnCreate: null as Error | null,
   handlers: {} as Record<string, ((e?: unknown) => void)[]>,
   setStyle: vi.fn(),
+  markers: [] as HTMLElement[],
   fire(name: string, e?: unknown) {
     for (const h of this.handlers[name] ?? []) h(e);
   },
@@ -38,7 +39,7 @@ vi.mock("maplibre-gl", () => {
     addLayer() {}
     remove() {}
   }
-  class Marker { setLngLat() { return this; } setPopup() { return this; } addTo() { return this; } remove() {} }
+  class Marker { constructor(o?: { element?: HTMLElement }) { if (o?.element) stub.markers.push(o.element); } setLngLat() { return this; } setPopup() { return this; } addTo() { return this; } remove() {} }
   class Popup { setDOMContent() { return this; } setLngLat() { return this; } addTo() { return this; } }
   class NavigationControl {}
   return { Map, Marker, Popup, NavigationControl, GPUInitializationError, setWorkerUrl() {} };
@@ -65,6 +66,7 @@ beforeEach(() => {
   stub.throwOnCreate = null;
   stub.handlers = {};
   stub.setStyle.mockReset();
+  stub.markers = [];
 });
 
 async function openMap(lodgings: Parameters<typeof MapPanel>[0]["lodgings"] = []) {
@@ -164,4 +166,26 @@ test("without a lodging layer the legend names no lodgings and no loading error"
   const dialog = screen.getByRole("dialog", { name: /Karte/ });
   expect(dialog).not.toHaveTextContent("Unterkünfte");
   expectAttribution(dialog);
+});
+
+const poi = (id: number, kind: "food" | "viewpoint", name: string | null, along_km: number | null) => ({ id, name, kind, dist_m: 40, along_km, lon: 8.02, lat: 48.02 });
+
+test("embedded map is visible without a click and offers full screen", async () => {
+  const user = userEvent.setup();
+  render(<MapPanel trail={trail} lodgings={[]} embedded />);
+  expect(document.querySelector("[data-map-status]")).not.toBeNull();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Vollbild" }));
+  expect(screen.getByRole("dialog", { name: /Karte/ })).toBeInTheDocument();
+});
+
+test("pois become markers and only present groups are in the legend", async () => {
+  render(<MapPanel trail={trail} lodgings={[]} embedded pois={[poi(1, "food", "Café Adler", 3.2), poi(2, "viewpoint", null, null)]} />);
+  await vi.waitFor(() => expect(stub.markers.filter((m) => m.classList.contains("map-poi"))).toHaveLength(2));
+  const labels = stub.markers.filter((m) => m.classList.contains("map-poi")).map((m) => m.getAttribute("aria-label"));
+  expect(labels).toEqual(["Café Adler, Einkehr, km 3,2", "Aussicht"]);
+  const legend = screen.getByTestId("map-legend");
+  expect(legend).toHaveTextContent("Einkehr");
+  expect(legend).toHaveTextContent("Aussicht");
+  expect(legend).not.toHaveTextContent("Wasserfall");
 });
