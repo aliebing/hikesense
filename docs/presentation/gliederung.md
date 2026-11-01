@@ -149,7 +149,7 @@ Als nächste Schritte sind drei Dinge offen. Erstens prüfe ich die 24 Gruppen v
 
 ## Folien
 
-Die Folien werden aus dieser Gliederung erzeugt (Titel, Stichpunkte und Screenshot je Punkt). Das Format legt Ali später fest, etwa Folien-Artifact mit PDF- oder PPTX-Export. Die Sprechnotizen kommen in die Notizenfelder. Zahlen bleiben auf die Quellen oben beschränkt.
+Die Folien werden aus dieser Gliederung erzeugt (Titel, Stichpunkte und Screenshot je Punkt). Sie liegen als Folien-Artifact vor (https://claude.ai/artifact/J9h4AjHsvxaXvGF7Nzc2TG, privat bis zum Teilen; Export als PDF oder PPTX). Das Drehbuch fürs Demo-Video steht in [demo-video.md](demo-video.md). Die Sprechnotizen kommen in die Notizenfelder. Zahlen bleiben auf die Quellen oben beschränkt.
 
 ## Zeitprüfung der Sprechnotizen
 
