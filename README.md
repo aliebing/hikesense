@@ -15,6 +15,8 @@ Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echt
 <details>
 <summary>Alle Screenshots</summary>
 
+Die Bilder zeigen noch die Optik vor dem Umbau vom 2026-11-01 (Fotohintergrund, eigene Vorschlagsseite). Seitdem ist die App dunkelgrün, die Vorschläge stehen als Kacheln direkt neben dem Chat, und Tour- und Planseite zeigen die Karte eingebettet. Neue Screenshots folgen mit dem neuen Video.
+
 1. [Startseite](docs/showcase/01-startseite.jpg)
 2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](docs/showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, der Antworttext nennt passende Touren ohne Unerfüllbarkeits-Satz. Die Sternchen im Text sind Markdown des Modells; seit dem 2026-11-01 stellt die App es dar (fett, kursiv, Links, Listen), der Screenshot ist älter.
 3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](docs/showcase/03-unerfuellbar-chat.jpg)
@@ -205,7 +207,7 @@ Der Chat nutzt ein Sprachmodell über [OpenRouter](https://openrouter.ai) (Stand
 
    Die API lädt Merkmale und Orte beim ersten Chat; nach `make tags` oder einem neuen Orts-Import die API neu starten (`make up`).
 
-3. API und Web-App starten (`make up`), auf http://localhost:3000 anmelden (siehe „Konto anlegen“) und den Chat in der Mitte der Startseite nutzen. Ohne Anmeldung zeigt der Chat statt des Eingabefelds „Zum Planen bitte anmelden“. Hat der Chat Touren oder einen Mehrtagesplan gefunden, führt der Knopf „Vorschläge zeigen →“ zur Vorschlagsseite, von dort öffnet eine Tour die Route mit Karte. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag (gezählt je Nutzer-ID, nicht je IP-Adresse).
+3. API und Web-App starten (`make up`), auf http://localhost:3000 anmelden (siehe „Konto anlegen“) und den Chat in der Mitte der Startseite nutzen. Ohne Anmeldung zeigt der Chat statt des Eingabefelds „Zum Planen bitte anmelden“. Hat der Chat Touren gefunden, stehen sie als Kacheln rechts neben dem Chat; ein Klick auf eine Kachel öffnet die Tourseite mit eingebetteter Karte, Beschreibung, Unterkünften, Einkehr und Aussicht. Bei genau einer Tour zeigt die Startseite gleich Beschreibung und Karte, bei einem Mehrtagesplan die Tage und den Weg zur Planansicht `/plan` mit Karte. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag (gezählt je Nutzer-ID, nicht je IP-Adresse).
 
 Beispiel-Fragen:
 
@@ -248,7 +250,7 @@ Planen im Chat, Pläne merken und eigene Fotos brauchen ein Konto. Auf http://lo
 - **Wegende:** Der Plan läuft nicht über das Ende hinaus („ab Kandern bleiben 28 km bis Basel – 2 Tage bei ~15 km“).
 - **Folgerunden** im selben Gespräch: „Tag 3 kürzer“ oder „Tag 2 länger“ ändern nur diesen Tag (und planen die Tage danach neu), die Tage davor bleiben gleich. „Und eine Regenvariante für Tag 1?“ zeigt die Regenvariante (an Regentagen kommt sie von selbst): bis zur nächsten Haltestelle am Weg, weiter mit Bus/Bahn (Fahrplan selbst prüfen).
 - **Wetter:** Mit Startdatum („ab 2. November“) holt der Code für Tage bis 14 Tage ab heute eine Vorhersage von Open-Meteo (Quelle „Open-Meteo.com (CC BY 4.0)“ steht dabei); spätere Tage zeigen „noch keine Vorhersage“. Regentag = Niederschlagswahrscheinlichkeit ≥ 60 % oder ≥ 5 mm.
-- Der Plan erscheint auf der Vorschlagsseite mit den Tagesabschnitten auf der Karte der Route; „Merken“ speichert ihn unter „Meine Pläne“ (`/plan?id=…`), von dort öffnet „Unterwegs“ einen Tag.
+- Der Plan erscheint auf der Startseite neben dem Chat, `/plan` zeigt ihn mit den Tagesabschnitten auf der Karte; „Merken“ speichert ihn unter „Meine Pläne“ (`/plan?id=…`), von dort öffnet „Unterwegs“ einen Tag.
 
 Lücken bei Wegenden, Startorten und Etappenlängen stehen unter [Bekannte Lücken](#bekannte-lücken).
 

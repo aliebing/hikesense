@@ -50,7 +50,7 @@ export default async function Home() {
     .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
 
   return (
-    <PageFrame longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
+    <PageFrame wide longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HomeStage photos={backgrounds} />
       <footer className="text-[11px] text-papier/75">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt

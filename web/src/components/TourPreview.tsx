@@ -72,14 +72,7 @@ export default function TourPreview({ card, runWithoutPace }: { card: TourCard; 
       </div>
       <VerdictChips results={card.results} />
       {card.deviation_text && <p className="text-sm text-red-800">{card.deviation_text}</p>}
-      <div className={`grid gap-4 ${photo ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
-        {photo && (
-          <figure className="flex flex-col gap-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo.thumb_url} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" />
-            <Attribution photo={photo} className="text-wald-dunkel/70" />
-          </figure>
-        )}
+      <div className={`grid gap-4 ${photo ? "lg:grid-cols-[2fr_1fr]" : ""}`}>
         <div className="flex min-w-0 flex-col gap-3">
           {loaded === null && <p role="status" className="text-sm">Karte wird geladen …</p>}
           {loaded === "error" && <p className="text-sm">Karte konnte nicht geladen werden.</p>}
@@ -90,6 +83,14 @@ export default function TourPreview({ card, runWithoutPace }: { card: TourCard; 
             </>
           )}
         </div>
+        {/* the map comes first; the photo joins it beside only when there is room */}
+        {photo && (
+          <figure className="hidden flex-col gap-1 lg:flex">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo.thumb_url} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" />
+            <Attribution photo={photo} className="text-wald-dunkel/70" />
+          </figure>
+        )}
       </div>
     </article>
   );
