@@ -108,7 +108,7 @@ export default function Unterwegs({
 
   return (
     <section aria-label="Unterwegs" className="flex max-w-xl flex-col gap-3">
-      <h2 className="font-serif text-xl drop-shadow">{title}</h2>
+      <h2 className="font-serif text-xl">{title}</h2>
       <div className="flex flex-wrap items-center gap-3">
         {watching ? (
           <button type="button" onClick={stop} className="rounded-full bg-papier/90 px-4 py-2 text-sm font-medium text-wald-dunkel shadow hover:bg-white">

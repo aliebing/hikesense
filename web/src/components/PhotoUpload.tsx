@@ -44,12 +44,12 @@ export default function PhotoUpload({ trailId, onUploaded }: { trailId: string; 
         type="button"
         disabled={busy}
         onClick={() => input.current?.click()}
-        className="rounded-full px-3 py-1 text-xs hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier disabled:opacity-60"
+        className="rounded-full px-3 py-1 text-xs hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-current disabled:opacity-60"
       >
         {busy ? "Foto wird vorbereitet …" : "Eigenes Foto hinzufügen"}
       </button>
       {error && (
-        <span role="alert" className="text-xs text-red-200">
+        <span role="alert" className="rounded bg-red-100 px-2 text-xs text-red-900">
           {error}
         </span>
       )}

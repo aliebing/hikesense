@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import Panorama from "../../components/Panorama";
+import PageFrame from "../../components/PageFrame";
 import PlanDays from "../../components/PlanDays";
 import PlanMap from "../../components/PlanMap";
 import { getBrowserSupabase, useSession } from "../../lib/auth";
@@ -61,7 +61,7 @@ function SavedPlan() {
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
-      <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Gemerkter Plan</h1>
+      <h1 className="font-serif text-3xl sm:text-4xl">Gemerkter Plan</h1>
       {!loading && !session && (
         <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
           Zum Ansehen deines Plans bitte{" "}
@@ -89,10 +89,10 @@ function SavedPlan() {
 
 export default function PlanPage() {
   return (
-    <Panorama back={{ href: "/meine-plaene", label: "← Meine Pläne" }}>
+    <PageFrame back={{ href: "/meine-plaene", label: "← Meine Pläne" }}>
       <Suspense>
         <SavedPlan />
       </Suspense>
-    </Panorama>
+    </PageFrame>
   );
 }

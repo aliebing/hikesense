@@ -6,7 +6,7 @@ import ChatShell from "../../components/ChatShell";
 import { useChat } from "../../components/ChatProvider";
 import PlanDays from "../../components/PlanDays";
 import PhotoSwitcher from "../../components/PhotoSwitcher";
-import Panorama from "../../components/Panorama";
+import PageFrame from "../../components/PageFrame";
 import TourResultCard from "../../components/TourResultCard";
 import { coverOf } from "../../lib/chatState";
 import type { Photo } from "../../lib/data";
@@ -36,9 +36,9 @@ export default function Vorschlaege() {
     .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
 
   return (
-    <Panorama back={{ href: "/", label: "← Zum Chat" }}>
+    <PageFrame back={{ href: "/", label: "← Zum Chat" }}>
       <main className="flex flex-1 flex-col gap-5 pb-4">
-        <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Vorschläge</h1>
+        <h1 className="font-serif text-3xl sm:text-4xl">Vorschläge</h1>
         {!hydrated ? null : plan ? (
           <PlanDays data={plan} mapHref={`/t/${encodeURIComponent(plan.plan.trail_id)}?von=vorschlaege`} />
         ) : cards.length === 0 ? (
@@ -67,7 +67,7 @@ export default function Vorschlaege() {
                 {last.fallback}
               </p>
             )}
-            {sentence && <p className="max-w-2xl text-lg drop-shadow">{sentence}</p>}
+            {sentence && <p className="max-w-2xl text-lg">{sentence}</p>}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {cards.map((c) => (
                 <TourResultCard
@@ -89,6 +89,6 @@ export default function Vorschlaege() {
       <div className="sticky bottom-3 z-10 ml-auto w-full max-w-md">
         <ChatShell variant="drawer" intro="Möchtest du etwas anpassen? Schreib mir, was anders sein soll." />
       </div>
-    </Panorama>
+    </PageFrame>
   );
 }

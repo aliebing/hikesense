@@ -89,7 +89,7 @@ export default function MapPanel({
         aria-haspopup="dialog"
         aria-label="Karte öffnen"
         onClick={() => setOpen(true)}
-        className="self-start justify-self-start rounded-full border border-white/25 bg-papier/15 px-4 py-2 text-sm text-papier shadow-lg backdrop-blur-xl hover:bg-papier/25 focus-visible:outline-2 focus-visible:outline-papier md:justify-self-end"
+        className="self-start justify-self-start rounded-full border border-white/25 bg-wald-flaeche px-4 py-2 text-sm text-papier hover:bg-wald focus-visible:outline-2 focus-visible:outline-papier md:justify-self-end"
       >
         <span aria-hidden="true">🗺 </span>Karte
       </button>

@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Panorama from "../../components/Panorama";
+import PageFrame from "../../components/PageFrame";
 import { loginEmail, signIn, signUp } from "../../lib/auth";
 
-const field = "rounded-full border border-white/25 bg-black/20 px-4 py-2 text-sm text-papier placeholder:text-papier/70";
+const field = "rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70";
 
 /** Sign-in and sign-up with e-mail and password; afterwards back to the chat. */
 export default function Anmelden() {
@@ -28,11 +28,11 @@ export default function Anmelden() {
   };
 
   return (
-    <Panorama back={{ href: "/", label: "← Zum Chat" }}>
+    <PageFrame back={{ href: "/", label: "← Zum Chat" }}>
       <main className="flex flex-1 flex-col items-center gap-5 pb-4">
-        <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Anmelden</h1>
+        <h1 className="font-serif text-3xl sm:text-4xl">Anmelden</h1>
         <form
-          className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-white/15 bg-papier/15 p-4 shadow-xl backdrop-blur-xl"
+          className="flex w-full max-w-sm flex-col gap-3 rounded-2xl bg-wald-flaeche p-4 ring-1 ring-white/10"
           onSubmit={(ev) => {
             ev.preventDefault();
             void go(signIn);
@@ -57,6 +57,6 @@ export default function Anmelden() {
           </div>
         </form>
       </main>
-    </Panorama>
+    </PageFrame>
   );
 }

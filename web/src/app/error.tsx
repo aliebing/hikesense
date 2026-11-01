@@ -1,19 +1,17 @@
 "use client";
 
 import Notice from "../components/Notice";
-import Panorama from "../components/Panorama";
-import PhotoSwitcher from "../components/PhotoSwitcher";
+import PageFrame from "../components/PageFrame";
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
-    <Panorama back={{ href: "/", label: "← Zur Startseite" }}>
-      <PhotoSwitcher photos={[]} />
+    <PageFrame back={{ href: "/", label: "← Zur Startseite" }}>
       <Notice title="Etwas ist schiefgelaufen.">
         <p>Die Seite konnte nicht angezeigt werden.</p>
         <button type="button" onClick={reset} className="rounded-full bg-wald px-4 py-2 text-papier">
           Erneut versuchen
         </button>
       </Notice>
-    </Panorama>
+    </PageFrame>
   );
 }

@@ -144,7 +144,7 @@ export default function PlanDays({ data, save = true, title, mapHref, planId, fo
   return (
     <section aria-label="Mehrtagesplan" className="flex max-w-3xl flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-xl drop-shadow">{title ?? planTitle(data)}</h2>
+        <h2 className="font-serif text-xl">{title ?? planTitle(data)}</h2>
         {save && plan.days.length > 0 && (
           <MerkenButton kind="multiday" title={planTitle(data)} payload={data} className="[&_button]:bg-papier/90 [&_button]:text-wald-dunkel" />
         )}

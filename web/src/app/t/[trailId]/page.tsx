@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ChatShell from "../../../components/ChatShell";
 import Notice from "../../../components/Notice";
-import Panorama from "../../../components/Panorama";
+import PageFrame from "../../../components/PageFrame";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import StageCards, { Facts } from "../../../components/StageCards";
 import TrailMap from "../../../components/TrailMap";
@@ -33,12 +33,11 @@ export default async function TrailPage({
   } catch (e) {
     console.error(`getTrail(${trailId}) failed:`, e);
     return (
-      <Panorama back={back}>
-        <PhotoSwitcher photos={[]} />
+      <PageFrame back={back}>
         <Notice title="Daten konnten nicht geladen werden.">
           <p>Die Datenbank ist nicht erreichbar oder nicht konfiguriert. Bitte später erneut versuchen.</p>
         </Notice>
-      </Panorama>
+      </PageFrame>
     );
   }
   if (!trail) notFound();
@@ -71,10 +70,10 @@ export default async function TrailPage({
   if (time) meta.push(time);
 
   return (
-    <Panorama back={back}>
+    <PageFrame back={back}>
       <section>
-        <h1 className="font-serif text-3xl leading-tight drop-shadow-md sm:text-5xl">{trail.name}</h1>
-        <Facts items={meta} className="mt-1 text-sm text-papier/90 drop-shadow" />
+        <h1 className="font-serif text-3xl leading-tight sm:text-5xl">{trail.name}</h1>
+        <Facts items={meta} className="mt-1 text-sm text-papier/90" />
       </section>
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,24rem)_1fr]">
@@ -96,7 +95,7 @@ export default async function TrailPage({
           />
           <Link
             href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
-            className="mt-2 self-start justify-self-start rounded-full border border-white/25 bg-papier/15 px-4 py-2 text-sm text-papier shadow-lg backdrop-blur-xl hover:bg-papier/25 focus-visible:outline-2 focus-visible:outline-papier"
+            className="mt-2 self-start justify-self-start rounded-full border border-white/25 bg-wald-flaeche px-4 py-2 text-sm text-papier hover:bg-wald focus-visible:outline-2 focus-visible:outline-papier"
           >
             Unterwegs
           </Link>
@@ -115,7 +114,7 @@ export default async function TrailPage({
 
       {groups.length > 0 && (
         <section aria-label="Gruppen in der Nähe" className="max-w-2xl">
-          <h2 className="mb-1 font-serif text-xl drop-shadow">Gruppen in der Nähe</h2>
+          <h2 className="mb-1 font-serif text-xl">Gruppen in der Nähe</h2>
           <GroupList
             groups={groups}
             note={`Stand: ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`))} · bis ${GROUP_RADIUS_KM} km vom Weg`}
@@ -141,6 +140,6 @@ export default async function TrailPage({
         {" · "}Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA
         {" · "}Gehzeit nach DIN 33466 (Richtwert, ohne Pausen)
       </footer>
-    </Panorama>
+    </PageFrame>
   );
 }

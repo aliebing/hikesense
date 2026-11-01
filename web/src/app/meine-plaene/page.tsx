@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Panorama from "../../components/Panorama";
+import PageFrame from "../../components/PageFrame";
 import { useSession } from "../../lib/auth";
 import { deletePlan, listPlans, type SavedPlan } from "../../lib/plans";
 
@@ -51,9 +51,9 @@ export default function MeinePlaene() {
   };
 
   return (
-    <Panorama back={{ href: "/", label: "← Zum Chat" }}>
+    <PageFrame back={{ href: "/", label: "← Zum Chat" }}>
       <main className="flex flex-1 flex-col items-center gap-5 pb-4">
-        <h1 className="font-serif text-3xl drop-shadow-md sm:text-4xl">Meine Pläne</h1>
+        <h1 className="font-serif text-3xl sm:text-4xl">Meine Pläne</h1>
         <div className="flex w-full max-w-xl flex-col gap-3">
           {!loading && !session && (
             <p className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
@@ -107,6 +107,6 @@ export default function MeinePlaene() {
           )}
         </div>
       </main>
-    </Panorama>
+    </PageFrame>
   );
 }

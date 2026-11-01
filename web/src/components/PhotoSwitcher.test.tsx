@@ -31,9 +31,25 @@ test("PhotoSwitcher shows licence with link", () => {
   );
 });
 
-test("PhotoSwitcher without photos renders gradient fallback", () => {
-  render(<PhotoSwitcher photos={[]} />);
-  expect(screen.getByTestId("panorama-fallback")).toBeInTheDocument();
+test("PhotoSwitcher without photos renders a bounded gradient fallback", () => {
+  const { container } = render(<PhotoSwitcher photos={[]} />);
+  expect(screen.getByTestId("photo-fallback")).toBeInTheDocument();
+  expect(container.querySelector(".fixed")).toBeNull();
+});
+
+test("PhotoSwitcher is a bounded picture, never a fixed backdrop", () => {
+  const { container } = render(<PhotoSwitcher photos={[p("a", "Anna"), p("b", "Ben")]} />);
+  expect(container.querySelector(".fixed")).toBeNull();
+  expect(container.querySelector("figure")).not.toBeNull();
+});
+
+test("PhotoSwitcher thumbnails pick the shown photo", async () => {
+  render(<PhotoSwitcher photos={[p("a", "Anna"), p("b", "Ben")]} />);
+  expect(screen.getByRole("button", { name: "Bild 1" })).toHaveAttribute("aria-current", "true");
+  await userEvent.click(screen.getByRole("button", { name: "Bild 2" }));
+  expect(document.querySelector("figure img[data-main]")).toHaveAttribute("src", "https://upload.example/b.jpg");
+  expect(screen.getByText(/Ben/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Bild 2" })).toHaveAttribute("aria-current", "true");
 });
 
 describe("own photos", () => {

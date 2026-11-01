@@ -1,6 +1,6 @@
 import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
-import Panorama from "../components/Panorama";
+import PageFrame from "../components/PageFrame";
 import PhotoSwitcher from "../components/PhotoSwitcher";
 import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
@@ -16,8 +16,7 @@ export default async function Home() {
   } catch (e) {
     console.error("getTrails failed:", e);
     return (
-      <Panorama>
-        <PhotoSwitcher photos={[]} />
+      <PageFrame>
         <Notice title="Daten konnten nicht geladen werden.">
           {e instanceof MissingConfigError ? (
             <p>{e.message}</p>
@@ -29,21 +28,20 @@ export default async function Home() {
           )}
         </Notice>
         <HomeStage />
-      </Panorama>
+      </PageFrame>
     );
   }
 
   if (trails.length === 0) {
     return (
-      <Panorama>
-        <PhotoSwitcher photos={[]} />
+      <PageFrame>
         <Notice title="Noch keine Wege in der Datenbank.">
           <p>
             Die Datenbank ist erreichbar, aber leer. Daten importieren mit <code>make import</code>.
           </p>
         </Notice>
         <HomeStage />
-      </Panorama>
+      </PageFrame>
     );
   }
 
@@ -53,7 +51,7 @@ export default async function Home() {
     .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
 
   return (
-    <Panorama longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
+    <PageFrame longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HomeStage />
       <div className="flex justify-end">
         <PhotoSwitcher photos={backgrounds} />
@@ -63,6 +61,6 @@ export default async function Home() {
         von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am
         Bild.
       </footer>
-    </Panorama>
+    </PageFrame>
   );
 }

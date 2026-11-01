@@ -57,7 +57,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           maxLength={1000}
           placeholder="z. B. 12 km Rundweg ab Hinterzarten"
           aria-label="Nachricht"
-          className="min-w-0 flex-1 rounded-full border border-white/25 bg-black/20 px-4 py-2 text-sm text-papier placeholder:text-papier/70"
+          className="min-w-0 flex-1 rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70"
         />
         <button
           type="submit"
@@ -73,7 +73,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
 
   if (variant === "drawer") {
     return (
-      <aside aria-label="Planungs-Chat" className="w-full rounded-2xl border border-white/15 bg-papier/15 p-3 text-papier shadow-xl backdrop-blur-xl">
+      <aside aria-label="Planungs-Chat" className="w-full rounded-2xl bg-wald-flaeche p-3 text-papier ring-1 ring-white/10">
         <details>
           <summary className="cursor-pointer font-serif text-lg">Chat</summary>
           <div className="mt-3 flex flex-col gap-3">{body}</div>
@@ -85,7 +85,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
   return (
     <aside
       aria-label="Planungs-Chat"
-      className="flex w-full flex-col gap-3 rounded-2xl border border-white/15 bg-papier/15 p-4 text-papier shadow-xl backdrop-blur-xl sm:max-w-sm md:max-w-md"
+      className="flex w-full flex-col gap-3 rounded-2xl bg-wald-flaeche p-4 text-papier ring-1 ring-white/10 sm:max-w-sm md:max-w-md"
     >
       <h2 className="font-serif text-lg">Planungs-Chat</h2>
       {body}
