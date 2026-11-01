@@ -1,7 +1,6 @@
 import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import PageFrame from "../components/PageFrame";
-import PhotoSwitcher from "../components/PhotoSwitcher";
 import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
 
@@ -27,7 +26,7 @@ export default async function Home() {
             </p>
           )}
         </Notice>
-        <HomeStage />
+        <HomeStage photos={[]} />
       </PageFrame>
     );
   }
@@ -40,7 +39,7 @@ export default async function Home() {
             Die Datenbank ist erreichbar, aber leer. Daten importieren mit <code>make import</code>.
           </p>
         </Notice>
-        <HomeStage />
+        <HomeStage photos={[]} />
       </PageFrame>
     );
   }
@@ -52,10 +51,7 @@ export default async function Home() {
 
   return (
     <PageFrame longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
-      <HomeStage />
-      <div className="flex justify-end">
-        <PhotoSwitcher photos={backgrounds} />
-      </div>
+      <HomeStage photos={backgrounds} />
       <footer className="text-[11px] text-papier/75">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
         von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am

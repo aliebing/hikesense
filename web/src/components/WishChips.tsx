@@ -20,10 +20,15 @@ function chip(r: ConstraintResult): { text: string; tone: string } {
 export default function WishChips({ trailId }: { trailId: string }) {
   const { state } = useChat();
   const card = state.last?.cards.find((c) => c.trail_id === trailId);
-  if (!card || card.results.length === 0) return null;
+  return card ? <VerdictChips results={card.results} /> : null;
+}
+
+/** ✓/✗/? per wish as chips; nothing without results. */
+export function VerdictChips({ results }: { results: ConstraintResult[] }) {
+  if (results.length === 0) return null;
   return (
     <ul aria-label="Deine Wünsche" className="flex flex-wrap gap-1.5">
-      {card.results.map((r, i) => {
+      {results.map((r, i) => {
         const c = chip(r);
         return (
           <li key={r.kind + i} className={`rounded-full px-2.5 py-0.5 text-xs ${c.tone}`}>
