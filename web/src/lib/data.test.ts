@@ -1,4 +1,4 @@
-import { groupsNearLine, toProfile, getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
+import { groupsNearLine, toProfile, toShares, getTrails, photoPool, pickSpread, toSummary, type OverviewRow, type TrailSummary } from "./data";
 
 const t = (id: string, lat: number | null, withCover = true): TrailSummary => ({
   id, name: id, kind: "day_hike", length_km: 10, ascent_m: 100, descent_m: 100,
@@ -66,4 +66,13 @@ test("groupsNearLine: within 15 km of any point, nearest first, stale after 180 
   expect(got[0].status).toBe("vorschlag"); // no status: never presented as checked by hand
   const hand = groupsNearLine([{ ...row("H", 48.0, 8.0, "2026-10-01"), status: "geprüft" }], line, new Date("2026-10-30T12:00:00Z"));
   expect(hand[0].status).toBe("geprüft");
+});
+
+test("toShares keeps finite shares >= 0 and refuses anything else", () => {
+  expect(toShares({ paved: 0.2, gravel: 0.8 })).toEqual({ paved: 0.2, gravel: 0.8 });
+  expect(toShares(null)).toBeNull();
+  expect(toShares({})).toBeNull();
+  expect(toShares({ paved: "x" })).toBeNull();
+  expect(toShares({ paved: -1 })).toBeNull();
+  expect(toShares([0.2])).toBeNull();
 });

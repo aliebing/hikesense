@@ -51,6 +51,8 @@ export type TrailDetail = TrailSummary & {
   geom: LineString | null;
   /** [km, elevation_m] along the trail (max 300 points); null when the import has none */
   profile?: [number, number][] | null;
+  /** surface category → share 0..1 (trails.surface_shares); null when the import has none */
+  surface_shares?: Record<string, number> | null;
   sources: Source[];
 };
 
@@ -120,6 +122,19 @@ export function toProfile(v: unknown): [number, number][] | null {
   return out;
 }
 
+/** jsonb {category: share} with finite shares >= 0; anything else (or empty) is null */
+export function toShares(v: unknown): Record<string, number> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  const out: Record<string, number> = {};
+  for (const [k, n] of entries) {
+    if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return null;
+    out[k] = n;
+  }
+  return out;
+}
+
 function fail(what: string, error: { message: string }): never {
   throw new Error(`${what}: ${error.message}`);
 }
@@ -151,7 +166,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
       .order("seq"),
     sb.from("stages_geojson").select("id,geom").eq("trail_id", id),
     sb.from("photos").select(PHOTO_COLUMNS).eq("trail_id", id).order("id"),
-    sb.from("trails").select("profile").eq("id", id).maybeSingle(),
+    sb.from("trails").select("profile,surface_shares").eq("id", id).maybeSingle(),
   ]);
   if (geo.error) fail("trails_geojson", geo.error);
   if (stages.error) fail("stages", stages.error);
@@ -192,6 +207,7 @@ export async function getTrail(id: string): Promise<TrailDetail | null> {
     ...toSummary(overview),
     geom: (geo.data?.geom as LineString | undefined) ?? null,
     profile: toProfile(prof.data?.profile),
+    surface_shares: toShares(prof.data?.surface_shares),
     photos: photoRows.map(toPhoto),
     sources,
     stages: stageRows.map((s) => ({
@@ -241,6 +257,46 @@ export async function getLodgings(trailId: string): Promise<LodgingOnTrail[]> {
     lon: Number(r.lon),
     lat: Number(r.lat),
   }));
+}
+
+export type TrailPoi = {
+  id: number;
+  name: string | null;
+  kind: "food" | "hut" | "viewpoint" | "peak" | "waterfall";
+  /** distance to the trail in metres as imported (trail_pois.dist_m); null if unknown */
+  dist_m: number | null;
+  along_km: number | null;
+  lon: number;
+  lat: number;
+};
+
+/** Points of interest linked to a trail, without stations (view trail_pois_geo), ordered along the trail. */
+export async function getTrailPois(trailId: string): Promise<TrailPoi[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("trail_pois_geo")
+    .select("id,name,kind,dist_m,along_km,lon,lat")
+    .eq("trail_id", trailId)
+    .order("along_km", { nullsFirst: false })
+    .order("id");
+  if (error) fail("trail_pois_geo", error);
+  return (data ?? []).map((r) => ({
+    id: Number(r.id),
+    name: r.name,
+    kind: r.kind,
+    dist_m: num(r.dist_m),
+    along_km: num(r.along_km),
+    lon: Number(r.lon),
+    lat: Number(r.lat),
+  }));
+}
+
+/** Feature and surface tag ids of a trail (trail_tags), sorted. */
+export async function getTrailTags(trailId: string): Promise<string[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("trail_tags").select("tag_id").eq("trail_id", trailId).order("tag_id");
+  if (error) fail("trail_tags", error);
+  return (data ?? []).map((r) => r.tag_id as string);
 }
 
 export const GROUP_RADIUS_KM = 15;
