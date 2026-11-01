@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None  # JWKS: {supabase_url}/auth/v1/.well-known/jwks.json
     supabase_anon_key: str | None = None  # smoke run: sign-in at the local Supabase auth
     hikeall_smoke_password: SecretStr | None = None  # smoke user smoke@hikeall.local
+    hikeall_admin_password_hash: SecretStr | None = None  # bcrypt hash, admin@hikeall.local
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None

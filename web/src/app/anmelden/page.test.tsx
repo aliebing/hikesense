@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 
 const h = vi.hoisted(() => ({ push: vi.fn(), signIn: vi.fn(), signUp: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push }) }));
-vi.mock("../../lib/auth", () => ({
+vi.mock("../../lib/auth", async (orig) => ({
+  loginEmail: (await orig<typeof import("../../lib/auth")>()).loginEmail,
   signIn: h.signIn,
   signUp: h.signUp,
   signOut: vi.fn(),
@@ -44,4 +45,13 @@ it("sign-up with confirmation shows the hint instead of redirecting", async () =
   await userEvent.click(screen.getByRole("button", { name: "Konto anlegen" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Bitte bestätige deine E-Mail-Adresse");
   expect(h.push).not.toHaveBeenCalled();
+});
+
+it("signs in with a bare user name as <name>@hikeall.local", async () => {
+  h.signIn.mockResolvedValue({ error: null });
+  render(<Anmelden />);
+  await userEvent.type(screen.getByLabelText("E-Mail"), "admin");
+  await userEvent.type(screen.getByLabelText("Passwort"), "admin");
+  await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
+  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikeall.local", "admin"));
 });

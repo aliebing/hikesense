@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Panorama from "../../components/Panorama";
-import { signIn, signUp } from "../../lib/auth";
+import { loginEmail, signIn, signUp } from "../../lib/auth";
 
 const field = "rounded-full border border-white/25 bg-black/20 px-4 py-2 text-sm text-papier placeholder:text-papier/70";
 
@@ -20,7 +20,7 @@ export default function Anmelden() {
     setBusy(true);
     setError(null);
     setNotice(null);
-    const r = await action(email.trim(), password);
+    const r = await action(loginEmail(email), password);
     setBusy(false);
     if (r.error) setError(r.error);
     else if (r.notice) setNotice(r.notice);
@@ -38,8 +38,8 @@ export default function Anmelden() {
             void go(signIn);
           }}
         >
-          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-Mail" aria-label="E-Mail" className={field} />
-          <input type="password" required minLength={6} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Passwort" aria-label="Passwort" className={field} />
+          <input type="text" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-Mail oder Benutzername" aria-label="E-Mail" className={field} />
+          <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Passwort" aria-label="Passwort" className={field} />
           {error && <p role="alert" className="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">{error}</p>}
           {notice && <p role="status" className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{notice}</p>}
           <div className="flex gap-2">

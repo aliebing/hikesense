@@ -527,6 +527,25 @@ def smoke_user_cmd() -> int:
     return 0
 
 
+def admin_user_cmd() -> int:
+    from hikeall import admin
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    if settings.hikeall_admin_password_hash is None:
+        print("Admin – HIKEALL_ADMIN_PASSWORD_HASH in .env eintragen (siehe .env.example)", file=sys.stderr)
+        return 2
+    try:
+        with connect(settings.supabase_db_url) as conn:
+            state = admin.ensure_admin(conn, settings.hikeall_admin_password_hash.get_secret_value())
+    except (ValueError, psycopg.Error) as e:
+        print(f"Admin – {e}", file=sys.stderr)
+        return 2
+    print(f"Admin {admin.ADMIN_EMAIL} {state} (Anmeldename: admin)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -552,6 +571,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model", help="Modell statt HIKEALL_MODEL (OpenRouter-Slug)")
     p.add_argument("--temperature", type=float, help="Temperatur für alle Aufrufe (Standard: fest)")
     sub.add_parser("smoke-user", help="Testkonto smoke@hikeall.local in der lokalen Supabase-Auth")
+    sub.add_parser("admin-user", help="Admin admin@hikeall.local mit Hash aus HIKEALL_ADMIN_PASSWORD_HASH")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
@@ -582,6 +602,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "smoke-user":
         return smoke_user_cmd()
+    if args.command == "admin-user":
+        return admin_user_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":

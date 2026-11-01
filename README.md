@@ -224,6 +224,7 @@ Erfüllt keine Tour alle Wünsche, beginnt die Antwort mit „Keine Tour erfüll
 
 ```sh
 make smoke-user   # Passwort aus HIKEALL_SMOKE_PASSWORD in .env (zufällig wählen, nie einchecken)
+make admin-user   # lokaler Admin: Anmeldename „admin“, in .env nur der bcrypt-Hash (HIKEALL_ADMIN_PASSWORD_HASH)
 ```
 
 in der lokalen Supabase-Auth an. Ergebnis: `data/smoke/result-<Datum>.csv` (je Fall ok, unbelegte Zahlen, Kosten) und die Gesamtkosten (zuletzt etwa 0,01 USD); Exit-Code 1, wenn eine Erwartung nicht erfüllt ist. Erwartungen werden nie gelockert, um einen Fall grün zu machen.

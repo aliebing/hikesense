@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke smoke-user eval osm-extract places groups
+.PHONY: test lint up down import scan knowledge tags smoke smoke-user admin-user eval osm-extract places groups
 
 test:
 	cd backend && uv run pytest -q
@@ -50,6 +50,11 @@ eval:
 # Testkonto smoke@hikeall.local in der lokalen Supabase-Auth (Passwort: HIKEALL_SMOKE_PASSWORD).
 smoke-user:
 	cd backend && uv run hikeall smoke-user
+
+# Lokaler Admin (Anmeldename „admin“ = admin@hikeall.local). In .env steht nur der bcrypt-Hash
+# des Passworts (HIKEALL_ADMIN_PASSWORD_HASH), nie das Passwort selbst.
+admin-user:
+	cd backend && uv run hikeall admin-user
 
 # Geofabrik-Extrakt Baden-Württemberg (ODbL, ~700 MB); FORCE=1 lädt neu.
 OSM_PBF = data/osm/baden-wuerttemberg-latest.osm.pbf

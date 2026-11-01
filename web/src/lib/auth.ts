@@ -106,3 +106,9 @@ export async function signUp(email: string, password: string): Promise<AuthResul
 }
 
 export const signOut = (): Promise<AuthResult> => run(() => getBrowserSupabase().auth.signOut());
+
+/** A bare name without "@" signs in as <name>@hikeall.local (local admin: "admin"). */
+export function loginEmail(input: string): string {
+  const v = input.trim();
+  return v.includes("@") ? v : `${v}@hikeall.local`;
+}
