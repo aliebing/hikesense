@@ -31,7 +31,7 @@ function mockStream(body: string) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream, { status: 200 })));
 }
 
-/** The result cards are not part of the chat any more; /vorschlaege renders state.last, so does this. */
+/** The result cards are not part of the chat any more; the home page renders state.last, so does this. */
 function LastCards() {
   const { state } = useChat();
   return (

@@ -38,7 +38,7 @@ const show = (trailId: string, von: boolean, p: PlanData | null, lodgings: Lodgi
   expect(screen.getByText("map")).toBeInTheDocument();
 };
 
-it("plan for this trail with von=vorschlaege: day sections, missing stop flagged", () => {
+it("plan for this trail when coming from the chat: day sections, missing stop flagged", () => {
   show("w", true, plan("w"));
   expect(cap.props?.days?.map((d) => [d.day, d.lodging_missing])).toEqual([[1, false], [2, true]]);
   expect(cap.props?.lodgings).toHaveLength(1);

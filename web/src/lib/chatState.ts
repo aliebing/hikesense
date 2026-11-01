@@ -7,7 +7,7 @@ export type LastResults = {
   fallback: string | null;
   runWithoutPace: boolean;
   labels: Labels;
-  /** the understood request these results belong to (for the chips on /vorschlaege) */
+  /** the understood request these results belong to (for the chips above the tiles on the home page) */
   request: { request: HikeRequest; labels: Labels } | null;
 };
 
@@ -16,9 +16,9 @@ export type ChatState = {
   items: ChatItem[];
   /** null: nothing found yet, or the last search found nothing */
   last: LastResults | null;
-  /** the last multi-day plan (shown on /vorschlaege); a results event clears it, a plan event clears `last` */
+  /** the last multi-day plan (shown on the home page and /plan); a results event clears it, a plan event clears `last` */
   plan: PlanData | null;
-  /** the last understood request (for chips on /vorschlaege); null before the first */
+  /** the last understood request (for the chips on the home page); null before the first */
   request: { request: HikeRequest; labels: Labels } | null;
   /** internal: activity "run" without pace, carried from "understood" to "results" */
   runWithoutPace: boolean;

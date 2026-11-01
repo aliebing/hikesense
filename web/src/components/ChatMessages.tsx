@@ -66,7 +66,7 @@ const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
 
 /**
  * The backend starts the answer with the honest fallback sentence (the contract for the text);
- * the note on the results item (and on /vorschlaege) already shows it, so the bubble leaves it out (also while streaming).
+ * the note on the results item (and on the home page) already shows it, so the bubble leaves it out (also while streaming).
  */
 export function withoutFallback(items: ChatItem[], i: number, text: string): string {
   for (let j = i - 1; j >= 0; j--) {
