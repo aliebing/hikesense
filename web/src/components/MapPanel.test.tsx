@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithLocale } from "../test-utils";
+import LanguageFlags from "./LanguageFlags";
 import MapPanel from "./MapPanel";
 
 // No network, no WebGL in tests: maplibre is replaced by a stub. `stub` lets a
@@ -222,4 +223,15 @@ test("English: legend, buttons and POI labels are English", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Full screen" }));
   expect(screen.getByRole("dialog", { name: /Map:/ })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Close map" })).toBeInTheDocument();
+});
+
+test("a language switch relabels the markers but keeps the same map", async () => {
+  renderWithLocale(<><LanguageFlags /><MapPanel trail={trail} lodgings={[]} embedded pois={[poi(1, "food", "Café Adler", 3.2)]} /></>, "en");
+  await vi.waitFor(() => expect(stub.markers.filter((m) => m.classList.contains("map-poi"))).toHaveLength(1));
+  const marker = stub.markers.find((m) => m.classList.contains("map-poi"))!;
+  expect(marker.getAttribute("aria-label")).toBe("Café Adler, Inn / café, km 3.2");
+  expect(stub.options).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await vi.waitFor(() => expect(marker.getAttribute("aria-label")).toBe("Café Adler, Einkehr, km 3,2"));
+  expect(stub.options).toHaveLength(1); // not recreated
 });

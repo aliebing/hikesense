@@ -1,22 +1,34 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
+import { renderWithLocale } from "../../test-utils";
 
 const h = vi.hoisted(() => ({
   session: null as null | object,
   query: "plan=p1&day=2",
   row: { data: null, error: null } as { data: unknown; error: unknown },
   trail: null as unknown,
+  getTrail: vi.fn(),
+  lifecycle: { mounts: 0, unmounts: 0 },
 }));
 vi.mock("../../lib/auth", () => ({
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => h.row }) }) }) }),
 }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(h.query) }));
-vi.mock("../../lib/data", () => ({ getTrail: async () => h.trail }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(h.query), useRouter: () => ({ refresh() {} }) }));
+vi.mock("../../lib/data", () => ({ getTrail: (...a: unknown[]) => h.getTrail(...a) }));
 // the view itself is tested in Unterwegs.test.tsx: here only what the page hands over
 vi.mock("../../components/Unterwegs", () => ({
-  default: (p: { title: string; line: number[][]; startKm?: number; lengthKm: number | null; profile: unknown; days?: unknown[] }) => (
-    <pre data-testid="view">{JSON.stringify({ title: p.title, line: p.line, startKm: p.startKm, lengthKm: p.lengthKm, profile: p.profile, days: p.days?.length })}</pre>
-  ),
+  default: (p: { title: string; line: number[][]; startKm?: number; lengthKm: number | null; profile: unknown; days?: unknown[] }) => {
+    // mount/unmount counters stand in for the running position watch
+    useEffect(() => {
+      h.lifecycle.mounts++;
+      return () => {
+        h.lifecycle.unmounts++;
+      };
+    }, []);
+    return <pre data-testid="view">{JSON.stringify({ title: p.title, line: p.line, startKm: p.startKm, lengthKm: p.lengthKm, profile: p.profile, days: p.days?.length })}</pre>;
+  },
 }));
 
 import UnterwegsPage from "./page";
@@ -37,6 +49,8 @@ beforeEach(() => {
   h.query = "plan=p1&day=2";
   h.row = { data: { title: "Mein Plan", kind: "multiday", payload }, error: null };
   h.trail = trail;
+  h.getTrail.mockReset().mockImplementation(async () => h.trail);
+  h.lifecycle = { mounts: 0, unmounts: 0 };
 });
 
 it("plan without session: hint with link to /anmelden", () => {
@@ -115,4 +129,21 @@ it("trail of the plan is gone", async () => {
   h.trail = null;
   render(<UnterwegsPage />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Die Tour konnte nicht geladen werden");
+});
+
+it("switching the language keeps the view mounted (the position watch keeps running) and does not refetch", async () => {
+  renderWithLocale(<UnterwegsPage />, "en");
+  expect(JSON.parse((await screen.findByTestId("view")).textContent!).title).toBe("Mein Plan – day 2");
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await waitFor(() => expect(JSON.parse(screen.getByTestId("view").textContent!).title).toBe("Mein Plan – Tag 2"));
+  expect(h.lifecycle).toEqual({ mounts: 1, unmounts: 0 });
+  expect(h.getTrail).toHaveBeenCalledTimes(1);
+});
+
+it("a load error follows the language without reloading", async () => {
+  h.row = { data: null, error: null };
+  renderWithLocale(<UnterwegsPage />, "en");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Plan not found");
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Plan nicht gefunden"));
 });

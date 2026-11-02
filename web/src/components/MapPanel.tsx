@@ -144,6 +144,12 @@ function useNearby(lodgings: LodgingOnTrail[] | null | undefined, days: DaySecti
 function MapView({ trail, lodgings, days, position, pois, cooperative = false }: ViewProps & { cooperative?: boolean }) {
   const { locale } = useLocale();
   const t = useT().map;
+  // the map outlives a language switch: the effect reads texts through refs and relabels the markers separately
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+  const textsRef = useRef(t);
+  textsRef.current = t;
+  const relabel = useRef<((l: Locale) => void)[]>([]);
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{ map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker } | null>(null);
   const posRef = useRef(position);
@@ -172,15 +178,15 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
           cooperativeGestures: cooperative,
           // maplibre's own hints are English; both languages come from the catalog
           locale: {
-            "CooperativeGesturesHandler.WindowsHelpText": t.gestureWin,
-            "CooperativeGesturesHandler.MacHelpText": t.gestureMac,
-            "CooperativeGesturesHandler.MobileHelpText": t.gestureMobile,
+            "CooperativeGesturesHandler.WindowsHelpText": textsRef.current.gestureWin,
+            "CooperativeGesturesHandler.MacHelpText": textsRef.current.gestureMac,
+            "CooperativeGesturesHandler.MobileHelpText": textsRef.current.gestureMobile,
           },
           ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.7, 48.55], zoom: 6.5 }),
         });
         map.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
         live.current = { map, ml };
-        showPosition(live.current, posRef.current, t.yourPosition);
+        showPosition(live.current, posRef.current, textsRef.current.yourPosition);
         // Zoomed out (whole Westweg), full 🛏 markers would cover the line: show dots.
         const markDots = () => container.current?.classList.toggle("map-lodging-dots", map!.getZoom() < LODGING_FULL_ZOOM);
         map.on("zoomend", markDots);
@@ -221,31 +227,33 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
         map.on("mouseenter", "trail-boundaries", () => (map!.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", "trail-boundaries", () => (map!.getCanvas().style.cursor = ""));
 
+        relabel.current = [];
+        const loc = localeRef.current;
         for (const l of nearby) {
           const el = document.createElement("button");
           el.type = "button";
           el.className = "map-lodging";
           el.textContent = "🛏";
-          el.setAttribute("aria-label", `${lodgingName(l, locale)}, ${distance(l, locale)}`);
-          markers.push(
-            new ml.Marker({ element: el })
-              .setLngLat([l.lon, l.lat])
-              .setPopup(new ml.Popup({ offset: 14, maxWidth: "260px" }).setDOMContent(lodgingPopup(l, locale)))
-              .addTo(map),
-          );
+          el.setAttribute("aria-label", `${lodgingName(l, loc)}, ${distance(l, loc)}`);
+          const popup = new ml.Popup({ offset: 14, maxWidth: "260px" }).setDOMContent(lodgingPopup(l, loc));
+          relabel.current.push((x) => {
+            el.setAttribute("aria-label", `${lodgingName(l, x)}, ${distance(l, x)}`);
+            popup.setDOMContent(lodgingPopup(l, x));
+          });
+          markers.push(new ml.Marker({ element: el }).setLngLat([l.lon, l.lat]).setPopup(popup).addTo(map));
         }
         for (const q of poiList) {
           const el = document.createElement("button");
           el.type = "button";
           el.className = "map-poi";
           el.textContent = POI_KIND[q.kind].icon;
-          el.setAttribute("aria-label", poiLabel(q, locale));
-          markers.push(
-            new ml.Marker({ element: el })
-              .setLngLat([q.lon, q.lat])
-              .setPopup(new ml.Popup({ offset: 14, maxWidth: "240px" }).setDOMContent(poiPopup(q, locale)))
-              .addTo(map),
-          );
+          el.setAttribute("aria-label", poiLabel(q, loc));
+          const popup = new ml.Popup({ offset: 14, maxWidth: "240px" }).setDOMContent(poiPopup(q, loc));
+          relabel.current.push((x) => {
+            el.setAttribute("aria-label", poiLabel(q, x));
+            popup.setDOMContent(poiPopup(q, x));
+          });
+          markers.push(new ml.Marker({ element: el }).setLngLat([q.lon, q.lat]).setPopup(popup).addTo(map));
         }
       })
       .catch((e) => {
@@ -259,9 +267,12 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
       markers.forEach((m) => m.remove());
       map?.remove();
     };
-    // t comes from locale: a language change rebuilds the map with the new texts
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [features, nearby, poiList, cooperative, locale]);
+  }, [features, nearby, poiList, cooperative]);
+
+  // a language switch only relabels markers and popups; the map instance (viewport, open popups) stays
+  useEffect(() => {
+    for (const f of relabel.current) f(locale);
+  }, [locale]);
 
   useEffect(() => {
     if (live.current) showPosition(live.current, position, t.yourPosition);

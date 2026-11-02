@@ -1,4 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithLocale } from "../test-utils";
+import LanguageFlags from "./LanguageFlags";
 import type { TourCard } from "../lib/chat";
 import type { TrailDetail } from "../lib/data";
 
@@ -53,4 +56,13 @@ it("after a relaxed search it does not claim the tour fits", () => {
   render(<TourPreview card={card} runWithoutPace={false} labels={{}} fallback />);
   expect(screen.queryByText("Eine Tour passt")).toBeNull();
   expect(screen.getByText("Nächstbeste Tour")).toBeInTheDocument();
+});
+
+it("a language switch rewrites the sentence without fetching again", async () => {
+  renderWithLocale(<><LanguageFlags /><TourPreview card={card} runWithoutPace={false} labels={{}} /></>, "en");
+  expect(await screen.findByText(/^Round walk, 10\.0 km with 300 m ascent/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await waitFor(() => expect(screen.getByText(/^Rundweg, 10,0 km mit 300 m Aufstieg/)).toBeInTheDocument());
+  expect(h.getTrail).toHaveBeenCalledTimes(1);
+  expect(h.getPois).toHaveBeenCalledTimes(1);
 });

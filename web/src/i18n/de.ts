@@ -172,6 +172,7 @@ export const de: Messages = {
     kmToStart: (km: string) => `${km} km bis zum Start`,
     photoBy: "Foto:",
     ownPhoto: "Eigenes Foto",
+    ownLicence: "privat",
     photoPrev: "Vorheriges Bild",
     photoNext: "Nächstes Bild",
     pictures: "Bilder",
@@ -194,8 +195,6 @@ export const de: Messages = {
   plan: {
     unknown: "unbekannt",
     day: (n: number) => `Tag ${n}`,
-    dayCount: (n: number) => `${n} ${n === 1 ? "Tag" : "Tage"}`,
-    from: "ab",
     title: (trail: string, start: string | null, n: number) => `${trail}${start ? ` ab ${start}` : ""}, ${n} ${n === 1 ? "Tag" : "Tage"}`,
     section: "Mehrtagesplan",
     notes: "Hinweise",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useT } from "../i18n";
 import type { Labels, TourCard } from "../lib/chat";
 import { coverOf } from "../lib/chatState";
@@ -14,7 +14,7 @@ import MerkenButton from "./MerkenButton";
 import TrailMap from "./TrailMap";
 import { VerdictChips } from "./WishChips";
 
-type Loaded = { trail: MapTrail; lengthKm: number | null; lodgings: LodgingOnTrail[] | null; pois: TrailPoi[]; sentence: string | null } | "error" | null;
+type Loaded = { trail: MapTrail; lengthKm: number | null; lodgings: LodgingOnTrail[] | null; pois: TrailPoi[]; roundtrip: boolean; ascentM: number | null; walk: { length_km: number | null; ascent_m: number | null; descent_m: number | null } } | "error" | null;
 
 /** Exactly one tour found: the tour with description and map right on the home page, one click from its page. */
 /** `fallback`: the search had to relax a wish; then the tour is the nearest match, never „passt“. */
@@ -27,15 +27,22 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
     let live = true;
     setLoaded(null);
     (async () => {
-      const t = await getTrail(card.trail_id);
-      if (!t) return "error" as const;
+      const trailRow = await getTrail(card.trail_id);
+      if (!trailRow) return "error" as const;
       const [lodgings, pois, tags] = await Promise.all([
         getLodgings(card.trail_id).catch(() => null),
         getTrailPois(card.trail_id).catch(() => [] as TrailPoi[]),
         getTrailTags(card.trail_id).catch(() => [] as string[]),
       ]);
-      const sentence = describeTour({ roundtrip: tags.includes("feature:rundweg"), length_km: t.length_km, ascent_m: t.ascent_m, time: walkingTime(t, locale), pois }, locale);
-      return { trail: mapTrail(t), lengthKm: t.length_km, lodgings, pois, sentence };
+      return {
+        trail: mapTrail(trailRow),
+        lengthKm: trailRow.length_km,
+        lodgings,
+        pois,
+        roundtrip: tags.includes("feature:rundweg"),
+        ascentM: trailRow.ascent_m,
+        walk: { length_km: trailRow.length_km, ascent_m: trailRow.ascent_m, descent_m: trailRow.descent_m },
+      };
     })()
       .catch((e) => {
         console.error(`preview ${card.trail_id} failed:`, e);
@@ -45,7 +52,13 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
     return () => {
       live = false;
     };
-  }, [card.trail_id, locale]);
+  }, [card.trail_id]);
+
+  // the sentence follows the language without another fetch
+  const sentence = useMemo(() => {
+    if (!loaded || loaded === "error") return null;
+    return describeTour({ roundtrip: loaded.roundtrip, length_km: loaded.walk.length_km, ascent_m: loaded.ascentM, time: walkingTime(loaded.walk, locale), pois: loaded.pois }, locale);
+  }, [loaded, locale]);
 
   const photo = coverOf(card);
   const facts = [
@@ -79,7 +92,7 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
           {loaded === "error" && <p className="text-sm">{t.mapFailed}</p>}
           {loaded && loaded !== "error" && (
             <>
-              {loaded.sentence && <p className="text-base leading-relaxed">{loaded.sentence}</p>}
+              {sentence && <p className="text-base leading-relaxed">{sentence}</p>}
               <TrailMap trailId={card.trail_id} fromChat trail={loaded.trail} lodgings={loaded.lodgings} lengthKm={loaded.lengthKm} pois={loaded.pois} embedded />
             </>
           )}

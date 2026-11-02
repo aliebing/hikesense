@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useT } from "../../i18n";
-import type { Messages } from "../../i18n/en";
 import { useChat } from "../../components/ChatProvider";
 import PageFrame from "../../components/PageFrame";
 import PlanDays from "../../components/PlanDays";
@@ -15,15 +14,16 @@ import { getLodgings, getTrail, type LodgingOnTrail } from "../../lib/data";
 import { mapTrail, type MapTrail } from "../../lib/map";
 import { useSearchParams } from "next/navigation";
 
+type Failure = { error: "loadFailed" | "notFound" };
 type Loaded = { title: string; createdAt: string; data: PlanData; trail: MapTrail | null; lodgings: LodgingOnTrail[] | null; lengthKm: number | null };
 
 /** A saved multi-day plan (own rows only, RLS) with the trail loaded for the map; the map is optional. */
-async function load(id: string, t: Messages["plan"]): Promise<Loaded | { error: string }> {
+async function load(id: string): Promise<Loaded | Failure> {
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload, created_at").eq("id", id).maybeSingle();
-    if (error || !data) return { error: error ? t.loadFailed : t.notFound };
+    if (error || !data) return { error: error ? "loadFailed" : "notFound" };
     const p = normalizePlan(data.payload);
-    if (data.kind !== "multiday" || !p) return { error: t.loadFailed };
+    if (data.kind !== "multiday" || !p) return { error: "loadFailed" };
     const data2 = p;
     let trail: MapTrail | null = null;
     let lodgings: LodgingOnTrail[] | null = null;
@@ -40,7 +40,7 @@ async function load(id: string, t: Messages["plan"]): Promise<Loaded | { error: 
     }
     return { title: data.title as string, createdAt: data.created_at as string, data: data2, trail, lodgings, lengthKm };
   } catch {
-    return { error: t.loadFailed };
+    return { error: "loadFailed" };
   }
 }
 
@@ -49,17 +49,17 @@ function SavedPlan() {
   const id = useSearchParams().get("id");
   const { session, loading } = useSession();
   const signedIn = !!session;
-  const [result, setResult] = useState<Loaded | { error: string } | null>(null);
+  const [result, setResult] = useState<Loaded | Failure | null>(null);
 
   useEffect(() => {
     setResult(null); // another plan or no session: never show the previous one
     if (!signedIn || !id) return;
     let live = true;
-    void load(id, t).then((r) => live && setResult(r));
+    void load(id).then((r) => live && setResult(r));
     return () => {
       live = false;
     };
-  }, [signedIn, id, t]);
+  }, [signedIn, id]);
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
@@ -75,7 +75,7 @@ function SavedPlan() {
       )}
       {result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
-          {result.error}
+          {t[result.error]}
         </p>
       )}
       {result && "data" in result && (

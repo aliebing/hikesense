@@ -1,11 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithLocale } from "../../test-utils";
 import { ChatProvider } from "../../components/ChatProvider";
 import { initialState, saveState } from "../../lib/chatState";
 import type { TrailDetail } from "../../lib/data";
 
-const h = vi.hoisted(() => ({ id: null as string | null, session: null as null | object, getTrail: vi.fn(), getLodgings: vi.fn() }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }) }));
-vi.mock("../../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }), getBrowserSupabase: () => ({}), onSignedOut: () => () => {} }));
+const h = vi.hoisted(() => ({ row: { data: null, error: null } as { data: unknown; error: unknown }, id: null as string | null, session: null as null | object, getTrail: vi.fn(), getLodgings: vi.fn() }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }), useRouter: () => ({ refresh() {} }) }));
+vi.mock("../../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }), getBrowserSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => h.row }) }) }) }), onSignedOut: () => () => {} }));
 vi.mock("../../lib/data", async (orig) => ({ ...(await orig<typeof import("../../lib/data")>()), getTrail: h.getTrail, getLodgings: h.getLodgings }));
 vi.mock("../../components/PlanMap", () => ({ default: (p: { embedded?: boolean }) => <p data-testid="plan-map">{p.embedded ? "embedded" : "button"}</p> }));
 vi.mock("../../components/AccountMenu", () => ({ default: () => null }));
@@ -63,4 +65,26 @@ it("with id and no session: asks to sign in", () => {
   show();
   expect(screen.getByText(/Zum Ansehen deines Plans bitte/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "← Meine Pläne" })).toHaveAttribute("href", "/meine-plaene");
+});
+
+it("saved plan: a language switch keeps the loaded plan (no blank, no second load)", async () => {
+  h.id = "p1";
+  h.session = { user: {} };
+  h.row = { data: { title: "Mein Plan", kind: "multiday", payload: plan, created_at: "2026-10-28T10:00:00Z" }, error: null };
+  renderWithLocale(<PlanPage />, "en");
+  expect(await screen.findByRole("list", { name: "Days" })).toBeInTheDocument();
+  expect(h.getTrail).toHaveBeenCalledTimes(1);
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await waitFor(() => expect(screen.getByRole("list", { name: "Tage" })).toBeInTheDocument());
+  expect(h.getTrail).toHaveBeenCalledTimes(1);
+});
+
+it("saved plan error follows the language", async () => {
+  h.id = "p1";
+  h.session = { user: {} };
+  h.row = { data: null, error: null };
+  renderWithLocale(<PlanPage />, "en");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Plan not found");
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Plan nicht gefunden"));
 });

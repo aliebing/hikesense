@@ -174,6 +174,7 @@ export const en = {
     // photos
     photoBy: "Photo:",
     ownPhoto: "Own photo",
+    ownLicence: "private",
     photoPrev: "Previous picture",
     photoNext: "Next picture",
     pictures: "Pictures",
@@ -196,8 +197,6 @@ export const en = {
   plan: {
     unknown: "unknown",
     day: (n: number) => `Day ${n}`,
-    dayCount: (n: number) => `${n} ${n === 1 ? "day" : "days"}`,
-    from: "from",
     title: (trail: string, start: string | null, n: number) => `${trail}${start ? ` from ${start}` : ""}, ${n} ${n === 1 ? "day" : "days"}`,
     section: "Multi-day plan",
     notes: "Notes",

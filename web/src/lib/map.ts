@@ -6,8 +6,6 @@ import { haversineKm } from "./geo";
 /** Vector basemap of the BKG (basemap.de), colour variant. */
 export const BASEMAP_STYLE = "https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json";
 
-export const ATTRIBUTION = ["© BKG (basemap.de) CC BY 4.0", "© OpenStreetMap-Mitwirkende, ODbL"] as const;
-
 /** Map credits in the UI language. */
 export function attribution(locale: Locale = "de"): string[] {
   return ["© BKG (basemap.de) CC BY 4.0", locale === "de" ? "© OpenStreetMap-Mitwirkende, ODbL" : "© OpenStreetMap contributors, ODbL"];

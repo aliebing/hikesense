@@ -2,9 +2,6 @@ import { messagesFor, type Locale } from "../i18n/locale";
 import type { PlanStop } from "./chat";
 import { safeWebsite } from "./map";
 
-/** Shown for a number that is missing (never 0 or a guess). */
-export const UNKNOWN = "unbekannt";
-
 /** A finite number formatted, else „unbekannt“ / "unknown". */
 export function numOr(v: number | null | undefined, fmt: (n: number) => string, locale: Locale = "de"): string {
   return typeof v === "number" && Number.isFinite(v) ? fmt(v) : messagesFor(locale).plan.unknown;
