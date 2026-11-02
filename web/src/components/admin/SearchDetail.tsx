@@ -7,7 +7,7 @@ const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFr
 const PREVIEW = 300;
 const KIND: Record<string, string> = { length_km: "Länge", ascent_m: "Höhenmeter", roundtrip: "Rundweg", radius_km: "Entfernung", duration_h: "Dauer" };
 const UNIT: Record<string, string> = { length_km: "km", ascent_m: "m", radius_km: "km", duration_h: "h" };
-const STATUS: Record<string, string> = { shown: "gezeigt", fallback: "Ausweich", rejected: "verworfen" };
+const STATUS: Record<string, string> = { shown: "gezeigt", fallback: "Ausweich", near_miss: "knapp daneben", rejected: "verworfen" };
 
 const json = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v, null, 0) ?? "");
 
@@ -75,7 +75,7 @@ function Candidates({ rows }: { rows: Candidate[] }) {
       </thead>
       <tbody>
         {rows.map((c) => (
-          <tr key={c.trail_id + c.status} className={`border-b border-wald-dunkel/10 ${c.status === "rejected" ? "opacity-60" : ""}`}>
+          <tr key={c.trail_id + c.status} className={`border-b border-wald-dunkel/10 ${c.status === "rejected" ? "opacity-60" : c.status === "near_miss" ? "bg-amber-50" : ""}`}>
             <td className="py-1 pr-2 font-medium">{c.name}</td>
             {kinds.map((k) => (
               <td key={k} className="pr-2">

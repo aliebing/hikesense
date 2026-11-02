@@ -73,6 +73,8 @@ export default function TourResultCard({
   return (
     <article
       className={`flex flex-col gap-1 rounded-xl p-3 text-sm text-wald-dunkel ${
+        card.near_miss ? "ring-2 ring-amber-400 " : ""
+      }${
         from ? "relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-amber-400" : "bg-papier/95"
       }`}
     >
@@ -87,6 +89,12 @@ export default function TourResultCard({
           <img src={photo.thumb_url} alt="" loading="lazy" className={`${large ? "h-48" : "h-24"} w-full rounded-lg object-cover`} />
           {/* above the card-wide link so its licence links stay clickable */}
           <Attribution photo={photo} className="relative z-10 text-wald-dunkel/70" />
+        </div>
+      )}
+      {card.near_miss && (
+        <div className="flex flex-col gap-0.5">
+          <span className="w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-400">Knapp daneben</span>
+          {card.deviation_text && <p className="text-xs text-amber-900">{card.deviation_text} – sonst passt alles</p>}
         </div>
       )}
       <h4 className={`font-serif leading-snug ${large ? "text-xl" : "text-base"}`}>

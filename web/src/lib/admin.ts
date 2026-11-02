@@ -42,7 +42,7 @@ export type CandidateResult = { kind: string; ok: boolean | null; actual: number
 export type Candidate = {
   trail_id: string;
   name: string;
-  status: "shown" | "fallback" | "rejected";
+  status: "shown" | "fallback" | "near_miss" | "rejected";
   note: string | null;
   score: number;
   met: string[];

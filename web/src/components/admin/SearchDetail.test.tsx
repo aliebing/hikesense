@@ -17,6 +17,7 @@ const full: Detail = {
   candidates: [
     { trail_id: "a", name: "Feldberg-Steig", status: "shown", note: null, score: 0.92, met: ["einkehr"], missing: [], avoided: [], results: [{ kind: "length_km", ok: true, actual: 12.4 }, { kind: "roundtrip", ok: true, actual: true }] },
     { trail_id: "b", name: "Seebuck-Tour", status: "fallback", note: "etwas zu lang", score: 0.5, met: [], missing: ["einkehr"], avoided: [], results: [{ kind: "length_km", ok: null, actual: null }, { kind: "roundtrip", ok: true, actual: true }] },
+    { trail_id: "n", name: "Jägersteig", status: "near_miss", note: "11,6 km statt höchstens 11,5 km", score: 0.3, met: [], missing: [], avoided: [], results: [{ kind: "length_km", ok: false, actual: 11.6 }, { kind: "roundtrip", ok: true, actual: true }] },
     { trail_id: "c", name: "Westweg Etappe 8", status: "rejected", note: "22,3 km", score: 0.1, met: [], missing: [], avoided: ["bus"], results: [{ kind: "length_km", ok: false, actual: 22.3 }, { kind: "roundtrip", ok: false, actual: false }] },
   ],
   llm_calls: [
@@ -41,6 +42,8 @@ it("shows all blocks of a full row", () => {
   expect(screen.getByText("gezeigt")).toBeInTheDocument();
   expect(screen.getByText("Ausweich")).toBeInTheDocument();
   expect(screen.getByText("verworfen")).toBeInTheDocument();
+  expect(screen.getByText("knapp daneben")).toBeInTheDocument();
+  expect(screen.getByText("Jägersteig").closest("tr")).toHaveClass("bg-amber-50");
   expect(screen.getByText("Westweg Etappe 8").closest("tr")).toHaveClass("opacity-60");
   expect(screen.getByText("Tool-Aufrufe (1)")).toBeInTheDocument();
   expect(screen.getByText("gekürzt")).toBeInTheDocument();
