@@ -546,6 +546,18 @@ def admin_user_cmd() -> int:
     return 0
 
 
+def prune_photos_cmd() -> int:
+    from hikeall.ingest.photos import prune_rejected_photos
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    with connect(settings.supabase_db_url) as conn:
+        n = prune_rejected_photos(conn)
+    print(f"{n} unpassende Fotos entfernt")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hikeall")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -571,6 +583,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model", help="Modell statt HIKEALL_MODEL (OpenRouter-Slug)")
     p.add_argument("--temperature", type=float, help="Temperatur für alle Aufrufe (Standard: fest)")
     sub.add_parser("smoke-user", help="Testkonto smoke@hikeall.local in der lokalen Supabase-Auth")
+    sub.add_parser("prune-photos", help="Unpassende Commons-Fotos (Bankkarte, ISS, Bahnhof, …) aus der DB entfernen")
     sub.add_parser("admin-user", help="Admin admin@hikeall.local mit Hash aus HIKEALL_ADMIN_PASSWORD_HASH")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
@@ -602,6 +615,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "smoke-user":
         return smoke_user_cmd()
+    if args.command == "prune-photos":
+        return prune_photos_cmd()
     if args.command == "admin-user":
         return admin_user_cmd()
     if args.command == "build-tags":

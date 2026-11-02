@@ -12,6 +12,7 @@ import time
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date
+from urllib.parse import unquote
 
 import psycopg
 
@@ -36,7 +37,11 @@ _REJECT = re.compile(
     r"wegweiser|guidepost|wegtafel|stolperstein|gedenk|memorial|grab\b|grabstein|friedhof|"
     r"\bdop\b|luftbild|aerial|orthophoto|karte|\bmap\b|stadtplan|\bplan\b|logo|wappen|"
     r"innen|interior|orgel|altar|fenster|schild|tafel|haltestelle|parkplatz|rathaus|"
-    r"stra(ß|ss)e|hausnummer|postkarte|urkunde",
+    r"stra(ß|ss)e|hausnummer|postkarte|urkunde|"
+    # off topic for hiking: space, street-view series, trains, power lines, cards, documents, …
+    r"\biss\d|view_of_earth|mapillary|streetview|bahnhof|vossloh|lokomotive|locomotive|"
+    r"freileitung|strommast|unfall|klinik|gemeindeblatt|geblitzt|maestro|\bn26\b|kreditkarte|"
+    r"bankkarte|girocard",
     re.IGNORECASE,
 )
 _LANDSCAPE = re.compile(
@@ -52,6 +57,19 @@ def title_score(title: str) -> int | None:
     if _REJECT.search(title):
         return None
     return len(_LANDSCAPE.findall(title))
+
+
+def prune_rejected_photos(conn: psycopg.Connection) -> int:
+    """Removes stored Commons photos whose file title the filter now rejects; returns how many.
+    Own uploads are never touched. Commits."""
+    rows = conn.execute(
+        "select id, page_url from photos where source = %s and page_url is not null", [COMMONS_SOURCE_ID]
+    ).fetchall()
+    ids = [i for i, url in rows if title_score(unquote(url.split("File:")[-1]).replace(" ", "_")) is None]
+    if ids:
+        conn.execute("delete from photos where id = any(%s)", [ids])
+    conn.commit()
+    return len(ids)
 
 
 @dataclass(frozen=True)

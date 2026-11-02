@@ -1,3 +1,5 @@
+from datetime import date
+
 import httpx
 import pytest
 import respx
@@ -11,8 +13,10 @@ from hikeall.ingest.photos import (
     Target,
     fetch_photos,
     import_photos,
+    prune_rejected_photos,
     sample_points,
     select_photos,
+    title_score,
 )
 from hikeall.models import Source
 
@@ -240,3 +244,44 @@ def test_photo_summary_counts_every_long_distance_trail():
     lines = photo_summary(counts, long_distance={"westweg-west", "mittelweg"})
     assert lines[:2] == ["mittelweg: 3 Bilder", "westweg-west: 5 Bilder"]
     assert lines[2] == "10 Bilder, 2 Fernwege, 1 Tagestouren (2 Bilder an Tagestouren)"
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "N26_Maestro.jpg",
+        "ISS060-E-53009_-_View_of_Earth.jpg",
+        "Mapillary_(ZXStreetview)_2026-06-13_14H04M05S000_(1045174978082270_at_x).jpg",
+        "Vossloh_DE18_(5502258_B_W).jpg",
+        "Hausach-Bahnhof-06-2025-gje.jpg",
+        "Freileitung_Offenburg_-_Villingen_Einebenenmast.jpg",
+        "Deutsch_1855a_Unfallwagen1_JM.JPG",
+        "Klinikum_Freudenstadt20102018.png",
+        "Gemeindeblatt_des_ehemaligen_Kirchspiels.jpg",
+        "Wer_wird_denn_da_geblitzt_-_panoramio.jpg",
+    ],
+)
+def test_off_topic_photos_are_rejected(title):
+    assert title_score(title) is None
+
+
+def test_hiking_photos_still_pass():
+    for title in ["Blick_ins_Renchtal.JPG", "Schönwald_im_Schwarzwald_Blindensee_02.jpg", "Kapfhäusle_(1).jpg"]:
+        assert title_score(title) is not None
+
+
+@pytest.mark.db
+def test_prune_removes_stored_off_topic_photos(conn, monkeypatch):
+    monkeypatch.setattr(conn, "commit", lambda: None)  # the fixture rolls back; never commit test rows
+    _trail(conn)
+    upsert_source(conn, Source(id="commons", name="Wikimedia Commons", url="https://commons.wikimedia.org/", license="per image", retrieved_at=date(2026, 11, 2)))
+    for name in ["N26_Maestro.jpg", "Blick_ins_Tal.jpg"]:
+        conn.execute(
+            "insert into photos (trail_id, url, thumb_url, page_url, author, license, source)"
+            " values (%s, %s, %s, %s, 'A', 'CC BY 4.0', 'commons')",
+            [TRAIL, f"https://u/{name}", f"https://u/t/{name}", f"https://commons.wikimedia.org/wiki/File:{name}"],
+        )
+    assert prune_rejected_photos(conn) == 1
+    assert [r[0] for r in conn.execute("select page_url from photos where trail_id = %s", [TRAIL])] == [
+        "https://commons.wikimedia.org/wiki/File:Blick_ins_Tal.jpg"
+    ]
