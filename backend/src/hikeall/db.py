@@ -50,16 +50,17 @@ def upsert_trail(
     source_id: str,
     surface_shares: dict | None = None,
     way_type_shares: dict | None = None,
+    region: str = "black_forest",
 ) -> None:
-    """Upsert a trail. Shares left at None keep whatever is stored."""
+    """Upsert a trail (region defaults to the Black Forest for fixtures; importers pass it). Shares left at None keep whatever is stored."""
     conn.execute(
         """
         insert into trails (id, name, kind, roundtrip, osm_relation_id, length_km, ascent_m,
-                            descent_m, profile, geom, source_id, surface_shares, way_type_shares)
+                            descent_m, profile, geom, source_id, surface_shares, way_type_shares, region)
         values (%(id)s, %(name)s, %(kind)s, %(roundtrip)s, %(rel)s, %(len)s, %(asc)s, %(desc)s,
-                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s, %(surf)s, %(wayt)s)
+                %(profile)s, st_geomfromtext(%(wkt)s, 4326), %(src)s, %(surf)s, %(wayt)s, %(region)s)
         on conflict (id) do update set
-            name = excluded.name, kind = excluded.kind, roundtrip = excluded.roundtrip,
+            name = excluded.name, kind = excluded.kind, region = excluded.region, roundtrip = excluded.roundtrip,
             osm_relation_id = excluded.osm_relation_id, length_km = excluded.length_km,
             ascent_m = excluded.ascent_m, descent_m = excluded.descent_m,
             profile = excluded.profile, geom = excluded.geom, source_id = excluded.source_id,
@@ -80,6 +81,7 @@ def upsert_trail(
             "profile": Jsonb(profile),
             "wkt": _wkt(line),
             "src": source_id,
+            "region": region,
         },
     )
 

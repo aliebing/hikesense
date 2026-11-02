@@ -21,7 +21,7 @@ def test_schema_has_tables_and_postgis(conn):
 @pytest.mark.db
 def test_anon_sees_trail_and_only_public_photos(conn):
     conn.execute("insert into sources (id) values ('rls')")
-    conn.execute("insert into trails (id, source_id) values ('rls-t', 'rls')")
+    conn.execute("insert into trails (id, source_id, region) values ('rls-t', 'rls', 'black_forest')")
     for src in ("commons", "upload"):
         conn.execute(
             "insert into photos (trail_id, source, url, author, license)"

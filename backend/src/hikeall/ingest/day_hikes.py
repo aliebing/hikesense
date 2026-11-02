@@ -125,7 +125,7 @@ def candidate_from_relation(data: dict[str, Any], rel: dict[str, Any]) -> Candid
         try:
             check_in_region(line, f"relation {rid}")
         except OutsideRegionError:
-            decision = ("rejected", "verlässt die Schwarzwald-Box")
+            decision = ("rejected", "liegt in keiner Region vollständig")
     return Candidate(rid, name, km, is_roundtrip(tags, line), *decision)
 
 
@@ -320,7 +320,7 @@ def import_day_hike(
         raise ValueError(f"relation {rid} not in Overpass response (deleted in OSM?)")
     tags = rel.get("tags") or {}
     line, warnings = relation_line(data, rid, context=f"relation {rid}", oriented=True)
-    check_in_region(line, f"relation {rid}")
+    region = check_in_region(line, f"relation {rid}")
     name = tags.get("name") or cand.name
     if not name:
         raise ValueError(f"relation {rid} has no name")
@@ -333,6 +333,7 @@ def import_day_hike(
         id=trail_id(rid),
         name=name,
         kind="day_hike",
+        region=region.id,
         roundtrip=roundtrip,
         osm_relation_id=rid,
         length_km=length_km,

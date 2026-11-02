@@ -202,7 +202,7 @@ def test_scan_rejects_relation_leaving_the_bbox():
         respx.post(OVERPASS_URL).side_effect = _overpass_mock([far])
         with make_http_client(5) as http:
             [c] = scan(OverpassClient(http, backoff_s=0), AREA, pause_s=0).candidates
-    assert c.auto_decision == "rejected" and "Schwarzwald" in c.auto_reason
+    assert c.auto_decision == "rejected" and "keiner Region" in c.auto_reason
 
 
 def test_scan_fails_cleanly_when_overpass_fails():

@@ -48,7 +48,7 @@ class StageOrderError(HikeAllError):
 
 
 class OutsideRegionError(HikeAllError):
-    """Imported geometry leaves the Black Forest import bounding box."""
+    """Imported geometry lies in no import region as a whole."""
 
 
 class KnowledgeError(HikeAllError):

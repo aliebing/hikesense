@@ -32,7 +32,7 @@ class BBox(BaseModel):
         return self.south <= point.lat <= self.north and self.west <= point.lon <= self.east
 
 
-# Global import area (Black Forest only).
+# Box of the Black Forest region (see hikeall.regions for all regions).
 BLACK_FOREST_BBOX = BBox(south=47.55, west=7.55, north=48.95, east=8.80)
 
 

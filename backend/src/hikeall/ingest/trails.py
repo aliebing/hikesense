@@ -13,7 +13,8 @@ from hikeall.geo import Point, haversine_km, path_length_km
 from hikeall.ingest.assemble import assemble_with_report, orient_by_members
 from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
 from hikeall.ingest.stages import cut_stages
-from hikeall.models import BLACK_FOREST_BBOX, LatLon, TrailSpec
+from hikeall.models import TrailSpec
+from hikeall.regions import Region, region_of_line
 
 # Member roles that carry the walked route. Everything else is skipped: side trips
 # (alternative/excursion/approach/connection/link) and POI outlines that some stage relations
@@ -135,13 +136,14 @@ def relation_line(
     return line, warnings
 
 
-def check_in_region(line: list[Point], context: str) -> None:
-    """Raise OutsideRegionError if any point leaves the Black Forest import bbox."""
-    outside = [p for p in line if not BLACK_FOREST_BBOX.contains(LatLon(lat=p[0], lon=p[1]))]
-    if outside:
+def check_in_region(line: list[Point], context: str) -> Region:
+    """Return the region whose box contains the whole line, else raise OutsideRegionError."""
+    region = region_of_line(line)
+    if region is None:
         raise OutsideRegionError(
-            f"{context}: {len(outside)} points outside the Black Forest bbox, e.g. {outside[0]}"
+            f"{context}: Linie liegt in keiner Region vollständig (z. B. Punkt {line[0]})"
         )
+    return region
 
 
 def import_trail(
@@ -157,6 +159,7 @@ def import_trail(
     surface, way_type = trail_shares(
         data, spec.relation_ids, fetch_way_tags(overpass, spec.relation_ids)
     )
+    region = check_in_region(line, spec.id)
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
@@ -169,6 +172,7 @@ def import_trail(
         id=spec.id,
         name=spec.name,
         kind=spec.kind,
+        region=region.id,
         roundtrip=haversine_km(line[0], line[-1]) < ROUNDTRIP_KM,
         # one relation id only when the trail is exactly one relation; otherwise see trails.yaml
         osm_relation_id=spec.relation_ids[0] if len(spec.relation_ids) == 1 else None,
