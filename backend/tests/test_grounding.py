@@ -513,3 +513,41 @@ def test_en_unsat_subject_needs_a_tour_noun():
     assert strip_unsat_claims("No doubt the Seeweg meets all your wishes.", "en")[1] == 0
     assert strip_unsat_claims("No matching tour meets all your wishes.", "en")[1] == 1
     assert strip_unsat_claims("None of the three tours meets all your wishes.", "en")[1] == 1
+
+
+# --- final fix wave: dotted am/pm, number words above twelve, bare "m" as length -----------
+
+
+def test_en_dotted_pm_is_read_as_clock_time():
+    assert en("Back at 1:25 p.m.", ["13:25 Uhr"]).unsupported == []
+    assert en("Back at 1:25 p.m.", []).unsupported == ["1:25 p.m."]
+    assert en("Start at 3 p.m. sharp.", []).unsupported != []
+    assert en("Start at 9 a.m.", ["9:00 Uhr"]).unsupported == []
+
+
+@pytest.mark.parametrize(
+    "text,ev_text",
+    [
+        ("about twenty minutes", "20 min"),
+        ("fifteen km", "15 km"),
+        ("thirteen km", "13 km"),
+        ("twenty-five minutes", "25 min"),
+        ("thirty minutes", "30 min"),
+        ("sixty minutes", "60 min"),
+    ],
+)
+def test_en_number_words_above_twelve(text, ev_text):
+    assert en(text, []).unsupported != []
+    assert en(text, [ev_text]).unsupported == []
+
+
+def test_en_number_word_compound_value_must_match():
+    assert en("twenty-five minutes", ["20 min"]).unsupported != []
+
+
+def test_en_bare_m_before_length_words_is_not_ascent():
+    assert en("The hut is 540 m long.", ["540 Hm"]).unsupported != []
+    assert en("The hut is 540 m away.", ["540 Hm"]).unsupported != []
+    assert en("The hut is 540 m long.", ["540 m"]).unsupported == []
+    assert en("an ascent of 540 m", ["540 Hm"]).unsupported == []
+    assert en("540 m", ["540 Hm"]).unsupported == []

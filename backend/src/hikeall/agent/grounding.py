@@ -51,10 +51,17 @@ _NUMBER_WITH_UNIT = re.compile(
 # words, "to"/"and" ranges, bare clock times ("09:30", "9:30 am").
 _WORDS_EN = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+    "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
 }  # fmt: skip
 _HALVES_EN = {"half": "0.5", "half an": "0.5", "half a": "0.5"}
-_WORD_ALT_EN = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
+_UNITS_WORD_EN = r"one|two|three|four|five|six|seven|eight|nine"
+_TENS_WORD_EN = r"twenty|thirty|forty|fifty|sixty"
+# longest first; "twenty-five" / "twenty five" compounds
+_WORD_ALT_EN = rf"(?:{_TENS_WORD_EN})(?:[-\s](?:{_UNITS_WORD_EN}))?"
+_WORD_ALT_EN += r"|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen"
+_WORD_ALT_EN += rf"|ten|eleven|twelve|{_UNITS_WORD_EN}"
 _NUM_WORD_EN = rf"half\san?|half|{_WORD_ALT_EN}|an?"  # "a km", "an hour": one
 # "2 and a half", "two and a half"; "1,5" (German decimal comma in an English answer) is read as
 # 1.5 so it is checked, not skipped
@@ -74,12 +81,12 @@ _NUMBER_WITH_UNIT_EN = re.compile(
     # "2:54 h": one duration
     rf"|{_START}(?P<kh>\d+):(?P<km>\d{{2}})\s?{_HOURS_EN}{_END}"
     # "09:30", "9:30 am", "4 pm": one clock time (not a pace: "5:30 min/km")
-    rf"|{_START}(?P<uh>\d{{1,2}})(?::(?P<um>\d{{2}}))?(?(um)|(?=\s?[ap]m\b))"
-    rf"(?:\s?(?P<ap>[ap]m)\b)?(?![\w:/]|\s?(?:h\b|min|hr|hour|/))"
+    rf"|{_START}(?P<uh>\d{{1,2}})(?::(?P<um>\d{{2}}))?(?(um)|(?=\s?[ap]\.?m\.?(?!\w)))"
+    rf"(?:\s?(?P<ap>[ap]\.?m\.?)(?!\w))?(?![\w:/]|\s?(?:h\b|min|hr|hour|/))"
     # "9 o'clock", "nine o'clock"
     rf"|{_START}(?P<oh>\d{{1,2}}|{_WORD_ALT_EN})\s?o'?clock\b"
     # "10 to 15 km", "10–15 km", "between 10 and 15 km": both numbers carry the unit
-    rf"|{_START}(?:(?P<lo>{_NUM_EN})\s?(?:–|—|-|to\s|and\s)\s?)?"
+    rf"|{_START}(?:(?P<lo>{_NUM_EN})\s?(?:–|—|(?<!ty)-|to\s|and\s)\s?)?"
     rf"(?P<num>{_NUM_EN}){_SEP}(?P<unit>{_UNIT_EN}){_END}",
     re.IGNORECASE,
 )
@@ -88,6 +95,7 @@ _ASCENT_BEFORE = re.compile(
     r"(?:ascent|descent|climb\w*|elevation(?:\s+gain)?|uphill|downhill)[^\d.!?;]{0,25}$",
     re.IGNORECASE,
 )
+_LENGTH_AFTER = re.compile(r"\s?(?:long|away|off|from|(?:of\s+)?distance)\b", re.IGNORECASE)
 _ASCENT_AFTER = re.compile(
     r"\s?(?:of\s+)?(?:total\s+)?(?:ascent|descent|climb\w*|elevation|uphill|downhill)\b",
     re.IGNORECASE,
@@ -207,6 +215,9 @@ def _value(raw: str, lang: Lang = "de") -> tuple[Decimal, int]:
             return Decimal(_HALVES_EN[word]), 1
         if word in _WORDS_EN:
             return Decimal(_WORDS_EN[word]), 0
+        m = re.fullmatch(r"(\w+)[-\s](\w+)", word)
+        if m and m.group(1) in _WORDS_EN and m.group(2) in _WORDS_EN:  # "twenty-five"
+            return Decimal(_WORDS_EN[m.group(1)] + _WORDS_EN[m.group(2)]), 0
         if word in ("a", "an"):
             return Decimal(1), 0
         if m := re.fullmatch(r"(\S+) and a half", word):
@@ -238,6 +249,8 @@ def _unit_of(text: str, m: re.Match[str], lang: Lang) -> tuple[str, Decimal]:
         before = text[max(0, m.start("num") - 40) : m.start("num")]
         if _ASCENT_BEFORE.search(before) or _ASCENT_AFTER.match(text, m.end()):
             return "ascent", factor
+        if _LENGTH_AFTER.match(text, m.end()):  # "540 m long": a length, never an ascent
+            return "length", factor
     return dim, factor
 
 
@@ -247,7 +260,7 @@ def _found(text: str, lang: Lang = "de") -> list[_Found]:
     for m in pattern.finditer(text):
         if lang == "en" and m.group("oh") is not None:  # "9 o'clock"
             word = m.group("oh").lower()
-            hour = int(word) if word.isdigit() else _WORDS_EN[word]
+            hour = int(word) if word.isdigit() else int(_value(word, lang)[0])
             number = _Number(Decimal(hour) * 60, 0, "clock", Decimal(1))
             out.append(_Found(number, (m.span("oh"),), m.group(0)))
             continue
@@ -255,7 +268,7 @@ def _found(text: str, lang: Lang = "de") -> list[_Found]:
             hour = int(m.group("uh"))
             if lang == "en":
                 ap = (m.group("ap") or "").lower()
-                hour = hour % 12 + (12 if ap == "pm" else 0) if ap else hour
+                hour = hour % 12 + (12 if ap.startswith("p") else 0) if ap else hour
             total = Decimal(hour) * 60 + Decimal(m.group("um") or 0)
             number = _Number(total, 0, "clock", Decimal(1))
             spans = (m.span("uh"), m.span("um")) if m.group("um") else (m.span("uh"),)
