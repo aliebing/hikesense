@@ -93,7 +93,8 @@ def _trail(conn, tid, **kw):
         conn,
         id=tid,
         name=tid,
-        kind="day_hike", region="black_forest",
+        kind="day_hike",
+        region="black_forest",
         roundtrip=kw.get("roundtrip"),
         osm_relation_id=None,
         length_km=7.0,
@@ -242,4 +243,26 @@ def test_search_exact_match_ranks_first(vocab):
 
 def test_trail_tags_cover_all_long_distance_trails(vocab):
     ids = {t.rule.trail_id for t in vocab.all() if t.category == "trail"}
-    assert ids == {"westweg-west", "westweg-ost", "mittelweg", "ostweg"}
+    assert ids == {
+        "westweg-west",
+        "westweg-ost",
+        "mittelweg",
+        "ostweg",
+        "pfaelzer-weinsteig",
+        "pfaelzer-waldpfad",
+        "jubilaeumsweg-bodenseekreis",
+        "seegang",
+    }
+
+
+@pytest.mark.parametrize(
+    "query,tag",
+    [
+        ("Weinsteig", "trail:pfaelzer-weinsteig"),
+        ("Waldpfad", "trail:pfaelzer-waldpfad"),
+        ("Jubiläumsweg", "trail:jubilaeumsweg-bodenseekreis"),
+        ("Premiumweg SeeGang", "trail:seegang"),
+    ],
+)
+def test_new_trail_tags_resolve_by_synonym(vocab, query, tag):
+    assert vocab.search(query)[0].id == tag

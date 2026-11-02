@@ -1037,10 +1037,19 @@ def test_pforzheim_without_trail_asks_which_trail(vocab):
     assert {"Mittelweg", "Ostweg", "Westweg"} <= set(res.options)
 
 
-def test_unknown_trail_lists_all_four(vocab):
+def test_unknown_trail_lists_all_trails(vocab):
     res = multi(vocab, "3 Tage Kandelhöhenweg", trail_text="Kandelhöhenweg", days=3)
     assert isinstance(res, Clarify)
-    assert set(res.options) == {"Westweg", "Westweg Ostvariante", "Mittelweg", "Ostweg"}
+    assert set(res.options) == {
+        "Westweg",
+        "Westweg Ostvariante",
+        "Mittelweg",
+        "Ostweg",
+        "Pfälzer Weinsteig",
+        "Pfälzer Waldpfad",
+        "Jubiläumsweg Bodenseekreis",
+        "Premiumweg SeeGang",
+    }
 
 
 @pytest.mark.parametrize(

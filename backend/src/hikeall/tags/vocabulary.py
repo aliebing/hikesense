@@ -203,6 +203,30 @@ TRAILS = (
     ),
     ("trail:mittelweg", "Mittelweg", [], "mittelweg"),
     ("trail:ostweg", "Ostweg", [], "ostweg"),
+    (
+        "trail:pfaelzer-weinsteig",
+        "Pfälzer Weinsteig",
+        ["Weinsteig"],
+        "pfaelzer-weinsteig",
+    ),
+    (
+        "trail:pfaelzer-waldpfad",
+        "Pfälzer Waldpfad",
+        ["Waldpfad"],
+        "pfaelzer-waldpfad",
+    ),
+    (
+        "trail:jubilaeumsweg-bodenseekreis",
+        "Jubiläumsweg Bodenseekreis",
+        ["Jubiläumsweg", "Bodensee Jubiläumsweg"],
+        "jubilaeumsweg-bodenseekreis",
+    ),
+    (
+        "trail:seegang",
+        "Premiumweg SeeGang",
+        ["SeeGang", "Premiumweg Seegang"],
+        "seegang",
+    ),
 )
 
 

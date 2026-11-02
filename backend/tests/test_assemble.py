@@ -82,3 +82,17 @@ def test_gap_followed_by_parallel_return_leg_still_raises():
     with pytest.raises(GapError) as e:
         assemble([out, back])
     assert e.value.gap_m > 300
+
+
+def test_graph_fallback_walks_t_junction_and_drops_spur_and_longer_variant():
+    # b touches a only in a's interior vertex (no shared end vertex); c is a dead-end spur;
+    # d/e are a longer parallel variant of the stretch x-y. Greedy chaining gets stuck.
+    a = [(48.0, 8.00), (48.0, 8.01), (48.0, 8.02)]
+    c = [(48.0, 8.01), (48.0008, 8.01)]  # spur off a's interior vertex
+    b = [(48.0, 8.02), (48.0, 8.03), (48.0, 8.04), (48.0, 8.05)]
+    d = [(48.0, 8.03), (48.004, 8.035), (48.0, 8.04)]  # longer detour between b's vertices
+    res = assemble_with_report([a, c, b, d])
+    assert res.line[0] in {(48.0, 8.00), (48.0, 8.05)}
+    assert {(48.0, 8.00), (48.0, 8.05)} == {res.line[0], res.line[-1]}
+    assert len(res.line) == 6
+    assert res.dropped_count == 2 and res.dropped_m > 0

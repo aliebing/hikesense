@@ -38,7 +38,12 @@ def test_check_in_region():
 @pytest.mark.db
 def test_trails_region_column(conn):
     rows = conn.execute("select distinct region from trails").fetchall()
-    assert all(r[0] == "black_forest" for r in rows)
+    assert {r[0] for r in rows} <= {"black_forest", "palatinate", "lake_constance"}
+    old = conn.execute(
+        "select distinct region from trails where id in "
+        "('westweg-west', 'westweg-ost', 'mittelweg', 'ostweg')"
+    ).fetchall()
+    assert old == [("black_forest",)]
     conn.rollback()
     with pytest.raises(psycopg.errors.CheckViolation):
         conn.execute("update trails set region = 'mars' where id = (select id from trails limit 1)")

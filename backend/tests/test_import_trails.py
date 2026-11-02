@@ -248,3 +248,35 @@ def test_curated_trail_chains_its_stages(tid, start, end):
     for a, b in zip(spec.stages, spec.stages[1:], strict=False):
         assert (a.end_name, a.end) == (b.start_name, b.start) and b.seq == a.seq + 1
     assert all(s.official_km for s in spec.stages)
+
+
+@pytest.mark.parametrize(
+    "tid,stages,first,last",
+    [
+        ("pfaelzer-weinsteig", 11, "Bockenheim", "Schweigen-Rechtenbach"),
+        ("pfaelzer-waldpfad", 8, "Schopp", "Schweigen-Rechtenbach"),
+        ("jubilaeumsweg-bodenseekreis", 6, "Kressbronn", "Überlingen"),
+        ("seegang", 4, "Konstanz", "Überlingen"),
+    ],
+)
+def test_curated_stage1_trails_have_official_km(tid, stages, first, last):
+    from hikeall.cli import TRAILS_YAML
+    from hikeall.ingest.stages import load_trail_specs
+
+    spec = {t.id: t for t in load_trail_specs(TRAILS_YAML)}[tid]
+    assert len(spec.stages) == stages
+    assert spec.stages[0].start_name == first and spec.stages[-1].end_name == last
+    for a, b in zip(spec.stages, spec.stages[1:], strict=False):
+        assert (a.end_name, a.end) == (b.start_name, b.start) and b.seq == a.seq + 1
+    assert all(s.official_km for s in spec.stages)
+
+
+def test_trim_to_stages_drops_line_before_first_and_after_last_stage():
+    from hikeall.ingest.stages import trim_to_stages
+
+    line = [(48.0 + i * 0.01, 8.0) for i in range(10)]
+    specs = [
+        StageSpec(seq=1, start_name="A", end_name="B", start=line[3], end=line[5]),
+        StageSpec(seq=2, start_name="B", end_name="C", start=line[5], end=line[7]),
+    ]
+    assert trim_to_stages(line, specs) == line[3:8]

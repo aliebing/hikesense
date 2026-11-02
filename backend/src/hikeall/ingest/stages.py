@@ -66,20 +66,37 @@ def _locate_forward(
     raise StageOffsetError(seq, name, dist)
 
 
-def cut_stages(
+def cut_indices(
     line: list[Point], specs: list[StageSpec], max_offset_m: float = 500
-) -> list[list[Point]]:
-    """Split `line` at the vertices nearest to each stage's start and end point.
-
-    Stages must follow the line in order: each search runs forward from the previous cut.
-    """
-    parts: list[list[Point]] = []
+) -> list[tuple[int, int]]:
+    """Vertex index pair (start, end) per stage: the vertices nearest to each stage's start
+    and end point. Stages must follow the line in order: each search runs forward from the
+    previous cut."""
+    cuts: list[tuple[int, int]] = []
     prev_end = 0
     for spec in specs:
         i0 = _locate_forward(line, spec.start, prev_end, spec.seq, spec.start_name, max_offset_m)
         i1 = _locate_forward(line, spec.end, i0, spec.seq, spec.end_name, max_offset_m)
         if i1 == i0:
             raise StageOrderError(spec.seq, spec.end_name, "ends where the stage starts")
-        parts.append(list(line[i0 : i1 + 1]))
+        cuts.append((i0, i1))
         prev_end = i1
-    return parts
+    return cuts
+
+
+def cut_stages(
+    line: list[Point], specs: list[StageSpec], max_offset_m: float = 500
+) -> list[list[Point]]:
+    """Split `line` at the vertices nearest to each stage's start and end point."""
+    return [list(line[i0 : i1 + 1]) for i0, i1 in cut_indices(line, specs, max_offset_m)]
+
+
+def trim_to_stages(
+    line: list[Point], specs: list[StageSpec], max_offset_m: float = 500
+) -> list[Point]:
+    """The part of `line` between the first stage's start and the last stage's end.
+
+    Some OSM relations run beyond the official trail (e.g. the Pfälzer Waldpfad starts in
+    Kaiserslautern, ~14 km before Schopp); the trail length is the sum of its stages."""
+    cuts = cut_indices(line, specs, max_offset_m)
+    return list(line[cuts[0][0] : cuts[-1][1] + 1])

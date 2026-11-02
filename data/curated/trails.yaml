@@ -36,6 +36,30 @@
 # only 2.7 % off (66.2 vs 68 km).
 # Every Ostweg stage has lodgings within 1 km (import 2026-10-31; stage 9 only 5). Swiss side of
 # stage 12 has none (BW-only lodging data).
+# Stage 3 (2026-11-02), Palatinate and Lake Constance. Stage places: town centres from OSM Nominatim
+# (1 request/s); where the centre is > 500 m off the OSM line the nearest line vertex is used
+# instead: Bockenheim (line start; centre 950 m off), Schopp (Nominatim only gives the municipality
+# centroid, 2.3 km off), Heltersberg, Hauenstein, Konstanz (SeeGang start), Sipplingen and
+# Überlingen (Jubiläumsweg end; centre 1.1 km off).
+# Pfälzer Weinsteig: osm_relation_ids are the 11 stage relations in walking order (member order of
+# superroute 15761992); the Zuweg relations are not curated. Official total on the source page is
+# 172 km but its 11 stage lengths sum to 184 km (OSM 178.8 km); the per-stage km are used.
+# Weinsteig km deviations > 5 % (OSM line vs official, import 2026-11-02) are kept, not hidden:
+#   stage 7 Burrweiler - Dernbach 13.9 vs 17.2: relation 3286359 contains a ~3.2 km loop near
+#   Burrweiler that cannot be chained into the line; the assembler drops it (reported as warning),
+#   stage 11 Bad Bergzabern - Schweigen-Rechtenbach 15.0 vs 16.
+# Pfälzer Waldpfad: OSM relation 1650025 starts in Kaiserslautern, ~14 km before Schopp; the line is
+# cut at Schopp (first stage start) and at Schweigen-Rechtenbach (trails length = sum of stages).
+# The OSM line has T-junctions without shared vertices and parallel variants; the assembler falls
+# back to the shortest path (9 small pieces, 355 m, dropped). Official total 129.1 km, stage sum 130.2.
+# Waldpfad km deviation > 5 %: stage 1 Schopp - Johanniskreuz 12.5 vs 15.3 (the OSM line does not
+# pass the official start section; Schopp is the nearest vertex of the line).
+# Jubiläumsweg Bodenseekreis: km are "ca." values (official total 111 km, stage sum 120 km, OSM
+# 115 km). Deviations > 5 % (import 2026-11-02): stage 1 17.5 vs 20, stage 3 21.9 vs 20,
+# stage 4 20.3 vs 22, stage 5 18.9 vs 20, stage 6 18.7 vs 20; total 115 km vs 120 km.
+# SeeGang: stage km come from wildganz.com and are NOT officially confirmed (only the end points
+# are confirmed by seen.de). Deviations > 5 %: stage 2 Wallhausen - Bodman 16.8 vs 18.9,
+# stage 3 Bodman - Sipplingen 7.8 vs 7.4; total 52.9 km (OSM) vs 55.6 km (sum of stage km).
 sources:
   - id: stages-schwarzwald-tourismus
     name: Schwarzwald Tourismus - Westweg Etappeneinteilung (Fakten, keine Texte uebernommen)
@@ -52,6 +76,26 @@ sources:
     url: https://www.schwarzwaldverein.de/schwarzwald/wanderwege/fernwanderwege/ostweg
     license: Fakten, keine Texte übernommen
     retrieved_at: 2026-10-31
+  - id: stages-pfalz-weinsteig
+    name: Pfalz.Touristik - Pfälzer Weinsteig Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.pfalz.de/de/route/pfaelzer-weinsteig
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-11-02
+  - id: stages-pfalz-waldpfad
+    name: Pfalz.Touristik - Pfälzer Waldpfad Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.pfalz.de/de/route/pfaelzer-waldpfad
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-11-02
+  - id: stages-bodenseekreis-jubilaeumsweg
+    name: Landratsamt Bodenseekreis - Jubiläumsweg Etappeneinteilung (Fakten, keine Texte uebernommen)
+    url: https://www.bodenseekreis.de/landkreis-tourismus/wandern/jubilaeumsweg/
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-11-02
+  - id: stages-seegang
+    name: seen.de und wildganz.com - Premiumweg SeeGang Etappen (Endpunkte seen.de, Etappen-km wildganz.com; Etappen-km nicht offiziell bestätigt)
+    url: https://www.wildganz.com/fernwanderweg/premiumweg-seegang
+    license: Fakten, keine Texte übernommen
+    retrieved_at: 2026-11-02
   - id: osm
     name: OpenStreetMap contributors (Overpass API)
     url: https://www.openstreetmap.org/relation/62900
@@ -245,3 +289,147 @@ trails:
         start: {name: Stühlingen, lat: 47.7470397, lon: 8.4474495}
         end: {name: Schaffhausen, lat: 47.6960491, lon: 8.634513}
         km: 18.5
+  - id: pfaelzer-weinsteig
+    name: Pfälzer Weinsteig
+    kind: long_distance
+    osm_relation_ids: [8124459, 2504578, 2504579, 2504580, 2504581, 2504582, 3286359, 3286360, 3286361, 3286362, 3286358]
+    source: stages-pfalz-weinsteig
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Bockenheim, lat: 49.6107968, lon: 8.1819613}
+        end: {name: Neuleiningen, lat: 49.5425433, lon: 8.1379114}
+        km: 17.1
+      - seq: 2
+        start: {name: Neuleiningen, lat: 49.5425433, lon: 8.1379114}
+        end: {name: Bad Dürkheim, lat: 49.4632944, lon: 8.1705063}
+        km: 17.6
+      - seq: 3
+        start: {name: Bad Dürkheim, lat: 49.4632944, lon: 8.1705063}
+        end: {name: Deidesheim, lat: 49.4075922, lon: 8.1859168}
+        km: 15.2
+      - seq: 4
+        start: {name: Deidesheim, lat: 49.4075922, lon: 8.1859168}
+        end: {name: Neustadt a. d. Weinstraße, lat: 49.3536057, lon: 8.1360247}
+        km: 19.8
+      - seq: 5
+        start: {name: Neustadt a. d. Weinstraße, lat: 49.3536057, lon: 8.1360247}
+        end: {name: St. Martin, lat: 49.2995557, lon: 8.1031207}
+        km: 19.8
+      - seq: 6
+        start: {name: St. Martin, lat: 49.2995557, lon: 8.1031207}
+        end: {name: Burrweiler, lat: 49.2479829, lon: 8.0760182}
+        km: 16.7
+      - seq: 7
+        start: {name: Burrweiler, lat: 49.2479829, lon: 8.0760182}
+        end: {name: Dernbach, lat: 49.2469609, lon: 8.0056758}
+        km: 17.2
+      - seq: 8
+        start: {name: Dernbach, lat: 49.2469609, lon: 8.0056758}
+        end: {name: Annweiler am Trifels, lat: 49.2027254, lon: 7.9682264}
+        km: 14.3
+      - seq: 9
+        start: {name: Annweiler am Trifels, lat: 49.2027254, lon: 7.9682264}
+        end: {name: Klingenmünster, lat: 49.1395457, lon: 8.0187576}
+        km: 17.6
+      - seq: 10
+        start: {name: Klingenmünster, lat: 49.1395457, lon: 8.0187576}
+        end: {name: Bad Bergzabern, lat: 49.1028075, lon: 7.9991268}
+        km: 12.9
+      - seq: 11
+        start: {name: Bad Bergzabern, lat: 49.1028075, lon: 7.9991268}
+        end: {name: Schweigen-Rechtenbach, lat: 49.0545613, lon: 7.9560342}
+        km: 16
+  - id: pfaelzer-waldpfad
+    name: Pfälzer Waldpfad
+    kind: long_distance
+    osm_relation_ids: [1650025]
+    source: stages-pfalz-waldpfad
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Schopp, lat: 49.3695755, lon: 7.7121365}
+        end: {name: Johanniskreuz, lat: 49.3367070, lon: 7.8253996}
+        km: 15.3
+      - seq: 2
+        start: {name: Johanniskreuz, lat: 49.3367070, lon: 7.8253996}
+        end: {name: Heltersberg, lat: 49.3062028, lon: 7.7163213}
+        km: 14.4
+      - seq: 3
+        start: {name: Heltersberg, lat: 49.3062028, lon: 7.7163213}
+        end: {name: Rodalben, lat: 49.2384912, lon: 7.6392258}
+        km: 17.9
+      - seq: 4
+        start: {name: Rodalben, lat: 49.2384912, lon: 7.6392258}
+        end: {name: Merzalben, lat: 49.2445268, lon: 7.7307825}
+        km: 10.4
+      - seq: 5
+        start: {name: Merzalben, lat: 49.2445268, lon: 7.7307825}
+        end: {name: Hauenstein, lat: 49.1968242, lon: 7.848094}
+        km: 22.4
+      - seq: 6
+        start: {name: Hauenstein, lat: 49.1968242, lon: 7.848094}
+        end: {name: Dahn, lat: 49.1506716, lon: 7.7787577}
+        km: 15.4
+      - seq: 7
+        start: {name: Dahn, lat: 49.1506716, lon: 7.7787577}
+        end: {name: Erlenbach, lat: 49.1124928, lon: 7.8621631}
+        km: 17.2
+      - seq: 8
+        start: {name: Erlenbach, lat: 49.1124928, lon: 7.8621631}
+        end: {name: Schweigen-Rechtenbach, lat: 49.0545613, lon: 7.9560342}
+        km: 17.2
+  - id: jubilaeumsweg-bodenseekreis
+    name: Jubiläumsweg Bodenseekreis
+    kind: long_distance
+    osm_relation_ids: [157307]
+    source: stages-bodenseekreis-jubilaeumsweg
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Kressbronn, lat: 47.5965788, lon: 9.6003273}
+        end: {name: Neukirch, lat: 47.6568453, lon: 9.7027931}
+        km: 20
+      - seq: 2
+        start: {name: Neukirch, lat: 47.6568453, lon: 9.7027931}
+        end: {name: Meckenbeuren, lat: 47.6999205, lon: 9.5606280}
+        km: 18
+      - seq: 3
+        start: {name: Meckenbeuren, lat: 47.6999205, lon: 9.5606280}
+        end: {name: Markdorf, lat: 47.7206084, lon: 9.3917257}
+        km: 20
+      - seq: 4
+        start: {name: Markdorf, lat: 47.7206084, lon: 9.3917257}
+        end: {name: Heiligenberg, lat: 47.8212875, lon: 9.3111489}
+        km: 22
+      - seq: 5
+        start: {name: Heiligenberg, lat: 47.8212875, lon: 9.3111489}
+        end: {name: Owingen, lat: 47.8095858, lon: 9.1723170}
+        km: 20
+      - seq: 6
+        start: {name: Owingen, lat: 47.8095858, lon: 9.1723170}
+        end: {name: Überlingen, lat: 47.7689155, lon: 9.1457039}
+        km: 20
+  - id: seegang
+    name: Premiumweg SeeGang
+    kind: long_distance
+    osm_relation_ids: [12925238]
+    source: stages-seegang
+    geometry_source: osm
+    stages:
+      - seq: 1
+        start: {name: Konstanz, lat: 47.6666164, lon: 9.1914408}
+        end: {name: Wallhausen, lat: 47.7471874, lon: 9.1306019}
+        km: 18.4
+      - seq: 2
+        start: {name: Wallhausen, lat: 47.7471874, lon: 9.1306019}
+        end: {name: Bodman, lat: 47.8013992, lon: 9.0307460}
+        km: 18.9
+      - seq: 3
+        start: {name: Bodman, lat: 47.8013992, lon: 9.0307460}
+        end: {name: Sipplingen, lat: 47.8010342, lon: 9.09427}
+        km: 7.4
+      - seq: 4
+        start: {name: Sipplingen, lat: 47.8010342, lon: 9.09427}
+        end: {name: Überlingen, lat: 47.7664456, lon: 9.1605106}
+        km: 10.9

@@ -12,7 +12,7 @@ from hikeall.errors import GapError, OutsideRegionError
 from hikeall.geo import Point, haversine_km, path_length_km
 from hikeall.ingest.assemble import assemble_with_report, orient_by_members
 from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
-from hikeall.ingest.stages import cut_stages
+from hikeall.ingest.stages import cut_stages, trim_to_stages
 from hikeall.models import TrailSpec
 from hikeall.regions import Region, region_of_line
 
@@ -160,6 +160,7 @@ def import_trail(
         data, spec.relation_ids, fetch_way_tags(overpass, spec.relation_ids)
     )
     region = check_in_region(line, spec.id)
+    line = trim_to_stages(line, spec.stages)  # drop OSM line outside the official stages
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
