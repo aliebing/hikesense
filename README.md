@@ -239,6 +239,8 @@ Planen im Chat, Pläne merken und eigene Fotos brauchen ein Konto. Auf http://lo
 - Das Backend prüft das Token über die JWKS der lokalen Supabase (`SUPABASE_URL`); ältere Projekte mit HS256 brauchen `SUPABASE_JWT_SECRET` in `.env`.
 - An das Modell und ins Protokoll (`logs/chat.jsonl`) gehen weder E-Mail noch Nutzer-ID, im Protokoll steht nur ein gekürzter SHA-256 der ID (12 Zeichen).
 - Gemerkte Pläne und hochgeladene Fotos sieht nur ihr Eigentümer (Row Level Security). Fotos werden vor dem Hochladen im Browser neu als JPEG kodiert, dabei fallen EXIF- und GPS-Daten weg; erlaubt sind JPEG, PNG und WebP bis 10 MB.
+- **Rollen:** Jedes Konto hat eine Zeile in `profiles` mit Rolle `user` (Standard) oder `admin`; sie entsteht per Trigger bei der Registrierung, Clients können sie nur lesen. `make admin-user` setzt für `admin@hikeall.local` auch die Rolle `admin`. `GET /admin/me` (mit Bearer-Token, über Next als `/api/admin/me`) antwortet für Admins mit 200 und `{user_id, role}`, für normale Konten mit 403 „Kein Zugriff“, ohne gültiges Token mit 401 und bei ausgefallener Datenbank mit 503.
+- **Ergebnis merken:** Auf der Startseite speichert „Ergebnis merken“ (erst nach Ende der Antwort aktiv) eine Suche als Momentaufnahme: Nachrichten, Antwort, Hinweis und Kacheln. Sie steht unter „Meine Pläne“ im Abschnitt „Gemerkte Suchen“; `/gemerkt?id=…` zeigt sie so, wie sie war, ohne die Suche neu zu starten.
 
 ## Mehrtagestour
 
