@@ -6,7 +6,7 @@ import PageFrame from "../../components/PageFrame";
 import { useSession } from "../../lib/auth";
 import { deletePlan, listPlans, type SavedPlan } from "../../lib/plans";
 
-const KIND: Record<SavedPlan["kind"], string> = { day_hike: "Tageswanderung", multiday: "Mehrtagestour" };
+const KIND: Record<SavedPlan["kind"], string> = { day_hike: "Tageswanderung", multiday: "Mehrtagestour", search: "Suche" };
 const date = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
 
 /** day_hike → its trail page; multiday → the saved plan view (/plan, built with the multi-day plan). */
