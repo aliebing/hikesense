@@ -9,7 +9,16 @@ from hikeall.regions import REGIONS, get_region, region_of_line
 
 def test_palatinate_bbox():
     assert get_region("palatinate").bbox.south == 48.95
-    assert get_region("palatinate").foreign == ("FR",)
+    assert [(k, v) for k, v, _ in get_region("palatinate").exclude] == [
+        ("ISO3166-1", "FR"),
+        ("ISO3166-2", "DE-BW"),
+        ("ISO3166-2", "DE-HE"),
+    ]
+
+
+def test_lake_constance_closes_gap_to_black_forest():
+    assert get_region("lake_constance").bbox.west == get_region("black_forest").bbox.east == 8.80
+    assert region_of_line([(47.76, 8.82)]).id == "lake_constance"  # Hohentwiel / Singen
 
 
 def test_unknown_region_raises():

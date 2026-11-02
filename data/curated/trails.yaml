@@ -46,6 +46,8 @@
 # 172 km but its 11 stage lengths sum to 184 km (OSM distance tags sum 184.0). The OSM line is
 # 182.0 km: all ways of the 11 stage relations add up to 182.05 km (no way role is skipped), so the
 # 185.2 km of the research note cannot be reproduced from the relations; per-stage km are used.
+# `trim: true` (the four new trails only): cut the line to first stage start / last stage end;
+# without it the OSM line is stored as is (Black Forest trails).
 # `assemble: graph` (Weinsteig and Waldpfad only): relations the greedy chaining cannot handle
 # are assembled as a graph (shortest path, loops that hang off it are walked out and back, at
 # most 1000 m of other route ways dropped, else GapError). Weinsteig stage 7 (relation 3286359)
@@ -296,6 +298,7 @@ trails:
         km: 18.5
   - id: pfaelzer-weinsteig
     assemble: graph
+    trim: true
     name: Pfälzer Weinsteig
     kind: long_distance
     osm_relation_ids: [8124459, 2504578, 2504579, 2504580, 2504581, 2504582, 3286359, 3286360, 3286361, 3286362, 3286358]
@@ -348,6 +351,7 @@ trails:
         km: 16
   - id: pfaelzer-waldpfad
     assemble: graph
+    trim: true
     name: Pfälzer Waldpfad
     kind: long_distance
     osm_relation_ids: [1650025]
@@ -387,6 +391,7 @@ trails:
         end: {name: Schweigen-Rechtenbach, lat: 49.0545613, lon: 7.9560342}
         km: 17.2
   - id: jubilaeumsweg-bodenseekreis
+    trim: true
     name: Jubiläumsweg Bodenseekreis
     kind: long_distance
     osm_relation_ids: [157307]
@@ -418,6 +423,7 @@ trails:
         end: {name: Überlingen, lat: 47.7689155, lon: 9.1457039}
         km: 20
   - id: seegang
+    trim: true
     name: Premiumweg SeeGang
     kind: long_distance
     osm_relation_ids: [12925238]

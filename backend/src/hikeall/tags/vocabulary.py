@@ -16,7 +16,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from hikeall.config import data_root
-from hikeall.models import BBox
+from hikeall.models import BLACK_FOREST_BBOX, BBox
 from hikeall.regions import REGIONS
 
 FEATURES_YAML = data_root() / "tags" / "features.yaml"
@@ -28,7 +28,7 @@ PLACE_RADIUS_KM = 15.0
 STORED_CATEGORIES = ("feature", "surface")
 
 # Latitude bands from HikeAI data/regions.yaml (boundaries 48.30 and 47.95).
-_BF = (7.55, 8.80)  # = BLACK_FOREST_BBOX west/east
+_BF = (BLACK_FOREST_BBOX.west, BLACK_FOREST_BBOX.east)
 AREAS = (
     ("area:nord", "Nordschwarzwald", ["Nordschwarzwald", "Nord", "Norden"], 48.30, 48.95),
     (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -71,7 +72,9 @@ class TrailSpec(BaseModel):
     geometry_source: Source  # line geometry (OSM, ODbL)
     stages: list[StageSpec]
     # "graph": retry a relation that cannot be chained greedily as a graph (see assemble.py)
-    assemble: str = "greedy"
+    assemble: Literal["greedy", "graph"] = "greedy"
+    # cut the line to the first stage start and last stage end (relation runs beyond the trail)
+    trim: bool = False
 
     @property
     def relation_ids(self) -> list[int]:

@@ -75,5 +75,9 @@ def test_reply_texts_name_all_regions():
     from hikeall.regions import REGION_NAMES
 
     assert REGION_NAMES in INJECTION_REPLY
-    assert REGION_NAMES in OTHER_REPLY or "Bodensee" in OTHER_REPLY
+    assert OTHER_REPLY == (
+        "Dabei kann ich leider nicht helfen – ich plane Wanderungen und Laufrunden im "
+        "Schwarzwald, am Bodensee (mit Schweizer und österreichischem Ufer) und im Pfälzerwald "
+        "und beantworte Fragen dazu. Wohin soll es gehen?"
+    )
     assert "Bodensee" in CLARIFY_START and "Pfälzerwald" in CLARIFY_START

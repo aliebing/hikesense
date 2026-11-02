@@ -195,6 +195,9 @@ class _FakeOverpass:
         return {"elements": []}
 
 
+_REGION_IDS = {"black_forest": 10, "palatinate": 11, "lake_constance": 12}
+
+
 def test_collect_places_unions_regions_and_dedupes(monkeypatch):
     from hikeall import regions as R
     from hikeall.ingest import places as mod
@@ -208,7 +211,7 @@ def test_collect_places_unions_regions_and_dedupes(monkeypatch):
         region = by_south[bbox.south]
         asked.append(region)
         shared = Place(id=1, name="Grenzort", kind="village", lat=48.9, lon=8.0)
-        return [shared, Place(id=hash(region) % 1000 + 10, name=region, kind="town", lat=48, lon=8)]
+        return [shared, Place(id=_REGION_IDS[region], name=region, kind="town", lat=48, lon=8)]
 
     monkeypatch.setattr(mod, "fetch_places", fake_places)
     monkeypatch.setattr(mod, "fetch_pois", lambda o, bbox, *a, **k: [])
@@ -252,11 +255,24 @@ def test_collect_places_without_pbf_asks_overpass_for_all(monkeypatch):
     assert len(calls) == 3
 
 
-def test_import_places_keeps_all_regions(conn):
-    places = [
-        Place(id=9100011, name="Schwarzwalddorf", kind="village", lat=48.0, lon=8.0),
-        Place(id=9100012, name="Seeort", kind="village", lat=47.6, lon=9.3),
-    ]
-    import_places(conn, places, [], SRC)
-    n = conn.execute("select count(*) from places where id in (9100011, 9100012)").fetchone()[0]
-    assert n == 2
+_BF_PLACE = Place(id=9100011, name="Schwarzwalddorf", kind="village", lat=48.0, lon=8.0)
+_LAKE_PLACE = Place(id=9100012, name="Seeort", kind="village", lat=47.6, lon=9.3)
+
+
+def _count(conn):
+    return conn.execute("select count(*) from places where id in (9100011, 9100012)").fetchone()[0]
+
+
+def test_import_places_keeps_all_regions_with_union_import(conn):
+    import_places(conn, [_BF_PLACE, _LAKE_PLACE], [], SRC)
+    assert _count(conn) == 2
+    import_places(conn, [_BF_PLACE, _LAKE_PLACE], [], SRC)  # union again: both survive
+    assert _count(conn) == 2
+
+
+def test_import_places_single_region_import_deletes_the_other_regions(conn):
+    """Hazard (documented): import_places replaces the whole table, so it must always get the
+    union of all regions; an import of one region alone deletes the places of the others."""
+    import_places(conn, [_BF_PLACE, _LAKE_PLACE], [], SRC)
+    import_places(conn, [_BF_PLACE], [], SRC)
+    assert _count(conn) == 1

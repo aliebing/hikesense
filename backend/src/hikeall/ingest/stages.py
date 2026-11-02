@@ -38,6 +38,7 @@ def load_trail_specs(path: Path) -> list[TrailSpec]:
             source=source(t, "source"),
             geometry_source=source(t, "geometry_source"),
             assemble=t.get("assemble", "greedy"),
+            trim=t.get("trim", False),
             stages=[
                 StageSpec(
                     seq=s["seq"],

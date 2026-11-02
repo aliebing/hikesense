@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from hikeall.models import BBox, LatLon
+from hikeall.models import BLACK_FOREST_BBOX, BBox, LatLon
 
 RegionId = Literal["black_forest", "palatinate", "lake_constance"]
 
@@ -22,14 +22,16 @@ class Region:
     name: str
     bbox: BBox
     countries: tuple[str, ...]
-    foreign: tuple[str, ...]  # neighbouring countries a day trip of this region must not enter
+    # Areas a day trip of this region must not enter: (OSM area key, value, reason), e.g.
+    # ("ISO3166-1", "FR", "führt nach Frankreich"); one Overpass query per area.
+    exclude: tuple[tuple[str, str, str], ...]
 
 
 REGIONS: tuple[Region, ...] = (
     Region(
         "black_forest",
         "Schwarzwald",
-        BBox(south=47.55, west=7.55, north=48.95, east=8.80),
+        BLACK_FOREST_BBOX,
         ("DE",),
         (),
     ),
@@ -38,12 +40,16 @@ REGIONS: tuple[Region, ...] = (
         "Pfälzerwald",
         BBox(south=48.95, west=7.55, north=49.75, east=8.45),
         ("DE",),
-        ("FR",),
+        (
+            ("ISO3166-1", "FR", "führt nach Frankreich"),
+            ("ISO3166-2", "DE-BW", "liegt in Baden-Württemberg, nicht im Pfälzerwald"),
+            ("ISO3166-2", "DE-HE", "liegt in Hessen, nicht im Pfälzerwald"),
+        ),
     ),
     Region(
         "lake_constance",
         "Bodensee",
-        BBox(south=47.40, west=8.85, north=47.95, east=9.95),
+        BBox(south=47.40, west=8.80, north=47.95, east=9.95),
         ("DE", "CH", "AT"),
         (),
     ),

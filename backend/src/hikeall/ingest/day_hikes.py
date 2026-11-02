@@ -38,7 +38,6 @@ LONG_DISTANCE_NETWORKS = frozenset({"iwn", "nwn"})
 DECISIONS = ("accepted", "rejected")
 GONE_REASON = "nicht mehr in OSM gefunden (letzter Scan)"
 LEGACY_REGION = "black_forest"  # rows of a CSV written before the `region` column existed
-COUNTRY_NAMES = {"FR": "Frankreich"}
 
 
 @dataclass
@@ -60,12 +59,28 @@ COLUMNS = ["osm_relation_id", "region"] + [
 ]
 
 
+def curated_relation_ids() -> frozenset[int]:
+    """All OSM relation ids of the curated long-distance trails (their stage relations)."""
+    from hikeall.config import data_root
+    from hikeall.ingest.stages import load_trail_specs
+
+    specs = load_trail_specs(data_root() / "curated" / "trails.yaml")
+    return frozenset(r for s in specs for r in s.relation_ids)
+
+
 def auto_decision(
-    name: str | None, length_km: float, gap_error: bool, network: str | None
+    name: str | None,
+    length_km: float,
+    gap_error: bool,
+    network: str | None,
+    rid: int | None = None,
+    stage_ids: Collection[int] = (),
 ) -> tuple[str, str]:
     """Automatic first decision; rules are checked in this order."""
     if not name:
         return "rejected", "kein Name"
+    if rid is not None and rid in stage_ids:
+        return "rejected", "Etappe eines Fernwegs"
     if gap_error:
         return "rejected", "Lücken im Verlauf"
     if length_km < MIN_KM or length_km > MAX_KM:
@@ -114,7 +129,10 @@ def _batches(ids: list[int], size: int) -> list[list[int]]:
 
 
 def candidate_from_relation(
-    data: dict[str, Any], rel: dict[str, Any], seen_region: str | None = None
+    data: dict[str, Any],
+    rel: dict[str, Any],
+    seen_region: str | None = None,
+    stage_ids: Collection[int] = (),
 ) -> Candidate:
     """Length, roundtrip and automatic decision for one relation of an `out geom` response.
 
@@ -131,10 +149,10 @@ def candidate_from_relation(
         line, _ = relation_line(data, rid, context=f"relation {rid}", oriented=True)
     except GapError:
         km = round(path_length_km(segments), 2)
-        decision = auto_decision(name, km, True, tags.get("network"))
+        decision = auto_decision(name, km, True, tags.get("network"), rid, stage_ids)
         return Candidate(rid, name, km, None, *decision, region=seen_region)
     km = round(path_length_km([line]), 2)
-    decision = auto_decision(name, km, False, tags.get("network"))
+    decision = auto_decision(name, km, False, tags.get("network"), rid, stage_ids)
     region = region_of_line(line)
     if decision[0] == "accepted" and region is None:
         decision = ("rejected", "liegt in keiner Region vollständig")
@@ -154,16 +172,12 @@ def is_network_segment(tags: dict[str, Any]) -> bool:
     return tags.get("network:type") == "node_network"
 
 
-def foreign_query(relation_ids: list[int], iso_codes: tuple[str, ...]) -> str:
-    """Relations (of the given ids) with at least one way inside one of the countries."""
+def foreign_query(relation_ids: list[int], key: str, value: str) -> str:
+    """Relations (of the given ids) with at least one way inside the area `key=value`."""
     ids = ",".join(str(i) for i in relation_ids)
-    if len(iso_codes) == 1:
-        iso = f'"ISO3166-1"="{iso_codes[0]}"'
-    else:
-        iso = f'"ISO3166-1"~"^({"|".join(iso_codes)})$"'
     return (
         "[out:json][timeout:180];\n"
-        f"area[{iso}][admin_level=2]->.x;\n"
+        f'area["{key}"="{value}"]->.x;\n'
         f"relation(id:{ids})->.r;\n"
         "way(r.r)(area.x)->.w;\n"
         f"relation(bw.w)(id:{ids});\n"
@@ -174,16 +188,17 @@ def foreign_query(relation_ids: list[int], iso_codes: tuple[str, ...]) -> str:
 def foreign_relations(
     overpass: OverpassClient,
     relation_ids: list[int],
-    iso_codes: tuple[str, ...],
+    key: str,
+    value: str,
     batch_size: int = 50,
     pause_s: float = 0.0,
 ) -> set[int]:
-    """Ids among relation_ids that have at least one way in one of the countries."""
+    """Ids among relation_ids that have at least one way in the area `key=value`."""
     found: set[int] = set()
     for batch in _batches(sorted(relation_ids), batch_size):
         if pause_s:
             time.sleep(pause_s)
-        data = overpass.run(foreign_query(batch, iso_codes))
+        data = overpass.run(foreign_query(batch, key, value))
         found |= {
             int(el["id"])
             for el in data["elements"]
@@ -229,6 +244,7 @@ def scan(
                     rid = int(el["id"])
                     tags[rid] = el.get("tags") or {}
                     seen_in.setdefault(rid, region.id)
+    stage_ids = curated_relation_ids()
     found: list[Candidate] = []
     need_geometry: list[int] = []
     skipped = 0
@@ -246,24 +262,27 @@ def scan(
         data = overpass.run(relations_query(batch))
         for el in data["elements"]:
             if el.get("type") == "relation" and el.get("id") in batch:
-                found.append(candidate_from_relation(data, el, seen_in.get(int(el["id"]))))
+                found.append(candidate_from_relation(data, el, seen_in.get(int(el["id"])), stage_ids))
     for region in regions:
-        if not region.foreign:
+        if not region.exclude:
             continue
         ids = [
             c.osm_relation_id
             for c in found
             if c.region == region.id and c.auto_decision == "accepted"
         ]
-        if not ids:
-            continue
-        if pause_s:
-            time.sleep(pause_s)
-        abroad = foreign_relations(overpass, ids, region.foreign, batch_size, pause_s)
-        reason = "führt nach " + " / ".join(COUNTRY_NAMES.get(i, i) for i in region.foreign)
-        for c in found:
-            if c.osm_relation_id in abroad:
-                c.auto_decision, c.auto_reason = "rejected", reason
+        rejected_ids: set[int] = set()
+        for key, value, reason in region.exclude:
+            ids = [i for i in ids if i not in rejected_ids]
+            if not ids:
+                break
+            if pause_s:
+                time.sleep(pause_s)
+            hit = foreign_relations(overpass, ids, key, value, batch_size, pause_s)
+            rejected_ids |= hit
+            for c in found:
+                if c.osm_relation_id in hit:
+                    c.auto_decision, c.auto_reason = "rejected", reason
     return ScanResult(sorted(found, key=lambda c: c.osm_relation_id), skipped)
 
 

@@ -296,3 +296,30 @@ def test_curated_graph_trails_are_flagged():
     flags = {t.id: t.assemble for t in load_trail_specs(TRAILS_YAML)}
     assert flags["pfaelzer-waldpfad"] == flags["pfaelzer-weinsteig"] == "graph"
     assert flags["mittelweg"] == flags["seegang"] == "greedy"
+
+
+@pytest.mark.db
+def test_import_trail_trims_only_when_spec_asks(conn, small_spec, overpass_fixture):
+    inner = [
+        StageSpec(seq=1, start_name="A", end_name="B", start=(48.0, 8.01), end=(48.0, 8.03)),
+    ]
+    plain = small_spec.model_copy(update={"stages": inner})
+    assert plain.trim is False
+    import_trail(conn, plain, overpass_fixture, Ramp())
+    full = conn.execute("select length_km from trails where id=%s", [plain.id]).fetchone()[0]
+    import_trail(conn, plain.model_copy(update={"trim": True}), overpass_fixture, Ramp())
+    cut = conn.execute("select length_km from trails where id=%s", [plain.id]).fetchone()[0]
+    assert cut < full  # the untrimmed import kept the line outside the stages
+
+
+def test_curated_trim_flag_only_on_new_trails():
+    from hikeall.cli import TRAILS_YAML
+    from hikeall.ingest.stages import load_trail_specs
+
+    trimmed = {t.id for t in load_trail_specs(TRAILS_YAML) if t.trim}
+    assert trimmed == {
+        "pfaelzer-weinsteig",
+        "pfaelzer-waldpfad",
+        "jubilaeumsweg-bodenseekreis",
+        "seegang",
+    }

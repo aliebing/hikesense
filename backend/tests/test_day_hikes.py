@@ -84,15 +84,19 @@ def _tags_only(rels):
     return {"elements": [{"type": "relation", "id": r["id"], "tags": r["tags"]} for r in rels]}
 
 
-def _overpass_mock(relations, fail_ids=(), abroad_ids=()):
+def _overpass_mock(relations, fail_ids=(), abroad_ids=None):
     """Answer tag queries with tags, `relation(id:...)` queries with geometry and foreign-country
-    queries (`area[...]`) with those of `abroad_ids` that were asked for."""
+    queries (`area[...]`) with those of `abroad_ids[<area value>]` that were asked for."""
 
     def handler(request):
         query = httpx.QueryParams(request.content.decode()).get("data")
         if "area[" in query:
             ids = {int(i) for i in query.split("relation(id:")[1].split(")")[0].split(",")}
-            hit = [{"type": "relation", "id": i} for i in sorted(ids & set(abroad_ids))]
+            area = query.split('area["')[1].split('"="')[1].split('"')[0]
+            hit = [
+                {"type": "relation", "id": i}
+                for i in sorted(ids & set((abroad_ids or {}).get(area, ())))
+            ]
             return httpx.Response(200, json={"elements": hit})
         if "out tags" in query:
             return httpx.Response(200, json=_tags_only(relations))
@@ -263,7 +267,7 @@ def test_palatinate_route_into_france_rejected():
         _loop_rel(3021, (49.35, 7.95), "Pfalzrunde"),
         _loop_rel(3022, (47.6, 9.3), "Seerunde"),
     ]
-    cands, route = _scan_all(rels, abroad_ids=(3020, 3022))
+    cands, route = _scan_all(rels, abroad_ids={"FR": (3020, 3022)})
     assert (cands[3020].auto_decision, cands[3020].auto_reason) == (
         "rejected",
         "führt nach Frankreich",
@@ -272,8 +276,40 @@ def test_palatinate_route_into_france_rejected():
     assert cands[3022].auto_decision == "accepted"  # Lake Constance has no foreign check
     queries = [httpx.QueryParams(c.request.content.decode()).get("data") for c in route.calls]
     foreign = [q for q in queries if "area[" in q]
-    assert len(foreign) == 1 and '"ISO3166-1"="FR"' in foreign[0]
-    assert "3022" not in foreign[0]
+    assert len(foreign) == 3  # one per exclusion area of the Palatinate
+    assert '"ISO3166-1"="FR"' in foreign[0] and "3022" not in "".join(foreign)
+    assert "3020" not in foreign[1]  # already rejected: not asked again
+
+
+def test_palatinate_route_in_baden_rejected_hesse_and_rlp():
+    rels = [
+        _loop_rel(3030, (49.0, 8.3), "Rheinebene"),
+        _loop_rel(3031, (49.5, 8.3), "Hessenrunde"),
+        _loop_rel(3032, (49.35, 7.95), "Pfalzrunde"),
+    ]
+    cands, _ = _scan_all(rels, abroad_ids={"DE-BW": (3030,), "DE-HE": (3031,)})
+    assert cands[3030].auto_reason == "liegt in Baden-Württemberg, nicht im Pfälzerwald"
+    assert cands[3031].auto_reason == "liegt in Hessen, nicht im Pfälzerwald"
+    assert cands[3032].auto_decision == "accepted"
+    assert {c.auto_decision for c in (cands[3030], cands[3031])} == {"rejected"}
+
+
+def test_scan_rejects_stage_relation_of_curated_long_distance_trail():
+    from hikeall.ingest.day_hikes import curated_relation_ids
+
+    stage = next(iter(curated_relation_ids() - {1}))
+    assert 8124459 in curated_relation_ids() and 56369 in curated_relation_ids()  # incl. groups
+    cands, _ = _scan_all([_loop_rel(stage, (48.0, 8.0), "Etappe"), _loop_rel(3040, (48.0, 8.0))])
+    assert (cands[stage].auto_decision, cands[stage].auto_reason) == (
+        "rejected",
+        "Etappe eines Fernwegs",
+    )
+    assert cands[3040].auto_decision == "accepted"
+
+
+def test_auto_decision_stage_relation():
+    assert auto_decision("Etappe", 12, False, "lwn", 5, {5}) == ("rejected", "Etappe eines Fernwegs")
+    assert auto_decision("Etappe", 12, False, "lwn", 6, {5})[0] == "accepted"
 
 
 def test_old_csv_without_region_keeps_manual_decisions(tmp_path):

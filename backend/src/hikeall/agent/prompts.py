@@ -93,7 +93,7 @@ GROUPS_NONE = (
 )
 GROUPS_NO_COORDS = "Für {place} kenne ich keine Koordinate – nenne bitte einen Ort in der Nähe."
 OTHER_REPLY = (
-    "Dabei kann ich leider nicht helfen – ich plane Wanderungen und Laufrunden im "
+    "Dabei kann ich leider nicht helfen – ich plane Wanderungen und Laufrunden "
     f"{REGION_PHRASE} und beantworte Fragen dazu. Wohin soll es gehen?"
 )
 LEAK_REPLY = "Dazu kann ich nichts sagen."

@@ -34,6 +34,11 @@ it("before results: title and chat on the full-screen background photo, with its
   expect(container.querySelector(".fixed img")).toHaveAttribute("src", "https://img/a.jpg");
 });
 
+it("subtitle names example trails from all regions", () => {
+  show();
+  expect(screen.getByText(/Westweg, Pfälzer Weinsteig, SeeGang/)).toBeInTheDocument();
+});
+
 it("after results: chat left, results right, no extra button", async () => {
   withLast([card]);
   const { container } = show();

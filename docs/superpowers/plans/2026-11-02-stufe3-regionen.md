@@ -20,7 +20,7 @@
 ## Global Constraints
 
 - Qualitätsregeln unverändert: Länge 5–30 km, keine Lücken im Verlauf, kein Fernweg (iwn/nwn) als Tagestour, kein Knotennetz-Abschnitt; Ort-zu-Ort-Verbindungen nur über die manuelle Spalte („Vorschlag Claude: …“), die Ali bestätigt.
-- Regionen (Reihenfolge south, west, north, east): `black_forest` „Schwarzwald“ = heutige `BLACK_FOREST_BBOX` (47.55, 7.55, 48.95, 8.80), DE; `palatinate` „Pfälzerwald“ (48.95, 7.55, 49.75, 8.45), nur DE; `lake_constance` „Bodensee“ (47.40, 8.85, 47.95, 9.95), DE, CH, AT.
+- Regionen (Reihenfolge south, west, north, east): `black_forest` „Schwarzwald“ = heutige `BLACK_FOREST_BBOX` (47.55, 7.55, 48.95, 8.80), DE; `palatinate` „Pfälzerwald“ (48.95, 7.55, 49.75, 8.45), nur DE; `lake_constance` „Bodensee“ (47.40, 8.80, 47.95, 9.95), DE, CH, AT (west 8.80 statt 8.85 aus HikeAi2: Lücke zu Schwarzwald geschlossen, Hohentwiel/Singen).
 - Bestehende Schwarzwald-Daten bleiben unverändert erhalten (gleiche IDs, gleiche Zahl Tagestouren aus dem Schwarzwald, gleiche Etappen).
 - Nie `npx supabase db reset`. Vor dem ersten Import, der Daten löscht oder ersetzt, ein Dump nach `data/backups/` (gitignored).
 - Quellen und Lizenzen wie bisher (OSM ODbL, Copernicus, Commons-Filter, Wikipedia/Wikivoyage CC BY-SA, Etappen „Fakten, keine Texte übernommen“).
@@ -47,8 +47,8 @@
 
 **Interfaces:**
 - Produces (`regions.py`):
-  - `@dataclass(frozen=True) class Region: id: str; name: str; bbox: BBox; countries: tuple[str, ...]; foreign: tuple[str, ...]` – `foreign` = Nachbarländer, in die eine Tagestour der Region nicht führen darf (Pfälzerwald: `("FR",)`, sonst leer).
-  - `REGIONS: tuple[Region, ...]` mit den drei Regionen aus Global Constraints (Pfälzerwald `foreign=("FR",)`).
+  - `@dataclass(frozen=True) class Region: id: str; name: str; bbox: BBox; countries: tuple[str, ...]; exclude: tuple[tuple[str, str, str], ...]` – `exclude` = Gebiete (OSM-Area-Schlüssel, Wert, Grund), in die eine Tagestour der Region nicht führen darf (Pfälzerwald: `ISO3166-1=FR` „führt nach Frankreich“, `ISO3166-2=DE-BW` „liegt in Baden-Württemberg, nicht im Pfälzerwald“, `ISO3166-2=DE-HE` „liegt in Hessen, nicht im Pfälzerwald“; sonst leer).
+  - `REGIONS: tuple[Region, ...]` mit den drei Regionen aus Global Constraints (Pfälzerwald mit den drei `exclude`-Gebieten).
   - `RegionId = Literal["black_forest", "palatinate", "lake_constance"]`
   - `get_region(region_id: str) -> Region` (KeyError bei Unbekanntem)
   - `region_of_line(points: Sequence[tuple[float, float]]) -> Region | None` – die erste Region, deren Box alle Punkte (lat, lon) enthält.
@@ -78,7 +78,7 @@
 - Produces:
   - `scan(overpass, regions: Sequence[Region]) -> ScanResult` – kachelt jede Region wie heute (0,35°), Kandidaten dedupliziert nach Relation; jeder Kandidat bekommt `region: str | None`.
   - Regel „verlässt die Schwarzwald-Box“ wird: Linie liegt in keiner Region vollständig → `rejected`, Grund `"liegt in keiner Region vollständig"`; sonst `region = region_of_line(...).id`.
-  - Neue Regel nach der Boxprüfung, nur für Regionen mit `foreign`: `foreign_relations(overpass, relation_ids: list[int], iso_codes: tuple[str, ...]) -> set[int]` (eine Overpass-Abfrage je Region mit `area["ISO3166-1"=…][admin_level=2]` und den Ways der Relationen; Relationen mit mindestens einem Way im Ausland) → `rejected`, Grund `"führt nach Frankreich"` (Ländername aus einer kleinen Abbildung `{"FR": "Frankreich"}`).
+  - Neue Regel nach der Boxprüfung, nur für Regionen mit `exclude`: `foreign_relations(overpass, relation_ids: list[int], key: str, value: str) -> set[int]` (eine Overpass-Abfrage je Region und Gebiet mit `area["key"="value"]` und den Ways der Relationen; Relationen mit mindestens einem Way im Ausland) → `rejected`, Grund je Gebiet aus `exclude` (z. B. `"führt nach Frankreich"`). Außerdem verwirft `auto_decision` jede Relation, die in `data/curated/trails.yaml` unter `osm_relation_ids` steht (Gruppen flach), mit Grund `"Etappe eines Fernwegs"`. `trim_to_stages` läuft nur bei Specs mit `trim: true` (nur die vier neuen Fernwege).
   - CSV: Spalte `region`; `read_candidates` liest alte Dateien ohne Spalte (Region dann `black_forest`, wenn die Zeile schon da war); manuelle Spalten bleiben wie heute erhalten.
   - `import_day_hikes` setzt `trails.region` aus dem Kandidaten.
   - CLI: `scan-day-hikes` und `import-day-hikes` ohne neue Pflichtargumente; optional `--region <id>` beim Scan, das nur diese Region neu scannt und die Zeilen der anderen Regionen unverändert lässt. Ausgabe je Region: Kandidaten, automatisch accepted.
@@ -199,9 +199,9 @@
 - Modify: `data/curated/day_hikes.csv` (Scan-Ergebnis + Claudes Vorschläge für die neuen Regionen), `README.md`
 - Create: `docs/superpowers/plans/2026-11-02-stufe3-datenlauf.md` (Protokoll mit Zahlen)
 
-- [ ] **Step 1: Scan** – `cd backend && uv run hikeall scan-day-hikes`; Zahlen je Region ins Protokoll. Schwarzwald-Zeilen: gleiche Relationen und Entscheidungen wie vorher (Diff der CSV auf Schwarzwald-Zeilen nur Spalte `region`).
+- [ ] **Step 1: Scan** – `cd backend && uv run hikeall scan-day-hikes`; Zahlen je Region ins Protokoll. Schwarzwald-Zeilen: gleiche Relationen und Entscheidungen wie vorher, außer: Spalte `region` ist neu, Zeilen mit auto_reason „verlässt die Schwarzwald-Box“ lauten jetzt „liegt in keiner Region vollständig“ (einige können in eine andere Region wechseln). Etappenrelationen der Fernwege werden automatisch verworfen („Etappe eines Fernwegs“).
 - [ ] **Step 2: Kuration** – für jede in Pfalz/Bodensee automatisch akzeptierte Route prüfen (Name, Rundweg, Länge, Lage), wie bei den 255 Schwarzwald-Vorschlägen: offensichtliche Ort-zu-Ort-Verbindungen, Zubringer, Doppelungen mit einem Fernweg → `manual_decision=rejected`, `manual_reason="Vorschlag Claude: …"`. Alles andere bleibt automatisch. Zahl der Vorschläge ins Protokoll. Ali prüft später (offener Punkt im Bericht).
-- [ ] **Step 3: Importe** in dieser Reihenfolge: `import-day-hikes`, `make places` (bzw. `import-places --pbf …`), `import-lodgings`, `build-tags`, `import-photos`, `prune-photos`, `build-knowledge`. Jede Ausgabe mit Zahlen ins Protokoll; Fehler nicht übergehen. Braucht der DEM neue Kacheln (N47/E009, N49/E007, N49/E008) und bremst `max_tiles=4`, den Wert für den Lauf anheben. Overpass-Fehler (429/504): mit Pause wiederholen, nicht Regionen auslassen. Danach Zählung je Region (`select region, kind, count(*) from trails group by 1,2`), Orte/Unterkünfte je Regionsbox; Schwarzwald-Zahlen vorher/nachher vergleichen (Tagestouren 122, Fernwege 4, Etappen 46 unverändert).
+- [ ] **Step 3: Importe** in dieser Reihenfolge: `import-day-hikes`, Waldpfad mit `import-trails --only pfaelzer-waldpfad` importieren, `make places` (bzw. `import-places --pbf …`), `import-lodgings`, `build-tags`, `import-photos`, `prune-photos`, `build-knowledge`. Jede Ausgabe mit Zahlen ins Protokoll; Fehler nicht übergehen. Braucht der DEM neue Kacheln (N47/E009, N49/E007, N49/E008) und bremst `max_tiles=4`, den Wert für den Lauf anheben. Overpass-Fehler (429/504): mit Pause wiederholen, nicht Regionen auslassen. Danach Zählung je Region (`select region, kind, count(*) from trails group by 1,2`), Orte/Unterkünfte je Regionsbox; Schwarzwald-Zahlen vorher/nachher vergleichen (Tagestouren 122, Fernwege 4, Etappen 46 unverändert).
 - [ ] **Step 4: Smoke** – API starten (`uv run uvicorn hikeall.api.app:app --port 8000`), mit dem lokalen Admin (`admin@hikeall.local`) diese Anfragen stellen und Ergebnis ins Protokoll: „Rundtour am Bodensee 10 bis 15 km“, „Wanderung ab Stein am Rhein“, „Rundweg im Pfälzerwald mit Einkehr“, „3 Tage Pfälzer Waldpfad ab Johanniskreuz“, „SeeGang in 2 Tagen ab Konstanz“, „Rundtour Feldberg (Schwarzwald) 15 km“ (Regression). Erwartet: Touren aus der richtigen Region, Mehrtagespläne mit Unterkünften, Schwarzwald unverändert. Danach API beenden.
 - [ ] **Step 5: README** – Regionen, Fernwege (jetzt 8), Zahlen, Datenquellen (Overpass für Pfalz/Bodensee, PBF nur Schwarzwald), Hinweis auf offene manuelle Prüfung der Vorschläge.
 - [ ] **Step 6: Run** `cd backend && uv run pytest -q`, `cd web && npx vitest run` – PASS.

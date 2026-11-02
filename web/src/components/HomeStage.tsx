@@ -50,7 +50,7 @@ export default function HomeStage({ photos, landscapes = [] }: { photos: Photo[]
         <section className="flex flex-col items-center gap-3 text-center">
           <h1 className="schrift-feld px-5 py-2 font-serif text-4xl leading-tight sm:text-6xl">Wandern im Schwarzwald, am Bodensee und im Pfälzerwald</h1>
           <p className="schrift-feld max-w-lg px-4 py-2 text-base text-papier sm:text-lg">
-            Fernweg-Etappen (Westweg, Mittelweg, Ostweg) und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.
+            Fernweg-Etappen (Westweg, Pfälzer Weinsteig, SeeGang) und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.
           </p>
         </section>
         <ChatShell intro={INTRO} />

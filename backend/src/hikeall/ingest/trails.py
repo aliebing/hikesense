@@ -169,7 +169,8 @@ def import_trail(
         data, spec.relation_ids, fetch_way_tags(overpass, spec.relation_ids)
     )
     region = check_in_region(line, spec.id)
-    line = trim_to_stages(line, spec.stages)  # drop OSM line outside the official stages
+    if spec.trim:
+        line = trim_to_stages(line, spec.stages)  # drop OSM line outside the official stages
     parts = cut_stages(line, spec.stages)  # before any write: offset/order errors abort cleanly
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
