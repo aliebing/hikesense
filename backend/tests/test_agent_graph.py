@@ -73,7 +73,9 @@ PROFILE = [[0.0, 300.0], [15.0, 700.0], [30.0, 500.0], [45.0, 900.0], [60.0, 400
 
 
 def _stop(i, name, km, dist):
-    return md.Stop(lodging_id=i, name=name, kind="guest_house", website=None, along_km=km, dist_m=dist)
+    return md.Stop(
+        lodging_id=i, name=name, kind="guest_house", website=None, along_km=km, dist_m=dist
+    )
 
 
 STOPS = [
@@ -189,13 +191,14 @@ class FakeTools:
 
     def sources(self, ids):
         return [
-            PLAN_SOURCES.get(i) or SourceBrief(id=i, name=None, url=None, license=None)
-            for i in ids
+            PLAN_SOURCES.get(i) or SourceBrief(id=i, name=None, url=None, license=None) for i in ids
         ]
 
     def find_events(self, query, today, max_calls=8):  # nothing verified: calendar links
         self.calls["find_events"] += 1
-        link = CalendarLink(name="BLV", url="https://www.blv-online.de/laeufe/veranstaltungstermine")
+        link = CalendarLink(
+            name="BLV", url="https://www.blv-online.de/laeufe/veranstaltungstermine"
+        )
         return EventsResult(events=[], fallback=[link], searched_at=today, calls=1)
 
 
@@ -1219,9 +1222,7 @@ def test_no_forecast_beyond_14_days_is_stated(vocab, settings):
 
 
 def test_no_date_no_weather_said_once(vocab, settings):
-    deps = make(
-        vocab, settings, structured={RawRequest: [westweg_raw(days=3)]}, answers=["Plan."]
-    )
+    deps = make(vocab, settings, structured={RawRequest: [westweg_raw(days=3)]}, answers=["Plan."])
     events = run(deps, "3 Tage Westweg ab Hausach")
     assert one(events, "plan").weather == {}
     assert deps.tools.calls["weather_days"] == 0
@@ -1463,9 +1464,7 @@ def test_a_planner_bug_is_not_called_off_trail(vocab, settings):
         def plan_multiday(self, req):
             raise ValueError("bug")
 
-    deps = make(
-        vocab, settings, tools=Broken(), structured={RawRequest: [westweg_raw(days=2)]}
-    )
+    deps = make(vocab, settings, tools=Broken(), structured={RawRequest: [westweg_raw(days=2)]})
     with pytest.raises(ValueError, match="bug"):  # the API turns it into ERROR_UNAVAILABLE
         run(deps, "2 Tage Westweg ab Hausach")
 
@@ -1521,11 +1520,15 @@ def test_no_plan_at_start_names_the_current_start(vocab, settings):
 
 def test_unsat_claim_without_fallback_is_removed_and_counted(vocab, settings):
     # every wish is met (Feldberg-Runde, 16,2 km): the model must not claim the opposite
-    model_text = "Keine Tour erfüllt alle Wünsche, aber hier ist eine. Die Feldberg-Runde hat 16,2 km."
+    model_text = (
+        "Keine Tour erfüllt alle Wünsche, aber hier ist eine. Die Feldberg-Runde hat 16,2 km."
+    )
     deps = make(
         vocab,
         settings,
-        structured={RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]},
+        structured={
+            RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]
+        },
         answers=[model_text],
     )
     events = run(deps, "Rundweg ab Feldberg über 15 km")
@@ -1556,7 +1559,9 @@ def test_answer_that_was_only_a_false_claim_gets_a_code_sentence(vocab, settings
     deps = make(
         vocab,
         settings,
-        structured={RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]},
+        structured={
+            RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]
+        },
         answers=["Keine Tour erfüllt alle Wünsche."],
     )
     events = run(deps, "Rundweg ab Feldberg über 15 km")
@@ -1602,7 +1607,10 @@ def run_en(deps, message, thread="t-en") -> list[ChatEvent]:
 
 def test_english_feldberg_flow_prompt_data_and_sentences(vocab, settings):
     deps = make(
-        vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["The Seebuck-Weg is short."]
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["The Seebuck-Weg is short."],
     )
     events = run_en(deps, "Round walk from Feldberg, under 200 m ascent, over 15 km")
     data = deps.gateway.answer_users[-1]
@@ -1630,7 +1638,9 @@ def test_english_contradiction_sentence_and_hint(vocab, settings):
     raw_ = raw(start_text="Feldberg (Schwarzwald)", length_km_min=15, length_km_max=10)
     deps = make(vocab, settings, structured={RawRequest: [raw_]})
     events = run_en(deps, "Walk from Feldberg, at least 15 km, at most 10 km")
-    assert one(events, "results").fallback_reason.startswith("No tour meets all your wishes, because ")
+    assert one(events, "results").fallback_reason.startswith(
+        "No tour meets all your wishes, because "
+    )
     assert text_of(events).endswith(texts("en").contradiction_hint)
 
 
@@ -1648,7 +1658,9 @@ def test_english_no_tours_hint_and_claim_sentence(vocab, settings):
     deps = make(
         vocab,
         settings,
-        structured={RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]},
+        structured={
+            RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]
+        },
         answers=["Keine Tour erfüllt alle Wünsche."],
     )
     events = run_en(deps, "Round walk from Feldberg over 15 km", thread="t-en2")
@@ -1683,14 +1695,20 @@ def test_refinement_in_english_after_german_first_message(vocab, settings):
     events = list(run_chat(deps, "mixed", "make it at most 12 km", lang="en"))
     kinds = {c.kind: c for c in deps.tools.requests[-1].constraints}
     assert kinds["length_km"].max == 12 and kinds["ascent_m"].max == 200  # earlier wishes kept
-    assert "tours (" in deps.gateway.answer_users[-1] and "Tour" not in deps.gateway.answer_users[-1][:5]
+    assert (
+        "tours (" in deps.gateway.answer_users[-1]
+        and "Tour" not in deps.gateway.answer_users[-1][:5]
+    )
     assert "Shorter now." in text_of(events)
 
 
 def test_english_errors(vocab, settings):
     from hikeall.agent.texts import texts
 
-    for exc, attr in [(LLMUnavailable("x"), "error_unavailable"), (BudgetExceeded("x"), "error_budget")]:
+    for exc, attr in [
+        (LLMUnavailable("x"), "error_unavailable"),
+        (BudgetExceeded("x"), "error_budget"),
+    ]:
         deps = make(vocab, settings, structured={RawRequest: [exc]})
         events = run_en(deps, "Round walk", thread=f"e-{attr}")
         assert [(e.type, e.message) for e in events] == [("error", getattr(texts("en"), attr))]
@@ -1714,13 +1732,20 @@ def test_english_events_and_plan_texts(vocab, settings):
     deps = make(
         vocab,
         settings,
-        structured={RawRequest: [westweg_raw(days=5), RawRequest(intent="change", day_change_day=5, day_change_direction="shorter")]},
+        structured={
+            RawRequest: [
+                westweg_raw(days=5),
+                RawRequest(intent="change", day_change_day=5, day_change_direction="shorter"),
+            ]
+        },
         answers=["Plan."],
     )
     # (English day counts are understood from Task 4 on: the message uses the German digits form)
     list(run_chat(deps, "p-en", "5 Tage Westweg ab Hausach", lang="en"))
     data = deps.gateway.answer_users[-1]
-    assert data.startswith("Multi-day plan Westweg (Westvariante) from Hausach, 4 day(s), daily target ")
+    assert data.startswith(
+        "Multi-day plan Westweg (Westvariante) from Hausach, 4 day(s), daily target "
+    )
     assert "Day 1: " in data and "walking time" in data and "arrival" in data
     assert "Tag 1" not in data and "Gehzeit" not in data and "Mehrtagesplan" not in data
     assert "English" in deps.gateway.systems[-1] and "Mehrtagesplan" not in deps.gateway.systems[-1]
@@ -1740,3 +1765,27 @@ def test_english_react_data_and_system(vocab, settings):
     first = deps.gateway.tool_messages[0][0]
     assert "English" in first.content and "Du beantwortest" not in first.content
     assert text_of(events).startswith("No: in the nature reserve")
+
+
+@pytest.mark.parametrize("lang", ["de", "en"])
+def test_prompt_markers_match_the_data_labels(lang):
+    from hikeall.agent.graph import _D
+    from hikeall.agent.prompts import answer_system, plan_system
+
+    d = _D[lang]
+    assert d["time_none"] in answer_system(lang)  # the rule about tours without a time
+    for prompt in (answer_system(lang), plan_system(lang)):
+        unknown = "unbekannt" if lang == "de" else "unknown"
+        assert unknown in prompt and unknown in d["length_unknown"]
+
+
+@pytest.mark.parametrize("lang", ["de", "en"])
+def test_leak_check_replaces_a_prompt_fragment_per_language(vocab, settings, lang):
+    from hikeall.agent.prompts import answer_system
+    from hikeall.agent.texts import texts
+
+    leaked = answer_system(lang)[:200]
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=[leaked])
+    events = list(run_chat(deps, f"leak-{lang}", FELDBERG_MSG, lang=lang))
+    assert texts(lang).leak_reply in text_of(events)
+    assert leaked not in text_of(events)

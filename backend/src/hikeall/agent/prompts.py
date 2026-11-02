@@ -52,7 +52,7 @@ Rules:
 - Every number (km, metres of ascent, hours, minutes, distances, percent) must appear in the \
 data exactly like that. Calculate nothing, estimate nothing, at most round.
 - A missing value is called "unknown".
-- If a tour says "Zeit: keine Angabe", name no duration and no running time.
+- If a tour says "time: not stated", name no duration and no running time.
 - For fallback tours, state the deviation from the condition openly.
 - Whether the tours meet all conditions is said by the program itself before your answer; \
 make no overall statement of your own about it.

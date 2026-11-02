@@ -131,7 +131,7 @@ async def _peek_lang(request: Request) -> Lang:
         return "de"
     try:
         lang = json.loads(await request.body()).get("lang")
-    except (ValueError, AttributeError):
+    except Exception:  # noqa: BLE001 - e.g. RecursionError on deeply nested JSON
         return "de"
     return "en" if lang == "en" else "de"
 
@@ -194,7 +194,13 @@ def make_router(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
         return EventSourceResponse(
-            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id), user.user_id, body.lang),
+            stream(
+                str(body.thread_id),
+                message,
+                chatlog.hash_user(user.user_id),
+                user.user_id,
+                body.lang,
+            ),
             headers=STREAM_HEADERS,
         )
 

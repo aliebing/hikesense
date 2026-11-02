@@ -123,6 +123,14 @@ def test_rate_limit_text_follows_the_request_language(client, seen):
     assert "Zu viele Anfragen" in parse_sse(r.text)[0][1]["message"]
 
 
+def test_rate_limited_deeply_nested_body_is_still_429(client, seen):
+    for _ in range(10):
+        assert post(client).status_code == 200
+    r = client.post("/chat", content=b"[" * 60000, headers=bearer())
+    assert r.status_code == 429
+    assert "Zu viele Anfragen" in parse_sse(r.text)[0][1]["message"]
+
+
 def test_stream_failure_text_follows_the_request_language(settings, monkeypatch):
     def boom(deps, thread_id, message, user_hash=None, user_id=None, lang="de"):
         raise RuntimeError("x")
@@ -133,7 +141,10 @@ def test_stream_failure_text_follows_the_request_language(settings, monkeypatch)
     body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "en"}
     r = client.post("/chat", json=body, headers=bearer())
     ((_, data),) = parse_sse(r.text)
-    assert data["message"] == "The planning assistant is not available right now. Please try again later."
+    assert (
+        data["message"]
+        == "The planning assistant is not available right now. Please try again later."
+    )
 
 
 def test_rate_limit_per_user_not_ip(client, seen):

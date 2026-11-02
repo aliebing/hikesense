@@ -426,7 +426,9 @@ class State(TypedDict, total=False):
     reply: str | None
     reason: str | None
     prefix: str | None  # code-written lines put before the answer verbatim (multi-day notes)
-    near_sentence: str | None  # code-written "Knapp daneben: ..." sentence, appended after the answer
+    near_sentence: (
+        str | None
+    )  # code-written "Knapp daneben: ..." sentence, appended after the answer
     plan_request: dict | None  # the request behind `plan` (its start), persists per thread
     rain_days: list[int] | None  # "Regenvariante für Tag 2 und 3" on the stored plan
     data: str | None
@@ -522,7 +524,11 @@ def _labels(vocab: TagVocabulary, tag_ids: list[str]) -> dict[str, str]:
 
 
 def _card_tags(cards: list[TourCard]) -> list[str]:
-    return [t for c in cards for t in (*c.preference.met, *c.preference.missing, *c.preference.avoided_hit)]
+    return [
+        t
+        for c in cards
+        for t in (*c.preference.met, *c.preference.missing, *c.preference.avoided_hit)
+    ]
 
 
 def _as_float(r: ConstraintResult) -> ConstraintResult:
@@ -706,7 +712,9 @@ def _day_line(
     ]
     line = f"{d['day']} {day.day}{when}: " + ", ".join(facts)
     if day.stop is not None:
-        line += d["stop"].format(name=day.stop.name or d["stop_noname"], dist=day.stop.dist_m)
+        line += d["stop"].format(
+            name=day.stop.name or d["stop_noname"], dist=fmt(day.stop.dist_m, lang, 0)
+        )
         if day.stop.dist_m > NEAR_M:
             line += f" ({ACCESS_STRAIGHT})"
     else:
@@ -714,7 +722,9 @@ def _day_line(
     if day.gap:
         line += d["gap"].format(gap=day.gap)
     weather = _weather_text(w, lang)
-    line += f"; {d['weather']}: {weather}" if weather else f"; {d['weather']}: {d['weather_nodate']}"
+    line += (
+        f"; {d['weather']}: {weather}" if weather else f"; {d['weather']}: {d['weather_nodate']}"
+    )
     if has_rain and v is not None:
         line += d["rain_variant"].format(
             station=v.station_name,
@@ -1134,7 +1144,10 @@ def build_graph(deps: AgentDeps) -> Any:
         if start is not None and start.lat is not None and start.lon is not None:
             lat, lon = start.lat, start.lon
         elif start is not None and start.bbox is not None:  # an area: its centre
-            lat, lon = (start.bbox.south + start.bbox.north) / 2, (start.bbox.west + start.bbox.east) / 2
+            lat, lon = (
+                (start.bbox.south + start.bbox.north) / 2,
+                (start.bbox.west + start.bbox.east) / 2,
+            )
         else:
             place = start.label if start else _D[lang]["no_coords_place"]
             return {"fixed": t.groups_no_coords.format(place=place)}
@@ -1168,9 +1181,7 @@ def build_graph(deps: AgentDeps) -> Any:
             radius=radius, place=place, note=note, check=check,
         )  # fmt: skip
         if stale:
-            body += t.groups_stale.format(
-                n=stale, verb=t.word_is if stale == 1 else t.word_are
-            )
+            body += t.groups_stale.format(n=stale, verb=t.word_is if stale == 1 else t.word_are)
         return {"tool_calls": 1, "fixed": body}
 
     def events(state: State) -> State:
@@ -1358,9 +1369,11 @@ def build_graph(deps: AgentDeps) -> Any:
     def answer(state: State) -> State:
         if state.get("draft") or not state.get("data"):
             return {}
-        return {"draft": gw.answer(
+        return {
+            "draft": gw.answer(
                 state.get("system") or answer_system(state.get("lang", "de")), state["data"]
-            )}
+            )
+        }
 
     def ground(state: State) -> State:
         t = texts(state.get("lang", "de"))
