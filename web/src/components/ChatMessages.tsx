@@ -63,8 +63,14 @@ export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?:
   ];
 }
 
-const foundText = (n: number) =>
-  n === 0 ? "Keine passende Tour gefunden." : n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`;
+/** Real matches are counted as found; near misses are named separately. */
+export function foundText(cards: { near_miss?: boolean }[]): string {
+  const near = cards.filter((c) => c.near_miss).length;
+  const n = cards.length - near;
+  if (n === 0 && near === 0) return "Keine passende Tour gefunden.";
+  const found = n === 0 ? "" : n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`;
+  return near === 0 ? found : n === 0 ? `${near} knapp daneben` : `${found}, ${near} knapp daneben`;
+}
 
 const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
 
@@ -152,7 +158,7 @@ export default function ChatMessages({
                   {it.fallback}
                 </p>
               )}
-              <p className="text-xs text-papier/90">{foundText(it.cards.length)}</p>
+              <p className="text-xs text-papier/90">{foundText(it.cards)}</p>
             </div>
           )}
           {it.kind === "plan" && <p className="text-xs text-papier/90">{it.summary}</p>}

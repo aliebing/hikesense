@@ -1,6 +1,6 @@
 "use client";
 
-import { chipsFor } from "./ChatMessages";
+import { chipsFor, foundText } from "./ChatMessages";
 import { useChat } from "./ChatProvider";
 import MerkenButton from "./MerkenButton";
 import PlanPreview from "./PlanPreview";
@@ -40,7 +40,7 @@ export default function ResultsPane() {
         merken
       ) : (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 className="schrift-feld font-serif text-2xl sm:text-3xl">{last.cards.length} Touren gefunden</h2>
+          <h2 className="schrift-feld font-serif text-2xl sm:text-3xl">{foundText(last.cards)}</h2>
           {merken}
         </div>
       )}

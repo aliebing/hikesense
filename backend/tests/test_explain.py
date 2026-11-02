@@ -35,3 +35,11 @@ def test_rows_note_for_surplus_match():
     assert [r["status"] for r in rows] == ["shown"] * 5 + ["rejected"] * 2
     assert rows[0]["note"] is None
     assert rows[5]["note"] == f"nur die besten {MAX_MATCHES} gezeigt"
+
+
+def test_rows_near_miss_status_and_note():
+    cands = [cand(trail_id="ok", length_km=9.0), cand(trail_id="n", length_km=10.5)]
+    sel = select(cands, req(Constraint(kind="length_km", max=10)))
+    rows = candidate_rows(sel)
+    assert [r["status"] for r in rows] == ["shown", "near_miss"]
+    assert rows[1]["note"] == format_deviation(sel.near_misses[0].violated)

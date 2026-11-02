@@ -184,3 +184,11 @@ describe("Ergebnis merken", () => {
     expect(b).toBeEnabled();
   });
 });
+
+it("1 match + 2 near misses: tiles (not the single view) and a heading that counts only real matches", () => {
+  const near = { near_miss: true, deviation_text: "11,6 km statt höchstens 11,5 km" };
+  seed([mk(1), mk(2, near), mk(3, near)]);
+  show();
+  expect(screen.getByRole("heading", { name: "1 Tour gefunden, 2 knapp daneben" })).toBeInTheDocument();
+  expect(screen.getAllByText("Knapp daneben")).toHaveLength(2);
+});

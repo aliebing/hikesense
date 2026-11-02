@@ -125,3 +125,10 @@ it("shows not found for an id that is not a UUID without querying", async () => 
   expect(await screen.findByText("Diese gemerkte Suche gibt es nicht (mehr).")).toBeInTheDocument();
   expect(h.maybeSingle).not.toHaveBeenCalled();
 });
+
+it("shows a near-miss card yellow with its badge", async () => {
+  h.row = row(payload({ results: { cards: [card("a", "Feldsee"), { ...card("b", "Jägersteig"), near_miss: true, deviation_text: "11,6 km statt höchstens 11,5 km" }], fallback: null, runWithoutPace: false, labels: {}, request: null } }));
+  render(<GemerktPage />);
+  expect(await screen.findByText("Knapp daneben")).toBeInTheDocument();
+  expect(screen.getAllByText("Knapp daneben")).toHaveLength(1);
+});

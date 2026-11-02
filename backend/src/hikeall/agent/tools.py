@@ -216,7 +216,7 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
         for r in rows
     ]
     selection = select(cands, req)
-    shown = [s.candidate.trail_id for s in selection.matches + selection.fallbacks]
+    shown = shown_trail_ids(selection)
     source_ids = sorted({sources[i] for i in shown if sources.get(i)})
     return DayHikeResult(
         selection=selection,
@@ -225,6 +225,11 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
         source_ids=source_ids,
         sources=_source_briefs(conn, source_ids),
     )
+
+
+def shown_trail_ids(selection) -> list[str]:
+    """Trails that become cards (matches, near misses, fallbacks): their sources are listed."""
+    return [s.candidate.trail_id for s in selection.matches + selection.near_misses + selection.fallbacks]
 
 
 def _source_briefs(conn: psycopg.Connection, ids: list[str]) -> list[SourceBrief]:

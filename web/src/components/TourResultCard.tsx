@@ -18,13 +18,21 @@ export const LABEL: Record<string, string> = {
 
 export const UNIT: Record<string, string> = { length_km: "km", ascent_m: "Hm", duration_h: "h", radius_km: "km" };
 
-function Row({ r, deviation }: { r: ConstraintResult; deviation: string | null }) {
+function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: string | null; near?: boolean }) {
   const label = LABEL[r.kind] ?? r.kind;
   const bound = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
   if (r.ok === true) {
     return (
       <li>
         <span aria-label="erfüllt">✓</span> {label}: {bound}
+      </li>
+    );
+  }
+  if (r.ok === false && near) {
+    // the miss is named once, in the yellow reason line above the title
+    return (
+      <li className="text-amber-900">
+        <span aria-label="knapp verfehlt">~</span> {label}: knapp verfehlt ({bound})
       </li>
     );
   }
@@ -73,7 +81,9 @@ export default function TourResultCard({
   return (
     <article
       className={`flex flex-col gap-1 rounded-xl p-3 text-sm text-wald-dunkel ${
-        from ? "relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-amber-400" : "bg-papier/95"
+        card.near_miss ? "ring-2 ring-amber-400 focus-within:ring-4 focus-within:ring-amber-600 " : ""
+      }${
+        from ? `relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl${card.near_miss ? "" : " focus-within:ring-2 focus-within:ring-amber-400"}` : "bg-papier/95"
       }`}
     >
       {!photo && large && (
@@ -89,6 +99,12 @@ export default function TourResultCard({
           <Attribution photo={photo} className="relative z-10 text-wald-dunkel/70" />
         </div>
       )}
+      {card.near_miss && (
+        <div className="flex flex-col gap-0.5">
+          <span className="w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-400">Knapp daneben</span>
+          {card.deviation_text && <p className="text-xs text-amber-900">{card.deviation_text} – sonst passt alles</p>}
+        </div>
+      )}
       <h4 className={`font-serif leading-snug ${large ? "text-xl" : "text-base"}`}>
         <Link
           href={from ? `/t/${card.trail_id}?von=${from}` : `/t/${card.trail_id}`}
@@ -101,7 +117,7 @@ export default function TourResultCard({
       {card.results.length > 0 && (
         <ul className="flex flex-col gap-0.5">
           {card.results.map((r, i) => (
-            <Row key={r.kind + i} r={r} deviation={i === firstViolated ? card.deviation_text : null} />
+            <Row key={r.kind + i} r={r} near={!!card.near_miss} deviation={i === firstViolated ? card.deviation_text : null} />
           ))}
         </ul>
       )}

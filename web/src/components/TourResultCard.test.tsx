@@ -155,3 +155,25 @@ it("Merken shows a short German error and stays available", async () => {
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Das Merken hat nicht geklappt"));
   expect(screen.getByRole("button", { name: "Merken" })).toBeEnabled();
 });
+
+it("near-miss card shows the badge and the reason line, a normal card does not", () => {
+  const { container, rerender } = render(<TourResultCard card={card()} />);
+  expect(container).not.toHaveTextContent("Knapp daneben");
+  rerender(<TourResultCard card={card({ near_miss: true, deviation_text: "11,6 km statt höchstens 11,5 km" })} />);
+  expect(screen.getByText("Knapp daneben")).toBeInTheDocument();
+  expect(screen.getByText("11,6 km statt höchstens 11,5 km – sonst passt alles")).toBeInTheDocument();
+  expect(container.querySelector("article")).toHaveClass("ring-amber-400");
+});
+
+it("near-miss card names the missed condition once, amber, not as a red cross", () => {
+  const miss = { kind: "length_km", ok: false, actual: 11.6, bound: "höchstens 11,5", deviation_rel: 0.01, bound_value: 11.5 } as const;
+  const { container } = render(<TourResultCard card={card({ near_miss: true, deviation_text: "11,6 km statt höchstens 11,5 km", results: [miss] })} />);
+  expect(container.textContent!.match(/11,6 km statt/g)).toHaveLength(1);
+  expect(screen.queryByLabelText("verletzt")).toBeNull();
+  expect(screen.getByLabelText("knapp verfehlt").closest("li")).toHaveClass("text-amber-900");
+});
+
+it("near-miss card on the home page has its own focus ring", () => {
+  const { container } = render(<TourResultCard card={card({ near_miss: true })} from="chat" />);
+  expect(container.querySelector("article")).toHaveClass("focus-within:ring-amber-600");
+});

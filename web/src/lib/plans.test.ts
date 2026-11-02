@@ -156,3 +156,10 @@ it("savePlan inserts kind search", async () => {
   await savePlan("search", "t", { v: 1 });
   expect(h.insert).toHaveBeenCalledWith({ kind: "search", title: "t", payload: { v: 1 } });
 });
+
+it("savedSearchOf keeps the near_miss flag of a card", () => {
+  const near = { ...card("n"), near_miss: true } as TourCard;
+  const items: ChatItem[] = [{ kind: "user", text: "x" }, { kind: "results", cards: [card("a"), near], fallback: null, runWithoutPace: false, labels: {} }];
+  const s = savedSearchOf(stateOf(items, { cards: [card("a"), near] }));
+  expect(s!.results.cards.map((c) => c.near_miss)).toEqual([undefined, true]);
+});

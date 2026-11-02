@@ -10,6 +10,8 @@ from hikeall.numfmt import de
 
 MAX_MATCHES = 5
 MAX_REJECTED = 20
+NEAR_MISS_MAX_REL = 0.25  # a near miss misses one hard condition by at most this much
+NEAR_MISS_FILL_TO = 3  # 1-2 matches are filled up with near misses to this many cards
 _LABEL = {
     "length_km": "Länge",
     "ascent_m": "Höhenmeter",
@@ -71,6 +73,7 @@ class Selection:
     reason: str | None
     contradiction: str | None
     rejected: list[Scored] = field(default_factory=list)
+    near_misses: list[Scored] = field(default_factory=list)
 
 
 def _num(x: float, decimals: int = 1) -> str:
@@ -242,6 +245,34 @@ def _rejected(scored: list[Scored], shown: list[Scored]) -> list[Scored]:
     return sorted(rest, key=_rejected_key)[:MAX_REJECTED]
 
 
+def _near_misses(scored: list[Scored], n_matches: int) -> list[Scored]:
+    """Fill 1-2 matches up with tours that miss exactly one known, non-roundtrip condition by
+    at most NEAR_MISS_MAX_REL. Sets `violated` on the picked ones."""
+    if not 0 < n_matches < NEAR_MISS_FILL_TO:
+        return []
+    found = []
+    for s in scored:
+        bad = [r for r in s.results if r.ok is not True]
+        if len(bad) != 1:
+            continue
+        r = bad[0]
+        if r.ok is False and r.kind != "roundtrip" and r.deviation_rel <= NEAR_MISS_MAX_REL:
+            found.append((r, s))
+    found.sort(
+        key=lambda x: (
+            x[0].deviation_rel,
+            -x[1].preference.score,
+            x[1].candidate.distance_km,
+            x[1].candidate.trail_id,
+        )
+    )
+    picked = []
+    for r, s in found[: NEAR_MISS_FILL_TO - n_matches]:
+        s.violated = r
+        picked.append(s)
+    return picked
+
+
 def select(cands: list[Candidate], req: HikeRequest) -> Selection:
     contra = contradiction(req.constraints)
     if contra:
@@ -261,7 +292,8 @@ def select(cands: list[Candidate], req: HikeRequest) -> Selection:
     matches.sort(key=lambda s: (-s.preference.score, s.candidate.distance_km, s.candidate.trail_id))
     if matches:
         shown = matches[:MAX_MATCHES]
-        return Selection(shown, [], None, None, _rejected(scored, shown))
+        near = _near_misses(scored, len(shown))
+        return Selection(shown, [], None, None, _rejected(scored, shown + near), near)
     best: dict[str, Scored] = {}
     for s in scored:
         bad = [r for r in s.results if r.ok is not True]

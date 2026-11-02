@@ -153,3 +153,14 @@ it("renders the backend events stream without races as calendar links", async ()
   expect(within(list).getByRole("link")).toHaveAttribute("href", "https://www.blv-online.de/laeufe/veranstaltungstermine");
   expect(screen.queryAllByRole("article")).toHaveLength(0);
 });
+
+it("renders a backend near-miss search: yellow card with badge and reason, sentence after the answer", async () => {
+  await chat("near_miss");
+  const results = events("near_miss").find((e) => e.type === "results");
+  if (results?.type !== "results") throw new Error("no results in fixture");
+  expect(results.cards.map((c) => c.near_miss)).toEqual([false, true]);
+  expect(await screen.findByText("Knapp daneben")).toBeInTheDocument();
+  expect(screen.getByText("230 Hm statt höchstens 200 – sonst passt alles")).toBeInTheDocument();
+  expect(screen.getAllByRole("article")).toHaveLength(2);
+  expect(screen.getByText(/Knapp daneben: Jägersteig \(230 Hm statt höchstens 200\)\./)).toBeInTheDocument();
+});
