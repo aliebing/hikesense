@@ -1379,7 +1379,8 @@ def build_graph(deps: AgentDeps) -> Any:
         }
 
     def ground(state: State) -> State:
-        t = texts(state.get("lang", "de"))
+        lang = state.get("lang", "de")
+        t = texts(lang)
         draft, out = state.get("draft"), {}
         reason = state.get("reason")
         body = state.get("fixed") or ""
@@ -1388,10 +1389,12 @@ def build_graph(deps: AgentDeps) -> Any:
         elif draft:
             claims = 0
             if not reason:  # the code did not fall back: no claim that no tour meets all wishes
-                draft, claims = strip_unsat_claims(draft)
+                draft, claims = strip_unsat_claims(draft, lang)
                 if not draft and state.get("route") == "search":  # the cards are shown
                     draft = t.claim_only_tours
-            g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
+            g = grounding_check(
+                draft, Evidence(**state["evidence"]), deps.trail_names, lang
+            )
             # numbers are replaced; unknown tour names stay but get a hint (R21)
             body = g.text
             out = {

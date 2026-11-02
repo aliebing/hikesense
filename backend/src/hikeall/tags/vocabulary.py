@@ -107,6 +107,7 @@ class Tag(BaseModel):
     label_en: str | None = None  # English label; None = the label is a name (places, trails)
     category: TagCategory
     synonyms: list[str] = Field(default_factory=list)
+    synonyms_en: list[str] = Field(default_factory=list)  # English wish words (searched as well)
     rule: TagRule
 
 
@@ -125,6 +126,11 @@ def slugify(text: str) -> str:
     return fold(text).replace(" ", "-").encode("ascii", "ignore").decode("ascii")
 
 
+def all_terms(tag: Tag) -> list[str]:
+    """Every searchable wording of a tag, German and English."""
+    return [tag.label, *tag.synonyms, *([tag.label_en] if tag.label_en else []), *tag.synonyms_en]
+
+
 class TagVocabulary:
     def __init__(self, tags: list[Tag]):
         self._tags: dict[str, Tag] = {}
@@ -133,7 +139,7 @@ class TagVocabulary:
                 raise ValueError(f"duplicate tag id: {tag.id}")
             self._tags[tag.id] = tag
         self._terms = {
-            t.id: sorted({f for term in [t.label, *t.synonyms] if (f := fold(term))}) for t in tags
+            t.id: sorted({f for term in all_terms(t) if (f := fold(term))}) for t in tags
         }
 
     @classmethod
@@ -168,7 +174,7 @@ class TagVocabulary:
         return list(self._tags.values())
 
     def search(self, text: str, limit: int = 20) -> list[Tag]:
-        """Folded match against labels and synonyms; exact, then prefix, then inner matches."""
+        """Folded match against labels and synonyms (German and English); exact, then prefix, then inner matches."""
         needle = fold(text)
         if not needle:
             return []

@@ -38,12 +38,19 @@ _MONTHS = {
     "april": 4, "apr": 4, "mai": 5, "juni": 6, "jun": 6, "juli": 7, "jul": 7, "august": 8,
     "aug": 8, "september": 9, "sept": 9, "sep": 9, "oktober": 10, "okt": 10, "november": 11,
     "nov": 11, "dezember": 12, "dez": 12,
+    # English names (the German abbreviations above already cover jan, feb, apr, jun, ...)
+    "january": 1, "february": 2, "march": 3, "mar": 3, "may": 5, "june": 6, "july": 7,
+    "october": 10, "oct": 10, "december": 12, "dec": 12,
 }  # fmt: skip
 _MONTH_NAMES = ("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
                 "September", "Oktober", "November", "Dezember")  # fmt: skip
 _ISO = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
 _NUMERIC = re.compile(r"\b(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4}|\d{2})\b")
-_NAMED = re.compile(r"\b(\d{1,2})\.?\s*([A-Za-zÄÖÜäöü]{3,})\.?\s+(\d{4})\b")
+_NAMED = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\.?\s*(?:of\s+)?([A-Za-zÄÖÜäöü]{3,})\.?\s+(\d{4})\b"
+)
+# "March 12, 2027", "March 12th 2027"
+_NAMED_EN = re.compile(r"\b([A-Za-z]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b")
 
 
 class Field(BaseModel):
@@ -115,6 +122,10 @@ def dates_in(text: str) -> set[date]:
     found = [_day(int(y), int(m), int(d)) for y, m, d in _ISO.findall(text)]
     found += [_day(int(y), int(m), int(d)) for d, m, y in _NUMERIC.findall(text)]
     for d, month, y in _NAMED.findall(text):
+        m = _MONTHS.get(month.casefold())
+        if m:
+            found.append(_day(int(y), m, int(d)))
+    for month, d, y in _NAMED_EN.findall(text):
         m = _MONTHS.get(month.casefold())
         if m:
             found.append(_day(int(y), m, int(d)))

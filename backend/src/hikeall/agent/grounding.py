@@ -8,6 +8,8 @@ import re
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
+from hikeall.numfmt import Lang
+
 # Adapted from HikeAI pipeline/grounding.py::_NUMBER_WITH_UNIT for German answers:
 # decimal comma, dot as thousands separator ("1.200 Hm"), German unit words; "km/h" is no length.
 # German number words (1–12, halves) count like digits: "zwei Stunden" is a claim as well.
@@ -21,7 +23,9 @@ _NUM_WORD = r"eine\shalbe|halbe|anderthalb|eineinhalb|eins|eine[nmr]?|ein|zwei|d
 _NUM_WORD += r"|sechs|sieben|acht|neun|zehn|elf|zwölf"
 # a minus sign ("-" or U+2212) directly before the digits belongs to the number: -3 °C is not 3 °C
 _NUM = rf"[-−]?(?:\d{{1,3}}(?:\.\d{{3}})+(?![.,]?\d)|\d+(?:[.,]\d+)?)|(?:{_NUM_WORD})(?!\w)"
-_UNIT_RE = r"Kilometern?|km|Höhenmetern?|hm|Millimetern?|mm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min"
+_UNIT_RE = (
+    r"Kilometern?|km|Höhenmetern?|hm|Millimetern?|mm|Metern?|m|Stunden?|Std\.?|h|Minuten?|min"
+)
 _UNIT_RE += r"|Prozent|%|°\s?C|°|Grad|Uhr"
 _HOURS = r"(?:Stunden?|Std\.?|h)"
 _MINUTES = r"(?:Minuten?|min)"
@@ -42,6 +46,47 @@ _NUMBER_WITH_UNIT = re.compile(
     re.IGNORECASE,
 )
 
+
+# English answers (lang="en"): decimal point, thousands comma ("1,200 m"), English unit and number
+# words, "to"/"and" ranges, bare clock times ("09:30", "9:30 am").
+_WORDS_EN = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}  # fmt: skip
+_HALVES_EN = {"half": "0.5", "half an": "0.5", "half a": "0.5", "one and a half": "1.5"}
+_NUM_WORD_EN = r"one\sand\sa\shalf|half\san?|half|one|two|three|four|five|six|seven|eight|nine"
+_NUM_WORD_EN += r"|ten|eleven|twelve"
+_NUM_EN = (
+    r"[-−]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])|\d+(?:\.\d+)?)"
+    rf"|(?:{_NUM_WORD_EN})(?!\w)"
+)
+_UNIT_EN = r"kilometres?|kilometers?|km|millimetres?|millimeters?|mm|metres?|meters?|m|hm"
+_UNIT_EN += r"|hours?|hrs?|h|minutes?|mins?|min|per\s?cent|percent|%|°\s?C|°|degrees?"
+_HOURS_EN = r"(?:hours?|hrs?|h)"
+_MINUTES_EN = r"(?:minutes?|mins?|min)"
+_NUMBER_WITH_UNIT_EN = re.compile(
+    # "2 h 54 min" / "2 hours and 54 minutes": one duration
+    rf"{_START}(?P<ch>\d+)\s?{_HOURS_EN}\s?(?:and\s)?(?P<cm>\d{{1,2}})\s?{_MINUTES_EN}{_END}"
+    # "2:54 h": one duration
+    rf"|{_START}(?P<kh>\d+):(?P<km>\d{{2}})\s?{_HOURS_EN}{_END}"
+    # "09:30", "9:30 am": one clock time (not a pace: "5:30 min/km")
+    rf"|{_START}(?P<uh>\d{{1,2}}):(?P<um>\d{{2}})(?:\s?(?P<ap>[ap]m)\b)?"
+    rf"(?![\w:/]|\s?(?:h\b|min|hr|hour|/))"
+    # "10 to 15 km", "10–15 km", "between 10 and 15 km": both numbers carry the unit
+    rf"|{_START}(?:(?P<lo>{_NUM_EN})\s?(?:–|—|-|to\s|and\s)\s?)?"
+    rf"(?P<num>{_NUM_EN}){_SEP}(?P<unit>{_UNIT_EN}){_END}",
+    re.IGNORECASE,
+)
+# "ascent 540 m", "ascent of about 540 m" / "540 m of ascent", "540 m ascent": metres of climb
+_ASCENT_BEFORE = re.compile(
+    r"(?:ascent|descent|climb\w*|elevation(?:\s+gain)?|uphill|downhill)[^\d.!?;]{0,25}$",
+    re.IGNORECASE,
+)
+_ASCENT_AFTER = re.compile(
+    r"\s?(?:of\s+)?(?:total\s+)?(?:ascent|descent|climb\w*|elevation|uphill|downhill)\b",
+    re.IGNORECASE,
+)
+
 # unit -> (dimension, factor to the dimension's base unit). Höhenmeter are their own dimension:
 # an ascent never supports a length and vice versa.
 _LENGTH = {"km": 1000, "kilometer": 1000, "kilometern": 1000, "m": 1, "meter": 1, "metern": 1}
@@ -58,6 +103,20 @@ _UNITS = {
     **{u: ("temp", Decimal(1)) for u in ("°c", "° c", "°", "grad")},
     "uhr": ("clock", Decimal(60)),  # minutes after midnight
 }
+# English: a bare "m" is metres of length OR of climb (dimension "metre", compatible with both
+# unless the words around it say ascent); the German evidence unit "Hm" stays ascent
+_UNITS_EN = {
+    **{u: ("length", Decimal(1000)) for u in ("km", "kilometre", "kilometres", "kilometer")},
+    "kilometers": ("length", Decimal(1000)),
+    **{u: ("metre", Decimal(1)) for u in ("m", "metre", "metres", "meter", "meters")},
+    "hm": ("ascent", Decimal(1)),
+    **{u: ("time", Decimal(60)) for u in ("h", "hr", "hrs", "hour", "hours")},
+    **{u: ("time", Decimal(1)) for u in ("min", "mins", "minute", "minutes")},
+    **{u: ("percent", Decimal(1)) for u in ("%", "percent", "per cent", "percentage")},
+    **{u: ("precip", Decimal(1)) for u in ("mm", "millimetre", "millimetres", "millimeter")},
+    "millimeters": ("precip", Decimal(1)),
+    **{u: ("temp", Decimal(1)) for u in ("°c", "° c", "°", "degree", "degrees")},
+}
 
 HINT = "Hinweis: {n} Angabe(n) ließ(en) sich nicht belegen und wurde(n) entfernt."
 NAME_HINT = (
@@ -67,6 +126,17 @@ NAME_HINT = (
 NAME_HINT_PLURAL = (
     "Hinweis: {names} kommen in den Suchergebnissen dieser Antwort nicht vor"
     " – bitte nicht als Vorschlag verstehen."
+)
+
+
+HINT_EN = "Note: {n} figure(s) could not be verified and were removed."
+NAME_HINT_EN = (
+    "Note: {names} does not appear in this answer's search results"
+    " – please do not take it as a suggestion."
+)
+NAME_HINT_PLURAL_EN = (
+    "Note: {names} do not appear in this answer's search results"
+    " – please do not take them as suggestions."
 )
 
 
@@ -97,7 +167,9 @@ class Evidence:
 class GroundingResult:
     text: str
     unsupported: list[str]  # numbers, replaced by "?"
-    unsupported_names: list[str] = field(default_factory=list)  # tour names, kept in the text with NAME_HINT
+    unsupported_names: list[str] = field(
+        default_factory=list
+    )  # tour names, kept in the text with NAME_HINT
 
 
 @dataclass(frozen=True)
@@ -117,11 +189,19 @@ class _Found:
     shown: str
 
 
-def _value(raw: str) -> tuple[Decimal, int]:
+def _value(raw: str, lang: Lang = "de") -> tuple[Decimal, int]:
     if raw[:1] in ("-", "−"):
-        value, decimals = _value(raw[1:])
+        value, decimals = _value(raw[1:], lang)
         return -value, decimals
     word = re.sub(r"\s+", " ", raw.lower())
+    if lang == "en":
+        if word in _HALVES_EN:
+            return Decimal(_HALVES_EN[word]), 1
+        if word in _WORDS_EN:
+            return Decimal(_WORDS_EN[word]), 0
+        if re.fullmatch(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?", raw):  # English thousands separator
+            raw = raw.replace(",", "")
+        return Decimal(raw), len(raw.split(".")[1]) if "." in raw else 0
     if word in _HALVES:
         return Decimal(_HALVES[word]), 1
     if word in _WORDS:
@@ -132,11 +212,28 @@ def _value(raw: str) -> tuple[Decimal, int]:
     return Decimal(raw), len(raw.split(".")[1]) if "." in raw else 0
 
 
-def _found(text: str) -> list[_Found]:
+def _unit_of(text: str, m: re.Match[str], lang: Lang) -> tuple[str, Decimal]:
+    unit = re.sub(r"\s+", " ", m.group("unit").lower())
+    if lang == "de":
+        return _UNITS[unit]
+    dim, factor = _UNITS_EN[unit]
+    if dim == "metre":  # the words around it may say "climb"
+        before = text[max(0, m.start("num") - 40) : m.start("num")]
+        if _ASCENT_BEFORE.search(before) or _ASCENT_AFTER.match(text, m.end()):
+            return "ascent", factor
+    return dim, factor
+
+
+def _found(text: str, lang: Lang = "de") -> list[_Found]:
     out: list[_Found] = []
-    for m in _NUMBER_WITH_UNIT.finditer(text):
+    pattern = _NUMBER_WITH_UNIT_EN if lang == "en" else _NUMBER_WITH_UNIT
+    for m in pattern.finditer(text):
         if m.group("uh") is not None:  # clock time, in minutes after midnight
-            total = Decimal(m.group("uh")) * 60 + Decimal(m.group("um"))
+            hour = int(m.group("uh"))
+            if lang == "en":
+                ap = (m.group("ap") or "").lower()
+                hour = hour % 12 + (12 if ap == "pm" else 0) if ap else hour
+            total = Decimal(hour) * 60 + Decimal(m.group("um"))
             number = _Number(total, 0, "clock", Decimal(1))
             out.append(_Found(number, (m.span("uh"), m.span("um")), m.group(0)))
             continue
@@ -147,23 +244,28 @@ def _found(text: str) -> list[_Found]:
             out.append(_Found(number, (m.span(h), m.span(mins)), m.group(0)))
             continue
         unit = m.group("unit")
-        dim, factor = _UNITS[re.sub(r"\s+", " ", unit.lower())]
+        dim, factor = _unit_of(text, m, lang)
         if m.group("lo") is not None:  # range: the first number has the same unit
-            value, decimals = _value(m.group("lo"))
+            value, decimals = _value(m.group("lo"), lang)
             number = _Number(value, decimals, dim, factor)
             out.append(_Found(number, (m.span("lo"),), f"{m.group('lo')} {unit}"))
-        value, decimals = _value(m.group("num"))
+        value, decimals = _value(m.group("num"), lang)
         number = _Number(value, decimals, dim, factor)
         out.append(_Found(number, (m.span("num"),), text[m.start("num") : m.end()]))
     return out
 
 
-def numbers_in_text(text: str) -> list[str]:
-    return [f.shown for f in _found(text)]
+def numbers_in_text(text: str, lang: Lang = "de") -> list[str]:
+    return [f.shown for f in _found(text, lang)]
 
 
-def _evidence_numbers(evidence: Evidence) -> list[_Number]:
-    return [f.number for text in evidence.numbers for f in _found(text)]
+def _evidence_numbers(evidence: Evidence, lang: Lang = "de") -> list[_Number]:
+    """Evidence read the way the answer is written; English answers also read the German form
+    ("12,4 km", "540 Hm"): Evidence.add and knowledge passages are German-formatted."""
+    out = [f.number for text in evidence.numbers for f in _found(text, lang)]
+    if lang == "en":
+        out += [f.number for text in evidence.numbers for f in _found(text, "de")]
+    return out
 
 
 def _round(x: Decimal, decimals: int) -> Decimal:
@@ -174,12 +276,17 @@ def _supported(n: _Number, known: list[_Number]) -> bool:
     """Equal after converting the evidence to the answer's unit and rounding it to the answer's
     precision. Durations count only as a whole: "2 h" or "54 min" alone is not 2,9 h."""
     return any(
-        k.dim == n.dim and _round(k.value * k.factor / n.factor, n.decimals) == n.value
+        _same_dim(k.dim, n.dim) and _round(k.value * k.factor / n.factor, n.decimals) == n.value
         for k in known
     )
 
 
-def has_number(evidence: Evidence, value: float, unit: str) -> bool:
+def _same_dim(a: str, b: str) -> bool:
+    """English "metre" (a bare "m") is compatible with a length and with an ascent."""
+    return a == b or {a, b} <= {"metre", "length", "ascent"} and "metre" in (a, b)
+
+
+def has_number(evidence: Evidence, value: float, unit: str, lang: Lang = "de") -> bool:
     """Exactly this value (after unit conversion, no rounding) is in the evidence."""
     probe = _found(f"{float(value):.6f}".rstrip("0").rstrip(".").replace(".", ",") + f" {unit}")
     if len(probe) != 1:
@@ -187,7 +294,7 @@ def has_number(evidence: Evidence, value: float, unit: str) -> bool:
     n = probe[0].number
     return any(
         k.dim == n.dim and k.value * k.factor == n.value * n.factor
-        for k in _evidence_numbers(evidence)
+        for k in _evidence_numbers(evidence, lang)
     )
 
 
@@ -207,12 +314,15 @@ def _unsupported_names(answer: str, evidence: Evidence, tour_names: list[str]) -
 
 
 def grounding_check(
-    answer: str, evidence: Evidence, tour_names: list[str] | tuple[str, ...] = ()
+    answer: str,
+    evidence: Evidence,
+    tour_names: list[str] | tuple[str, ...] = (),
+    lang: Lang = "de",
 ) -> GroundingResult:
-    known = _evidence_numbers(evidence)
+    known = _evidence_numbers(evidence, lang)
     unsupported: list[str] = []
     spans: list[tuple[int, int]] = []
-    for f in _found(answer):
+    for f in _found(answer, lang):
         if not _supported(f.number, known):
             unsupported.append(f.shown)
             spans += f.spans
@@ -223,10 +333,14 @@ def grounding_check(
         pos = end
     text = "".join(parts) + answer[pos:]
     if unsupported:
-        text = text.rstrip() + "\n\n" + HINT.format(n=len(unsupported))
+        hint = HINT_EN if lang == "en" else HINT
+        text = text.rstrip() + "\n\n" + hint.format(n=len(unsupported))
     names = _unsupported_names(answer, evidence, list(tour_names))
     if names:
-        hint = NAME_HINT if len(names) == 1 else NAME_HINT_PLURAL
+        one, many = (
+            (NAME_HINT_EN, NAME_HINT_PLURAL_EN) if lang == "en" else (NAME_HINT, NAME_HINT_PLURAL)
+        )
+        hint = one if len(names) == 1 else many
         text = text.rstrip() + "\n\n" + hint.format(names=", ".join(names))
     return GroundingResult(text=text, unsupported=unsupported, unsupported_names=names)
 
@@ -250,13 +364,28 @@ _UNSAT_CLAIM = re.compile(
 )
 
 
-def strip_unsat_claims(text: str) -> tuple[str, int]:
+# English: "No tour meets all your wishes", "None of the tours fulfils all of your conditions"
+_EN_NOUNS = r"(?:wishes|conditions|requirements|criteria|requests|preferences)\b"
+_EN_ALL = rf"all\s+(?:of\s+)?(?:(?:your|the|these|those)\s+)?(?:\w+\s+)?{_EN_NOUNS}"
+_EN_SUBJECT = r"(?:no|none)\b(?:\s+of)?(?:\s+(?:the|these|those|them))?(?:\s+\w+){0,2}"
+_EN_VERB = r"(?:(?:can(?:not)?|could|will)\s+)?(?:fully\s+)?"
+_EN_VERB += r"(?:meets?|fulfil(?:s|ls)?|satisf(?:y|ies)|matches|match|fits?|covers?)"
+_UNSAT_CLAIM_EN = re.compile(rf"\b{_EN_SUBJECT}\s+{_EN_VERB}\s+{_EN_ALL}", re.IGNORECASE)
+_ABBR_EN = r"e\.\s?g\.|i\.\s?e\.|approx\.|etc\.|incl\."
+# no sentence end inside a decimal number ("11.6 km")
+_SENTENCE_EN = re.compile(
+    rf"(?:{_LIST_NO}|{_ABBR_EN}|\d\.(?=\d)|[^.!?:\n])*(?:[.!?:]+|\n|$)\s*", re.IGNORECASE
+)
+
+
+def strip_unsat_claims(text: str, lang: Lang = "de") -> tuple[str, int]:
     """The text without sentences claiming no tour meets all wishes, and how many were removed."""
+    sentence, claim = (_SENTENCE_EN, _UNSAT_CLAIM_EN) if lang == "en" else (_SENTENCE, _UNSAT_CLAIM)
     kept: list[str] = []
     removed = 0
-    for sentence in _SENTENCE.findall(text):
-        if _UNSAT_CLAIM.search(sentence):
+    for part in sentence.findall(text):
+        if claim.search(part):
             removed += 1
         else:
-            kept.append(sentence)
+            kept.append(part)
     return (text, 0) if not removed else ("".join(kept).strip(), removed)

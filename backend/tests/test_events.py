@@ -700,3 +700,18 @@ def test_gzip_body_is_capped_after_decompression(respx_mock):
     assert len(bomb) < 1_000_000  # the compressed body alone would pass the cap
     assert route.calls[0].request.headers["accept-encoding"] == "identity"
     assert "Kirchzarten" in got.text
+
+
+def test_dates_in_reads_english_month_names():
+    from hikeall.agent.events import dates_in
+
+    want = {date(2027, 3, 12)}
+    for text in (
+        "12 March 2027",
+        "12th March 2027",
+        "March 12, 2027",
+        "March 12th, 2027",
+        "12 Mar 2027",
+    ):
+        assert dates_in(text) == want, text
+    assert dates_in("18. April 2027") == {date(2027, 4, 18)}  # German unchanged

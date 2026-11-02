@@ -1025,7 +1025,11 @@ def test_ostweg_is_not_the_west_variant(vocab):
 
 def test_mittelweg_resolves(vocab):
     req = multi(
-        vocab, "Mittelweg ab Pforzheim, 4 Tage", trail_text="Mittelweg", start_text="Hausach", days=4
+        vocab,
+        "Mittelweg ab Pforzheim, 4 Tage",
+        trail_text="Mittelweg",
+        start_text="Hausach",
+        days=4,
     )
     assert isinstance(req, HikeRequest)
     assert req.trail_id == "mittelweg" and req.trail_assumed is False
@@ -1086,6 +1090,7 @@ def test_model_roundtrip_without_a_word_in_the_message_is_dropped(vocab):
 
 def test_bodensee_is_area_without_clarify(vocab):
     from hikeall.regions import get_region
+
     v = vocab
     req = understand(gw_of(start_text="Bodensee"), v, "Wandern am Bodensee", None)
     assert isinstance(req, HikeRequest)
@@ -1094,7 +1099,9 @@ def test_bodensee_is_area_without_clarify(vocab):
 
 
 def test_swiss_place_resolves(vocab):
-    v = TagVocabulary(vocab.all() + [_place("place:stein-am-rhein", "Stein am Rhein", 47.66, 8.86, 7)])
+    v = TagVocabulary(
+        vocab.all() + [_place("place:stein-am-rhein", "Stein am Rhein", 47.66, 8.86, 7)]
+    )
     req = understand(gw_of(start_text="Stein am Rhein"), v, "Start in Stein am Rhein", None)
     assert isinstance(req, HikeRequest)
     assert req.start.kind == "place" and req.start.tag_id == "place:stein-am-rhein"
@@ -1181,7 +1188,11 @@ def test_english_fixed_questions_and_notes(vocab):
     res = understand(trail, vocab, "Westweg from Hausach", None, lang="en")
     assert res.question == "How many days?"
     req = understand(
-        gw_of(start_text="Todtnau", ascent_m_max=-5), vocab, "a walk, at most -5 m ascent", None, lang="en"
+        gw_of(start_text="Todtnau", ascent_m_max=-5),
+        vocab,
+        "a walk, at most -5 m ascent",
+        None,
+        lang="en",
     )
     assert isinstance(req, HikeRequest)
     assert req.unmatched == ["Ascent: -5 is not a valid value"]
@@ -1213,3 +1224,167 @@ def test_english_model_roundtrip_without_a_word_is_dropped(vocab):
     gw = gw_of(start_text="Todtnau", wishes=[RawWish(text="Galloop")])
     req = understand(gw, vocab, "walk with Galloop", None, lang="en")
     assert "roundtrip" not in kinds(req) and req.unmatched == ["Galloop"]
+
+
+# --- English numbers, dates and wish words (Task 4) -------------------------------------------
+
+
+def test_en_number_words_keep_the_length(vocab):
+    gw = gw_of(start_text="Titisee-Neustadt", roundtrip=True, length_km_approx=10)
+    req = understand(
+        gw, vocab, "a round walk of about ten kilometres near Titisee", None, lang="en"
+    )
+    c = kinds(req)["length_km"]
+    assert c.approx == 10 and req.discarded_model_numbers == 0
+    assert kinds(req)["roundtrip"].required is True
+
+
+def test_en_two_hours_keeps_the_duration(vocab):
+    gw = gw_of(start_text="Todtnau", duration_h_approx=2)
+    req = understand(gw, vocab, "a walk of two hours from Todtnau", None, lang="en")
+    assert kinds(req)["duration_h"].approx == 2 and req.discarded_model_numbers == 0
+
+
+@pytest.mark.parametrize(
+    ("message", "value"),
+    [
+        ("half an hour", 0.5),
+        ("a quarter of an hour", 0.25),
+        ("one and a half hours", 1.5),
+        ("an hour and a half", 1.5),
+        ("1 hour 30 minutes", 1.5),
+        ("2 1/2 hours", 2.5),
+        ("three quarters of an hour", 0.75),
+        ("an hour", 1.0),
+    ],
+)
+def test_en_duration_forms_are_read(vocab, message, value):
+    gw = gw_of(start_text="Todtnau", duration_h_approx=value)
+    req = understand(gw, vocab, f"a walk of {message} from Todtnau", None, lang="en")
+    assert kinds(req)["duration_h"].approx == value and req.discarded_model_numbers == 0
+
+
+def test_en_invented_number_is_still_dropped(vocab):
+    gw = gw_of(start_text="Todtnau", length_km_approx=12)
+    req = understand(gw, vocab, "a walk of about ten kilometres from Todtnau", None, lang="en")
+    assert "length_km" not in kinds(req) and req.discarded_model_numbers == 1
+
+
+def test_en_compound_and_thousands_numbers(vocab):
+    from hikeall.agent.understand import _scan
+
+    assert 25.0 in _scan("twenty-five kilometres", "en")[0]
+    assert 1200.0 in _scan("1,200 m of ascent", "en")[0]
+    assert 1.5 in _scan("1.5 km", "en")[0]
+    assert 1500.0 in _scan("1.500 m", "de")[0]
+    assert 1500.0 not in _scan("1.500 m", "en")[0]
+
+
+def test_en_ascent_with_comma_thousands_is_kept(vocab):
+    gw = gw_of(start_text="Todtnau", ascent_m_max=1200)
+    req = understand(gw, vocab, "a walk with at most 1,200 m ascent from Todtnau", None, lang="en")
+    assert kinds(req)["ascent_m"].max == 1200
+
+
+def _multi(**kw):
+    kw.setdefault("intent", "multiday")
+    return FakeGateway(structured={RawRequest: [RawRequest(**kw)]})
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Westweg from Hausach on 12 March",
+        "Westweg from Hausach on 12th of March",
+        "Westweg from Hausach on March 12",
+        "Westweg from Hausach on March 12th",
+        "Westweg from Hausach on 12 Mar",
+    ],
+)
+def test_en_dates(vocab, message):
+    from datetime import date as d
+
+    gw = _multi(trail_text="Westweg", days=3, start_text="Hausach", start_date="2027-03-12")
+    req = understand(gw, vocab, f"{message}, 3 days", None, today=d(2027, 1, 5), lang="en")
+    assert isinstance(req, HikeRequest), req
+    assert req.start_date == d(2027, 3, 12)
+
+
+def test_en_date_with_year_and_uk_numeric(vocab):
+    from datetime import date as d
+
+    for message in ("on 12 March 2028", "on March 12, 2028", "on 12/03/2028"):
+        gw = _multi(trail_text="Westweg", days=3, start_text="Hausach", start_date="2028-03-12")
+        req = understand(
+            gw,
+            vocab,
+            f"Westweg from Hausach {message}, 3 days",
+            None,
+            today=d(2027, 1, 5),
+            lang="en",
+        )
+        assert req.start_date == d(2028, 3, 12), message
+
+
+def test_en_relative_dates_days_and_times(vocab):
+    from datetime import date as d
+
+    gw = _multi(trail_text="Westweg", days=3, start_text="Hausach", start_time="08:30")
+    msg = "Westweg from Hausach, three days, start at 8:30 tomorrow"
+    req = understand(gw, vocab, msg, None, today=d(2027, 1, 5), lang="en")
+    assert req.days == 3 and req.start_time == time(8, 30) and req.start_date == d(2027, 1, 6)
+    for message, want in (("8 am", time(8, 0)), ("5 pm", time(17, 0)), ("9 o'clock", time(9, 0))):
+        gw = _multi(trail_text="Westweg", days=3, start_text="Hausach", start_time=want.isoformat())
+        req = understand(
+            gw,
+            vocab,
+            f"3-day Westweg from Hausach at {message}",
+            None,
+            today=d(2027, 1, 5),
+            lang="en",
+        )
+        assert req.days == 3 and req.start_time == want, message
+
+
+def test_en_day_change_words(vocab):
+    plan = HikeRequest(intent="multiday", days=4, trail_id="westweg-west")
+    gw = gw_of(intent="change", day_change_day=3, day_change_direction="shorter")
+    req = understand(gw, vocab, "make day 3 shorter", plan, lang="en")
+    assert req.day_change == DayChange(day=3, change="shorter")
+
+
+def test_en_point_to_point_counts_as_stated_tour(vocab):
+    gw = gw_of(start_text="Todtnau", roundtrip=False)
+    req = understand(gw, vocab, "a walk from Todtnau to Feldberg", None, lang="en")
+    assert kinds(req)["roundtrip"].required is False
+    for message in (
+        "A walk from 8 to 12 km near Titisee",
+        "from 2 to 3 hours near Todtnau",
+        "a walk from Todtnau, up to 12 km",
+    ):
+        gw = gw_of(start_text="Todtnau", roundtrip=False, length_km_min=8, length_km_max=12)
+        req = understand(gw, vocab, message, None, lang="en")
+        assert "roundtrip" not in kinds(req), message
+
+
+def test_en_wish_words_resolve_to_tags(vocab):
+    for word, tag in (
+        ("inn", "feature:einkehr"),
+        ("viewpoint", "feature:aussicht"),
+        ("waterfall", "feature:wasserfall"),
+        ("summit", "feature:gipfel"),
+        ("train station", "feature:bahnhof"),
+        ("pushchair friendly", "surface:gut_laufbar"),
+        ("natural path", "surface:naturweg"),
+        ("little tarmac", "surface:wenig_asphalt"),
+    ):
+        gw = gw_of(start_text="Todtnau", wishes=[RawWish(text=word)])
+        req = understand(gw, vocab, f"a walk with a {word}", None, lang="en")
+        assert [p.tag_id for p in req.preferences] == [tag], word
+        assert req.unmatched == []
+
+
+def test_german_wish_words_still_resolve(vocab):
+    gw = gw_of(start_text="Todtnau", wishes=[RawWish(text="Gasthaus")])
+    req = understand(gw, vocab, "Wanderung mit Gasthaus", None)
+    assert [p.tag_id for p in req.preferences] == ["feature:einkehr"]

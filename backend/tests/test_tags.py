@@ -297,3 +297,18 @@ def test_place_named_like_region_is_skipped(conn):
     v = TagVocabulary.load(conn, FEATURES_YAML)
     assert v.get("place:bodensee") is None
     assert v.search("Bodensee")[0].id == "area:bodensee"
+
+
+def test_search_covers_english_terms(vocab):
+    assert vocab.search("inn")[0].id == "feature:einkehr"
+    assert vocab.search("viewpoint")[0].id == "feature:aussicht"
+    assert vocab.search("pub")[0].id == "feature:einkehr"
+    assert vocab.search("Einkehr")[0].id == "feature:einkehr"  # German still works
+
+
+def test_every_feature_has_english_synonyms(vocab):
+    for t in vocab.all():
+        if t.category in ("feature", "surface"):
+            assert t.synonyms_en, t.id
+    assert vocab.label("feature:einkehr", "en") == "Inn"
+    assert vocab.label("feature:einkehr", "de") == "Einkehr"

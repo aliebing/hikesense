@@ -29,7 +29,15 @@ from hikeall.geo import haversine_km
 from hikeall.llm.gateway import LLMGateway
 from hikeall.numfmt import Lang
 from hikeall.regions import REGION_NAMES, REGION_PHRASE
-from hikeall.tags.vocabulary import Area, LongTrail, NearPlace, Tag, TagVocabulary, fold
+from hikeall.tags.vocabulary import (
+    Area,
+    LongTrail,
+    NearPlace,
+    Tag,
+    TagVocabulary,
+    all_terms,
+    fold,
+)
 
 __all__ = [
     "Clarify",
@@ -62,6 +70,9 @@ _ROUNDTRIP_SAID = re.compile(
     r"rundweg|runde|rundtour|rundwander|rundkurs|rundgang|rundlauf|schleife|strecke"
     r"|\bvon\b.+\bnach\b"
     r"|round walk|round trip|roundtrip|circular|\bloop\b|point to point|one way"
+    # "from Todtnau to Feldberg": place names, no digits, no punctuation, not "up to"
+    # ("from 8 to 12 km", "from Todtnau, up to 400 m" are no point-to-point statement)
+    r"|\bfrom\b[^\d,.;:!?]{1,60}?(?<!up\s)\bto\b"
 )
 _PAREN = re.compile(r"\s*\([^)]*\)")
 
@@ -327,7 +338,7 @@ def resolve(
     if is_change and previous is None:
         return Clarify(question=t["change"])
 
-    nums, unread = _scan(message)
+    nums, unread = _scan(message, lang)
     day_change = None
     change_note = None
     if is_change and raw.day_change_day is not None and raw.day_change_direction is not None:
@@ -431,6 +442,26 @@ _WORD_NUMBERS = {
     "achtzig": 80, "neunzig": 90, "hundert": 100,
     "halb": 0.5, "halbe": 0.5, "anderthalb": 1.5,
 }  # fmt: skip
+_WORD_NUMBERS_EN = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+    "eighty": 80, "ninety": 90, "half": 0.5,
+}  # fmt: skip
+_TENS_EN = r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety"
+_UNITS_EN = r"one|two|three|four|five|six|seven|eight|nine"
+_COMPOUND_EN = re.compile(rf"\b({_TENS_EN})[-\s]({_UNITS_EN})\b")
+_MULTIPLE_EN = re.compile(rf"\b({_UNITS_EN}|ten)\s+(hundred|thousand)\b")
+_AND_A_HALF_EN = re.compile(r"\b(\d+|[a-z]+)\s+and\s+a\s+half\b")
+_HOUR_AND_A_HALF_EN = re.compile(r"\ban\s+hour\s+and\s+a\s+half\b")
+_ONE_UNIT_EN = re.compile(
+    r"\b(?:an?|one)\s+(?:km|kilomet(?:re|er)s?|hour|hr|minute|min|metre|meter|m)\b"
+)
+_PART_HOUR_EN = re.compile(
+    r"\b(three[- ]quarters?|(?:a\s+)?quarter|half)(?:\s+of)?\s+an?\s+hour\b|\bhalf[- ]hour\b"
+)
+_NUMBERISH_EN = re.compile(r"hundred|thousand|dozen|quarters?|thirds?")
 _ARTICLES = {"ein", "eine", "einen", "einem", "einer", "eines"}  # only a number inside compounds
 _UNITS = {k: v for k, v in _WORD_NUMBERS.items() if v in range(1, 10) and k != "eins"} | {
     "ein": 1,
@@ -441,10 +472,13 @@ _ONE_UNIT = re.compile(
     r"\b(?:ein|eine|einen|einem)\s+(?:km|kilometer|stunde|std|h|hm|hohenmeter|minute)\b"
 )
 _THOUSANDS = re.compile(r"\b\d{1,3}(?:\.\d{3})+\b")
+_THOUSANDS_EN = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 _CLOCK = re.compile(r"\b(\d{1,2}):(\d{2})\b")
-_HOURS_MINUTES = re.compile(r"\b(\d{1,2})\s*(?:h|std|stunden?)\s*(\d{1,2})(?!\d)")
+_HOURS_MINUTES = re.compile(
+    r"\b(\d{1,2})\s*(?:h|std|stunden?|hours?|hrs?)\s*(?:and\s+)?(\d{1,2})(?!\d)"
+)
 _FRACTION = re.compile(
-    r"(?<![\d/])(?:(\d+)\s+)?(\d+)\s*/\s*(\d+)(?![\d/])(\s*(?:stunden?|std|h)\b)?"
+    r"(?<![\d/])(?:(\d+)\s+)?(\d+)\s*/\s*(\d+)(?![\d/])(\s*(?:stunden?|std|hours?|hrs?|h)\b)?"
 )
 _PART_HOUR = re.compile(r"\b(drei)?viertel\s*(?:stunden?|std|h)\b|\bhalbe?\s+(?:stunden?|std)\b")
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
@@ -480,15 +514,17 @@ def _word_value(w: str) -> float | None:
     return None
 
 
-def _scan(message: str) -> tuple[set[float], bool]:
-    """Every number the user wrote -- digits (ranges "10–14", comma or dot decimals, "1.000",
-    "5:30", "2h30", fractions "2 1/2"), German number words (compounds, "zweieinhalb", "viertel
-    Stunde") and "ein/eine <Einheit>" -- and whether a number-like word was left unread."""
+def _scan(message: str, lang: Lang = "de") -> tuple[set[float], bool]:
+    """Every number the user wrote -- digits (ranges "10–14", comma or dot decimals, "1.000" or
+    English "1,200", "5:30", "2h30", fractions "2 1/2"), number words (German compounds,
+    "zweieinhalb", "viertel Stunde"; English one…twelve and more, "half an hour") and "ein/eine
+    <Einheit>" -- and whether a number-like word was left unread."""
     text = _plain(message)
     nums: set[float] = set()
-    for m in _THOUSANDS.finditer(text):
-        nums.add(float(m.group().replace(".", "")))
-    text = _THOUSANDS.sub(" ", text)
+    thousands = _THOUSANDS_EN if lang == "en" else _THOUSANDS
+    for m in thousands.finditer(text):
+        nums.add(float(m.group().replace(".", "").replace(",", "")))
+    text = thousands.sub(" ", text)
     for m in _CLOCK.finditer(text):
         nums.add(int(m.group(1)) + int(m.group(2)) / 60)
     for m in _HOURS_MINUTES.finditer(text):
@@ -505,18 +541,45 @@ def _scan(message: str) -> tuple[set[float], bool]:
         hours = 0.75 if m.group(1) else 0.25 if m.group().startswith("viertel") else 0.5
         nums |= {hours, hours * 60}
     text = _PART_HOUR.sub(" ", text)
+    if lang == "en":
+        text = _scan_english(text, nums)
     for m in _DIGITS.finditer(text):
         nums.add(float(m.group().replace(",", ".")))
     unread = False
+    words = _WORD_NUMBERS_EN if lang == "en" else {}
     for w in _WORDS.findall(text):
-        value = None if w in _ARTICLES else _word_value(w)
+        value = float(words[w]) if w in words else None if w in _ARTICLES else _word_value(w)
         if value is not None:
             nums.add(value)
-        elif _NUMBERISH.fullmatch(w):
+        elif _NUMBERISH.fullmatch(w) or (lang == "en" and _NUMBERISH_EN.fullmatch(w)):
             unread = True
-    if _ONE_UNIT.search(text):
+    if _ONE_UNIT.search(text) or (lang == "en" and _ONE_UNIT_EN.search(text)):
         nums.add(1.0)
     return nums, unread
+
+
+def _scan_english(text: str, nums: set[float]) -> str:
+    """English compounds and part-hours; adds their values, returns the text without them."""
+    for m in _PART_HOUR_EN.finditer(text):
+        word = m.group(1) or "half"
+        hours = 0.75 if word.startswith("three") else 0.25 if "quarter" in word else 0.5
+        nums |= {hours, hours * 60}
+    text = _PART_HOUR_EN.sub(" ", text)
+    for m in _HOUR_AND_A_HALF_EN.finditer(text):
+        nums |= {1.5, 90.0}
+    text = _HOUR_AND_A_HALF_EN.sub(" ", text)
+    for m in _AND_A_HALF_EN.finditer(text):
+        head = m.group(1)
+        base = float(head) if head.isdigit() else _WORD_NUMBERS_EN.get(head)
+        if base is not None:
+            nums |= {base + 0.5, (base + 0.5) * 60}
+    text = _AND_A_HALF_EN.sub(" ", text)
+    for m in _COMPOUND_EN.finditer(text):
+        nums.add(float(_WORD_NUMBERS_EN[m.group(1)] + _WORD_NUMBERS_EN[m.group(2)]))
+    text = _COMPOUND_EN.sub(" ", text)
+    for m in _MULTIPLE_EN.finditer(text):
+        nums.add(float(_WORD_NUMBERS_EN[m.group(1)] * (100 if m.group(2) == "hundred" else 1000)))
+    return _MULTIPLE_EN.sub(" ", text)
 
 
 def _user_numbers(message: str) -> set[float]:
@@ -667,7 +730,7 @@ def _needs_pace(req: HikeRequest) -> bool:
 
 
 def _terms(tag: Tag) -> list[str]:
-    return [t for t in (fold(x) for x in [tag.label, *tag.synonyms]) if t]
+    return [t for t in (fold(x) for x in all_terms(tag)) if t]
 
 
 def _is_roundtrip_wish(needle: str, tag: Tag | None) -> bool:
@@ -1015,28 +1078,60 @@ def _multiday_echo(req: HikeRequest, lang: Lang = "de") -> list[str]:
 # --- multi-day ----------------------------------------------------------------------------
 
 _DIRECTION_WORDS = {
-    "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
-    "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
+    "de": {
+        "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
+        "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
+    },
+    "en": {
+        "shorter": re.compile(r"\b(?:shorter|less|fewer)\b"),
+        "longer": re.compile(r"\b(?:longer|more)\b"),
+    },
 }
-_DAYS_PHRASE = re.compile(r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag)\b")
+_DAYS_PHRASE = re.compile(
+    r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag|days|day)\b"
+)
 _PACE_UNIT = re.compile(r"\s*min\b")
-_MONTHS = {
+_MONTHS_DE = {
     "januar": 1, "februar": 2, "marz": 3, "maerz": 3, "april": 4, "mai": 5, "juni": 6,
     "juli": 7, "august": 8, "september": 9, "oktober": 10, "november": 11, "dezember": 12,
 }  # fmt: skip
-_DATE_NAMED = re.compile(r"\b(\d{1,2})\.?\s*(" + "|".join(_MONTHS) + r")\b(?:\s*(\d{4}))?")
+# English names (april, august, september, november are the same words); "may" is a modal verb
+# and only counts next to a day number, see _MONTH_WORD
+_FULL_MONTHS_EN = {
+    "january": 1, "february": 2, "march": 3, "june": 6, "july": 7, "october": 10, "december": 12,
+}  # fmt: skip
+_MONTHS_EN = _FULL_MONTHS_EN | {
+    "may": 5, "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8, "sep": 9,
+    "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+}  # fmt: skip
+_MONTHS = _MONTHS_DE | _MONTHS_EN
+_MONTH_ALT = "|".join(sorted(_MONTHS, key=len, reverse=True))
+# "12. Juni", "12 March", "12th of March 2027"
+_DATE_NAMED = re.compile(
+    rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\.?\s*(?:of\s+)?({_MONTH_ALT})\b(?:,?\s*(\d{{4}}))?"
+)
+# "March 12", "March 12th, 2027" (not "March 12 km")
+_DATE_MONTH_FIRST = re.compile(
+    rf"\b({_MONTH_ALT})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?!\s*(?:km|hm|h|m|min|kilomet|hours?)\b)"
+    r"(?:,?\s*(\d{4}))?"
+)
+_DATE_SLASH = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")  # UK: day/month/year
 _DATE_NUMERIC = re.compile(r"\b(\d{1,2})\.\s*(\d{1,2})\.(?:\s*(\d{4}|\d{2})\b)?")
 _TIME_UHR = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*uhr\b")
 _TIME_WORD_UHR = re.compile(r"\b([a-z]+)\s+uhr\b")
-_TIME_AT = re.compile(r"\b(?:um|ab|gegen)\s+(\d{1,2}):(\d{2})\b")
-_MONTH_WORD = re.compile(r"\b(?:" + "|".join(_MONTHS) + r")\b")
+_TIME_AT = re.compile(r"\b(?:um|ab|gegen|at|from|around)\s+(\d{1,2}):(\d{2})\b")
+_TIME_AMPM = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*([ap])\.?m\b\.?")
+_TIME_OCLOCK = re.compile(r"\b(\d{1,2}|[a-z]+)\s+o'?clock\b")
+_MONTH_WORD = re.compile(r"\b(?:" + "|".join([*_MONTHS_DE, *_FULL_MONTHS_EN]) + r")\b")
 
 
-def _days_written(days: int, text: str) -> bool:
+def _days_written(days: int, text: str, lang: Lang = "de") -> bool:
     """The count is tied to a day word: "3 Tage", "drei Tage", "dreitägig", "3-Tages-Tour"."""
     for m in _DAYS_PHRASE.finditer(text):
         word = m.group(1)
         value = float(word) if word.isdigit() else _word_value(word)
+        if value is None and lang == "en":
+            value = _WORD_NUMBERS_EN.get(word)
         if value is not None and value == days:
             return True
     return False
@@ -1050,7 +1145,7 @@ def _day_change(
     if day is None or direction is None:
         return None
     text = _plain(message)
-    if not _written(day, nums) or not _DIRECTION_WORDS[direction].search(text):
+    if not _written(day, nums) or not _DIRECTION_WORDS[lang][direction].search(text):
         return None
     if not MIN_DAYS <= day <= plan_days:
         return Clarify(question=_T[lang]["plan_days"].format(n=plan_days))
@@ -1121,7 +1216,7 @@ def _multiday_fields(
     problems: list[str] = []
     discarded = 0
     if raw.days is not None:
-        if not _days_written(raw.days, text):
+        if not _days_written(raw.days, text, lang):
             discarded += 1
         elif not MIN_DAYS <= raw.days <= MAX_DAYS:
             problems.append(_T[lang]["days_invalid"].format(n=raw.days, lo=MIN_DAYS, hi=MAX_DAYS))
@@ -1157,7 +1252,9 @@ def _parse_date(text: str, today: date, lang: Lang = "de") -> tuple[date | None,
     day = month = year = None
     if m := _DATE_NAMED.search(text):
         day, month, year = int(m.group(1)), _MONTHS[m.group(2)], m.group(3)
-    elif m := _DATE_NUMERIC.search(text):
+    elif m := _DATE_MONTH_FIRST.search(text):
+        day, month, year = int(m.group(2)), _MONTHS[m.group(1)], m.group(3)
+    elif (m := _DATE_SLASH.search(text)) or (m := _DATE_NUMERIC.search(text)):
         day, month, year = int(m.group(1)), int(m.group(2)), m.group(3)
     if day is not None:
         label = f"{day}.{month}."
@@ -1178,7 +1275,10 @@ def _parse_date(text: str, today: date, lang: Lang = "de") -> tuple[date | None,
         if found < today:
             return None, _T[lang]["past_date"].format(d=found.strftime(_DATE_FMT[lang]))
         return found, None
-    for word, offset in (("ubermorgen", 2), ("morgen", 1), ("heute", 0)):
+    relative = (("ubermorgen", 2), ("morgen", 1), ("heute", 0))
+    if lang == "en":
+        relative = (("the day after tomorrow", 2), ("tomorrow", 1), ("today", 0))
+    for word, offset in relative:
         if re.search(rf"\b{word}\b", text):
             return today + timedelta(days=offset), None
     return None, None
@@ -1193,6 +1293,15 @@ def _parse_time(text: str, lang: Lang = "de") -> tuple[time | None, str | None]:
         hour, minute = int(m.group(1)), int(m.group(2))  # "um 5:30 min/km" is a pace
     elif m := _TIME_WORD_UHR.search(text):
         value = _word_value(m.group(1))
+        if value is not None and value == int(value):
+            hour, minute = int(value), 0
+    elif lang == "en" and (m := _TIME_AMPM.search(text)):
+        hour, minute = int(m.group(1)) % 12 + (12 if m.group(3) == "p" else 0), int(m.group(2) or 0)
+        if int(m.group(1)) > 12:  # "15 pm" is not a time
+            return None, _T[lang]["bad_time"].format(h=int(m.group(1)), m=minute)
+    elif lang == "en" and (m := _TIME_OCLOCK.search(text)):
+        word = m.group(1)
+        value = float(word) if word.isdigit() else _WORD_NUMBERS_EN.get(word)
         if value is not None and value == int(value):
             hour, minute = int(value), 0
     if hour is None or minute is None:

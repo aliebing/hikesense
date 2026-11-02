@@ -274,8 +274,10 @@ def test_unknown_tour_name_gets_a_hint():
 
 def test_several_unknown_names_use_plural_hint():
     r = grounding_check("Feldbergsteig und Seeweg.", ev(), tour_names=["Feldbergsteig", "Seeweg"])
-    assert r.text.endswith("Hinweis: Feldbergsteig, Seeweg kommen in den Suchergebnissen"
-                           " dieser Antwort nicht vor – bitte nicht als Vorschlag verstehen.")
+    assert r.text.endswith(
+        "Hinweis: Feldbergsteig, Seeweg kommen in den Suchergebnissen"
+        " dieser Antwort nicht vor – bitte nicht als Vorschlag verstehen."
+    )
 
 
 def test_known_names_get_no_hint():
@@ -297,7 +299,10 @@ def test_number_hint_comes_before_name_hint():
             "Keine Tour erfüllt alle Wünsche, aber hier sind Vorschläge:\n\n1. Säbelthomaweg",
             "1. Säbelthomaweg",
         ),
-        ("Keine Tour erfüllt alle Wünsche, weil es regnet. Der Jägersteig passt.", "Der Jägersteig passt."),
+        (
+            "Keine Tour erfüllt alle Wünsche, weil es regnet. Der Jägersteig passt.",
+            "Der Jägersteig passt.",
+        ),
         ("Hallo! Leider erfüllt keine der Touren alle deine Bedingungen. Gut.", "Hallo! Gut."),
         ("Keine dieser Wanderungen erfüllt sämtliche Anforderungen.", ""),
         # an abbreviation does not end the sentence: no fragment of the claim is left
@@ -306,7 +311,10 @@ def test_number_hint_comes_before_name_hint():
             "Der Jägersteig passt.",
         ),
         # up to two words between der/dieser and the verb
-        ("Keine der drei Touren erfüllt alle Wünsche. Der Jägersteig passt.", "Der Jägersteig passt."),
+        (
+            "Keine der drei Touren erfüllt alle Wünsche. Der Jägersteig passt.",
+            "Der Jägersteig passt.",
+        ),
         # list numbering is not a sentence end: the item goes as a whole, the line break stays
         (
             "1. Tour A\n2. Keine Tour erfüllt alle Wünsche\n3. Tour B",
@@ -332,3 +340,133 @@ def test_unsat_claim_removed_and_counted(text, want):
 )
 def test_other_sentences_stay(text):
     assert strip_unsat_claims(text) == (text, 0)
+
+
+# --- English answers (lang="en") ----------------------------------------------------------
+
+
+def en(answer, numbers=(), names=()):
+    return grounding_check(answer, ev(numbers, names), lang="en")
+
+
+def test_en_point_decimal_and_thousands_comma_are_supported():
+    r = en("It is 12.3 km long with 1,200 m of ascent.", ["12.3 km", "1200 Hm"])
+    assert r.unsupported == [] and r.text == "It is 12.3 km long with 1,200 m of ascent."
+
+
+def test_en_unsupported_number_becomes_question_mark_with_english_hint():
+    r = en("The tour is 15.0 km long.", ["12.3 km"])
+    assert r.unsupported == ["15.0 km"]
+    assert "?" in r.text and "15.0" not in r.text
+    assert r.text.endswith("Note: 1 figure(s) could not be verified and were removed.")
+
+
+def test_en_comma_thousands_is_not_a_decimal():
+    # "1,500" is 1500, not 1.5: 1.5 km of evidence must not support it
+    assert en("The stop is 1,500 m away.", ["1.5 m"]).unsupported == ["1,500 m"]
+    assert en("The stop is 1,500 m away.", ["1500 m"]).unsupported == []
+
+
+def test_en_ascent_data_in_metres_matches_german_evidence_unit():
+    e = ["ascent 540 m", "descent 560 m", "12.3 km"]
+    assert en("540 m of ascent and 560 m of descent over 12.3 km", e).unsupported == []
+
+
+def test_en_ascent_context_does_not_match_a_length():
+    r = en("Total ascent of 800 m.", ["800 km"])
+    assert r.unsupported == ["800 m"]
+
+
+def test_en_unit_words():
+    e = ["12.3 km", "3.5 h", "2 mm", "40 %", "18 °C", "800 m"]
+    answer = (
+        "12.3 kilometres, 3.5 hours, 2 millimetres of rain, 40 percent chance, 18 degrees, "
+        "800 metres away"
+    )
+    assert en(answer, e).unsupported == []
+    assert en("about 3 hrs", ["3 h"]).unsupported == []
+    assert en("about 4 hours", ["3 h"]).unsupported == ["4 hours"]
+
+
+def test_en_duration_forms():
+    e = ["2.9 h"]
+    assert en("2 h 54 min", e).unsupported == []
+    assert en("2 hours and 54 minutes", e).unsupported == []
+    assert en("2:54 h", e).unsupported == []
+    assert en("2 hours and 10 minutes", e).unsupported == ["2 hours and 10 minutes"]
+
+
+def test_en_ranges_and_number_words():
+    e = ["10 km", "15 km"]
+    assert en("between 10 and 15 km", e).unsupported == []
+    assert en("10 to 15 km", e).unsupported == []
+    assert en("10 to 20 km", e).unsupported == ["20 km"]
+    assert en("about ten kilometres", e).unsupported == []
+    assert en("about twelve kilometres", e).unsupported == ["twelve kilometres"]
+    assert en("half an hour", ["30 min"]).unsupported == []
+
+
+def test_en_clock_times():
+    e = ["09:30"]
+    assert en("Start at 09:30.", e).unsupported == []
+    assert en("Start at 9:30 am.", e).unsupported == []
+    assert en("Start at 10:00.", e).unsupported == ["10:00"]
+    # a pace is not a clock time
+    assert en("A pace of 5:30 min/km.", []).unsupported == []
+
+
+def test_en_speed_is_no_length_and_german_evidence_format_is_read():
+    assert en("Walk at 5 km/h.", []).unsupported == []
+    assert en("It is 12.4 km.", ["12,4 km"]).unsupported == []  # German-format passage text
+    assert en("It is 1,200 m high.", ["1.200 m"]).unsupported == []
+
+
+def test_german_grounding_ignores_english_rules():
+    # German: "1,500" is 1.5 and "1.500" is 1500
+    assert grounding_check("1,5 km", ev(["1.5 km"])).unsupported == []
+    assert grounding_check("1.500 m", ev(["1500 m"])).unsupported == []
+    assert grounding_check("1,200 m", ev(["1200 m"])).unsupported == ["1,200 m"]
+
+
+def test_en_name_hint_is_english():
+    r = grounding_check("Try Seeweg.", ev(), ["Seeweg"], lang="en")
+    assert r.unsupported_names == ["Seeweg"]
+    assert r.text.endswith(
+        "Note: Seeweg does not appear in this answer's search results"
+        " – please do not take it as a suggestion."
+    )
+    r = grounding_check("Try Seeweg and Feldweg.", ev(), ["Seeweg", "Feldweg"], lang="en")
+    assert "do not appear in this answer's search results" in r.text
+
+
+def test_numbers_in_text_en():
+    assert numbers_in_text("11.6 km and 1,200 m", "en") == ["11.6 km", "1,200 m"]
+
+
+@pytest.mark.parametrize(
+    ("text", "want"),
+    [
+        ("No tour meets all your wishes. Try the Seeweg.", 1),
+        ("None of the tours meets all your conditions.", 1),
+        ("Unfortunately none of these tours fulfils all of your requirements.", 1),
+        ("There is no tour that meets all your criteria.", 1),
+        ("Hello. No tour can meet all your wishes, sorry.", 1),
+        ("This tour meets all your wishes.", 0),
+        ("No tour is longer than 12.5 km. It meets all your wishes.", 0),
+        ("I found 3 tours, e.g. the Seeweg.", 0),
+    ],
+)
+def test_en_unsat_claim_removed_and_counted(text, want):
+    out, n = strip_unsat_claims(text, "en")
+    assert n == want
+    if want:
+        assert "meet" not in out.lower() and "fulfil" not in out.lower()
+
+
+def test_en_unsat_strip_keeps_decimal_sentences_whole():
+    out, n = strip_unsat_claims("The Seeweg is 11.6 km long. No tour meets all your wishes.", "en")
+    assert n == 1 and out == "The Seeweg is 11.6 km long."
+
+
+def test_de_unsat_strip_ignores_english():
+    assert strip_unsat_claims("No tour meets all your wishes.")[1] == 0

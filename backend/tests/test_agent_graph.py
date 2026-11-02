@@ -1664,7 +1664,7 @@ def test_english_no_tours_hint_and_claim_sentence(vocab, settings):
         structured={
             RawRequest: [raw(start_text="Feldberg (Schwarzwald)", roundtrip=True, length_km_min=15)]
         },
-        answers=["Keine Tour erfüllt alle Wünsche."],
+        answers=["No tour meets all your wishes."],
     )
     events = run_en(deps, "Round walk from Feldberg over 15 km", thread="t-en2")
     assert text_of(events) == texts("en").claim_only_tours
@@ -1752,7 +1752,7 @@ def test_english_events_and_plan_texts(vocab, settings):
     assert "Day 1: " in data and "walking time" in data and "arrival" in data
     assert "Tag 1" not in data and "Gehzeit" not in data and "Mehrtagesplan" not in data
     assert "English" in deps.gateway.systems[-1] and "Mehrtagesplan" not in deps.gateway.systems[-1]
-    events = list(run_chat(deps, "p-en", "Tag 5 kürzer", lang="en"))
+    events = list(run_chat(deps, "p-en", "make day 5 shorter", lang="en"))
     assert text_of(events) == "The plan has 4 day(s) – there is no day 5 in it."
 
 
@@ -1881,3 +1881,17 @@ def test_english_near_miss_deviation_is_english(vocab, settings):
     cards = one(events, "results").cards
     assert cards[1].deviation_text == "230 m instead of at most 200"
     assert text_of(events).endswith("Near miss: Jägersteig (230 m instead of at most 200).")
+
+
+def test_english_answer_numbers_are_grounded_in_english(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["The Seebuck-Weg is 9 km long with 150 m of ascent and 999 m of descent."],
+    )
+    text = text_of(run_en(deps, "Round walk from Feldberg, under 200 m ascent, over 15 km"))
+    assert "9 km long with 150 m of ascent" in text
+    assert "999" not in text and "? m of descent" in text
+    assert "Note: 1 figure(s) could not be verified and were removed." in text
+    assert "Hinweis" not in text
