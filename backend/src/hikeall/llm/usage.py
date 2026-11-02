@@ -57,19 +57,33 @@ def _count(value: Any) -> int:
     return value if isinstance(value, int) and value > 0 else 0
 
 
+def call_usage(message: Any) -> tuple[int, int, float | None]:
+    """Input tokens, output tokens and the cost OpenRouter reported (None if not reported)."""
+    if not isinstance(message, AIMessage):
+        return 0, 0, None
+    meta = message.usage_metadata or {}
+    token_usage = (message.response_metadata or {}).get("token_usage") or {}
+    cost = token_usage.get("cost") if isinstance(token_usage, dict) else None
+    if not (isinstance(cost, int | float) and not isinstance(cost, bool) and cost >= 0):
+        cost = None
+    return (
+        _count(meta.get("input_tokens")),
+        _count(meta.get("output_tokens")),
+        (None if cost is None else float(cost)),
+    )
+
+
 def record_usage(message: Any) -> None:
     """Add one model reply to the current metering scope; raise BudgetExceeded over the limit."""
     usage = _current.get()
     if usage is None or not isinstance(message, AIMessage):
         return
-    meta = message.usage_metadata or {}
-    token_usage = (message.response_metadata or {}).get("token_usage") or {}
-    cost = token_usage.get("cost") if isinstance(token_usage, dict) else None
+    input_tokens, output_tokens, cost = call_usage(message)
     usage.calls += 1
-    usage.input_tokens += _count(meta.get("input_tokens"))
-    usage.output_tokens += _count(meta.get("output_tokens"))
-    if isinstance(cost, int | float) and not isinstance(cost, bool) and cost >= 0:
-        usage.cost_usd += float(cost)
+    usage.input_tokens += input_tokens
+    usage.output_tokens += output_tokens
+    if cost is not None:
+        usage.cost_usd += cost
     else:
         usage.calls_without_cost += 1
     if usage.max_cost_usd is not None and usage.cost_usd > usage.max_cost_usd:
