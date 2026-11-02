@@ -90,7 +90,7 @@ def understood(activity="hike", pace=None):
 def test_loader_reads_the_cases():
     cases = sm.load_cases(PROMPTS)
     assert [c.id.split("-")[0] for c in cases] == [
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10", "11",
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10", "11", "12", "13", "14",
     ]  # fmt: skip
     assert cases[7].continues == cases[6].id  # "Tag 3 kürzer" in the thread of case 7
     assert len(cases[1].turns) == 2  # Feldberg: clarify, then the answer
@@ -295,7 +295,7 @@ def test_runner_exception_becomes_error_not_crash(deps):
 
 def test_unsupported_numbers_fail_the_case(monkeypatch):
     evs = [TokenEvent(text=OTHER_REPLY), done(unsupported=2)]
-    monkeypatch.setattr(sm, "run_chat", lambda *a: iter(evs))
+    monkeypatch.setattr(sm, "run_chat", lambda *a, **k: iter(evs))
     case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "other"})])
     r = sm.run_case(None, case)
     assert not r.ok and r.unsupported == 2
@@ -303,7 +303,7 @@ def test_unsupported_numbers_fail_the_case(monkeypatch):
 
 def test_unsupported_names_fail_the_case(monkeypatch):
     evs = [TokenEvent(text=OTHER_REPLY), done(names=["Feldbergsteig", "Seeweg"])]
-    monkeypatch.setattr(sm, "run_chat", lambda *a: iter(evs))
+    monkeypatch.setattr(sm, "run_chat", lambda *a, **k: iter(evs))
     case = sm.Case("x", [sm.Turn(message="m", expect={"reply": "other"})])
     r = sm.run_case(None, case)
     assert not r.ok and r.unsupported_names == ["Feldbergsteig", "Seeweg"]
@@ -560,7 +560,7 @@ def test_runner_continuation_without_the_earlier_case_fails(deps):
 def test_runner_passes_the_signed_in_user_hash(monkeypatch):
     seen = []
 
-    def fake_run_chat(deps, thread, message, user_hash=None):
+    def fake_run_chat(deps, thread, message, user_hash=None, **kw):
         seen.append(user_hash)
         return iter([TokenEvent(text=OTHER_REPLY), done()])
 
@@ -719,3 +719,26 @@ def test_loader_reads_and_checks_the_group(tmp_path):
     p.write_text(f"cases:\n  - {{id: a, group: sonstiges, {turn}}}\n")
     with pytest.raises(ValueError, match="group"):
         sm.load_cases(p)
+
+
+def test_english_cases_carry_lang_and_german_ones_default():
+    cases = sm.load_cases(PROMPTS)
+    assert {c.lang for c in cases if c.id.startswith(("12", "13", "14"))} == {"en"}
+    assert all(c.lang == "de" for c in cases if not c.id.startswith(("12", "13", "14")))
+
+
+def test_run_case_sends_the_case_language(monkeypatch):
+    seen = []
+    monkeypatch.setattr(sm, "run_chat", lambda *a, **k: seen.append(k.get("lang")) or iter([]))
+    case = sm.Case(id="x", turns=[sm.Turn(expect={}, message="hi")], lang="en")
+    sm.run_case(None, case)
+    assert seen == ["en"]
+
+
+def test_fixed_replies_and_heads_follow_the_language():
+    from hikeall.agent.texts import texts
+
+    ev = [TokenEvent(text=texts("en").injection_reply)]
+    assert sm.check(ev, {"reply": "injection"}, lang="en") == []
+    assert sm.check(ev, {"reply": "injection"}, lang="de") != []
+    assert sm.UNSAT_HEADS["en"].startswith("No tour")

@@ -9,6 +9,7 @@ from test_smoke import card, done, res, results_ev, src
 from hikeall import evaluation as ev
 from hikeall import smoke as sm
 from hikeall.agent.graph import AgentDeps, PlanEvent, SourcesEvent, TokenEvent
+from hikeall.agent.texts import texts
 from hikeall.agent.weather import DayWeather, is_rain_day, weather_for_days
 from hikeall.config import Settings
 from hikeall.errors import HikeAllError
@@ -150,10 +151,10 @@ def test_fixture_weather_never_goes_live(tmp_path, monkeypatch):
     with pytest.raises(HikeAllError, match="keine Wetterdaten für"):
         fw.daily(49.5, 9.5, date(2026, 11, 2), date(2026, 11, 2))  # no stored place within 25 km
 
-    def fake_run_chat(deps, thread, message, user_hash=None):
+    def fake_run_chat(deps, thread, message, user_hash=None, **kw):
         if message == "wetter":
             fw.daily(48.28, 8.17, date(2026, 11, 20), date(2026, 11, 20))
-        return iter([TokenEvent(text=sm.OTHER_REPLY), done()])
+        return iter([TokenEvent(text=texts("de").other_reply), done()])
 
     monkeypatch.setattr(sm, "run_chat", fake_run_chat)
     cases = [

@@ -86,3 +86,23 @@ cases:
           plan_days: 3
           plan_lodgings_near: true
           plan_band_or_named: true
+  # Englische Fälle: `lang: en` wird mit jeder Nachricht geschickt, Antwort und feste Sätze englisch.
+  - id: 12-en-round-walk-titisee
+    lang: en
+    turns:
+      - message: "A round walk near Titisee, about 10 km"
+        expect:
+          min_results: 1
+  - id: 13-en-westweg-3-days
+    lang: en
+    turns:
+      - message: "3 days on the Westweg from Hausach"
+        expect:
+          plan_days: 3
+          sources: true
+  - id: 14-en-schwarzwaldverein
+    lang: en
+    turns:
+      - message: "What does the Schwarzwaldverein do?"
+        expect:
+          sources: true

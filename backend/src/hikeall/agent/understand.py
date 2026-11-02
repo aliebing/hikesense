@@ -211,15 +211,15 @@ _T = {
         "days_word": "Days",
         "day_goal": "Daily target",
         "conflict": "{label}: wanted and unwanted at once",
-        "ambiguous": "Did you mean {options}? „{text}“ is ambiguous.",
-        "unknown_place": "I don't know the place „{text}“.",
+        "ambiguous": "Did you mean {options}? “{text}” is ambiguous.",
+        "unknown_place": "I don't know the place “{text}”.",
         "did_you_mean": " Did you mean {options}?",
         "name_place": " Please name a place or an area ({regions}).",
         "or": " or ",
         "start_question": "Where should the multi-day tour start?",
         "days_question": "How many days?",
         "plan_days": "The plan has {n} days. Which day do you mean?",
-        "unknown_trail": "Which long-distance trail do you mean? I don't know „{text}“.",
+        "unknown_trail": "Which long-distance trail do you mean? I don't know “{text}”.",
         "which_trail": "On which long-distance trail?",
         "off_trail": "{label} is not on the {trail}. From which stage town?",
         "days_invalid": "Days: {n} is not a valid value ({lo}–{hi})",
@@ -987,7 +987,8 @@ def _to_start(tag: Tag) -> ResolvedStart:
 
 
 def _join_or(items: list[str], lang: Lang = "de") -> str:
-    quoted = [f"„{i}“" for i in items]
+    quote = "“{}”" if lang == "en" else "„{}“"  # English uses British curly quotes
+    quoted = [quote.format(i) for i in items]
     if len(quoted) == 1:
         return quoted[0]
     return ", ".join(quoted[:-1]) + f"{_T[lang]['or']}{quoted[-1]}"

@@ -1850,7 +1850,7 @@ def test_english_clarify_and_option_click_resolves(vocab, settings):
     )
     events = run_en(deps, "A round walk of over 15 km at Feldberg")
     clarify = one(events, "clarify")
-    assert clarify.question.startswith("Did you mean „Feldberg (peak)“ or ")
+    assert clarify.question.startswith("Did you mean “Feldberg (peak)” or ")
     assert clarify.options == ["Feldberg (peak)", "Feldberg (Schwarzwald) – village"]
     run_en(deps, "Feldberg (Schwarzwald) – village")
     req = deps.tools.requests[-1]

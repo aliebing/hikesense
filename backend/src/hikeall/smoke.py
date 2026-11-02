@@ -22,13 +22,14 @@ from hikeall.adapters.http import make_http_client
 from hikeall.adapters.open_meteo import DayWeather
 from hikeall.agent.events import FIELDS
 from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
-from hikeall.agent.multiday import ACCESS_STRAIGHT, FAR_M, NEAR_M
-from hikeall.agent.prompts import OTHER_REPLY
+from hikeall.agent.multiday import _T as PLAN_TEXTS
+from hikeall.agent.multiday import FAR_M, NEAR_M, access_straight
+from hikeall.agent.texts import texts
 from hikeall.auth import AuthError, verify_token
 from hikeall.chatlog import hash_user
 from hikeall.config import Settings
 from hikeall.errors import HikeAllError
-from hikeall.guard import INJECTION_REPLY
+from hikeall.numfmt import Lang
 
 EXPECT_KINDS = {
     "min_results",
@@ -69,12 +70,24 @@ GROUPS = (
     "eingabeschutz",
     "gruppen_laeufe",
 )
-UNSAT_HEAD = "Keine Tour erfüllt alle Wünsche"  # the code's own opening sentence of a fallback
+# the code's own opening sentence of a fallback, per reply language
+UNSAT_HEADS: dict[Lang, str] = {
+    "de": "Keine Tour erfüllt alle Wünsche",
+    "en": "No tour meets all your wishes",
+}
 SOURCES_TOP = 5  # sources_include looks at the first five sources (recall@5)
-REPLIES = {"injection": INJECTION_REPLY, "other": OTHER_REPLY}
+REPLY_KINDS = ("injection", "other")
+
+
+def _fixed_reply(kind: str, lang: Lang) -> str:
+    t = texts(lang)
+    return t.injection_reply if kind == "injection" else t.other_reply
+
+
 CSV_FIELDS = ["Fall", "ok", "unsupported", "unsupported_names", "cost_usd", "Fehler"]
 SMOKE_EMAIL = "smoke@hikeall.local"
-NO_GROUP_TEXT = "keine Gruppe"
+NO_GROUP_TEXTS: dict[Lang, str] = {"de": "keine Gruppe", "en": "no group"}
+AS_OF_PREFIX: dict[Lang, str] = {"de": "Stand: ", "en": "As of "}
 AUTH_TIMEOUT_S = 10.0
 
 
@@ -95,6 +108,7 @@ class Case:
     turns: list[Turn]
     continues: str | None = None  # id of an earlier case whose thread this one continues
     group: str | None = None  # one of GROUPS (eval)
+    lang: Lang = "de"  # language sent with every message of the case
 
 
 @dataclass
@@ -121,7 +135,7 @@ def load_cases(path: Path, require_group: bool = False) -> list[Case]:
             unknown = set(expect) - EXPECT_KINDS
             if unknown:
                 raise ValueError(f"{raw['id']}: unbekannte Erwartung {sorted(unknown)}")
-            if expect.get("reply") not in (None, *REPLIES):
+            if expect.get("reply") not in (None, *REPLY_KINDS):
                 raise ValueError(f"{raw['id']}: unbekannte Antwort '{expect['reply']}'")
             msg, opt = t.get("message"), t.get("answer_option_containing")
             if (msg is None) == (opt is None):
@@ -137,7 +151,10 @@ def load_cases(path: Path, require_group: bool = False) -> list[Case]:
             raise ValueError(f"{raw['id']}: group fehlt (eine von {', '.join(GROUPS)})")
         if group is not None and group not in GROUPS:
             raise ValueError(f"{raw['id']}: unbekannte group '{group}'")
-        cases.append(Case(id=raw["id"], turns=turns, continues=cont, group=group))
+        lang = raw.get("lang", "de")
+        if lang not in ("de", "en"):
+            raise ValueError(f"{raw['id']}: unbekannte lang '{lang}'")
+        cases.append(Case(id=raw["id"], turns=turns, continues=cont, group=group, lang=lang))
     if len({c.id for c in cases}) != len(cases):
         raise ValueError("doppelte Fall-IDs")
     return cases
@@ -156,7 +173,13 @@ def _plan_days(events: list[ChatEvent] | None) -> list[Any] | None:
     return plan.plan.days if plan else None
 
 
-def _lodging_errors(events: list[ChatEvent]) -> list[str]:
+def _lodging_prefix(lang: Lang, name: str | None) -> str:
+    """The start of the plan note about a lodging off the trail ("Unterkunft X " / "Accommodation X ")."""
+    t = PLAN_TEXTS[lang]
+    return t["lodging_off"].split("{km}")[0].format(name=name or t["unnamed_lodging"])
+
+
+def _lodging_errors(events: list[ChatEvent], lang: Lang = "de") -> list[str]:
     """Each day ends at a lodging <= 1000 m, or the access path (<= 2000 m) or the gap is named;
     only the last day may end without a lodging (the trail end)."""
     plan = _first(events, "plan")
@@ -175,7 +198,7 @@ def _lodging_errors(events: list[ChatEvent]) -> list[str]:
         elif d.stop.dist_m > NEAR_M and not (
             d.access_km > 0
             and any(
-                f"Unterkunft {d.stop.name or 'ohne Namen'} " in n and ACCESS_STRAIGHT in n
+                _lodging_prefix(lang, d.stop.name) in n and access_straight(lang) in n
                 for n in notes
             )
         ):
@@ -275,7 +298,10 @@ def _event_errors(events: list[ChatEvent]) -> list[str]:
 
 
 def check(
-    events: list[ChatEvent], expect: dict[str, Any], prev: list[ChatEvent] | None = None
+    events: list[ChatEvent],
+    expect: dict[str, Any],
+    prev: list[ChatEvent] | None = None,
+    lang: Lang = "de",
 ) -> list[str]:
     """The unmet expectations of one turn (empty: all met); `prev` = the thread's previous turn."""
     errors: list[str] = []
@@ -349,13 +375,13 @@ def check(
         elif kind == "unsatisfiable_named":
             if not results or not results.fallback_reason:
                 errors.append("kein fallback_reason")
-            if not _text(events).lstrip().startswith(UNSAT_HEAD):
-                errors.append(f"Antwort beginnt nicht mit „{UNSAT_HEAD}“")
+            if not _text(events).lstrip().startswith(UNSAT_HEADS[lang]):
+                errors.append(f"Antwort beginnt nicht mit „{UNSAT_HEADS[lang]}“")
         elif kind == "no_unsat_claim":
-            if UNSAT_HEAD.casefold() in _text(events).casefold():
-                errors.append(f"Antwort behauptet „{UNSAT_HEAD}“")
+            if UNSAT_HEADS[lang].casefold() in _text(events).casefold():
+                errors.append(f"Antwort behauptet „{UNSAT_HEADS[lang]}“")
         elif kind == "reply":
-            if _text(events) != REPLIES[want]:
+            if _text(events) != _fixed_reply(want, lang):
                 errors.append(f"Antwort ist nicht der feste Text '{want}'")
         elif kind == "plan_days":
             plan = _first(events, "plan")
@@ -364,7 +390,7 @@ def check(
             elif len(plan.plan.days) != want:
                 errors.append(f"Plan mit {len(plan.plan.days)} Tagen, erwartet {want}")
         elif kind == "plan_lodgings_near":
-            errors += _lodging_errors(events)
+            errors += _lodging_errors(events, lang)
         elif kind == "plan_band_or_named":
             errors += _band_errors(events)
         elif kind == "days_unchanged":
@@ -384,14 +410,14 @@ def check(
             n = len(g.groups) if g else 0
             if n < want:
                 errors.append(f"{n} Gruppen, erwartet mindestens {want}")
-            elif not g.checked_note.startswith("Stand: "):
+            elif not g.checked_note.startswith(AS_OF_PREFIX[lang]):
                 errors.append(f"kein Prüfdatum: '{g.checked_note}'")
         elif kind == "no_groups":
             g = _first(events, "groups")
             if g and g.groups:
                 errors.append(f"Gruppen gezeigt: {[x.name for x in g.groups]}")
-            if NO_GROUP_TEXT not in _text(events):
-                errors.append(f"Antwort ohne „{NO_GROUP_TEXT}“")
+            if NO_GROUP_TEXTS[lang] not in _text(events):
+                errors.append(f"Antwort ohne „{NO_GROUP_TEXTS[lang]}“")
         elif kind == "events_quoted":
             errors += _event_errors(events)
         elif kind == "no_model_calls":
@@ -425,7 +451,7 @@ def run_case(
                 return res
             message = pick[0]
         try:
-            events = list(run_chat(deps, thread, message, user_hash))
+            events = list(run_chat(deps, thread, message, user_hash, lang=case.lang))
         except Exception as exc:  # noqa: BLE001 - one failing case must not stop the run
             res.errors.append(f"{type(exc).__name__}: {exc}")
             return res
@@ -434,7 +460,7 @@ def run_case(
             res.unsupported += done.unsupported
             res.unsupported_names += done.unsupported_names
             res.cost_usd += done.usage.cost_usd
-        res.errors += check(events, turn.expect, prev)
+        res.errors += check(events, turn.expect, prev, case.lang)
         prev = events
         res.last = events
         res.all_events.append(events)

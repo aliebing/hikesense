@@ -1153,10 +1153,10 @@ def test_english_clarify_question_keeps_place_names_as_options(vocab):
     res = understand(gw_of(start_text="Feldberg"), vocab, "A walk at Feldberg", None, lang="en")
     assert isinstance(res, Clarify)
     assert set(res.options) == {"Feldberg", "Feldberg (Schwarzwald)"}
-    assert res.question.startswith("Did you mean „") and "is ambiguous" in res.question
+    assert res.question.startswith("Did you mean “") and "is ambiguous" in res.question
     res = understand(gw_of(start_text="Hinterzarden"), vocab, "Tour", None, lang="en")
-    assert res.question.startswith("I don't know the place „Hinterzarden“.")
-    assert "Did you mean „Hinterzarten“?" in res.question
+    assert res.question.startswith("I don't know the place “Hinterzarden”.")
+    assert "Did you mean “Hinterzarten”?" in res.question
 
 
 def test_english_kind_options_resolve_in_both_languages(vocab):
