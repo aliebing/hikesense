@@ -183,3 +183,9 @@ it("events event adds an events item inside the chat (also with only calendar li
   expect(s.last).toBeNull();
   expect(s.plan).toBeNull();
 });
+
+it("weather_days event adds a weather_days item with the data (no type field)", () => {
+  const e = { type: "weather_days" as const, wish: "fine" as const, place: "Feldberg", days: [], best_only: false, note: null };
+  const s = reduceEvent(initialState("t"), e);
+  expect(s.items).toEqual([{ kind: "weather_days", data: { wish: "fine", place: "Feldberg", days: [], best_only: false, note: null } }]);
+});

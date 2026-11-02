@@ -86,3 +86,25 @@ it("error line without answer is detailed, not an old line", () => {
   expect(screen.queryByText("Ältere Suche – nur Kennzahlen gespeichert")).not.toBeInTheDocument();
   expect(screen.getByText("Hallo")).toBeInTheDocument();
 });
+
+it("shows the weather day finder block from weather_days", () => {
+  const w = {
+    wish: "fine",
+    place: "Feldberg",
+    best_only: false,
+    days: [
+      { date: "2026-11-05", match: true, code: 0, t_min_c: 2, t_max_c: 11.4, precip_mm: 0, precip_prob_pct: 5, snowfall_cm: 0 },
+      { date: "2026-11-06", match: null, code: null, t_min_c: null, t_max_c: null, precip_mm: null, precip_prob_pct: null, snowfall_cm: null },
+    ],
+  };
+  render(<SearchDetail d={{ ...full, weather_days: w }} />);
+  expect(screen.getByRole("heading", { name: "Wetter-Tagesfinder" })).toBeInTheDocument();
+  expect(screen.getByText("Wunsch: schönes Wetter · Feldberg")).toBeInTheDocument();
+  expect(screen.getByText(/^✓ Do\., 05\.11\.2026 · 2 \/ 11 °C · 5% \/ 0 mm · 0 cm$/)).toBeInTheDocument();
+  expect(screen.getByText(/^\? .* · – \/ – °C/)).toBeInTheDocument();
+});
+
+it("shows no weather block without weather_days", () => {
+  render(<SearchDetail d={full} />);
+  expect(screen.queryByRole("heading", { name: "Wetter-Tagesfinder" })).not.toBeInTheDocument();
+});

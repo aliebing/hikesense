@@ -125,8 +125,17 @@ export type DayWeather = {
   t_max_c: number | null;
   precip_mm: number | null;
   precip_prob_pct: number | null;
+  /** only the weather day finder asks for it; plan weather has none */
+  snowfall_cm?: number | null;
   source_id: string;
 };
+
+/** The weather wish of a day search. */
+export type WeatherWish = "fine" | "dry" | "snow";
+/** One day of the weather day finder: `match` null = a value needed for the decision is missing. */
+export type WeatherDayEntry = { date: string; match: boolean | null; weather: DayWeather };
+/** Days that fit a weather wish at a place; `best_only`: none fits, these are the closest; `note`: why the forecast is missing or partial. */
+export type WeatherDaysData = { wish: WeatherWish; place: string; days: WeatherDayEntry[]; best_only: boolean; note: string | null };
 
 /** Why there is no forecast. `reason` is the text in the reply language; the web checks `code`. */
 export type NoForecastCode = "not_yet" | "past" | "unavailable" | "missing" | "no_place";
@@ -191,6 +200,7 @@ export type ChatEvent =
   | { type: "clarify"; question: string; options: string[] }
   | { type: "results"; cards: TourCard[]; fallback_reason: string | null; labels?: Labels }
   | ({ type: "plan" } & PlanData)
+  | ({ type: "weather_days" } & WeatherDaysData)
   | { type: "groups"; groups: GroupBrief[]; checked_note: string }
   | { type: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { type: "token"; text: string }

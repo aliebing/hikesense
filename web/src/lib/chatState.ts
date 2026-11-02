@@ -105,6 +105,11 @@ export function reduceEventIn(s: ChatState, e: ChatEvent, locale: Locale): ChatS
       const data = normalizePlan({ ...plan, start_name: start })!;
       return { ...add(s, { kind: "plan", summary: planSummary(data, locale) }), plan: data, last: null };
     }
+    case "weather_days": {
+      const { type: _type, ...data } = e;
+      void _type;
+      return add(s, { kind: "weather_days", data });
+    }
     case "groups":
       return e.groups.length > 0 ? add(s, { kind: "groups", groups: e.groups, note: e.checked_note }) : s;
     case "events":

@@ -17,9 +17,11 @@ from langchain_core.messages import AIMessage
 from test_agent_graph import (  # noqa: F401 (vocab is a fixture)
     DRY,
     FELDBERG_MSG,
+    FINE_MSG,
     HIT,
     RAINY,
     SourcedTools,
+    _series,
     feldberg_raw,
     knowledge_raw,
     make,
@@ -102,6 +104,13 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         structured={RawRequest: [westweg_raw(days=3, start_date="2026-11-02")]},
         answers=["Drei Tage bis zur Pension Linde; am 3.11. Regen bei bis zu 9,8 °C."],
     )
+    weather = make(
+        vocab,
+        settings,
+        tools=SourcedTools(series=_series({6, 7})),
+        structured={RawRequest: [feldberg_raw(weather_wish="fine")]},
+        answers=["Zwei Touren."],
+    )
     groups = make(
         vocab,
         settings,
@@ -145,6 +154,7 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
         "knowledge": _stream(settings, knowledge, "Darf man am Feldberg querfeldein gehen?"),
         "error": _stream(settings, error, FELDBERG_MSG),
         "multiday": _stream(settings, multiday, "3 Tage Westweg ab Hausach am 2.11.2026"),
+        "weather": _stream(settings, weather, FINE_MSG),
         "groups": _stream(settings, groups, "Gibt es eine Wandergruppe in Hausach?"),
         "events": _stream(settings, events, "Halbmarathon im nächsten Frühjahr bei Freiburg"),
         "events_none": _stream(settings, events_none, "Halbmarathon im nächsten Frühjahr"),

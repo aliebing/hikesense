@@ -4,6 +4,7 @@ import { useLocale, useT } from "../../i18n";
 import { ms, usd, when } from "../../lib/admin";
 import { MISSING, num } from "../../lib/format";
 import ChatText from "../ChatText";
+import { dateIn } from "../../lib/format";
 
 const PREVIEW = 300;
 const UNIT: Record<string, string> = { length_km: "km", ascent_m: "m", radius_km: "km", duration_h: "h" };
@@ -58,6 +59,26 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+function WeatherFinder({ w }: { w: NonNullable<Detail["weather_days"]> }) {
+  const { locale } = useLocale();
+  const t = useT().weather;
+  const n0 = (n: number | null) => (n === null ? MISSING : num(n, locale, { max: 0 }));
+  const n1 = (n: number | null) => (n === null ? MISSING : num(n, locale, { max: 1 }));
+  const mark = (m: boolean | null) => (m === null ? "?" : m ? "✓" : "✗");
+  return (
+    <>
+      <p>{t.adminLine((t.wishes as Record<string, string>)[w.wish] ?? w.wish, w.place, w.best_only)}</p>
+      <ul className="text-xs">
+        {w.days.map((d) => (
+          <li key={d.date}>
+            {`${mark(d.match)} ${dateIn(new Date(`${d.date}T00:00:00Z`), locale, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })} · ${n0(d.t_min_c)} / ${n0(d.t_max_c)} °C · ${n0(d.precip_prob_pct)}% / ${n1(d.precip_mm)} mm · ${n1(d.snowfall_cm)} cm`}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function Candidates({ rows }: { rows: Candidate[] }) {
   const { locale } = useLocale();
   const t = useT().admin;
@@ -103,6 +124,7 @@ function Candidates({ rows }: { rows: Candidate[] }) {
 export default function SearchDetail({ d }: { d: Detail }) {
   const { locale } = useLocale();
   const t = useT().admin;
+  const wt = useT().weather;
   const detailed = d.llm_calls !== undefined; // present in every new log line, even error lines
   const calls = d.llm_calls ?? [];
   const cost = d.calls_without_cost && d.cost_usd === 0 ? null : (d.cost_usd ?? null);
@@ -163,6 +185,12 @@ export default function SearchDetail({ d }: { d: Detail }) {
             </ul>
           </Block>
         )
+      )}
+
+      {d.weather_days && (
+        <Block title={wt.finder}>
+          <WeatherFinder w={d.weather_days} />
+        </Block>
       )}
 
       {detailed && (

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import type { CalendarLink, Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard, VerifiedRace } from "../lib/chat";
+import type { CalendarLink, Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard, VerifiedRace, WeatherDaysData } from "../lib/chat";
 import { useLocale, useT } from "../i18n";
 import { intlLocale, messagesFor, type Locale } from "../i18n/locale";
 import ChatText from "./ChatText";
 import EventCards from "./EventCards";
 import GroupList from "./GroupList";
+import WeatherDays from "./WeatherDays";
 
 export type ChatItem =
   | { kind: "user"; text: string }
@@ -13,6 +14,7 @@ export type ChatItem =
   | { kind: "clarify"; question: string; options: string[] }
   | { kind: "results"; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels }
   | { kind: "plan"; summary: string }
+  | { kind: "weather_days"; data: WeatherDaysData }
   | { kind: "groups"; groups: GroupBrief[]; note: string }
   | { kind: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { kind: "sources"; sources: SourceBrief[] }
@@ -174,6 +176,7 @@ export default function ChatMessages({
             </div>
           )}
           {it.kind === "plan" && <p className="text-xs text-papier/90">{it.summary}</p>}
+          {it.kind === "weather_days" && <WeatherDays data={it.data} />}
           {it.kind === "groups" && <GroupList groups={it.groups} note={it.note} />}
           {it.kind === "events" && <EventCards events={it.events} fallback={it.fallback} note={it.note} />}
           {it.kind === "sources" && (

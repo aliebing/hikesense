@@ -260,6 +260,22 @@ export const en = {
     // elevation
     elevation: (lo: string, hi: string) => `Elevation profile · ${lo}–${hi} m`,
   },
+  weather: {
+    title: "Weather",
+    wishes: { fine: "fine weather", dry: "dry weather", snow: "snow" },
+    heading: (wish: string, place: string) => `Days for ${wish} near ${place}`,
+    bestOnly: (wish: string) => `No day in the forecast fits ${wish}. These come closest:`,
+    fits: "fits",
+    fitsMark: "✓ fits",
+    notFit: "does not fit",
+    unknownFit: "unknown",
+    unknown: "unknown",
+    rain: (p: string, mm: string) => `Rain ${p} / ${mm}`,
+    snow: (cm: string) => `Snow ${cm}`,
+    source: "Weather:",
+    finder: "Weather day finder",
+    adminLine: (wish: string, place: string, best: boolean) => `Wish: ${wish} · ${place}${best ? " · no day fits, closest days shown" : ""}`,
+  },
   events: {
     fields: { name: "Name", date: "Date", place: "Place", distances: "Distances", registration_url: "Registration", registration_deadline: "Registration deadline", fee: "Entry fee" },
     notStated: "not stated",

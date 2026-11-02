@@ -69,6 +69,13 @@ export type LlmCall = {
 };
 export type ToolCall = { name: string; args?: unknown; result?: unknown; truncated?: boolean; error?: string | null };
 
+export type WeatherDaysLog = {
+  wish: string;
+  place: string;
+  days: { date: string; match: boolean | null; code: number | null; t_min_c: number | null; t_max_c: number | null; precip_mm: number | null; precip_prob_pct: number | null; snowfall_cm: number | null }[];
+  best_only: boolean;
+};
+
 export type SearchDetail = {
   request_id: string;
   ts: string;
@@ -92,6 +99,7 @@ export type SearchDetail = {
   fallback_reason?: string | null;
   candidates?: Candidate[];
   plan?: DetailPlan | null;
+  weather_days?: WeatherDaysLog | null;
   llm_calls?: LlmCall[];
   tools?: ToolCall[];
   duration_ms?: number | null;

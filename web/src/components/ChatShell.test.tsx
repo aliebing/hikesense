@@ -94,6 +94,18 @@ it("counts the tours of a result set, also none", async () => {
   expect(await screen.findByText("Keine passende Tour gefunden.")).toBeInTheDocument();
 });
 
+it("shows the weather days after the results with a check mark on the fitting day", async () => {
+  const wd = (date: string, match: boolean) => ({ date, match, weather: { date, code: 0, text: "Klar", t_min_c: 2, t_max_c: 11, precip_mm: 0, precip_prob_pct: 5, snowfall_cm: 0, source_id: "open-meteo" } });
+  const event = { type: "weather_days", wish: "fine", place: "Feldberg", days: [wd("2026-11-05", true), wd("2026-11-06", false)], best_only: false, note: null };
+  mockStream(sse([{ type: "results", cards: [tour], fallback_reason: null }, event, DONE]));
+  renderChat();
+  await ask();
+  const list = await screen.findByRole("list", { name: "Wetter" });
+  expect(list).toHaveTextContent("Do., 05.11.2026");
+  expect(list.querySelectorAll("li")[0]).toHaveTextContent("✓ passt");
+  expect(list.querySelectorAll("li")[1]).not.toHaveTextContent("✓");
+});
+
 it("the drawer variant is a collapsible 'Chat'", () => {
   render(
     <ChatProvider apiUrl="http://api">
