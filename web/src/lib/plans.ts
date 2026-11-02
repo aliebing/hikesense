@@ -1,4 +1,5 @@
 import { getBrowserSupabase } from "./auth";
+import { constraintChips } from "../components/ChatMessages";
 import type { ChatState, LastResults } from "./chatState";
 
 export type PlanKind = "day_hike" | "multiday" | "search";
@@ -17,8 +18,18 @@ export function savedSearchOf(state: ChatState): SavedSearch | null {
     }
   }
   if (end < 0) return null;
+  // This search's own messages begin after the previous results or plan, or after an answer in between
+  // (a knowledge question has an assistant reply but no results; a clarify question is not a boundary).
+  let start = 0;
+  for (let i = end - 1; i >= 0; i--) {
+    const k = state.items[i].kind;
+    if (k === "results" || k === "plan" || k === "assistant") {
+      start = i + 1;
+      break;
+    }
+  }
   const messages: string[] = [];
-  for (const it of state.items.slice(0, end)) if (it.kind === "user") messages.push(it.text);
+  for (const it of state.items.slice(start, end)) if (it.kind === "user") messages.push(it.text);
   let answer = "";
   for (const it of state.items.slice(end + 1)) {
     if (it.kind === "assistant") {
@@ -29,10 +40,26 @@ export function savedSearchOf(state: ChatState): SavedSearch | null {
   return { v: 1, messages, answer, results: state.last };
 }
 
+const cut = (t: string) => (t.length > 80 ? t.slice(0, 79) + "…" : t);
+
+/** Title from the understood request (start, constraints, preferences); falls back to the messages. */
 export function searchTitle(s: SavedSearch): string {
+  const req = s.results?.request;
+  if (req && s.results.cards.length > 0) {
+    const r = req.request;
+    const labels = req.labels;
+    const parts = [
+      r.start?.label ?? r.start_text,
+      ...constraintChips(r),
+      ...r.preferences.map((p) => {
+        const name = labels[p.tag_id] ?? p.tag_id;
+        return p.mode === "prefer" ? name : `ohne ${name}`;
+      }),
+    ].filter((x): x is string => !!x);
+    if (parts.length > 0) return cut(parts.join(" · "));
+  }
   const t = s.messages.join(" · ");
-  if (!t) return "Gemerkte Suche";
-  return t.length > 80 ? t.slice(0, 79) + "…" : t;
+  return t ? cut(t) : "Gemerkte Suche";
 }
 
 export function isSavedSearch(payload: unknown): payload is SavedSearch {

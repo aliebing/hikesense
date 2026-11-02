@@ -1,12 +1,12 @@
 import { stripFallback } from "../../components/ChatMessages";
 import { render, screen } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ id: "s1" as string | null, session: null as null | object, row: null as unknown, error: null as unknown }));
+const h = vi.hoisted(() => ({ maybeSingle: vi.fn(), id: "" as string | null, session: null as null | object, row: null as unknown, error: null as unknown }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }) }));
 vi.mock("../../lib/auth", () => ({
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: h.row, error: h.error }) }) }) }),
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (h.maybeSingle(), { data: h.row, error: h.error }) }) }) }),
   }),
 }));
 vi.mock("../../components/AccountMenu", () => ({ default: () => null }));
@@ -25,8 +25,12 @@ const payload = (over = {}) => ({
 });
 const row = (p: unknown, kind = "search") => ({ title: "t", kind, payload: p, created_at: "2026-10-31T10:00:00Z" });
 
+const ID = "123e4567-e89b-42d3-a456-426614174000";
+
+
 beforeEach(() => {
-  h.id = "s1";
+  h.maybeSingle.mockClear();
+  h.id = ID;
   h.session = { user: {} };
   h.row = row(payload());
   h.error = null;
@@ -113,4 +117,11 @@ it("stripFallback handles full, partial and absent sentences", () => {
   expect(stripFallback("A b. Rest", "A b")).toBe("Rest");
   expect(stripFallback("A", "A b")).toBe("");
   expect(stripFallback("Anderes", "A b")).toBe("Anderes");
+});
+
+it("shows not found for an id that is not a UUID without querying", async () => {
+  h.id = "abc'; drop";
+  render(<GemerktPage />);
+  expect(await screen.findByText("Diese gemerkte Suche gibt es nicht (mehr).")).toBeInTheDocument();
+  expect(h.maybeSingle).not.toHaveBeenCalled();
 });

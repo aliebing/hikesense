@@ -65,7 +65,19 @@ it("savedSearchOf returns null without results", () => {
   expect(savedSearchOf(stateOf([{ kind: "user", text: "x" }], null))).toBeNull();
 });
 
-it("savedSearchOf collects the messages including refinements", () => {
+it("savedSearchOf keeps only the messages of this search after an earlier search", () => {
+  const s = savedSearchOf(
+    stateOf([
+      { kind: "user", text: "Feldberg 15 km" }, res(1), { kind: "assistant", text: "A" },
+      { kind: "user", text: "Wer ist der Schwarzwaldverein?" }, { kind: "assistant", text: "Verein" },
+      { kind: "user", text: "Titisee 8 km" }, res(2), { kind: "assistant", text: "B" },
+    ]),
+  )!;
+  expect(s.messages).toEqual(["Titisee 8 km"]);
+  expect(s.answer).toBe("B");
+});
+
+it("savedSearchOf keeps only the refinement after a result", () => {
   const s = savedSearchOf(
     stateOf([
       { kind: "user", text: "Feldberg 15 km" }, res(1), { kind: "assistant", text: "Eine" },
@@ -73,7 +85,7 @@ it("savedSearchOf collects the messages including refinements", () => {
     ]),
   )!;
   expect(s.v).toBe(1);
-  expect(s.messages).toEqual(["Feldberg 15 km", "mit Einkehr"]);
+  expect(s.messages).toEqual(["mit Einkehr"]);
   expect(s.answer).toBe("Zwei Touren …");
   expect(s.results.cards.length).toBe(2);
 });
@@ -101,6 +113,36 @@ it("searchTitle joins, truncates and falls back", () => {
   expect(t.length).toBe(80);
   expect(t.endsWith("…")).toBe(true);
   expect(searchTitle({ v: 1, messages: [], answer: "", results: r })).toBe("Gemerkte Suche");
+});
+
+const request = (over = {}) => ({
+  request: {
+    intent: "search", activity: "hike", start_text: "Feldberg", start: { label: "Feldberg (Gipfel)" },
+    constraints: [{ kind: "length_km", min: null, max: 15, approx: null }],
+    preferences: [{ tag_id: "inn", mode: "prefer", weight: 3 }, { tag_id: "asphalt", mode: "avoid", weight: 1 }],
+    pace_min_per_km: null, unmatched: [], question: null, ...over,
+  },
+  labels: { inn: "Einkehr", asphalt: "Asphalt" },
+}) as unknown as NonNullable<LastResults["request"]>;
+
+it("searchTitle is built from the understood request", () => {
+  const results = stateOf([], { request: request() }).last!;
+  expect(searchTitle({ v: 1, messages: ["mit Einkehr"], answer: "", results })).toBe(
+    "Feldberg (Gipfel) · Länge ≤ 15 km · Einkehr · ohne Asphalt",
+  );
+  const noLabel = stateOf([], { request: request({ start: null }) }).last!;
+  expect(searchTitle({ v: 1, messages: [], answer: "", results: noLabel })).toMatch(/^Feldberg · /);
+});
+
+it("searchTitle cuts long request titles and falls back without a request or cards", () => {
+  const long = stateOf([], { request: request({ start: { label: "x".repeat(200) } }) }).last!;
+  const t = searchTitle({ v: 1, messages: [], answer: "", results: long });
+  expect(t.length).toBe(80);
+  expect(t.endsWith("…")).toBe(true);
+  const empty = stateOf([], { request: request(), cards: [] }).last!;
+  expect(searchTitle({ v: 1, messages: ["Feldberg", "mit Einkehr"], answer: "", results: empty })).toBe("Feldberg · mit Einkehr");
+  const none = stateOf([], { request: null }).last!;
+  expect(searchTitle({ v: 1, messages: ["Feldberg"], answer: "", results: none })).toBe("Feldberg");
 });
 
 it("isSavedSearch rejects day_hike payloads", () => {

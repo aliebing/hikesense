@@ -14,6 +14,8 @@ import { isSavedSearch } from "../../lib/plans";
 
 const MSG_LOAD = "Die gemerkte Suche konnte nicht geladen werden";
 const MSG_BAD = "Diese gemerkte Suche lässt sich nicht anzeigen.";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MSG_GONE = "Diese gemerkte Suche gibt es nicht (mehr).";
 const date = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
 
 type Loaded = { createdAt: string; messages: string[]; answer: string; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels };
@@ -28,10 +30,11 @@ function usableCard(c: unknown): c is TourCard {
 }
 
 async function load(id: string): Promise<Loaded | { error: string }> {
+  if (!UUID.test(id)) return { error: MSG_GONE };
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload, created_at").eq("id", id).maybeSingle();
     if (error) return { error: MSG_LOAD };
-    if (!data) return { error: "Diese gemerkte Suche gibt es nicht (mehr)." };
+    if (!data) return { error: MSG_GONE };
     if (data.kind !== "search" || !isSavedSearch(data.payload)) return { error: MSG_BAD };
     const p = data.payload;
     const r = p.results as unknown as Record<string, unknown>;
@@ -80,7 +83,7 @@ function Saved() {
           .
         </p>
       )}
-      {!loading && session && !id && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Diese gemerkte Suche gibt es nicht (mehr).</p>}
+      {!loading && session && !id && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{MSG_GONE}</p>}
       {signedIn && result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
           {result.error}

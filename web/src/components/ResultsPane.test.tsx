@@ -129,7 +129,7 @@ describe("Ergebnis merken", () => {
     expect(h.savePlan).toHaveBeenCalledTimes(1);
     const [kind, title, payload] = h.savePlan.mock.calls[0];
     expect(kind).toBe("search");
-    expect(title).toBe("Rundweg");
+    expect(title).toBe("Rundweg · Länge 10–14 km");
     expect(payload.results.cards.map((c: TourCard) => c.trail_id)).toEqual(["t1", "t2", "t3"]);
     expect(payload.v).toBe(1);
     expect(payload.messages).toEqual(["Rundweg"]);

@@ -44,13 +44,17 @@ function constraintChip(c: Constraint): string | null {
   }
 }
 
-export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?: boolean }[] {
-  const constraints = r.constraints.flatMap((c) => {
+/** The constraint chips of a request (shared with the saved-search title). */
+export function constraintChips(r: HikeRequest): string[] {
+  return r.constraints.flatMap((c) => {
     const text = constraintChip(c);
-    return text ? [{ text }] : [];
+    return text ? [text] : [];
   });
+}
+
+export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?: boolean }[] {
   return [
-    ...constraints,
+    ...constraintChips(r).map((text) => ({ text })),
     ...r.preferences.map((p) => {
       const name = labels[p.tag_id] ?? p.tag_id;
       return { text: p.mode === "prefer" ? `Vorliebe: ${name} (Gewicht ${p.weight})` : `Vermeiden: ${name}` };
