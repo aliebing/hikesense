@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from hikeall.agent.graph import DoneEvent, TokenEvent, UnderstoodEvent
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
 from hikeall.agent.request import HikeRequest
+from hikeall.api import auth as auth_api
 from hikeall.api import chat as chat_api
 from hikeall.api.app import create_app
 from hikeall.config import Settings
@@ -246,7 +247,7 @@ def test_jwks_outage_is_503_not_401(settings, monkeypatch):
     def down(token, settings):
         raise AuthError("unavailable")
 
-    monkeypatch.setattr(chat_api, "verify_token", down)
+    monkeypatch.setattr(auth_api, "verify_token", down)
     client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
     r = post(client)
     assert r.status_code == 503

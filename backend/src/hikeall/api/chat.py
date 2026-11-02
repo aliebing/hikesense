@@ -25,7 +25,7 @@ from hikeall.agent.events import EventFinder
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
 from hikeall.agent.tools import DbTools
-from hikeall.auth import AuthError, AuthUser, verify_token
+from hikeall.api.auth import authenticate
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
 from hikeall.db import connect
@@ -44,32 +44,6 @@ TRAIL_NAMES_SQL = "select distinct name from trails where name is not null"
 # The web app proxies /api/chat (Next rewrite, one origin for a phone tunnel): the stream must
 # neither be compressed (no-transform) nor buffered by a proxy, or events arrive all at once.
 STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
-
-
-AUTH_MESSAGES = {
-    "missing": "Bitte anmelden.",
-    "invalid": "Bitte anmelden.",
-    "expired": "Sitzung abgelaufen – bitte erneut anmelden.",
-    "unavailable": "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.",
-}
-
-
-async def authenticate(request: Request, settings: Settings) -> AuthUser | JSONResponse:
-    """The signed-in user from the Bearer token, or the 401/503 response to send instead."""
-    header = request.headers.get("authorization", "")
-    scheme, _, token = header.partition(" ")
-    try:
-        return await run_in_threadpool(
-            verify_token, token.strip() if scheme.lower() == "bearer" else "", settings
-        )
-    except AuthError as exc:
-        if exc.reason == "unavailable":
-            return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
-        return JSONResponse(
-            {"detail": AUTH_MESSAGES.get(exc.reason, AUTH_MESSAGES["invalid"])},
-            status_code=401,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
 
 
 class ChatRequest(BaseModel):
