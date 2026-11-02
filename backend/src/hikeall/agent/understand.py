@@ -671,19 +671,20 @@ def _approx(kind: str, value: float) -> Constraint:
 
 
 # weather words of both languages, whatever the reply language is (checked on the plain message)
-_NOT = (
-    r"(?<!kein )(?<!keine )(?<!keinen )(?<!keinem )(?<!ohne )(?<!nicht )"
-    r"(?<!no )(?<!not )(?<!without )"
+_NOT = "".join(
+    rf"(?<!\b{w} )"
+    for w in ("kein", "keine", "keinen", "keinem", "ohne", "nicht", "no", "not", "without")
 )  # a negated word ("ohne Schnee", "no snow", "not dry") never confirms the wish
 _WEATHER_WORDS: dict[str, re.Pattern[str]] = {
     "fine": re.compile(
-        r"\b(?:schon(?:e[sm]?|er|en)?\s+wetter|gut(?:e[sm]?|er|en)?\s+wetter|sonnig\w*|sonne"
-        r"|sonnenschein|(?:nice|fine|good|sunny)\s+weather|sunshine|sunny)\b"
+        _NOT + r"\b(?:schon(?:e[sm]?|er|en)?\s+wetter|gut(?:e[sm]?|er|en)?\s+wetter|sonnig\w*"
+        r"|sonne|sonnenschein|(?:nice|fine|good|sunny)\s+weather|sunshine|sunny)\b"
     ),
     "dry": re.compile(
-        r"\b(?:trocken(?:e[sm]?|er|en)?\s+wetter|trockene[n]?\s+tage?|wenn\s+es\s+trocken\s+ist"
-        r"|bei\s+trockenheit|kein(?:en)?\s+regen|ohne\s+regen|no\s+rain|without\s+rain)\b"
-        r"|" + _NOT + r"\b(?:dry\s+weather|dry\s+days?|when\s+it'?s\s+dry|staying\s+dry)\b"
+        _NOT + r"\b(?:trocken(?:e[sm]?|er|en)?\s+wetter|trockene[n]?\s+tage?"
+        r"|wenn\s+es\s+trocken\s+ist|bei\s+trockenheit|kein(?:en)?\s+regen|ohne\s+regen"
+        r"|no\s+rain|without\s+rain|dry\s+weather|dry\s+days?|when\s+it'?s\s+dry"
+        r"|staying\s+dry)\b"
     ),
     "snow": re.compile(
         _NOT + r"\b(?:schnee|schneefall|schneit|verschneit\w*|schneebedeckt\w*|snow|snowy|snowfall"

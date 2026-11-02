@@ -1538,6 +1538,11 @@ def test_old_request_json_without_weather_wish_validates():
         ("Feldberg Schneeschuh", "snow"),
         ("Feldberg Schneekoppe", "snow"),
         ("Feldberg dry stone wall", "dry"),
+        ("Feldberg kein trockenes Wetter", "dry"),
+        ("Feldberg nicht trockenes Wetter", "dry"),
+        ("Feldberg kein schönes Wetter", "fine"),
+        ("Feldberg ohne Sonne", "fine"),
+        ("Feldberg, not sunny", "fine"),
     ],
 )
 def test_negated_or_incidental_weather_word_does_not_confirm(vocab, message, wish):
@@ -1560,3 +1565,11 @@ def test_no_rain_still_means_dry_and_sonnenschein_is_fine(vocab):
 def test_german_echo_without_wish_is_unchanged(vocab):
     req = HikeRequest(intent="day_hike")
     assert echo(req, vocab) == "Verstanden: Tagestour, Wandern."
+
+
+def test_word_merely_ending_in_negator_does_not_block(vocab):
+    for msg, wish in [("Feldberg Kino Schnee", "snow"), ("Feldberg piano sunny weather", "fine")]:
+        req = understand(
+            gw_of(start_text="Feldberg (Schwarzwald)", weather_wish=wish), vocab, msg, None
+        )
+        assert isinstance(req, HikeRequest) and req.weather_wish == wish
