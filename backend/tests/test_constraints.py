@@ -249,3 +249,37 @@ def test_empty_reason_area_and_place():
     assert "15" not in area.reason
     nostart = select([], req())
     assert nostart.reason.startswith("Keine Tour erfüllt alle Wünsche, weil")
+
+
+def _bad(r) -> int:
+    return sum(1 for x in r if x.ok is not True)
+
+
+def test_rejected_holds_the_rest_sorted_and_capped():
+    cs = (Constraint(kind="length_km", max=15), Constraint(kind="ascent_m", max=400))
+    cands = [cand(trail_id=f"ok{i}", length_km=10.0, ascent_m=300) for i in range(2)]
+    cands += [cand(trail_id=f"one{i:02d}", length_km=16.0 + i, ascent_m=300) for i in range(14)]
+    cands += [cand(trail_id=f"two{i:02d}", length_km=16.0 + i, ascent_m=500) for i in range(14)]
+    sel = select(cands, req(*cs))
+    assert len(sel.matches) == 2
+    assert len(sel.rejected) == 20
+    bads = [_bad(s.results) for s in sel.rejected]
+    assert bads == sorted(bads)
+    assert bads[:14] == [1] * 14
+    ids = [s.candidate.trail_id for s in sel.matches + sel.rejected]
+    assert len(ids) == len(set(ids))
+
+
+def test_rejected_includes_matches_beyond_max():
+    cands = [cand(trail_id=f"t{i}", distance_km=float(i)) for i in range(7)]
+    sel = select(cands, req(Constraint(kind="length_km", max=15)))
+    assert len(sel.matches) == 5
+    assert [s.candidate.trail_id for s in sel.rejected] == ["t5", "t6"]
+
+
+def test_rejected_empty_on_contradiction():
+    sel = select(
+        [cand()], req(Constraint(kind="length_km", min=20), Constraint(kind="length_km", max=10))
+    )
+    assert sel.contradiction
+    assert sel.rejected == []

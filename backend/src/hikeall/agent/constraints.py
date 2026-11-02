@@ -9,6 +9,7 @@ from hikeall.hiking_time import din33466
 from hikeall.numfmt import de
 
 MAX_MATCHES = 5
+MAX_REJECTED = 20
 _LABEL = {
     "length_km": "Länge",
     "ascent_m": "Höhenmeter",
@@ -69,6 +70,7 @@ class Selection:
     fallbacks: list[Scored]
     reason: str | None
     contradiction: str | None
+    rejected: list[Scored] = field(default_factory=list)
 
 
 def _num(x: float, decimals: int = 1) -> str:
@@ -223,6 +225,23 @@ def _fallback_key(s: Scored) -> tuple:
     return (v.ok is None, v.deviation_rel, -s.preference.score, s.candidate.trail_id)
 
 
+def _rejected_key(s: Scored) -> tuple:
+    bad = [r for r in s.results if r.ok is not True]
+    return (
+        len(bad),
+        sum(r.deviation_rel for r in bad if r.ok is False),
+        -s.preference.score,
+        s.candidate.distance_km,
+        s.candidate.trail_id,
+    )
+
+
+def _rejected(scored: list[Scored], shown: list[Scored]) -> list[Scored]:
+    taken = {id(s) for s in shown}
+    rest = [s for s in scored if id(s) not in taken]
+    return sorted(rest, key=_rejected_key)[:MAX_REJECTED]
+
+
 def select(cands: list[Candidate], req: HikeRequest) -> Selection:
     contra = contradiction(req.constraints)
     if contra:
@@ -241,7 +260,8 @@ def select(cands: list[Candidate], req: HikeRequest) -> Selection:
     matches = [s for s in scored if all(r.ok is True for r in s.results)]
     matches.sort(key=lambda s: (-s.preference.score, s.candidate.distance_km, s.candidate.trail_id))
     if matches:
-        return Selection(matches[:MAX_MATCHES], [], None, None)
+        shown = matches[:MAX_MATCHES]
+        return Selection(shown, [], None, None, _rejected(scored, shown))
     best: dict[str, Scored] = {}
     for s in scored:
         bad = [r for r in s.results if r.ok is not True]
@@ -252,4 +272,6 @@ def select(cands: list[Candidate], req: HikeRequest) -> Selection:
         if cur is None or _fallback_key(s) < _fallback_key(cur):
             best[bad[0].kind] = s
     fallbacks = sorted(best.values(), key=_fallback_key)
-    return Selection([], fallbacks, _reason(fallbacks, bool(cands), req), None)
+    return Selection(
+        [], fallbacks, _reason(fallbacks, bool(cands), req), None, _rejected(scored, fallbacks)
+    )
