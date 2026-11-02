@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useLocale, useT, type Locale } from "../i18n";
 import type { Photo, TrailDetail, TrailSummary } from "../lib/data";
 import { hm, hmDown, km, walkingTime } from "../lib/format";
 import Attribution from "./Attribution";
@@ -56,22 +59,24 @@ export function ImageCard({ eyebrow, title, href, photo, facts }: CardProps) {
 type Figures = { length_km: number | null; ascent_m: number | null; descent_m: number | null };
 
 /** km, ↑, ↓ ("–" when missing) and the DIN walking time, omitted unless all inputs are known. */
-function figures(x: Figures, withTime = true): string[] {
-  const f = [km(x.length_km), hm(x.ascent_m), hmDown(x.descent_m)];
-  const time = withTime ? walkingTime(x) : null;
+function figures(x: Figures, locale: Locale, withTime = true): string[] {
+  const f = [km(x.length_km, locale), hm(x.ascent_m, locale), hmDown(x.descent_m, locale)];
+  const time = withTime ? walkingTime(x, locale) : null;
   if (time) f.push(time);
   return f;
 }
 
 export function TrailCard({ trail }: { trail: TrailSummary }) {
+  const { locale } = useLocale();
+  const t = useT().tour;
   const longDistance = trail.kind === "long_distance";
   return (
     <ImageCard
-      eyebrow={longDistance ? `Fernweg · ${trail.stage_count} Etappen` : "Tagestour"}
+      eyebrow={longDistance ? t.longDistanceStages(trail.stage_count) : t.dayHike}
       title={trail.name}
       href={`/t/${trail.id}`}
       photo={trail.cover}
-      facts={figures(trail, !longDistance)}
+      facts={figures(trail, locale, !longDistance)}
     />
   );
 }
@@ -89,24 +94,26 @@ export function CardRow({ label, children }: { label: string; children: React.Re
 
 /** Bottom cards of layout A: one card per stage (long-distance trail) or one card (day hike). */
 export default function StageCards({ trail }: { trail: TrailDetail }) {
+  const { locale } = useLocale();
+  const t = useT().tour;
   if (trail.stages.length === 0) {
     return (
-      <CardRow label="Tour">
+      <CardRow label={t.tourLabel}>
         <li>
-          <ImageCard eyebrow="Tagestour" title={trail.name} photo={trail.cover} facts={figures(trail)} />
+          <ImageCard eyebrow={t.dayHike} title={trail.name} photo={trail.cover} facts={figures(trail, locale)} />
         </li>
       </CardRow>
     );
   }
   return (
-    <CardRow label="Etappen">
+    <CardRow label={t.stagesLabel}>
       {trail.stages.map((s) => (
         <li key={s.id}>
           <ImageCard
-            eyebrow={`Etappe ${s.seq}`}
+            eyebrow={t.stage(s.seq)}
             title={`${s.start_name} – ${s.end_name}`}
             photo={s.photos[0] ?? null}
-            facts={figures(s)}
+            facts={figures(s, locale)}
           />
         </li>
       ))}

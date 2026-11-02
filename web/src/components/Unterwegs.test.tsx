@@ -10,6 +10,7 @@ vi.mock("./MapPanel", () => ({
   },
 }));
 
+import { renderWithLocale } from "../test-utils";
 import Unterwegs from "./Unterwegs";
 
 // north-south line of 0.1° ≈ 11.1 km at lon 8.0 ([lon, lat] like GeoJSON)
@@ -144,4 +145,14 @@ test("the map gets no lodging layer (none loaded here), so it shows no loading e
   render(view());
   expect(mapProps.last).not.toBeNull();
   expect(mapProps.last).not.toHaveProperty("lodgings");
+});
+
+test("English: remaining km, arrival and errors are English", async () => {
+  renderWithLocale(view(), "en");
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  fix(48.05, 8.0);
+  expect(screen.getByText(/5\.6 km to go/)).toBeInTheDocument();
+  expect(screen.getByText(/Arrival about \d\d:\d\d/)).toHaveTextContent("without breaks");
+  act(() => (geo.fail as Fail)({ code: 1 }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Location permission denied – allow it in the browser settings");
 });

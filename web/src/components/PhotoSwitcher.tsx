@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "../i18n";
+import type { PhotoErrorCode } from "../lib/photo";
 import { getBrowserSupabase, useSession } from "../lib/auth";
 import type { Photo } from "../lib/data";
 import { deleteOwnPhoto, listOwnPhotos } from "../lib/photo";
@@ -30,6 +32,7 @@ export default function PhotoSwitcher({
   variant?: "framed" | "backdrop";
 }) {
   const { session } = useSession();
+  const t = useT().tour;
   const userId = session?.user.id;
   const [own, setOwn] = useState<Photo[]>([]);
   const [index, setIndex] = useState(0);
@@ -60,7 +63,8 @@ export default function PhotoSwitcher({
       setIndex(0);
       await loadOwn();
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Löschen hat nicht geklappt");
+      const code = (e as { code?: PhotoErrorCode } | null)?.code;
+      setDeleteError(code && code in t.photoErrors ? t.photoErrors[code] : t.photoDeleteFailed);
     }
   }
 
@@ -86,13 +90,13 @@ export default function PhotoSwitcher({
         <div className={`flex max-w-full flex-wrap items-center gap-2 rounded-3xl bg-wald-dunkel/88 py-1 pr-3 pl-1 text-papier backdrop-blur-md ${className}`}>
           {photos.length > 1 && (
             <>
-              <button type="button" aria-label="Vorheriges Bild" onClick={() => go(-1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
+              <button type="button" aria-label={t.photoPrev} onClick={() => go(-1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
                 ‹
               </button>
               <span className="shrink-0 text-xs tabular-nums opacity-80">
                 {at + 1} / {photos.length}
               </span>
-              <button type="button" aria-label="Nächstes Bild" onClick={() => go(1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
+              <button type="button" aria-label={t.photoNext} onClick={() => go(1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
                 ›
               </button>
             </>
@@ -120,12 +124,12 @@ export default function PhotoSwitcher({
         )}
       </div>
       {photos.length > 1 && (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Bilder">
+        <ul className="flex flex-wrap gap-1.5" aria-label={t.pictures}>
           {photos.slice(0, MAX_THUMBS).map((ph, i) => (
             <li key={ph.url}>
               <button
                 type="button"
-                aria-label={`Bild ${i + 1}`}
+                aria-label={t.picture(i + 1)}
                 aria-current={i === at ? "true" : undefined}
                 onClick={() => setIndex(i)}
                 className={`block size-12 overflow-hidden rounded-md ring-2 focus-visible:outline-2 focus-visible:outline-papier ${i === at ? "ring-amber-400" : "ring-transparent opacity-80 hover:opacity-100"}`}
@@ -142,7 +146,7 @@ export default function PhotoSwitcher({
           <>
             <button
               type="button"
-              aria-label="Vorheriges Bild"
+              aria-label={t.photoPrev}
               onClick={() => go(-1)}
               className="grid size-7 shrink-0 place-items-center rounded-full hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-current"
             >
@@ -153,7 +157,7 @@ export default function PhotoSwitcher({
             </span>
             <button
               type="button"
-              aria-label="Nächstes Bild"
+              aria-label={t.photoNext}
               onClick={() => go(1)}
               className="grid size-7 shrink-0 place-items-center rounded-full hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-current"
             >
@@ -168,7 +172,7 @@ export default function PhotoSwitcher({
             onClick={() => void remove(current.own!)}
             className="rounded-full px-3 py-1 hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-current"
           >
-            Foto löschen
+            {t.photoDelete}
           </button>
         )}
         {trailId && <PhotoUpload trailId={trailId} onUploaded={() => void uploaded()} />}

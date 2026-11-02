@@ -1,11 +1,17 @@
 import type { Feature, FeatureCollection, Geometry, LineString, Position } from "geojson";
 import type { LodgingOnTrail, Stage, TrailDetail } from "./data";
+import { messagesFor, type Locale } from "../i18n/locale";
 import { haversineKm } from "./geo";
 
 /** Vector basemap of the BKG (basemap.de), colour variant. */
 export const BASEMAP_STYLE = "https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json";
 
 export const ATTRIBUTION = ["© BKG (basemap.de) CC BY 4.0", "© OpenStreetMap-Mitwirkende, ODbL"] as const;
+
+/** Map credits in the UI language. */
+export function attribution(locale: Locale = "de"): string[] {
+  return ["© BKG (basemap.de) CC BY 4.0", locale === "de" ? "© OpenStreetMap-Mitwirkende, ODbL" : "© OpenStreetMap contributors, ODbL"];
+}
 
 /** Fallback when the basemap.de style cannot be loaded: OSM raster tiles. */
 export const OSM_RASTER_STYLE = {
@@ -108,19 +114,9 @@ export function lodgingsNearby(lodgings: LodgingOnTrail[], maxM = LODGING_MAX_DI
   return lodgings.filter((l) => l.dist_m !== null && l.dist_m <= maxM);
 }
 
-const KIND_LABEL: Record<string, string> = {
-  hotel: "Hotel",
-  guest_house: "Pension",
-  apartment: "Ferienwohnung",
-  chalet: "Ferienhaus",
-  hostel: "Hostel",
-  camp_site: "Campingplatz",
-  alpine_hut: "Berghütte",
-  wilderness_hut: "Schutzhütte",
-};
-
-export function lodgingKind(kind: string | null): string {
-  return (kind && KIND_LABEL[kind]) ?? "Unterkunft";
+export function lodgingKind(kind: string | null, locale: Locale = "de"): string {
+  const t = messagesFor(locale).tour;
+  return (kind && (t.lodgingKinds as Record<string, string>)[kind]) || t.lodgingNone;
 }
 
 /** Only http(s) links from OSM are rendered as links. */

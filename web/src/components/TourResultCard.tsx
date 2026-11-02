@@ -23,11 +23,14 @@ function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: s
   const t = useT();
   const label = kindLabel(r.kind, t);
   const unit = kindUnit(r.kind, t);
-  const bound = unit && r.bound ? `${r.bound} ${unit}` : r.bound;
+  // the backend's text for a round walk is German ("Rundweg"): label and verdict say it all
+  const bound = r.kind === "roundtrip" ? "" : unit && r.bound ? `${r.bound} ${unit}` : r.bound;
+  const colon = bound ? `: ${bound}` : "";
+  const paren = bound ? ` (${bound})` : "";
   if (r.ok === true) {
     return (
       <li>
-        <span aria-label={t.results.met}>✓</span> {label}: {bound}
+        <span aria-label={t.results.met}>✓</span> {label}{colon}
       </li>
     );
   }
@@ -35,20 +38,20 @@ function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: s
     // the miss is named once, in the yellow reason line above the title
     return (
       <li className="text-amber-900">
-        <span aria-label={t.results.narrow}>~</span> {label}: {t.results.narrow} ({bound})
+        <span aria-label={t.results.narrow}>~</span> {label}: {t.results.narrow}{paren}
       </li>
     );
   }
   if (r.ok === false) {
     return (
       <li className="text-red-800">
-        <span aria-label={t.results.violated}>✗</span> {label}: {deviation ?? `${t.results.notMet} (${bound})`}
+        <span aria-label={t.results.violated}>✗</span> {label}: {deviation ?? `${t.results.notMet}${paren}`}
       </li>
     );
   }
   return (
     <li className="text-wald-dunkel/80">
-      <span aria-label={t.results.unknown}>?</span> {label}: {t.results.unknown}, {t.results.notCheckable} ({bound})
+      <span aria-label={t.results.unknown}>?</span> {label}: {t.results.unknown}, {t.results.notCheckable}{paren}
     </li>
   );
 }

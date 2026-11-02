@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from "../../../test-utils";
 import { ChatProvider } from "../../../components/ChatProvider";
 import type { TrailDetail } from "../../../lib/data";
 
@@ -31,6 +32,10 @@ vi.mock("maplibre-gl", () => ({
   },
 }));
 
+// server components read the language from a cookie; there is no request in unit tests
+const cookie = vi.hoisted(() => ({ lang: "de" }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => ({ value: cookie.lang }) }) }));
+
 import TrailPage from "./page";
 
 const detail: TrailDetail = {
@@ -53,6 +58,7 @@ const page = (searchParams: { von?: string | string[] } = {}) =>
   TrailPage({ params: Promise.resolve({ trailId: "day-1" }), searchParams: Promise.resolve(searchParams) });
 
 beforeEach(() => {
+  cookie.lang = "de";
   mockGetTrail.mockReset();
   mockGetLodgings.mockReset();
   mockGetGroups.mockReset();
@@ -193,4 +199,39 @@ test("no chat on the tour page, a clear back button instead", async () => {
   const back = screen.getByRole("link", { name: "← Zurück zu den Vorschlägen" });
   expect(back).toHaveAttribute("href", "/");
   expect(back.className).toContain("rounded-full");
+});
+
+test("English: the tour page, its blocks and tags are in English", async () => {
+  cookie.lang = "en";
+  mockGetTrail.mockResolvedValue({ ...detail, profile: [[0, 700], [5, 900], [10, 700]], surface_shares: { paved: 0.2, unpaved: 0.8 } });
+  mockGetLodgings.mockResolvedValue([{ id: 1, name: null, kind: "guest_house", website: null, dist_m: 1200, along_km: 2, lon: 8.02, lat: 48.02 }]);
+  mockGetPois.mockResolvedValue([poi(1, "food", "Café", 3.2), poi(2, "hut", "Hütte", 7.8), poi(3, "viewpoint", "Blick", 5.1)]);
+  mockGetTags.mockResolvedValue(["feature:rundweg", "feature:einkehr", "surface:naturweg"]);
+  mockGetGroups.mockResolvedValue([{ name: "Nah", kind: "lauftreff", place: "Hier", url: "https://example.org/nah", checked_at: "2026-03-01", lat: 48.01, lon: 8.0 }]);
+  renderWithLocale(<ChatProvider>{await page({ von: "chat" })}</ChatProvider>, "en");
+  expect(screen.getByRole("link", { name: "← Back to suggestions" })).toBeInTheDocument();
+  expect(screen.getByText("Day hike")).toBeInTheDocument();
+  expect(screen.getByText("Ascent")).toBeInTheDocument();
+  expect(screen.getByText("↑ 300 m")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Full screen" })).toBeInTheDocument();
+  const desc = screen.getByRole("region", { name: "Description" });
+  expect(desc).toHaveTextContent("Round walk, 10.0 km with 300 m ascent, walking time about 3:18 h to DIN 33466. Along the way: 2 refreshment stops and 1 viewpoint.");
+  expect(desc).toHaveTextContent("Inn / café stop");
+  expect(desc).toHaveTextContent("Surface: 80% natural · 20% tarmac");
+  expect(screen.getByRole("img", { name: /Elevation profile/ })).toBeInTheDocument();
+  const lodging = screen.getByRole("region", { name: "Places to stay nearby" });
+  expect(lodging).toHaveTextContent("Guesthouse");
+  expect(lodging).toHaveTextContent("1,200 m from the trail");
+  expect(screen.getByRole("region", { name: "Groups nearby" })).toHaveTextContent("As of 01/03/2026 · within 15 km of the trail");
+  expect(screen.getByRole("region", { name: "Inns & viewpoints" })).toHaveTextContent("Café");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Sources: OpenStreetMap (ODbL) · Elevation: Copernicus DEM GLO-30");
+});
+
+test("English: the data-load error is English", async () => {
+  cookie.lang = "en";
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  mockGetTrail.mockRejectedValue(new Error("db"));
+  renderWithLocale(<ChatProvider>{await page()}</ChatProvider>, "en");
+  expect(screen.getByText("Data could not be loaded.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
 });

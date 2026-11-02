@@ -1,3 +1,4 @@
+import { renderWithLocale } from "../test-utils";
 import { render, screen } from "@testing-library/react";
 import type { TourCard } from "../lib/chat";
 import { initialState, saveState } from "../lib/chatState";
@@ -44,4 +45,12 @@ it("shows nothing when the tour is not in the chat (shared link)", () => {
   const { container } = show([card("other")]);
   expect(container).toBeEmptyDOMElement();
   show(null);
+});
+
+it("English: a round walk chip is label and tick without the German bound", async () => {
+  sessionStorage.clear();
+  saveState(sessionStorage, { ...initialState("th"), last: { cards: [card("t1")], fallback: null, runWithoutPace: false, labels: {}, request: null } });
+  renderWithLocale(<ChatProvider><WishChips trailId="t1" /></ChatProvider>, "en");
+  expect(await screen.findByText("✓ Round walk")).toBeInTheDocument();
+  expect(screen.queryByText(/Rundweg/)).toBeNull();
 });

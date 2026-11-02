@@ -12,6 +12,7 @@ vi.mock("../lib/auth", () => ({
 }));
 vi.mock("../lib/photo", () => ({ prepareUpload: h.prepareUpload, uploadOwnPhoto: h.uploadOwnPhoto }));
 
+import { renderWithLocale } from "../test-utils";
 import PhotoUpload from "./PhotoUpload";
 
 beforeEach(() => {
@@ -42,9 +43,26 @@ it("uploads the prepared blob under the user and trail", async () => {
 
 it("shows the rejection message and uploads nothing", async () => {
   h.session = { user: { id: "u1" } };
-  h.prepareUpload.mockRejectedValue(new Error("Foto ist größer als 10 MB"));
+  h.prepareUpload.mockRejectedValue(Object.assign(new Error("x"), { code: "tooBig" }));
   render(<PhotoUpload trailId="t1" onUploaded={() => {}} />);
   await userEvent.upload(screen.getByLabelText("Foto auswählen"), new File(["y"], "a.jpg", { type: "image/jpeg" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Foto ist größer als 10 MB");
   expect(h.uploadOwnPhoto).not.toHaveBeenCalled();
+});
+
+it("English: the rejection message is English", async () => {
+  h.session = { user: { id: "u1" } };
+  h.prepareUpload.mockRejectedValue(Object.assign(new Error("x"), { code: "tooBig" }));
+  renderWithLocale(<PhotoUpload trailId="t1" onUploaded={() => {}} />, "en");
+  expect(screen.getByRole("button", { name: "Add own photo" })).toBeInTheDocument();
+  await userEvent.upload(screen.getByLabelText("Choose photo"), new File(["y"], "a.jpg", { type: "image/jpeg" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("The photo is larger than 10 MB");
+});
+
+it("an unknown upload error gets the generic text, never the technical message", async () => {
+  h.session = { user: { id: "u1" } };
+  h.prepareUpload.mockRejectedValue(new Error("boom"));
+  renderWithLocale(<PhotoUpload trailId="t1" onUploaded={() => {}} />, "en");
+  await userEvent.upload(screen.getByLabelText("Choose photo"), new File(["y"], "a.jpg", { type: "image/jpeg" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Upload did not work");
 });

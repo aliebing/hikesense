@@ -64,3 +64,28 @@ export function walkingTime(
   if (x.length_km === null || x.ascent_m === null || x.descent_m === null) return null;
   return duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m), locale);
 }
+
+const numCache = new Map<string, Intl.NumberFormat>();
+const dateCache = new Map<string, Intl.DateTimeFormat>();
+
+/** A plain number in the UI language, e.g. num(3.25, "en", { max: 1 }) → "3.3"; `min` forces decimals. */
+export function num(n: number, locale: Locale = "de", o: { min?: number; max?: number } = {}): string {
+  const key = `${locale}|${o.min ?? 0}|${o.max ?? 0}`;
+  let f = numCache.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(intlLocale(locale), { minimumFractionDigits: o.min ?? 0, maximumFractionDigits: o.max ?? o.min ?? 0 });
+    numCache.set(key, f);
+  }
+  return f.format(n);
+}
+
+/** A date or time in the UI language with the given Intl options (cached formatters). */
+export function dateIn(d: Date, locale: Locale, options: Intl.DateTimeFormatOptions): string {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let f = dateCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(intlLocale(locale), options);
+    dateCache.set(key, f);
+  }
+  return f.format(d);
+}

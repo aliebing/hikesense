@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { messagesFor } from "../i18n/locale";
 import type { Photo } from "./data";
 
 /** Own photos (Spec §11): private, EXIF/GPS removed in the browser before anything is uploaded. */
@@ -8,10 +9,21 @@ export const QUALITY = 0.85;
 export const BUCKET = "uploads";
 export const SIGNED_URL_SECONDS = 3600;
 
-export const MSG_HEIC = "HEIC wird nicht unterstützt – bitte als JPEG exportieren";
-export const MSG_TOO_BIG = "Foto ist größer als 10 MB";
-export const MSG_TYPE = "Nur JPEG, PNG oder WebP werden unterstützt";
-export const MSG_REENCODE = "Das Foto konnte nicht verarbeitet werden";
+/** Why an upload or delete failed; the UI shows `messagesFor(locale).tour.photoErrors[code]`. */
+export type PhotoErrorCode = "heic" | "tooBig" | "type" | "reencode" | "upload" | "remove";
+
+/** Carries a code for the UI; `message` is the German text (tests, logs). */
+export class PhotoError extends Error {
+  constructor(readonly code: PhotoErrorCode) {
+    super(messagesFor("de").tour.photoErrors[code]);
+    this.name = "PhotoError";
+  }
+}
+
+export const MSG_HEIC = messagesFor("de").tour.photoErrors.heic;
+export const MSG_TOO_BIG = messagesFor("de").tour.photoErrors.tooBig;
+export const MSG_TYPE = messagesFor("de").tour.photoErrors.type;
+export const MSG_REENCODE = messagesFor("de").tour.photoErrors.reencode;
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
@@ -71,19 +83,19 @@ export function hasMetadata(bytes: Uint8Array): boolean {
   return true; // truncated before the start of scan: unknown, so fail closed
 }
 
-/** Checks type and size, re-encodes and verifies the result carries no metadata. Throws a German message. */
+/** Checks type and size, re-encodes and verifies the result carries no metadata. Throws a PhotoError. */
 export async function prepareUpload(file: File, reencode: Reencode = canvasReencode): Promise<Blob> {
   const name = file.name.toLowerCase();
-  if (/image\/hei[cf]/.test(file.type) || /\.hei[cf]$/.test(name)) throw new Error(MSG_HEIC);
-  if (!ALLOWED.includes(file.type)) throw new Error(MSG_TYPE);
-  if (file.size > MAX_BYTES) throw new Error(MSG_TOO_BIG);
+  if (/image\/hei[cf]/.test(file.type) || /\.hei[cf]$/.test(name)) throw new PhotoError("heic");
+  if (!ALLOWED.includes(file.type)) throw new PhotoError("type");
+  if (file.size > MAX_BYTES) throw new PhotoError("tooBig");
   let out: Blob;
   try {
     out = await reencode(file);
     if (hasMetadata(await readBytes(out))) throw new Error("metadata left");
   } catch {
     // never fall back to the original: it may carry GPS
-    throw new Error(MSG_REENCODE);
+    throw new PhotoError("reencode");
   }
   return out;
 }
@@ -125,21 +137,21 @@ function fileId(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Uploads the prepared JPEG to `<user_id>/<trail_id>/<uuid>.jpg` and records it. Throws a German message. */
+/** Uploads the prepared JPEG to `<user_id>/<trail_id>/<uuid>.jpg` and records it. Throws a PhotoError. */
 export async function uploadOwnPhoto(sb: SupabaseClient, userId: string, trailId: string, blob: Blob): Promise<void> {
   const path = `${userId}/${trailId}/${fileId()}.jpg`;
   const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg" });
-  if (up.error) throw new Error("Hochladen hat nicht geklappt – bitte versuche es noch einmal");
+  if (up.error) throw new PhotoError("upload");
   const ins = await sb.from("photos").insert({ trail_id: trailId, source: "upload", url: path, author: "Eigenes Foto", license: "privat" });
   if (ins.error) {
     await sb.storage.from(BUCKET).remove([path]); // no orphan file without its row
-    throw new Error("Hochladen hat nicht geklappt – bitte versuche es noch einmal");
+    throw new PhotoError("upload");
   }
 }
 
-/** Deletes row and file of one own photo. Throws a German message. */
+/** Deletes row and file of one own photo. Throws a PhotoError. */
 export async function deleteOwnPhoto(sb: SupabaseClient, own: { id: number; path: string }): Promise<void> {
   const del = await sb.from("photos").delete().eq("id", own.id);
-  if (del.error) throw new Error("Löschen hat nicht geklappt – bitte versuche es noch einmal");
+  if (del.error) throw new PhotoError("remove");
   await sb.storage.from(BUCKET).remove([own.path]);
 }

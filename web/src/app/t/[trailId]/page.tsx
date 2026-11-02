@@ -26,7 +26,9 @@ import {
   type TrailDetail,
   type TrailPoi,
 } from "../../../lib/data";
-import { hm, hmDown, km, walkingTime } from "../../../lib/format";
+import { messagesFor } from "../../../i18n/locale";
+import { getServerLocale } from "../../../i18n/server";
+import { dateIn, hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
 import { pickBackdrop } from "../../../lib/backdrop";
 import { describeTour, surfaceLine, tagLabels } from "../../../lib/tour";
@@ -52,9 +54,11 @@ export default async function TrailPage({
   searchParams?: Promise<{ von?: string | string[] }>;
 }) {
   const { trailId } = await params;
+  const locale = await getServerLocale();
+  const t = messagesFor(locale).tour;
   // Only the exact values count; anything else (missing, other strings, arrays) goes home.
   const chat = fromChat((await searchParams)?.von);
-  const back = chat ? { href: "/", label: "← Zurück zu den Vorschlägen" } : { href: "/", label: "← Startseite" };
+  const back = chat ? { href: "/", label: t.backChat } : { href: "/", label: t.backHome };
   let trail: TrailDetail | null;
   try {
     trail = await getTrail(trailId);
@@ -62,8 +66,8 @@ export default async function TrailPage({
     console.error(`getTrail(${trailId}) failed:`, e);
     return (
       <PageFrame back={back}>
-        <Notice title="Daten konnten nicht geladen werden.">
-          <p>Die Datenbank ist nicht erreichbar oder nicht konfiguriert. Bitte später erneut versuchen.</p>
+        <Notice title={t.loadErrorTitle}>
+          <p>{t.loadErrorBody}</p>
         </Notice>
       </PageFrame>
     );
@@ -81,21 +85,21 @@ export default async function TrailPage({
   const groups = groupRows && trail.geom ? groupsNearLine(groupRows, trail.geom.coordinates, new Date()) : [];
 
   const longDistance = trail.kind === "long_distance";
-  const time = longDistance ? null : walkingTime(trail);
+  const time = longDistance ? null : walkingTime(trail, locale);
   const facts: [string, string][] = [
-    ["Länge", km(trail.length_km)],
-    ["Aufstieg", hm(trail.ascent_m)],
-    ["Abstieg", hmDown(trail.descent_m)],
-    ...(time ? ([["Gehzeit", time]] as [string, string][]) : []),
-    ...(longDistance ? ([["Etappen", String(trail.stages.length)]] as [string, string][]) : []),
+    [t.factLength, km(trail.length_km, locale)],
+    [t.factAscent, hm(trail.ascent_m, locale)],
+    [t.factDescent, hmDown(trail.descent_m, locale)],
+    ...(time ? ([[t.factTime, time]] as [string, string][]) : []),
+    ...(longDistance ? ([[t.factStages, String(trail.stages.length)]] as [string, string][]) : []),
   ];
 
   const description = {
     sentence: longDistance
       ? null
-      : describeTour({ roundtrip: (tags ?? []).includes("feature:rundweg"), length_km: trail.length_km, ascent_m: trail.ascent_m, time, pois: pois ?? [] }),
-    tags: tagLabels(tags ?? []),
-    surface: surfaceLine(trail.surface_shares ?? null),
+      : describeTour({ roundtrip: (tags ?? []).includes("feature:rundweg"), length_km: trail.length_km, ascent_m: trail.ascent_m, time, pois: pois ?? [] }, locale),
+    tags: tagLabels(tags ?? [], locale),
+    surface: surfaceLine(trail.surface_shares ?? null, locale),
     profile: trail.profile ?? null,
   };
   const showDescription = !longDistance && hasDescription(description);
@@ -117,7 +121,7 @@ export default async function TrailPage({
       </Link>
       {/* three full-width rows, each on its own green field: kind, name, facts (with the actions on the right) */}
       <section className="flex flex-col gap-1.5">
-        <p className="schrift-feld w-full px-4 py-1 text-sm font-medium text-papier">{longDistance ? "Fernweg" : "Tagestour"}</p>
+        <p className="schrift-feld w-full px-4 py-1 text-sm font-medium text-papier">{longDistance ? t.longDistance : t.dayHike}</p>
         <h1 className="schrift-feld w-full px-4 py-1.5 font-serif text-2xl leading-tight font-semibold sm:text-3xl">{trail.name}</h1>
         <div className="schrift-feld flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2">
           <dl className="flex flex-wrap gap-x-5 gap-y-1">
@@ -134,7 +138,7 @@ export default async function TrailPage({
               href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
               className="rounded-full border border-white/60 bg-wald-dunkel/90 px-4 py-2 text-sm font-medium text-papier hover:bg-wald focus-visible:outline-2 focus-visible:outline-papier"
             >
-              Unterwegs
+              {t.onTheTrail}
             </Link>
           </div>
         </div>
@@ -151,7 +155,7 @@ export default async function TrailPage({
       />
 
       {longDistance && (
-        <section aria-label="Etappen">
+        <section aria-label={t.stagesLabel}>
           <StageCards trail={trail} />
         </section>
       )}
@@ -159,13 +163,13 @@ export default async function TrailPage({
       {(showDescription || showLodgings) && (
         <div className={`grid gap-4 ${showDescription && showLodgings ? "md:grid-cols-[2fr_1fr]" : ""}`}>
           {showDescription && (
-            <Block title="Beschreibung">
+            <Block title={t.description}>
               <TourDescription {...description} trailId={trailId} />
             </Block>
           )}
           {showLodgings && (
-            <Block title="Übernachten in der Nähe">
-              {lodgings === null ? <p className="text-sm">Unterkünfte konnten nicht geladen werden.</p> : <LodgingList lodgings={lodgings} place={trail.name} />}
+            <Block title={t.lodgingTitle}>
+              {lodgings === null ? <p className="text-sm">{t.lodgingsFailed}</p> : <LodgingList lodgings={lodgings} place={trail.name} />}
             </Block>
           )}
         </div>
@@ -174,28 +178,28 @@ export default async function TrailPage({
       {(showPhotos || groups.length > 0 || showPois) && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {showPhotos && (
-            <Block title="Fotos">
+            <Block title={t.photos}>
               <PhotoSwitcher photos={trail.photos} trailId={trailId} />
             </Block>
           )}
           {groups.length > 0 && (
-            <Block title="Gruppen in der Nähe">
+            <Block title={t.groupsTitle}>
               <GroupList
                 groups={groups}
-                note={`Stand: ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`))} · bis ${GROUP_RADIUS_KM} km vom Weg`}
+                note={t.groupsNote(dateIn(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`), locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }), GROUP_RADIUS_KM)}
               />
             </Block>
           )}
           {showPois && (
-            <Block title="Einkehr & Aussicht">
-              {pois === null ? <p className="text-sm">Einkehr und Aussicht konnten nicht geladen werden.</p> : <PoiList pois={pois} />}
+            <Block title={t.poiTitle}>
+              {pois === null ? <p className="text-sm">{t.poiFailed}</p> : <PoiList pois={pois} />}
             </Block>
           )}
         </div>
       )}
 
       <footer className="schrift-feld text-[11px] text-papier">
-        Quellen:{" "}
+        {t.sources}{" "}
         {trail.sources.map((s, i) => (
           <span key={s.id}>
             {i > 0 && " · "}
@@ -209,12 +213,12 @@ export default async function TrailPage({
             {s.license && ` (${s.license})`}
           </span>
         ))}
-        {" · "}Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA
-        {" · "}Gehzeit nach DIN 33466 (Richtwert, ohne Pausen)
-        {pois && pois.length > 0 && " · Einkehr und Aussicht: © OpenStreetMap-Mitwirkende (ODbL)"}
+        {" · "}{t.footerElevation}
+        {" · "}{t.footerTime}
+        {pois && pois.length > 0 && ` · ${t.footerOsm}`}
         {backdrop && (
           <div className="mt-1 flex flex-wrap items-baseline gap-1">
-            Hintergrundbild: <Attribution photo={backdrop} />
+            {t.backdrop} <Attribution photo={backdrop} />
           </div>
         )}
       </footer>

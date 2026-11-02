@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale, useT } from "../i18n";
 import type { Labels, TourCard } from "../lib/chat";
 import { coverOf } from "../lib/chatState";
 import { getLodgings, getTrail, getTrailPois, getTrailTags, type LodgingOnTrail, type TrailPoi } from "../lib/data";
-import { duration, walkingTime } from "../lib/format";
+import { duration, num, walkingTime } from "../lib/format";
 import { mapTrail, type MapTrail } from "../lib/map";
 import { describeTour } from "../lib/tour";
 import Attribution from "./Attribution";
@@ -13,14 +14,13 @@ import MerkenButton from "./MerkenButton";
 import TrailMap from "./TrailMap";
 import { VerdictChips } from "./WishChips";
 
-const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
-
 type Loaded = { trail: MapTrail; lengthKm: number | null; lodgings: LodgingOnTrail[] | null; pois: TrailPoi[]; sentence: string | null } | "error" | null;
 
 /** Exactly one tour found: the tour with description and map right on the home page, one click from its page. */
 /** `fallback`: the search had to relax a wish; then the tour is the nearest match, never „passt“. */
 export default function TourPreview({ card, runWithoutPace, fallback = false }: { card: TourCard; runWithoutPace: boolean; labels: Labels; fallback?: boolean }) {
+  const { locale } = useLocale();
+  const t = useT().tour;
   const [loaded, setLoaded] = useState<Loaded>(null);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
         getTrailPois(card.trail_id).catch(() => [] as TrailPoi[]),
         getTrailTags(card.trail_id).catch(() => [] as string[]),
       ]);
-      const sentence = describeTour({ roundtrip: tags.includes("feature:rundweg"), length_km: t.length_km, ascent_m: t.ascent_m, time: walkingTime(t), pois });
+      const sentence = describeTour({ roundtrip: tags.includes("feature:rundweg"), length_km: t.length_km, ascent_m: t.ascent_m, time: walkingTime(t, locale), pois }, locale);
       return { trail: mapTrail(t), lengthKm: t.length_km, lodgings, pois, sentence };
     })()
       .catch((e) => {
@@ -45,14 +45,14 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
     return () => {
       live = false;
     };
-  }, [card.trail_id]);
+  }, [card.trail_id, locale]);
 
   const photo = coverOf(card);
   const facts = [
-    card.length_km === null ? null : `${nf1.format(card.length_km)} km`,
-    card.ascent_m === null ? null : `↑ ${nf0.format(card.ascent_m)} m`,
-    card.duration_h !== null ? duration(card.duration_h) : runWithoutPace ? "Tempo angeben" : null,
-    card.distance_km === null ? "im Gebiet" : `${nf1.format(card.distance_km)} km bis zum Start`,
+    card.length_km === null ? null : `${num(card.length_km, locale, { min: 1 })} km`,
+    card.ascent_m === null ? null : `↑ ${num(card.ascent_m, locale, { max: 0 })} m`,
+    card.duration_h !== null ? duration(card.duration_h, locale) : runWithoutPace ? t.stateYourPace : null,
+    card.distance_km === null ? t.inTheArea : t.kmToStart(num(card.distance_km, locale, { min: 1 })),
   ].filter((f): f is string => !!f);
   const href = `/t/${card.trail_id}?von=chat`;
 
@@ -60,14 +60,14 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
     <article className="flex flex-col gap-4 rounded-2xl bg-papier p-4 text-wald-dunkel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-wald-dunkel/70">{fallback ? "Nächstbeste Tour" : "Eine Tour passt"}</p>
+          <p className="text-sm text-wald-dunkel/70">{fallback ? t.previewFallback : t.previewFits}</p>
           <h2 className="font-serif text-2xl sm:text-3xl">{card.name}</h2>
           <p className="tabular-nums">{facts.join(" · ")}</p>
         </div>
         <div className="flex items-center gap-2">
           <MerkenButton kind="day_hike" title={card.name} payload={card} />
           <Link href={href} className="rounded-full bg-wald px-5 py-2 text-sm font-medium text-papier hover:bg-wald-dunkel">
-            Zur Tour →
+            {t.toTour}
           </Link>
         </div>
       </div>
@@ -75,8 +75,8 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
       {card.deviation_text && <p className="text-sm text-red-800">{card.deviation_text}</p>}
       <div className={`grid gap-4 ${photo ? "lg:grid-cols-[2fr_1fr]" : ""}`}>
         <div className="flex min-w-0 flex-col gap-3">
-          {loaded === null && <p role="status" className="text-sm">Karte wird geladen …</p>}
-          {loaded === "error" && <p className="text-sm">Karte konnte nicht geladen werden.</p>}
+          {loaded === null && <p role="status" className="text-sm">{t.mapLoading}</p>}
+          {loaded === "error" && <p className="text-sm">{t.mapFailed}</p>}
           {loaded && loaded !== "error" && (
             <>
               {loaded.sentence && <p className="text-base leading-relaxed">{loaded.sentence}</p>}

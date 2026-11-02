@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useT } from "../../i18n";
+import type { Messages } from "../../i18n/en";
 import PageFrame from "../../components/PageFrame";
 import Unterwegs from "../../components/Unterwegs";
 import { getBrowserSupabase, useSession } from "../../lib/auth";
@@ -12,38 +14,36 @@ import { getTrail } from "../../lib/data";
 import { daySections, mapTrail, trailLine, type DaySection, type MapTrail } from "../../lib/map";
 import type { Position } from "geojson";
 
-const MSG_LOAD = "Die Tour konnte nicht geladen werden";
-
 type Loaded = { title: string; trail: MapTrail; line: Position[]; days?: DaySection[]; profile: Profile | null; startKm: number; lengthKm: number | null };
 
-async function loadTrail(id: string): Promise<Loaded | { error: string }> {
+async function loadTrail(id: string, tx: Messages["plan"]): Promise<Loaded | { error: string }> {
   try {
     const t = await getTrail(id);
-    if (!t) return { error: "Tour nicht gefunden" };
+    if (!t) return { error: tx.uwTourNotFound };
     const trail = mapTrail(t);
     return { title: t.name, trail, line: trailLine(trail), profile: t.profile ?? null, startKm: 0, lengthKm: t.length_km };
   } catch {
-    return { error: MSG_LOAD };
+    return { error: tx.uwTourLoadFailed };
   }
 }
 
 /** One day of a saved multi-day plan: the line is the day's section (the backend's own cut, as on the map). */
-async function loadDay(planId: string, dayNo: number): Promise<Loaded | { error: string }> {
+async function loadDay(planId: string, dayNo: number, tx: Messages["plan"]): Promise<Loaded | { error: string }> {
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload").eq("id", planId).maybeSingle();
-    if (error) return { error: "Der Plan konnte nicht geladen werden" };
-    if (!data) return { error: "Plan nicht gefunden" };
+    if (error) return { error: tx.loadFailed };
+    if (!data) return { error: tx.notFound };
     const p = normalizePlan(data.payload);
-    if (data.kind !== "multiday" || !p) return { error: "Der Plan konnte nicht geladen werden" };
+    if (data.kind !== "multiday" || !p) return { error: tx.loadFailed };
     const day = p.plan.days.find((d) => d.day === dayNo);
-    if (!day) return { error: `Der Plan hat keinen Tag ${dayNo}` };
+    if (!day) return { error: tx.uwNoDay(dayNo) };
     const t = await getTrail(p.plan.trail_id);
-    if (!t) return { error: MSG_LOAD };
+    if (!t) return { error: tx.uwTourLoadFailed };
     const trail = mapTrail(t);
     const section = daySections(trailLine(trail), p.plan.days, t.length_km).find((x) => x.day === dayNo);
-    if (!section) return { error: "Für diesen Tag lässt sich kein Wegabschnitt bestimmen" };
+    if (!section) return { error: tx.uwNoSection };
     return {
-      title: `${data.title as string} – Tag ${dayNo}`,
+      title: tx.uwDay(data.title as string, dayNo),
       trail,
       line: section.geom.coordinates,
       days: [section],
@@ -52,11 +52,12 @@ async function loadDay(planId: string, dayNo: number): Promise<Loaded | { error:
       lengthKm: Math.abs(day.end_km - day.start_km) || null,
     };
   } catch {
-    return { error: MSG_LOAD };
+    return { error: tx.uwTourLoadFailed };
   }
 }
 
 function Content() {
+  const t = useT().plan;
   const params = useSearchParams();
   const trailId = params.get("trail");
   const planId = params.get("plan");
@@ -73,27 +74,27 @@ function Content() {
     setResult(null);
     if (!ready) return;
     let live = true;
-    const p = planId ? loadDay(planId, dayNo) : loadTrail(trailId!);
+    const p = planId ? loadDay(planId, dayNo, t) : loadTrail(trailId!, t);
     void p.then((r) => live && setResult(r));
     return () => {
       live = false;
     };
-  }, [ready, planId, trailId, dayNo]);
+  }, [ready, planId, trailId, dayNo, t]);
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
-      <h1 className="font-serif text-3xl sm:text-4xl">Unterwegs</h1>
+      <h1 className="font-serif text-3xl sm:text-4xl">{t.uwTitle}</h1>
       {needsLogin && (
         <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
-          Für einen gemerkten Plan bitte{" "}
+          {t.uwSignInForPlan}
           <Link href="/anmelden" className="underline">
-            Anmelden
+            {t.signIn}
           </Link>
           .
         </p>
       )}
-      {badDay && <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">Ungültiger Tag „{rawDay}“ – bitte öffne „Unterwegs“ bei einem Tag des Plans.</p>}
-      {!trailId && !planId && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Keine Tour ausgewählt – öffne „Unterwegs“ bei einer Tour oder einem gemerkten Plan.</p>}
+      {badDay && <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">{t.uwBadDay(rawDay ?? "")}</p>}
+      {!trailId && !planId && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{t.uwNoTour}</p>}
       {result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
           {result.error}
@@ -105,8 +106,9 @@ function Content() {
 }
 
 export default function UnterwegsPage() {
+  const t = useT();
   return (
-    <PageFrame back={{ href: "/", label: "← Zur Startseite" }}>
+    <PageFrame back={{ href: "/", label: t.tour.backHome }}>
       <Suspense>
         <Content />
       </Suspense>

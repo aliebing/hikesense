@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { LodgingOnTrail } from "../lib/data";
+import { renderWithLocale } from "../test-utils";
 import LodgingList from "./LodgingList";
 
 const l = (id: number, dist_m: number | null, website: string | null = null): LodgingOnTrail => ({ id, name: `Haus ${id}`, kind: "hotel", website, dist_m, along_km: id, lon: 8, lat: 48 });
@@ -18,4 +19,12 @@ it("shows the five nearest lodgings, nearest first, with a link", () => {
 it("renders nothing without lodgings", () => {
   const { container } = render(<LodgingList lodgings={[]} />);
   expect(container).toBeEmptyDOMElement();
+});
+
+it("English: distance, kind, links and hint are English", () => {
+  renderWithLocale(<LodgingList lodgings={[{ ...l(1, 1200), name: null, kind: "camp_site" }]} />, "en");
+  const item = screen.getByRole("listitem");
+  expect(item).toHaveTextContent("Campsite");
+  expect(item).toHaveTextContent("1,200 m from the trail");
+  expect(screen.getByText("Please check availability on the website")).toBeInTheDocument();
 });

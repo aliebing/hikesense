@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithLocale } from "../test-utils";
 import MapPanel from "./MapPanel";
 
 // No network, no WebGL in tests: maplibre is replaced by a stub. `stub` lets a
@@ -207,4 +208,18 @@ test("embedded map lets one finger scroll the page (cooperative gestures); full 
   await user.click(screen.getByRole("button", { name: "Vollbild" }));
   await vi.waitFor(() => expect(stub.options).toHaveLength(2));
   expect(stub.options[1].cooperativeGestures).toBeFalsy();
+});
+
+test("English: legend, buttons and POI labels are English", async () => {
+  renderWithLocale(<MapPanel trail={trail} lodgings={[lodging]} embedded pois={[poi(1, "food", "Café Adler", 3.2)]} />, "en");
+  const legend = screen.getByTestId("map-legend");
+  expect(legend).toHaveTextContent("1 places to stay ≤ 1,000 m from the trail");
+  expect(legend).toHaveTextContent("Refreshments");
+  expect(legend).toHaveTextContent("OpenStreetMap contributors");
+  await vi.waitFor(() => expect(stub.markers.filter((m) => m.classList.contains("map-poi"))).toHaveLength(1));
+  expect(stub.markers.find((m) => m.classList.contains("map-poi"))!.getAttribute("aria-label")).toBe("Café Adler, Inn / café, km 3.2");
+  expect(screen.getByRole("button", { name: "Full screen" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Full screen" }));
+  expect(screen.getByRole("dialog", { name: /Map:/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Close map" })).toBeInTheDocument();
 });

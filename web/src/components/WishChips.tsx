@@ -9,7 +9,8 @@ import { kindLabel, kindUnit } from "./TourResultCard";
 function chip(r: ConstraintResult, t: Messages): { text: string; tone: string } {
   const label = kindLabel(r.kind, t);
   const raw = kindUnit(r.kind, t) && r.bound ? `${r.bound} ${kindUnit(r.kind, t)}` : r.bound;
-  const bound = raw === label ? "" : raw; // „Rundweg: Rundweg“ says it twice
+  // a round walk's bound is the backend's German "Rundweg": label and ✓/✗ say it all
+  const bound = r.kind === "roundtrip" || raw === label ? "" : raw;
   if (r.ok === true) return { text: `✓ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-wald/15 text-wald-dunkel" };
   if (r.ok === false) return { text: `✗ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-red-100 text-red-900" };
   return { text: `? ${label}: ${t.results.unknown}`, tone: "bg-wald-dunkel/10 text-wald-dunkel" };

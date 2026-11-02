@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
+import { useT } from "../../i18n";
+import type { Messages } from "../../i18n/en";
 import { useChat } from "../../components/ChatProvider";
 import PageFrame from "../../components/PageFrame";
 import PlanDays from "../../components/PlanDays";
@@ -13,17 +15,15 @@ import { getLodgings, getTrail, type LodgingOnTrail } from "../../lib/data";
 import { mapTrail, type MapTrail } from "../../lib/map";
 import { useSearchParams } from "next/navigation";
 
-const MSG_LOAD = "Der Plan konnte nicht geladen werden";
-
 type Loaded = { title: string; createdAt: string; data: PlanData; trail: MapTrail | null; lodgings: LodgingOnTrail[] | null; lengthKm: number | null };
 
 /** A saved multi-day plan (own rows only, RLS) with the trail loaded for the map; the map is optional. */
-async function load(id: string): Promise<Loaded | { error: string }> {
+async function load(id: string, t: Messages["plan"]): Promise<Loaded | { error: string }> {
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload, created_at").eq("id", id).maybeSingle();
-    if (error || !data) return { error: error ? MSG_LOAD : "Plan nicht gefunden" };
+    if (error || !data) return { error: error ? t.loadFailed : t.notFound };
     const p = normalizePlan(data.payload);
-    if (data.kind !== "multiday" || !p) return { error: MSG_LOAD };
+    if (data.kind !== "multiday" || !p) return { error: t.loadFailed };
     const data2 = p;
     let trail: MapTrail | null = null;
     let lodgings: LodgingOnTrail[] | null = null;
@@ -40,11 +40,12 @@ async function load(id: string): Promise<Loaded | { error: string }> {
     }
     return { title: data.title as string, createdAt: data.created_at as string, data: data2, trail, lodgings, lengthKm };
   } catch {
-    return { error: MSG_LOAD };
+    return { error: t.loadFailed };
   }
 }
 
 function SavedPlan() {
+  const t = useT().plan;
   const id = useSearchParams().get("id");
   const { session, loading } = useSession();
   const signedIn = !!session;
@@ -54,20 +55,20 @@ function SavedPlan() {
     setResult(null); // another plan or no session: never show the previous one
     if (!signedIn || !id) return;
     let live = true;
-    void load(id).then((r) => live && setResult(r));
+    void load(id, t).then((r) => live && setResult(r));
     return () => {
       live = false;
     };
-  }, [signedIn, id]);
+  }, [signedIn, id, t]);
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
-      <h1 className="font-serif text-3xl sm:text-4xl">Gemerkter Plan</h1>
+      <h1 className="font-serif text-3xl sm:text-4xl">{t.savedPlan}</h1>
       {!loading && !session && (
         <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
-          Zum Ansehen deines Plans bitte{" "}
+          {t.signInToView}
           <Link href="/anmelden" className="underline">
-            Anmelden
+            {t.signIn}
           </Link>
           .
         </p>
@@ -91,6 +92,7 @@ type MapData = { trail: MapTrail; lodgings: LodgingOnTrail[] | null; lengthKm: n
 
 /** The plan from the chat (no id): map with the day sections on top, the days below. The map is optional. */
 function ChatPlan() {
+  const t = useT().plan;
   const { state, hydrated } = useChat();
   const plan = state.plan;
   const trailId = plan?.plan.trail_id;
@@ -119,9 +121,9 @@ function ChatPlan() {
   if (!plan) {
     return (
       <main className="flex flex-1 flex-col items-start gap-3">
-        <p>Noch kein Plan im Chat.</p>
+        <p>{t.noPlanInChat}</p>
         <Link href="/" className="rounded-full bg-papier px-5 py-2 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
-          Zur Startseite
+          {t.toHome}
         </Link>
       </main>
     );
@@ -135,16 +137,17 @@ function ChatPlan() {
 }
 
 function PlanView() {
+  const t = useT().plan;
   const id = useSearchParams().get("id");
   if (!id) {
     return (
-      <PageFrame back={{ href: "/", label: "← Zurück zum Chat" }}>
+      <PageFrame back={{ href: "/", label: t.backChat }}>
         <ChatPlan />
       </PageFrame>
     );
   }
   return (
-    <PageFrame back={{ href: "/meine-plaene", label: "← Meine Pläne" }}>
+    <PageFrame back={{ href: "/meine-plaene", label: t.backPlans }}>
       <SavedPlan />
     </PageFrame>
   );

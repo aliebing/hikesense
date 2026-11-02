@@ -51,3 +51,20 @@ describe("tagLabels", () => {
     expect(tagLabels(["feature:rundweg", "x:y", "surface:naturweg"])).toEqual(["Rundweg", "Naturweg"]);
   });
 });
+
+describe("English", () => {
+  it("describes a round walk with stops", () => {
+    expect(
+      describeTour({ roundtrip: true, length_km: 11.4, ascent_m: 389, time: "3:54 h", pois: [poi("food", 1), poi("hut", 2), poi("viewpoint", 3)] }, "en"),
+    ).toBe("Round walk, 11.4 km with 389 m ascent, walking time about 3:54 h to DIN 33466. Along the way: 2 refreshment stops and 1 viewpoint.");
+    expect(describeTour({ roundtrip: false, length_km: 8, ascent_m: null, time: null, pois: [] }, "en")).toBe("Walk, 8.0 km.");
+    expect(
+      describeTour({ roundtrip: false, length_km: 5, ascent_m: null, time: null, pois: [poi("food", 1), poi("viewpoint", 2), poi("waterfall", 3), poi("waterfall", 4)] }, "en"),
+    ).toBe("Walk, 5.0 km. Along the way: 1 refreshment stop, 1 viewpoint and 2 waterfalls.");
+  });
+
+  it("labels tags and surfaces in English", () => {
+    expect(tagLabels(["feature:einkehr", "feature:aussicht", "x:y"], "en")).toEqual(["Inn / café stop", "Viewpoint"]);
+    expect(surfaceLine({ paved: 0.2, unpaved: 0.8 }, "en")).toBe("Surface: 80% natural · 20% tarmac");
+  });
+});

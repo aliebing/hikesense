@@ -5,9 +5,11 @@ import type { FeatureCollection } from "geojson";
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LodgingOnTrail, TrailPoi } from "../lib/data";
-import { POI_KIND } from "../lib/tour";
+import { messagesFor, useLocale, useT, type Locale } from "../i18n";
+import { num } from "../lib/format";
+import { POI_KIND, poiKindLabel } from "../lib/tour";
 import {
-  ATTRIBUTION,
+  attribution,
   BASEMAP_STYLE,
   LODGING_MAX_DIST_M,
   OSM_RASTER_STYLE,
@@ -26,22 +28,8 @@ const STAGE_RED = ["#d62839", "#8a1526"] as const;
 
 type Status = "loading" | "ready" | "error" | "no-webgl";
 
-const STATUS_TEXT: Record<Exclude<Status, "ready">, string> = {
-  loading: "Karte wird geladen …",
-  error: "Die Karte konnte nicht geladen werden.",
-  "no-webgl":
-    "Die Karte braucht WebGL2, das in diesem Browser nicht verfügbar ist. Bitte Hardwarebeschleunigung in den Browser-Einstellungen aktivieren oder einen anderen Browser verwenden.",
-};
-
 /** maplibre throws (or fires) this when no WebGL2 context can be created. */
 const isNoWebGL = (e: unknown) => (e as { name?: unknown } | null)?.name === "GPUInitializationError";
-
-/** German hints for cooperative gestures (embedded map); maplibre's defaults are English. */
-const GESTURE_LOCALE = {
-  "CooperativeGesturesHandler.WindowsHelpText": "Strg + Mausrad zum Zoomen der Karte",
-  "CooperativeGesturesHandler.MacHelpText": "⌘ + Mausrad zum Zoomen der Karte",
-  "CooperativeGesturesHandler.MobileHelpText": "Mit zwei Fingern die Karte bewegen",
-};
 
 /** Below this zoom lodgings are drawn as small dots. */
 const LODGING_FULL_ZOOM = 11;
@@ -72,6 +60,7 @@ export default function MapPanel({
   /** the map sits in the page (no click needed); full screen stays available as an extra button */
   embedded?: boolean;
 }) {
+  const t = useT().map;
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const closer = useRef<HTMLButtonElement>(null);
@@ -100,7 +89,7 @@ export default function MapPanel({
 
   if (embedded) {
     return (
-      <section aria-label={`Karte: ${trail.name}`} className="flex flex-col overflow-hidden rounded-2xl bg-wald-flaeche ring-1 ring-white/10">
+      <section aria-label={t.mapOf(trail.name)} className="flex flex-col overflow-hidden rounded-2xl bg-wald-flaeche ring-1 ring-white/10">
         <div className="relative h-[55vh] min-h-80">
           {/* the overlay draws its own map; this one stays mounted underneath */}
           <MapView {...view} cooperative />
@@ -111,7 +100,7 @@ export default function MapPanel({
             onClick={() => setOpen(true)}
             className="absolute top-2 left-2 rounded-full bg-wald-dunkel/90 px-3 py-1 text-sm text-papier shadow hover:bg-wald-dunkel focus-visible:outline-2 focus-visible:outline-papier"
           >
-            Vollbild
+            {t.fullscreen}
           </button>
         </div>
         <MapLegend {...view} />
@@ -126,11 +115,11 @@ export default function MapPanel({
         ref={opener}
         type="button"
         aria-haspopup="dialog"
-        aria-label="Karte öffnen"
+        aria-label={t.open}
         onClick={() => setOpen(true)}
         className="self-start justify-self-start rounded-full border border-white/25 bg-wald-flaeche px-4 py-2 text-sm text-papier hover:bg-wald focus-visible:outline-2 focus-visible:outline-papier md:justify-self-end"
       >
-        <span aria-hidden="true">🗺 </span>Karte
+        <span aria-hidden="true">🗺 </span>{t.openLabel}
       </button>
       {overlay}
     </>
@@ -153,6 +142,8 @@ function useNearby(lodgings: LodgingOnTrail[] | null | undefined, days: DaySecti
 
 /** `cooperative`: an embedded map lets one finger scroll the page (two fingers / Ctrl+wheel move the map). */
 function MapView({ trail, lodgings, days, position, pois, cooperative = false }: ViewProps & { cooperative?: boolean }) {
+  const { locale } = useLocale();
+  const t = useT().map;
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{ map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker } | null>(null);
   const posRef = useRef(position);
@@ -179,12 +170,17 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
           style: BASEMAP_STYLE,
           attributionControl: false, // shown below the map, always visible
           cooperativeGestures: cooperative,
-          locale: GESTURE_LOCALE,
+          // maplibre's own hints are English; both languages come from the catalog
+          locale: {
+            "CooperativeGesturesHandler.WindowsHelpText": t.gestureWin,
+            "CooperativeGesturesHandler.MacHelpText": t.gestureMac,
+            "CooperativeGesturesHandler.MobileHelpText": t.gestureMobile,
+          },
           ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.7, 48.55], zoom: 6.5 }),
         });
         map.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
         live.current = { map, ml };
-        showPosition(live.current, posRef.current);
+        showPosition(live.current, posRef.current, t.yourPosition);
         // Zoomed out (whole Westweg), full 🛏 markers would cover the line: show dots.
         const markDots = () => container.current?.classList.toggle("map-lodging-dots", map!.getZoom() < LODGING_FULL_ZOOM);
         map.on("zoomend", markDots);
@@ -230,11 +226,11 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
           el.type = "button";
           el.className = "map-lodging";
           el.textContent = "🛏";
-          el.setAttribute("aria-label", `${lodgingName(l)}, ${distance(l)}`);
+          el.setAttribute("aria-label", `${lodgingName(l, locale)}, ${distance(l, locale)}`);
           markers.push(
             new ml.Marker({ element: el })
               .setLngLat([l.lon, l.lat])
-              .setPopup(new ml.Popup({ offset: 14, maxWidth: "260px" }).setDOMContent(lodgingPopup(l)))
+              .setPopup(new ml.Popup({ offset: 14, maxWidth: "260px" }).setDOMContent(lodgingPopup(l, locale)))
               .addTo(map),
           );
         }
@@ -243,11 +239,11 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
           el.type = "button";
           el.className = "map-poi";
           el.textContent = POI_KIND[q.kind].icon;
-          el.setAttribute("aria-label", poiLabel(q));
+          el.setAttribute("aria-label", poiLabel(q, locale));
           markers.push(
             new ml.Marker({ element: el })
               .setLngLat([q.lon, q.lat])
-              .setPopup(new ml.Popup({ offset: 14, maxWidth: "240px" }).setDOMContent(poiPopup(q)))
+              .setPopup(new ml.Popup({ offset: 14, maxWidth: "240px" }).setDOMContent(poiPopup(q, locale)))
               .addTo(map),
           );
         }
@@ -263,11 +259,13 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
       markers.forEach((m) => m.remove());
       map?.remove();
     };
-  }, [features, nearby, poiList, cooperative]);
+    // t comes from locale: a language change rebuilds the map with the new texts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [features, nearby, poiList, cooperative, locale]);
 
   useEffect(() => {
-    if (live.current) showPosition(live.current, position);
-  }, [position]);
+    if (live.current) showPosition(live.current, position, t.yourPosition);
+  }, [position, t.yourPosition]);
 
   return (
     <div className="relative h-full min-h-0 flex-1 bg-papier/10">
@@ -282,7 +280,7 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
             role={status === "loading" ? "status" : "alert"}
             className="max-w-md rounded-xl bg-wald-dunkel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
           >
-            {STATUS_TEXT[status]}
+            {status === "loading" ? t.loading : status === "error" ? t.error : t.noWebgl}
           </p>
         </div>
       )}
@@ -291,6 +289,9 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
 }
 
 function MapLegend({ trail, lodgings, days, pois }: ViewProps) {
+  const { locale } = useLocale();
+  const t = useT().map;
+  const pg = useT().tour.poiGroups;
   const nearby = useNearby(lodgings, days);
   const planDays = !!days && days.length > 0;
   const groups = new Set((pois ?? []).map((q) => POI_KIND[q.kind].group));
@@ -298,30 +299,31 @@ function MapLegend({ trail, lodgings, days, pois }: ViewProps) {
     <div data-testid="map-legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[11px] text-papier/85">
       <span className="flex items-center gap-1">
         <span aria-hidden="true" className="inline-block h-1 w-5 rounded" style={{ background: `linear-gradient(90deg, ${STAGE_RED[0]} 50%, ${STAGE_RED[1]} 50%)` }} />
-        {planDays ? "Tage" : trail.stages.length > 0 ? "Etappen" : "Tour"}
+        {planDays ? t.days : trail.stages.length > 0 ? t.stages : t.tour}
       </span>
       {lodgings !== undefined && (lodgings === null || planDays || nearby.length > 0) && (
         <span>
           <span aria-hidden="true">🛏 </span>
           {lodgings === null
-            ? "Unterkünfte konnten nicht geladen werden"
+            ? t.lodgingsFailed
             : planDays
-              ? "Unterkünfte am Tagesende"
-              : `${nearby.length} Unterkünfte ≤ ${LODGING_MAX_DIST_M.toLocaleString("de-DE")} m vom Weg`}
+              ? t.lodgingsDayEnd
+              : t.lodgingsNear(nearby.length, num(LODGING_MAX_DIST_M, locale))}
         </span>
       )}
       {lodgings !== undefined && days?.filter((d) => d.lodging_missing).map((d) => (
-        <span key={d.day}>Unterkunft für Tag {d.day} nicht auf der Karte</span>
+        <span key={d.day}>{t.lodgingMissing(d.day)}</span>
       ))}
-      {groups.has("einkehr") && <span><span aria-hidden="true">☕ </span>Einkehr</span>}
-      {groups.has("aussicht") && <span><span aria-hidden="true">👁 </span>Aussicht</span>}
-      {groups.has("wasserfall") && <span><span aria-hidden="true">💧 </span>Wasserfall</span>}
-      <span className="ml-auto">{ATTRIBUTION.join(" · ")}</span>
+      {groups.has("einkehr") && <span><span aria-hidden="true">☕ </span>{pg.einkehr}</span>}
+      {groups.has("aussicht") && <span><span aria-hidden="true">👁 </span>{pg.aussicht}</span>}
+      {groups.has("wasserfall") && <span><span aria-hidden="true">💧 </span>{pg.wasserfall}</span>}
+      <span className="ml-auto">{attribution(locale).join(" · ")}</span>
     </div>
   );
 }
 
 function MapOverlay({ closer, onClose, ...view }: ViewProps & { closer: React.RefObject<HTMLButtonElement | null>; onClose: () => void }) {
+  const t = useT().map;
   return (
     <div
       role="dialog"
@@ -333,16 +335,16 @@ function MapOverlay({ closer, onClose, ...view }: ViewProps & { closer: React.Re
       <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-2xl bg-wald-dunkel shadow-2xl ring-1 ring-white/15">
         <div className="flex items-center gap-3 px-4 py-2">
           <h2 id="map-title" className="min-w-0 flex-1 truncate font-serif text-lg text-papier">
-            Karte: {view.trail.name}
+            {t.mapOf(view.trail.name)}
           </h2>
           <button
             ref={closer}
             type="button"
             onClick={onClose}
-            aria-label="Karte schließen"
+            aria-label={t.close}
             className="rounded-full px-3 py-1 text-sm text-papier/90 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-papier"
           >
-            Schließen <span aria-hidden="true">✕</span>
+            {t.closeText} <span aria-hidden="true">✕</span>
           </button>
         </div>
         <MapView {...view} />
@@ -353,7 +355,7 @@ function MapOverlay({ closer, onClose, ...view }: ViewProps & { closer: React.Re
 }
 
 /** The own-position dot: created on the first fix, moved afterwards, removed when the position is gone. */
-function showPosition(l: { map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker }, pos: { lat: number; lon: number } | null | undefined) {
+function showPosition(l: { map: MapLibreMap; ml: typeof import("maplibre-gl"); me?: Marker }, pos: { lat: number; lon: number } | null | undefined, label: string) {
   if (!pos) {
     l.me?.remove();
     l.me = undefined;
@@ -363,7 +365,7 @@ function showPosition(l: { map: MapLibreMap; ml: typeof import("maplibre-gl"); m
     const el = document.createElement("div");
     el.className = "map-me";
     el.setAttribute("role", "img");
-    el.setAttribute("aria-label", "Dein Standort");
+    el.setAttribute("aria-label", label);
     l.me = new l.ml.Marker({ element: el }).setLngLat([pos.lon, pos.lat]).addTo(l.map);
   } else {
     l.me.setLngLat([pos.lon, pos.lat]);
@@ -407,22 +409,22 @@ function addTrailLayers(map: MapLibreMap, features: FeatureCollection) {
   });
 }
 
-function lodgingName(l: LodgingOnTrail): string {
-  return l.name ?? lodgingKind(l.kind);
+function lodgingName(l: LodgingOnTrail, locale: Locale): string {
+  return l.name ?? lodgingKind(l.kind, locale);
 }
 
 /** dist_m as imported — never estimated. */
-function distance(l: LodgingOnTrail): string {
-  return `${l.dist_m!.toLocaleString("de-DE")} m vom Weg`;
+function distance(l: LodgingOnTrail, locale: Locale): string {
+  return messagesFor(locale).map.fromTrail(num(l.dist_m!, locale));
 }
 
-function lodgingPopup(l: LodgingOnTrail): HTMLElement {
+function lodgingPopup(l: LodgingOnTrail, locale: Locale): HTMLElement {
   const root = document.createElement("div");
   root.className = "map-popup";
   const title = document.createElement("strong");
-  title.textContent = lodgingName(l);
+  title.textContent = lodgingName(l, locale);
   const meta = document.createElement("div");
-  meta.textContent = `${lodgingKind(l.kind)} · ${distance(l)}`;
+  meta.textContent = `${lodgingKind(l.kind, locale)} · ${distance(l, locale)}`;
   root.append(title, meta);
   const href = safeWebsite(l.website);
   if (href) {
@@ -430,29 +432,28 @@ function lodgingPopup(l: LodgingOnTrail): HTMLElement {
     a.href = href;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
-    a.textContent = "Website";
+    a.textContent = messagesFor(locale).map.website;
     root.append(a);
   }
   return root;
 }
 
-const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
 /** „Name, Art, km 3,2“; without a name just the kind, without along_km no km. */
-function poiLabel(q: TrailPoi): string {
-  const kind = POI_KIND[q.kind].label;
+function poiLabel(q: TrailPoi, locale: Locale): string {
+  const kind = poiKindLabel(q.kind, locale);
   const parts = q.name ? [q.name, kind] : [kind];
-  if (q.along_km !== null) parts.push(`km ${de1.format(q.along_km)}`);
+  if (q.along_km !== null) parts.push(`km ${num(q.along_km, locale, { min: 1 })}`);
   return parts.join(", ");
 }
 
-function poiPopup(q: TrailPoi): HTMLElement {
+function poiPopup(q: TrailPoi, locale: Locale): HTMLElement {
   const root = document.createElement("div");
   root.className = "map-popup";
+  const kind = poiKindLabel(q.kind, locale);
   const title = document.createElement("strong");
-  title.textContent = q.name ?? POI_KIND[q.kind].label;
+  title.textContent = q.name ?? kind;
   const meta = document.createElement("div");
-  meta.textContent = q.along_km === null ? POI_KIND[q.kind].label : `${POI_KIND[q.kind].label} · km ${de1.format(q.along_km)} entlang des Wegs`;
+  meta.textContent = q.along_km === null ? kind : `${kind} · ${messagesFor(locale).map.alongTrail(num(q.along_km, locale, { min: 1 }))}`;
   root.append(title, meta);
   return root;
 }

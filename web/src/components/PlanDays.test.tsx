@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithLocale } from "../test-utils";
 import type { DayPlan, PlanData } from "../lib/chat";
 
 const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
@@ -151,4 +152,28 @@ it("a live plan shows no forecast date", () => {
   const w = { date: "2026-11-02", code: 2, text: "Teils bewölkt", t_min_c: 3, t_max_c: 11, precip_mm: 0, precip_prob_pct: 10, source_id: "open-meteo" };
   render(<PlanDays data={data([day(1)], { weather: { "1": w } })} />);
   expect(screen.queryByText(/Vorhersage vom/)).toBeNull();
+});
+
+it("English: day cards, notes and times are English", () => {
+  const d = {
+    ...data([day(1, { gap: "Lücke 8,80 km" }), day(2, { stop: null })], { weather: { "1": { text: "Sonnig", t_min_c: 3, t_max_c: 11.4, precip_prob_pct: 20, precip_mm: 0.5, date: "2026-11-02", code: 1, source_id: "om" } } }),
+    start_name: "Hausach",
+  } as unknown as PlanData;
+  renderWithLocale(<PlanDays data={d} />, "en");
+  expect(screen.getByRole("heading", { name: "Westweg (Westvariante) from Hausach, 2 days" })).toBeInTheDocument();
+  const cards = screen.getAllByRole("listitem").filter((li) => li.querySelector("h3"));
+  expect(cards[0]).toHaveTextContent("Day 1 · Mon, 02/11/2026");
+  expect(cards[0]).toHaveTextContent("Time 4:25 h, start 09:00, arrival 13:25 (without breaks)");
+  expect(cards[0]).toHaveTextContent("Accommodation: Gasthaus 1 · Guesthouse · 300 m from the trail");
+  expect(cards[0]).toHaveTextContent("Lücke 8,80 km"); // backend text stays as delivered
+  expect(cards[0]).toHaveTextContent("Rain 20 % / 0.5 mm");
+  expect(within(cards[0]).getByRole("link", { name: "Search" })).toBeInTheDocument();
+  expect(cards[1]).toHaveTextContent("Trail end");
+  expect(cards[1]).toHaveTextContent("No forecast yet");
+  expect(screen.getByText("All times without breaks (walking time to DIN 33466)")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Days" })).toBeInTheDocument();
+});
+
+it("planTitle in English", () => {
+  expect(planTitle({ ...data([day(1)]), start_name: "Hausach" }, "en")).toBe("Westweg (Westvariante) from Hausach, 1 day");
 });

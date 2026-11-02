@@ -2,6 +2,8 @@
 
 import type { Position } from "geojson";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useT } from "../i18n";
+import { dateIn, num } from "../lib/format";
 import { etaFromProfile, haversineKm, progressOnLine, upDown, type Profile } from "../lib/geo";
 import type { DaySection, MapTrail } from "../lib/map";
 import MapPanel from "./MapPanel";
@@ -9,15 +11,8 @@ import MapPanel from "./MapPanel";
 /** Further from the line than this, there are no remaining kilometres (spec: position on the way). */
 export const OFF_ROUTE_M = 200;
 
-const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const clock = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
-
-const MSG_DENIED = "Standortfreigabe verweigert – in den Browser-Einstellungen erlauben";
-const MSG_UNAVAILABLE = "Standort nicht verfügbar – bitte im Freien mit Ortungsdienst erneut versuchen";
-const MSG_TIMEOUT = "Zeitüberschreitung bei der Standortbestimmung – bitte erneut versuchen";
-const MSG_UNSUPPORTED = "Standortbestimmung ist in diesem Browser nicht verfügbar";
-
-const errorText = (code: number) => (code === 1 ? MSG_DENIED : code === 3 ? MSG_TIMEOUT : MSG_UNAVAILABLE);
+type Texts = ReturnType<typeof useT>["plan"];
+const errorText = (code: number, t: Texts) => (code === 1 ? t.uwDenied : code === 3 ? t.uwTimeout : t.uwUnavailable);
 
 type Fix = { lat: number; lon: number };
 
@@ -51,6 +46,9 @@ export default function Unterwegs({
   /** known km of the line (plan day: its walk_km; trail: length_km); null: use the geometry */
   lengthKm: number | null;
 }) {
+  const { locale } = useLocale();
+  const t = useT().plan;
+  const n1 = (n: number) => num(n, locale, { min: 1 });
   const [watching, setWatching] = useState(false);
   const [fix, setFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +69,7 @@ export default function Unterwegs({
     setError(null);
     setFix(null);
     if (!navigator.geolocation) {
-      setError(MSG_UNSUPPORTED);
+      setError(t.uwUnsupported);
       return;
     }
     watchId.current = navigator.geolocation.watchPosition(
@@ -79,7 +77,7 @@ export default function Unterwegs({
         setError(null);
         setFix({ lat: p.coords.latitude, lon: p.coords.longitude });
       },
-      (e) => setError(errorText(e.code)),
+      (e) => setError(errorText(e.code, t)),
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 },
     );
     setWatching(true);
@@ -103,43 +101,43 @@ export default function Unterwegs({
   let arrival: string | null = null;
   if (onRoute && progress) {
     const rest = upDown(profile, startKm + alongKm, startKm + sectionKm);
-    if (rest) arrival = clock.format(etaFromProfile(remainingKm, rest.up, rest.down, new Date()));
+    if (rest) arrival = dateIn(etaFromProfile(remainingKm, rest.up, rest.down, new Date()), locale, { hour: "2-digit", minute: "2-digit" });
   }
 
   return (
-    <section aria-label="Unterwegs" className="flex max-w-xl flex-col gap-3">
+    <section aria-label={t.uwTitle} className="flex max-w-xl flex-col gap-3">
       <h2 className="font-serif text-xl">{title}</h2>
       <div className="flex flex-wrap items-center gap-3">
         {watching ? (
           <button type="button" onClick={stop} className="rounded-full bg-papier/90 px-4 py-2 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
-            Beenden
+            {t.uwStop}
           </button>
         ) : (
           <button type="button" onClick={start} className="rounded-full bg-papier/90 px-4 py-2 text-sm font-medium text-wald-dunkel shadow hover:bg-white">
-            Unterwegs starten
+            {t.uwStart}
           </button>
         )}
         <MapPanel trail={trail} days={days} position={fix} />
       </div>
-      <p className="text-xs text-papier/85">Dein Standort bleibt auf diesem Gerät: Er wird weder gesendet noch gespeichert, und die Ortung läuft nur, solange diese Seite offen ist.</p>
+      <p className="text-xs text-papier/85">{t.uwPrivacy}</p>
       {error && (
         <p role="alert" className="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
           {error}
         </p>
       )}
-      {watching && !fix && !error && <p role="status" className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Standort wird bestimmt …</p>}
+      {watching && !fix && !error && <p role="status" className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{t.uwLocating}</p>}
       {progress && !onRoute && (
         <p role="note" className="rounded-xl border-l-4 border-amber-500 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-950">
-          Du bist {de1.format(progress.distToLineM / 1000)} km vom Weg entfernt – Restkilometer erst wieder am Weg
+          {t.uwOffRoute(n1(progress.distToLineM / 1000))}
         </p>
       )}
       {progress && onRoute && (
         <div className="rounded-xl bg-papier/95 px-3 py-2 text-sm text-wald-dunkel shadow">
           <p className="font-medium">
-            Noch {de1.format(remainingKm)} km <span className="font-normal">(bisher {de1.format(alongKm)} km von {de1.format(sectionKm)} km)</span>
+            {t.uwRemaining(n1(remainingKm))} <span className="font-normal">{t.uwProgress(n1(alongKm), n1(sectionKm))}</span>
           </p>
           <p className="text-xs">
-            {arrival ? `Ankunft ca. ${arrival} Uhr (Gehzeit nach DIN 33466, ohne Pausen)` : "Ankunft: unbekannt (kein Höhenprofil)"}
+            {arrival ? t.uwArrival(arrival) : t.uwArrivalUnknown}
           </p>
         </div>
       )}

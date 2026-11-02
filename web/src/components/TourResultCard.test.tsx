@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() 
 vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }) }));
 vi.mock("../lib/plans", () => ({ savePlan: h.savePlan }));
 
+import { renderWithLocale } from "../test-utils";
 import TourResultCard from "./TourResultCard";
 
 beforeEach(() => {
@@ -112,7 +113,7 @@ it("verdict rows carry the unit of the bound", () => {
   const { container } = render(<TourResultCard card={card({ results })} />);
   expect(container).toHaveTextContent("Länge: mindestens 10 und höchstens 14 km");
   expect(container).toHaveTextContent("Höhenmeter: unbekannt, nicht prüfbar (höchstens 400 Hm)");
-  expect(container).toHaveTextContent("Rundweg: Rundweg");
+  expect(container).not.toHaveTextContent("Rundweg: Rundweg");
   expect(container).not.toHaveTextContent("Rundweg km");
 });
 
@@ -176,4 +177,11 @@ it("near-miss card names the missed condition once, amber, not as a red cross", 
 it("near-miss card on the home page has its own focus ring", () => {
   const { container } = render(<TourResultCard card={card({ near_miss: true })} from="chat" />);
   expect(container.querySelector("article")).toHaveClass("focus-within:ring-amber-600");
+});
+
+it("English: a round walk shows label and tick only, never the German bound text", () => {
+  const results = [{ kind: "roundtrip", ok: true, actual: true, bound: "Rundweg", deviation_rel: 0, bound_value: null }];
+  const { container } = renderWithLocale(<TourResultCard card={card({ results })} />, "en");
+  expect(container).toHaveTextContent("Round walk");
+  expect(container).not.toHaveTextContent("Rundweg");
 });

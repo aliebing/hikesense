@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderWithLocale } from "../test-utils";
 import EventCards from "./EventCards";
 import type { RaceField, VerifiedRace } from "../lib/chat";
 
@@ -75,4 +76,13 @@ test("a link that is not http(s) is never rendered as a link", () => {
     />,
   );
   for (const a of screen.queryAllByRole("link")) expect(a.getAttribute("href")).not.toMatch(/^javascript:/);
+});
+
+test("English: field labels, dates and gaps are English", () => {
+  renderWithLocale(<EventCards events={[race()]} fallback={[]} note={NOTE} />, "en");
+  const card = screen.getByRole("article", { name: "Dreisamtal-Halbmarathon 2027" });
+  expect(card).toHaveTextContent("Date");
+  expect(card).toHaveTextContent("18/04/2027");
+  expect(within(card).getByText("Entry fee").closest("div")!).toHaveTextContent("not stated");
+  expect(within(card).getAllByRole("link", { name: "Source" }).length).toBeGreaterThan(0);
 });
