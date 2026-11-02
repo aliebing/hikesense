@@ -76,3 +76,17 @@ def test_backfill_migration_promotes_admin_email(conn):
     conn.execute(sql)
     conn.execute(sql)  # idempotent
     assert role_of(conn, str(uid)) == "admin"
+
+
+def test_list_profiles_uses_current_auth_email(conn):
+    from hikeall.roles import list_profiles
+
+    uid = _user(conn)
+    try:
+        conn.execute("update auth.users set email = %s where id = %s::uuid", (f"new-{uid}@test.invalid", uid))
+        by_id = {p.user_id: p for p in list_profiles(conn)}
+        assert by_id[uid].email == f"new-{uid}@test.invalid"
+        assert by_id[uid].role == "user"
+    finally:
+        conn.rollback()
+        conn.execute("delete from auth.users where id = %s::uuid", (uid,))

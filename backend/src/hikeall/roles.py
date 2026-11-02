@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal
 
 import psycopg
@@ -30,3 +31,22 @@ def set_role(conn: psycopg.Connection, user_id: str, role: Role) -> None:
         """,
         (role, user_id),
     )
+
+
+@dataclass
+class Profile:
+    user_id: str
+    email: str | None
+    role: Role
+
+
+def list_profiles(conn: psycopg.Connection) -> list[Profile]:
+    """All profiles; the email is the current one from auth.users (profiles.email can be stale)."""
+    rows = conn.execute(
+        """
+        select p.user_id::text, coalesce(u.email, p.email), p.role
+        from profiles p left join auth.users u on u.id = p.user_id
+        order by 2
+        """
+    ).fetchall()
+    return [Profile(r[0], r[1], "admin" if r[2] == "admin" else "user") for r in rows]
