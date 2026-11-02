@@ -4,6 +4,8 @@ link POIs to trails (<= 300 m)."""
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -13,6 +15,7 @@ from hikeall.db import upsert_place, upsert_poi, upsert_source
 from hikeall.geo import METRIC_SRID
 from hikeall.ingest.day_hikes import tiles
 from hikeall.models import BBox, Place, Poi, Source
+from hikeall.regions import Region
 
 POI_BUFFER_M = 300
 RELATION_ID_OFFSET = 10**12  # relation ids live far below any way id (see _position)
@@ -156,6 +159,36 @@ def fetch_pois(
     overpass: OverpassClient, bbox: BBox, step_deg: float = 0.2, pause_s: float = 2.0
 ) -> list[Poi]:
     return _fetch_tiled(overpass, bbox, pois_query, parse_pois, step_deg, pause_s)
+
+
+def collect_places(
+    overpass: OverpassClient,
+    regions: Sequence[Region],
+    pbf: Path | None,
+    report: Callable[[Region, int, int], None] | None = None,
+) -> tuple[list[Place], list[Poi]]:
+    """Union of places and POIs over all regions, deduplicated by OSM id.
+
+    The Black Forest is read from the PBF when given; every other region comes from Overpass.
+    `report(region, n_places, n_pois)` is called per region (before deduplication)."""
+    places: dict[int, Place] = {}
+    pois: dict[int, Poi] = {}
+    for region in regions:
+        if pbf is not None and region.id == "black_forest":
+            from hikeall.adapters import osm_pbf  # lazy: osm_pbf imports this module
+
+            data = osm_pbf.read_elements(pbf, region.bbox)
+            region_places, region_pois = parse_places(data), parse_pois(data)
+        else:
+            region_places = fetch_places(overpass, region.bbox)
+            region_pois = fetch_pois(overpass, region.bbox)
+        for p in region_places:
+            places.setdefault(p.id, p)
+        for q in region_pois:
+            pois.setdefault(q.id, q)
+        if report:
+            report(region, len(region_places), len(region_pois))
+    return list(places.values()), list(pois.values())
 
 
 def link_trail_pois(conn: psycopg.Connection) -> int:

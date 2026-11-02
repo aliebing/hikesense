@@ -241,3 +241,19 @@ def test_stage_count_covers_every_long_distance_trail(conn):
     rows = {r[0]: r[3] for r in conn.execute(STAGE_COUNT_SQL).fetchall()}
     assert rows["test-lodg-mittelweg-01"] >= 1
     assert "test-lodg-day-01" not in rows
+
+
+def test_collect_lodgings_unions_regions(monkeypatch):
+    from hikeall import regions as R
+    from hikeall.ingest import lodgings as mod
+
+    def fake(overpass, bbox, *a, **k):
+        shared = Lodging(id=1, name="Grenzhotel", kind="hotel", lat=48.9, lon=8.0)
+        own = Lodging(id=int(bbox.south * 100), name="x", kind="hotel", lat=bbox.south, lon=8.0)
+        return [shared, own]
+
+    monkeypatch.setattr(mod, "fetch_lodgings", fake)
+    reported = []
+    out = mod.collect_lodgings(None, R.REGIONS, lambda r, n: reported.append((r.id, n)))
+    assert len(out) == 4 and len({x.id for x in out}) == 4
+    assert [n for _, n in reported] == [2, 2, 2]

@@ -12,6 +12,7 @@ from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
 from hikeall.db import upsert_source, upsert_trail
 from hikeall.errors import OverpassError
 from hikeall.ingest.places import (
+    collect_places,
     fetch_places,
     import_places,
     link_trail_pois,
@@ -183,3 +184,79 @@ def test_parse_places_keeps_city_as_town():
     assert got.keys() == {71, 72, 73}  # unnamed city dropped
     assert got[71].kind == got[72].kind == "town" and got[73].kind == "hamlet"
     assert 'node["place"="city"]' in places_query(BLACK_FOREST_BBOX)
+
+
+class _FakeOverpass:
+    def __init__(self):
+        self.boxes = []
+
+    def run(self, query):
+        self.boxes.append(query)
+        return {"elements": []}
+
+
+def test_collect_places_unions_regions_and_dedupes(monkeypatch):
+    from hikeall import regions as R
+    from hikeall.ingest import places as mod
+
+    by_south = {
+        R.get_region(i).bbox.south: i for i in ("black_forest", "palatinate", "lake_constance")
+    }
+    asked = []
+
+    def fake_places(overpass, bbox, *a, **k):
+        region = by_south[bbox.south]
+        asked.append(region)
+        shared = Place(id=1, name="Grenzort", kind="village", lat=48.9, lon=8.0)
+        return [shared, Place(id=hash(region) % 1000 + 10, name=region, kind="town", lat=48, lon=8)]
+
+    monkeypatch.setattr(mod, "fetch_places", fake_places)
+    monkeypatch.setattr(mod, "fetch_pois", lambda o, bbox, *a, **k: [])
+    read = []
+
+    def fake_read(pbf, bbox):
+        read.append(bbox)
+        return {
+            "elements": [
+                {
+                    "type": "node",
+                    "id": 2,
+                    "lat": 48.0,
+                    "lon": 8.0,
+                    "tags": {"place": "village", "name": "Aus PBF"},
+                }
+            ]
+        }
+
+    monkeypatch.setattr("hikeall.adapters.osm_pbf.read_elements", fake_read)
+    reported = []
+    places, pois = collect_places(
+        _FakeOverpass(), R.REGIONS, Path("x.pbf"), lambda r, n, m: reported.append((r.id, n, m))
+    )
+    assert read == [R.get_region("black_forest").bbox]
+    assert sorted(asked) == ["lake_constance", "palatinate"]
+    ids = [p.id for p in places]
+    assert len(ids) == len(set(ids)) and 1 in ids and 2 in ids
+    assert len(places) == 4 and pois == []
+    assert [r for r, _, _ in reported] == ["black_forest", "palatinate", "lake_constance"]
+
+
+def test_collect_places_without_pbf_asks_overpass_for_all(monkeypatch):
+    from hikeall import regions as R
+    from hikeall.ingest import places as mod
+
+    calls = []
+    monkeypatch.setattr(mod, "fetch_places", lambda o, b, *a, **k: calls.append(b) or [])
+    monkeypatch.setattr(mod, "fetch_pois", lambda o, b, *a, **k: [])
+    collect_places(_FakeOverpass(), R.REGIONS, None)
+    assert len(calls) == 3
+
+
+def test_import_places_keeps_all_regions(conn):
+    places = [
+        Place(id=9100011, name="Schwarzwalddorf", kind="village", lat=48.0, lon=8.0),
+        Place(id=9100012, name="Seeort", kind="village", lat=47.6, lon=9.3),
+    ]
+    import_places(conn, places, [], SRC)
+    n = conn.execute("select count(*) from places where id in (9100011, 9100012)").fetchone()[0]
+    assert n == 2

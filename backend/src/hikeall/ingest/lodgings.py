@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import psycopg
@@ -12,6 +13,7 @@ from hikeall.db import upsert_lodging, upsert_source
 from hikeall.geo import METRIC_SRID
 from hikeall.ingest.day_hikes import tiles
 from hikeall.models import BBox, Lodging, Source
+from hikeall.regions import Region
 
 TOURISM_KINDS = (
     "hotel",
@@ -78,6 +80,22 @@ def fetch_lodgings(
             time.sleep(pause_s)
         for lodging in parse_lodgings(overpass.run(lodgings_query(tile))):
             found[lodging.id] = lodging
+    return list(found.values())
+
+
+def collect_lodgings(
+    overpass: OverpassClient,
+    regions: Sequence[Region],
+    report: Callable[[Region, int], None] | None = None,
+) -> list[Lodging]:
+    """Union of lodgings over all regions, deduplicated by OSM id."""
+    found: dict[int, Lodging] = {}
+    for region in regions:
+        region_lodgings = fetch_lodgings(overpass, region.bbox)
+        for lodging in region_lodgings:
+            found.setdefault(lodging.id, lodging)
+        if report:
+            report(region, len(region_lodgings))
     return list(found.values())
 
 
