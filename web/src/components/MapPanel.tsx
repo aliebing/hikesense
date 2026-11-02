@@ -180,7 +180,7 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
           attributionControl: false, // shown below the map, always visible
           cooperativeGestures: cooperative,
           locale: GESTURE_LOCALE,
-          ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.1, 48.3], zoom: 8 }),
+          ...(bbox ? { bounds: bbox, fitBoundsOptions: { padding: 40 } } : { center: [8.7, 48.55], zoom: 6.5 }),
         });
         map.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
         live.current = { map, ml };

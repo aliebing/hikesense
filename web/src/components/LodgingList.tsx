@@ -5,7 +5,7 @@ import { lodgingLink } from "../lib/planView";
 const MAX_LODGINGS = 5;
 
 /** The nearest lodgings to the trail (dist_m as imported), with a link to their website or a search. */
-export default function LodgingList({ lodgings }: { lodgings: LodgingOnTrail[] }) {
+export default function LodgingList({ lodgings, place }: { lodgings: LodgingOnTrail[]; /** shown with the name in the web search */ place?: string }) {
   if (lodgings.length === 0) return null;
   const nearest = [...lodgings]
     .sort((a, b) => (a.dist_m ?? Infinity) - (b.dist_m ?? Infinity) || a.id - b.id)
@@ -15,7 +15,7 @@ export default function LodgingList({ lodgings }: { lodgings: LodgingOnTrail[] }
       <ul className="flex flex-col divide-y divide-wald-dunkel/10">
         {nearest.map((l) => {
           const name = l.name ?? lodgingKind(l.kind);
-          const link = lodgingLink({ name, website: l.website });
+          const link = lodgingLink({ name, website: l.website }, place);
           return (
             <li key={l.id} className="flex flex-wrap items-baseline justify-between gap-x-3 py-1.5">
               <span className="min-w-0">

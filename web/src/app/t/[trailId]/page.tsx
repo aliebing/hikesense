@@ -165,7 +165,7 @@ export default async function TrailPage({
           )}
           {showLodgings && (
             <Block title="Übernachten in der Nähe">
-              {lodgings === null ? <p className="text-sm">Unterkünfte konnten nicht geladen werden.</p> : <LodgingList lodgings={lodgings} />}
+              {lodgings === null ? <p className="text-sm">Unterkünfte konnten nicht geladen werden.</p> : <LodgingList lodgings={lodgings} place={trail.name} />}
             </Block>
           )}
         </div>

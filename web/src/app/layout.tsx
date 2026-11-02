@@ -4,8 +4,8 @@ import { ChatProvider } from "../components/ChatProvider";
 import ServiceWorker from "../components/ServiceWorker";
 
 export const metadata: Metadata = {
-  title: "Hike all about – Wandern im Schwarzwald",
-  description: "Wanderungen im Schwarzwald im Gespräch planen: Fernweg-Etappen (Westweg, Mittelweg, Ostweg) und Tagestouren.",
+  title: "Hike all about – Wandern im Schwarzwald, am Bodensee und im Pfälzerwald",
+  description: "Wanderungen im Schwarzwald, am Bodensee und im Pfälzerwald im Gespräch planen: Fernweg-Etappen (z. B. Westweg, Pfälzer Weinsteig, SeeGang) und Tagestouren.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
 };

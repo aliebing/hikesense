@@ -76,10 +76,10 @@ function Rain({ v }: { v: RainVariant | null }) {
   );
 }
 
-function DayCard({ d, from, weather, asOf, rain, unterwegsHref }: { d: DayPlan; from: string; unterwegsHref?: string; weather: DayWeather | NoForecast | undefined; asOf: string | null; rain: RainVariant | null | undefined }) {
+function DayCard({ d, from, place, weather, asOf, rain, unterwegsHref }: { d: DayPlan; from: string; place: string; unterwegsHref?: string; weather: DayWeather | NoForecast | undefined; asOf: string | null; rain: RainVariant | null | undefined }) {
   const date = dateText(d.date);
   const stop = d.stop;
-  const link = stop ? lodgingLink(stop) : null;
+  const link = stop ? lodgingLink(stop, place) : null;
   const end = stop ? (stop.name ?? lodgingKind(stop.kind)) : "Wegende";
   return (
     <li className="flex flex-col gap-1.5 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel shadow">
@@ -165,6 +165,7 @@ export default function PlanDays({ data, save = true, title, planId, forecastFro
             key={d.day}
             d={d}
             from={i === 0 ? (startName ?? `km ${de1.format(d.start_km)}`) : (plan.days[i - 1].stop?.name ?? `km ${de1.format(d.start_km)}`)}
+            place={startName ?? plan.trail_name}
             weather={weather?.[String(d.day)]}
             asOf={asOf}
             rain={rain?.[String(d.day)]}

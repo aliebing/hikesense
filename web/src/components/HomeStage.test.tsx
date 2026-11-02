@@ -27,7 +27,7 @@ beforeEach(() => sessionStorage.clear());
 it("before results: title and chat on the full-screen background photo, with its credit", async () => {
   const { container } = show();
   // white text on the photo gets a dark green field behind it so it stays readable
-  expect(screen.getByRole("heading", { name: "Wandern im Schwarzwald" })).toHaveClass("schrift-feld");
+  expect(screen.getByRole("heading", { name: "Wandern im Schwarzwald, am Bodensee und im Pfälzerwald" })).toHaveClass("schrift-feld");
   expect(screen.getByRole("complementary", { name: "Planungs-Chat" })).toBeInTheDocument();
   expect(screen.getByText(/Foto: Anna/)).toBeInTheDocument();
   expect(screen.queryByText("results pane")).toBeNull();
