@@ -1446,12 +1446,14 @@ def test_german_inputs_are_understood_under_english_reply(vocab):
     [
         ("Feldberg bei schönem Wetter", "fine"),
         ("Feldberg bei Sonnenschein, sonnig", "fine"),
-        ("Feldberg, trocken bitte", "dry"),
+        ("Feldberg bei trockenem Wetter", "dry"),
         ("Feldberg ohne Regen", "dry"),
         ("when it snows near Feldberg", "snow"),
         ("Feldberg Schnee", "snow"),
         ("Feldberg in nice weather", "fine"),
         ("Feldberg, no rain", "dry"),
+        ("Feldberg, dry weather please", "dry"),
+        ("Feldberg wenn es trocken ist", "dry"),
     ],
 )
 def test_weather_wish_understood_in_both_languages(vocab, message, wish):
@@ -1524,3 +1526,37 @@ def test_weather_echo_both_languages(vocab):
 
 def test_old_request_json_without_weather_wish_validates():
     assert HikeRequest.model_validate({"intent": "day_hike"}).weather_wish is None
+
+
+@pytest.mark.parametrize(
+    ("message", "wish"),
+    [
+        ("Feldberg ohne Schnee", "snow"),
+        ("Feldberg, kein Schnee", "snow"),
+        ("Feldberg, no snow", "snow"),
+        ("Feldberg, not dry weather", "dry"),
+        ("Feldberg Schneeschuh", "snow"),
+        ("Feldberg Schneekoppe", "snow"),
+        ("Feldberg dry stone wall", "dry"),
+    ],
+)
+def test_negated_or_incidental_weather_word_does_not_confirm(vocab, message, wish):
+    req = understand(
+        gw_of(start_text="Feldberg (Schwarzwald)", weather_wish=wish), vocab, message, None
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.weather_wish is None
+    assert req.discarded_model_numbers == 1
+
+
+def test_no_rain_still_means_dry_and_sonnenschein_is_fine(vocab):
+    for msg, wish in [("Feldberg kein Regen", "dry"), ("Feldberg bei Sonnenschein", "fine")]:
+        req = understand(
+            gw_of(start_text="Feldberg (Schwarzwald)", weather_wish=wish), vocab, msg, None
+        )
+        assert isinstance(req, HikeRequest) and req.weather_wish == wish
+
+
+def test_german_echo_without_wish_is_unchanged(vocab):
+    req = HikeRequest(intent="day_hike")
+    assert echo(req, vocab) == "Verstanden: Tagestour, Wandern."
