@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ChatProvider } from "./ChatProvider";
 import { initialState, saveState } from "../lib/chatState";
 import type { HikeRequest, TourCard } from "../lib/chat";
@@ -30,6 +31,9 @@ const seed = (cards: TourCard[], fallback: string | null = null, text = "Hier si
     ],
   });
 
+const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
+vi.mock("../lib/auth", async (orig) => ({ ...(await orig<typeof import("../lib/auth")>()), useSession: () => ({ session: h.session, loading: false }) }));
+vi.mock("../lib/plans", async (orig) => ({ ...(await orig<typeof import("../lib/plans")>()), savePlan: h.savePlan }));
 vi.mock("./TourPreview", () => ({ default: ({ card, fallback }: { card: TourCard; fallback?: boolean }) => <p>{fallback ? "fallback " : ""}preview {card.name}</p> }));
 vi.mock("./PlanPreview", () => ({ default: () => <p>plan preview</p> }));
 
@@ -40,7 +44,11 @@ const show = () =>
     </ChatProvider>,
   );
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  h.session = null;
+  h.savePlan.mockReset().mockResolvedValue({ error: null });
+});
 
 it("several tours: heading, chips, tiles linking with von=chat and the narrowing hint", () => {
   seed([mk(1), mk(2), mk(3), mk(4)]);
@@ -104,4 +112,40 @@ it("one tour after relaxing a wish: the honest note stays and nothing claims it 
   expect(screen.getByRole("note")).toHaveTextContent(fb);
   expect(screen.getByText("fallback preview Tour 1")).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Erkannte Wünsche" })).toBeInTheDocument();
+});
+
+describe("Ergebnis merken", () => {
+  it("offers \"Ergebnis merken\" for a signed-in user with several tours", async () => {
+    h.session = { user: { id: "u" } };
+    seed([mk(1), mk(2), mk(3)]);
+    show();
+    await userEvent.click(screen.getByRole("button", { name: "Ergebnis merken" }));
+    expect(h.savePlan).toHaveBeenCalledTimes(1);
+    const [kind, title, payload] = h.savePlan.mock.calls[0];
+    expect(kind).toBe("search");
+    expect(title).toBe("Rundweg");
+    expect(payload.results.cards.map((c: TourCard) => c.trail_id)).toEqual(["t1", "t2", "t3"]);
+    expect(await screen.findByText("Gemerkt")).toBeInTheDocument();
+  });
+
+  it("offers \"Ergebnis merken\" for a single tour", () => {
+    h.session = { user: { id: "u" } };
+    seed([mk(1)]);
+    show();
+    expect(screen.getByRole("button", { name: "Ergebnis merken" })).toBeInTheDocument();
+  });
+
+  it("hides \"Ergebnis merken\" when signed out", () => {
+    seed([mk(1), mk(2)]);
+    show();
+    expect(screen.queryByRole("button", { name: "Ergebnis merken" })).toBeNull();
+  });
+
+  it("hides \"Ergebnis merken\" for a multi-day plan", () => {
+    h.session = { user: { id: "u" } };
+    const plan = { plan: { trail_id: "t", trail_name: "W", target_km: 15, days: [], notes: [], source_ids: [] }, weather: {}, rain: {} };
+    saveState(sessionStorage, { ...initialState("th"), plan });
+    show();
+    expect(screen.queryByRole("button", { name: "Ergebnis merken" })).toBeNull();
+  });
 });

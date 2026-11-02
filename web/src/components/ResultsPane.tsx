@@ -2,9 +2,11 @@
 
 import { chipsFor } from "./ChatMessages";
 import { useChat } from "./ChatProvider";
+import MerkenButton from "./MerkenButton";
 import PlanPreview from "./PlanPreview";
 import TourPreview from "./TourPreview";
 import TourResultCard from "./TourResultCard";
+import { savedSearchOf, searchTitle } from "../lib/plans";
 
 const MAX_TILES = 6;
 
@@ -18,9 +20,27 @@ export default function ResultsPane() {
   const chips = last.request ? chipsFor(last.request.request, last.request.labels) : [];
   const one = last.cards.length === 1;
   const cards = last.cards.slice(0, MAX_TILES);
+  const saved = savedSearchOf(state);
+  const merken = saved && (
+    <MerkenButton
+      key={`${last.cards[0].trail_id}:${last.cards.length}`}
+      kind="search"
+      title={searchTitle(saved)}
+      payload={saved}
+      label="Ergebnis merken"
+      onPhoto
+    />
+  );
   return (
     <section className="flex flex-col gap-4">
-      {!one && <h2 className="schrift-feld font-serif text-2xl sm:text-3xl">{last.cards.length} Touren gefunden</h2>}
+      {one ? (
+        merken
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 className="schrift-feld font-serif text-2xl sm:text-3xl">{last.cards.length} Touren gefunden</h2>
+          {merken}
+        </div>
+      )}
       {chips.length > 0 && (
         <ul aria-label="Erkannte Wünsche" className="flex flex-wrap gap-1.5">
           {chips.map((c, i) => (
