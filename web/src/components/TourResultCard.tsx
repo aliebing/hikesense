@@ -72,8 +72,8 @@ export default function TourResultCard({
   ];
   return (
     <article
-      className={`flex flex-col gap-1 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel ${
-        from ? "relative shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-amber-400" : ""
+      className={`flex flex-col gap-1 rounded-xl p-3 text-sm text-wald-dunkel ${
+        from ? "relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-amber-400" : "bg-papier/95"
       }`}
     >
       {!photo && large && (

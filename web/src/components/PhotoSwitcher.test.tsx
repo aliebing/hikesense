@@ -43,6 +43,16 @@ test("PhotoSwitcher is a bounded picture, never a fixed backdrop", () => {
   expect(container.querySelector("figure")).not.toBeNull();
 });
 
+test("backdrop variant fills the screen behind the page and keeps controls and credit", async () => {
+  const { container } = render(<PhotoSwitcher photos={[p("a", "Anna"), p("b", "Ben")]} variant="backdrop" />);
+  const layer = container.querySelector(".fixed");
+  expect(layer).not.toBeNull();
+  expect(layer!.querySelector("img")).toHaveAttribute("src", "https://upload.example/a.jpg");
+  expect(container.querySelector("figure")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Nächstes Bild" }));
+  expect(screen.getByText(/Ben/)).toBeInTheDocument();
+});
+
 test("PhotoSwitcher thumbnails pick the shown photo", async () => {
   render(<PhotoSwitcher photos={[p("a", "Anna"), p("b", "Ben")]} />);
   expect(screen.getByRole("button", { name: "Bild 1" })).toHaveAttribute("aria-current", "true");

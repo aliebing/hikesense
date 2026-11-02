@@ -23,7 +23,8 @@ it("is dark green without photo backdrop or text shadows", () => {
       <p>Inhalt</p>
     </PageFrame>,
   );
-  expect(container.firstElementChild).toHaveClass("bg-wald-dunkel");
+  expect(container.firstElementChild).toHaveClass("from-[#0e2214]"); // very dark green towards black
+  expect(container.firstElementChild!.className).toMatch(/\bto-(black|\[#0)/);
   expect(container.querySelector("[class*='drop-shadow']")).toBeNull();
   expect(container.querySelector(".fixed")).toBeNull();
 });

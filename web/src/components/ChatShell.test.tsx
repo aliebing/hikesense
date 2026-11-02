@@ -323,3 +323,10 @@ it("a 503 keeps the draft like a 401 does", async () => {
   expect(await screen.findByText(/Anmeldung kann gerade nicht geprüft werden/)).toBeInTheDocument();
   await waitFor(() => expect(screen.getByLabelText("Nachricht")).toHaveValue("Feldberg bitte"));
 });
+
+it("the chat box lets the background photo show through", () => {
+  renderChat();
+  const box = screen.getByRole("complementary", { name: "Planungs-Chat" });
+  expect(box.className).toContain("backdrop-blur");
+  expect(box.className).toMatch(/bg-wald-flaeche\/\d+/);
+});

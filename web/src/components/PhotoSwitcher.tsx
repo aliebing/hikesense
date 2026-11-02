@@ -17,7 +17,18 @@ const MAX_THUMBS = 8;
  * this trail (loaded in the browser, never part of the server-rendered data),
  * can add one and delete them.
  */
-export default function PhotoSwitcher({ photos: publicPhotos, trailId, className = "" }: { photos: Photo[]; trailId?: string; className?: string }) {
+export default function PhotoSwitcher({
+  photos: publicPhotos,
+  trailId,
+  className = "",
+  variant = "framed",
+}: {
+  photos: Photo[];
+  trailId?: string;
+  className?: string;
+  /** framed: a bounded picture with thumbnails; backdrop: full-screen photo behind the page (home start), controls where placed */
+  variant?: "framed" | "backdrop";
+}) {
   const { session } = useSession();
   const userId = session?.user.id;
   const [own, setOwn] = useState<Photo[]>([]);
@@ -61,6 +72,36 @@ export default function PhotoSwitcher({ photos: publicPhotos, trailId, className
 
   const shown = current && !broken.has(current.url) ? current : null;
   const at = photos.length ? index % photos.length : 0;
+
+  if (variant === "backdrop") {
+    return (
+      <>
+        <div aria-hidden className="wald-verlauf fixed inset-0 -z-10">
+          {shown && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={shown.url} src={shown.url} alt="" className="h-full w-full object-cover" onError={() => setBroken((b) => new Set(b).add(shown.url))} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/5 to-black/65" />
+        </div>
+        <div className={`flex max-w-full flex-wrap items-center gap-2 rounded-3xl bg-black/35 py-1 pr-3 pl-1 text-papier backdrop-blur-md ${className}`}>
+          {photos.length > 1 && (
+            <>
+              <button type="button" aria-label="Vorheriges Bild" onClick={() => go(-1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
+                ‹
+              </button>
+              <span className="shrink-0 text-xs tabular-nums opacity-80">
+                {at + 1} / {photos.length}
+              </span>
+              <button type="button" aria-label="Nächstes Bild" onClick={() => go(1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">
+                ›
+              </button>
+            </>
+          )}
+          {current && <Attribution photo={current} className="min-w-0 pl-2" />}
+        </div>
+      </>
+    );
+  }
 
   return (
     <figure className={`flex min-w-0 flex-col gap-2 ${className}`}>

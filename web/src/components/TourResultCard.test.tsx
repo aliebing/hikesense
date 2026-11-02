@@ -122,6 +122,7 @@ it("from=chat links with ?von=chat, makes the whole card clickable and says so, 
   const link = screen.getByRole("link", { name: "Feldsee-Runde" });
   expect(link).toHaveAttribute("href", "/t/t1?von=chat");
   expect(screen.getByText("Details und Karte →")).toBeInTheDocument();
+  expect(container.querySelector("article")!.className).toMatch(/bg-papier\/(7|8)\d/); // the backdrop shows through
   expect(link.className).toContain("after:inset-0");
   expect(container.querySelector("img")?.className).toContain("h-48");
 });

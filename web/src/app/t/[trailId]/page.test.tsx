@@ -7,6 +7,7 @@ const mockGetLodgings = vi.fn();
 const mockGetGroups = vi.fn();
 const mockGetPois = vi.fn();
 const mockGetTags = vi.fn();
+const mockGetPool = vi.fn();
 vi.mock("../../../lib/data", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/data")>();
   return {
@@ -16,6 +17,7 @@ vi.mock("../../../lib/data", async (importOriginal) => {
     getGroups: () => mockGetGroups(),
     getTrailPois: () => mockGetPois(),
     getTrailTags: () => mockGetTags(),
+    getLandscapePool: () => mockGetPool(),
   };
 });
 
@@ -59,6 +61,8 @@ beforeEach(() => {
   mockGetPois.mockResolvedValue([]);
   mockGetTags.mockReset();
   mockGetTags.mockResolvedValue([]);
+  mockGetPool.mockReset();
+  mockGetPool.mockResolvedValue([]);
 });
 
 test("trail footer credits the elevation data (Copernicus GLO-30)", async () => {
@@ -157,4 +161,35 @@ test("empty blocks fall away and nothing says 0", async () => {
   expect(screen.queryByRole("region", { name: "Fotos" })).toBeNull();
   expect(screen.getByRole("region", { name: "Beschreibung" })).not.toHaveTextContent("Unterwegs");
   expect(screen.queryByText(/\b0 (Unterkünfte|Einkehr)/)).toBeNull();
+});
+
+test("a landscape photo of the tour lies behind the middle, credited in the footer", async () => {
+  const cover = { url: "https://img/c.jpg", thumb_url: "https://img/c-t.jpg", author: "Clara", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:Blick_ins_Tal.jpg" };
+  mockGetTrail.mockResolvedValue({ ...detail, cover, photos: [cover] });
+  mockGetLodgings.mockResolvedValue([]);
+  const { container } = render(<ChatProvider>{await page()}</ChatProvider>);
+  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/c.jpg']")).not.toBeNull();
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Foto: Clara");
+});
+
+test("a tour without a landscape photo gets one from the pool, never e.g. a bank card", async () => {
+  const card = { url: "https://img/n26.jpg", thumb_url: "https://img/n26-t.jpg", author: "X", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:N26_Maestro.jpg" };
+  const view = { url: "https://img/see.jpg", thumb_url: "https://img/see-t.jpg", author: "Sina", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:Teufensee.jpg" };
+  mockGetTrail.mockResolvedValue({ ...detail, cover: card, photos: [card] });
+  mockGetLodgings.mockResolvedValue([]);
+  mockGetPool.mockResolvedValue([view]);
+  const { container } = render(<ChatProvider>{await page()}</ChatProvider>);
+  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/n26.jpg']")).toBeNull();
+  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/see.jpg']")).not.toBeNull();
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Foto: Sina");
+});
+
+test("no chat on the tour page, a clear back button instead", async () => {
+  mockGetTrail.mockResolvedValue(detail);
+  mockGetLodgings.mockResolvedValue([]);
+  render(<ChatProvider>{await page({ von: "chat" })}</ChatProvider>);
+  expect(screen.queryByRole("complementary", { name: "Planungs-Chat" })).toBeNull();
+  const back = screen.getByRole("link", { name: "← Zurück zu den Vorschlägen" });
+  expect(back).toHaveAttribute("href", "/");
+  expect(back.className).toContain("rounded-full");
 });

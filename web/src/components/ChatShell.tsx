@@ -85,7 +85,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
   return (
     <aside
       aria-label="Planungs-Chat"
-      className="flex w-full flex-col gap-3 rounded-2xl bg-wald-flaeche p-4 text-papier ring-1 ring-white/10 sm:max-w-sm md:max-w-md"
+      className="flex w-full flex-col gap-3 rounded-2xl bg-wald-flaeche/60 p-4 text-papier ring-1 ring-white/15 backdrop-blur-md sm:max-w-sm md:max-w-md"
     >
       <h2 className="font-serif text-lg">Planungs-Chat</h2>
       {body}

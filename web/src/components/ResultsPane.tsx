@@ -20,7 +20,7 @@ export default function ResultsPane() {
   const cards = last.cards.slice(0, MAX_TILES);
   return (
     <section className="flex flex-col gap-4">
-      {!one && <h2 className="font-serif text-2xl sm:text-3xl">{last.cards.length} Touren gefunden</h2>}
+      {!one && <h2 className="font-serif text-2xl sm:text-3xl [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">{last.cards.length} Touren gefunden</h2>}
       {chips.length > 0 && (
         <ul aria-label="Erkannte Wünsche" className="flex flex-wrap gap-1.5">
           {chips.map((c, i) => (
@@ -44,7 +44,7 @@ export default function ResultsPane() {
               <TourResultCard key={c.trail_id} card={c} runWithoutPace={last.runWithoutPace} labels={last.labels} size="large" from="chat" />
             ))}
           </div>
-          <p className="text-sm text-papier/85">Zu viele? Schreib z. B. „mit Einkehr“ oder „unter 300 Hm“.</p>
+          <p className="text-sm font-medium text-papier [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">Zu viele? Schreib z. B. „mit Einkehr“ oder „unter 300 Hm“.</p>
         </>
       )}
     </section>

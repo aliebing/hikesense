@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Attribution from "../../../components/Attribution";
+import Backdrop from "../../../components/Backdrop";
 import Block from "../../../components/Block";
-import ChatShell from "../../../components/ChatShell";
 import GroupList from "../../../components/GroupList";
 import LodgingList from "../../../components/LodgingList";
 import Notice from "../../../components/Notice";
@@ -15,6 +16,7 @@ import TrailMap from "../../../components/TrailMap";
 import {
   GROUP_RADIUS_KM,
   getGroups,
+  getLandscapePool,
   getLodgings,
   getTrail,
   getTrailPois,
@@ -26,6 +28,7 @@ import {
 } from "../../../lib/data";
 import { hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
+import { pickBackdrop } from "../../../lib/backdrop";
 import { describeTour, surfaceLine, tagLabels } from "../../../lib/tour";
 import { fromChat } from "../../../lib/von";
 
@@ -67,11 +70,12 @@ export default async function TrailPage({
   }
   if (!trail) notFound();
 
-  const [lodgings, pois, tags, groupRows] = await Promise.all([
+  const [lodgings, pois, tags, groupRows, pool] = await Promise.all([
     orNull<LodgingOnTrail[]>(`getLodgings(${trailId})`, () => getLodgings(trailId)),
     orNull<TrailPoi[]>(`getTrailPois(${trailId})`, () => getTrailPois(trailId)),
     orNull(`getTrailTags(${trailId})`, () => getTrailTags(trailId)),
     orNull("getGroups", () => getGroups()),
+    orNull("getLandscapePool", () => getLandscapePool()),
   ]);
   // „Gruppen in der Nähe“ and tags: failure or no geometry just leaves them out.
   const groups = groupRows && trail.geom ? groupsNearLine(groupRows, trail.geom.coordinates, new Date()) : [];
@@ -99,17 +103,27 @@ export default async function TrailPage({
   const showPois = pois === null || pois.length > 0;
   const showPhotos = trail.photos.length > 0;
 
+  // a landscape behind the page: the tour's own if it has one, else a steady pick from the pool
+  const backdrop = pickBackdrop([...(trail.cover ? [trail.cover] : []), ...trail.photos], pool ?? [], trailId);
+
   return (
-    <PageFrame back={back} wide>
-      <section className="flex flex-wrap items-end justify-between gap-4">
+    <PageFrame wide>
+      <Backdrop photo={backdrop} />
+      <Link
+        href={back.href}
+        className="self-start rounded-full bg-papier px-5 py-2 text-sm font-semibold text-wald-dunkel shadow-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-papier"
+      >
+        {back.label}
+      </Link>
+      <section className="flex flex-wrap items-end justify-between gap-4 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
         <div className="min-w-0">
-          <p className="text-sm text-papier/80">{longDistance ? "Fernweg" : "Tagestour"}</p>
-          <h1 className="font-serif text-3xl leading-tight sm:text-5xl">{trail.name}</h1>
+          <p className="text-base font-medium text-papier">{longDistance ? "Fernweg" : "Tagestour"}</p>
+          <h1 className="font-serif text-4xl leading-tight font-semibold sm:text-6xl">{trail.name}</h1>
           <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
             {facts.map(([label, value]) => (
               <div key={label} className="flex flex-col">
-                <dt className="text-xs text-papier/75">{label}</dt>
-                <dd className="font-serif text-xl tabular-nums sm:text-2xl">{value}</dd>
+                <dt className="text-sm font-medium text-papier">{label}</dt>
+                <dd className="font-serif text-2xl font-semibold tabular-nums sm:text-3xl">{value}</dd>
               </div>
             ))}
           </dl>
@@ -118,23 +132,12 @@ export default async function TrailPage({
           {!longDistance && <TourMerken trailId={trailId} />}
           <Link
             href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
-            className="rounded-full border border-white/30 px-4 py-2 text-sm text-papier hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-papier"
+            className="rounded-full border border-white/60 bg-black/30 px-4 py-2 text-sm font-medium text-papier hover:bg-black/45 focus-visible:outline-2 focus-visible:outline-papier"
           >
             Unterwegs
           </Link>
         </div>
       </section>
-
-      <div className="max-w-xl">
-        <ChatShell
-          intro={
-            longDistance
-              ? `Der ${trail.name} hat ${trail.stages.length} Etappen. Frag z. B. „3 Tage ab Hausach, etwa 15 km pro Tag“.`
-              : `${trail.name}${trail.length_km === null ? "" : `: ${km(trail.length_km)}`}. Frag z. B. nach einer ähnlichen Tour oder einer kürzeren Variante.`
-          }
-          variant="drawer"
-        />
-      </div>
 
       <TrailMap
         trailId={trailId}
@@ -190,7 +193,7 @@ export default async function TrailPage({
         </div>
       )}
 
-      <footer className="text-[11px] text-papier/75">
+      <footer className="text-[11px] text-papier [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
         Quellen:{" "}
         {trail.sources.map((s, i) => (
           <span key={s.id}>
@@ -208,6 +211,11 @@ export default async function TrailPage({
         {" · "}Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA
         {" · "}Gehzeit nach DIN 33466 (Richtwert, ohne Pausen)
         {pois && pois.length > 0 && " · Einkehr und Aussicht: © OpenStreetMap-Mitwirkende (ODbL)"}
+        {backdrop && (
+          <div className="mt-1 flex flex-wrap items-baseline gap-1">
+            Hintergrundbild: <Attribution photo={backdrop} />
+          </div>
+        )}
       </footer>
     </PageFrame>
   );

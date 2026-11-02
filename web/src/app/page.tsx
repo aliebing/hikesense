@@ -1,7 +1,7 @@
 import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import PageFrame from "../components/PageFrame";
-import { getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
+import { getLandscapePool, getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
 import { MissingConfigError } from "../lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +49,16 @@ export default async function Home() {
     .map((t) => t.cover)
     .filter((p, i, all): p is Photo => !!p && all.findIndex((q) => q?.url === p.url) === i);
 
+  // the background pool for the results view; without it the view simply has no background photo
+  const landscapes = await getLandscapePool().catch((e) => {
+    console.error("getLandscapePool failed:", e);
+    return [] as Photo[];
+  });
+
   return (
     <PageFrame wide longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
-      <HomeStage photos={backgrounds} />
-      <footer className="text-[11px] text-papier/75">
+      <HomeStage photos={backgrounds} landscapes={landscapes.slice(0, 40)} />
+      <footer className="text-[11px] text-papier [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
         Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
         von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am
         Bild.

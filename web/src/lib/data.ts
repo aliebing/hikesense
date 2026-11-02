@@ -1,5 +1,6 @@
 import type { LineString } from "geojson";
 import type { GroupBrief } from "./chat";
+import { isLandscape } from "./backdrop";
 import { haversineKm } from "./geo";
 import { getSupabase } from "./supabase";
 
@@ -328,6 +329,17 @@ export async function getGroups(): Promise<GroupRow[]> {
   const { data, error } = await sb.from("groups_geo").select("name,kind,place,url,checked_at,status,lon,lat").order("id");
   if (error) fail("groups_geo", error);
   return (data ?? []).map((r) => ({ name: r.name, kind: r.kind, place: r.place, url: r.url, checked_at: r.checked_at, status: r.status, lat: Number(r.lat), lon: Number(r.lon) }));
+}
+
+/** All imported photos whose Commons file name marks them as landscapes (background pool). */
+export async function getLandscapePool(): Promise<Photo[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("photos").select(PHOTO_COLUMNS).order("id").limit(2000);
+  if (error) fail("photos", error);
+  const seen = new Set<string>();
+  return (data ?? [])
+    .map((p) => ({ url: p.url, thumb_url: p.thumb_url ?? p.url, author: p.author, license: p.license, license_url: p.license_url, page_url: p.page_url }) as Photo)
+    .filter((p) => isLandscape(p) && !seen.has(p.url) && !!seen.add(p.url));
 }
 
 /** Day hikes eligible for the home selection: with a photo and a known position. */
