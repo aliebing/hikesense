@@ -328,3 +328,10 @@ def test_no_near_misses_with_zero_or_three_matches():
     assert zero.matches == [] and zero.near_misses == []
     three = select([cand(trail_id=f"t{i}", length_km=9.0) for i in range(3)] + [near], _near_req())
     assert len(three.matches) == 3 and three.near_misses == []
+
+
+def test_shown_trail_ids_include_near_misses():
+    from hikeall.agent.tools import shown_trail_ids
+
+    sel = select([cand(trail_id="ok", length_km=9.0), cand(trail_id="n", length_km=10.5)], _near_req())
+    assert shown_trail_ids(sel) == ["ok", "n"]
