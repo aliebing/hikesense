@@ -115,27 +115,28 @@ export default async function TrailPage({
       >
         {back.label}
       </Link>
-      <section className="flex flex-wrap items-end justify-between gap-4 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
-        <div className="min-w-0">
-          <p className="text-base font-medium text-papier">{longDistance ? "Fernweg" : "Tagestour"}</p>
-          <h1 className="font-serif text-4xl leading-tight font-semibold sm:text-6xl">{trail.name}</h1>
-          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+      {/* three full-width rows, each on its own green field: kind, name, facts (with the actions on the right) */}
+      <section className="flex flex-col gap-1.5">
+        <p className="schrift-feld w-full px-4 py-1 text-sm font-medium text-papier">{longDistance ? "Fernweg" : "Tagestour"}</p>
+        <h1 className="schrift-feld w-full px-4 py-1.5 font-serif text-2xl leading-tight font-semibold sm:text-3xl">{trail.name}</h1>
+        <div className="schrift-feld flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2">
+          <dl className="flex flex-wrap gap-x-5 gap-y-1">
             {facts.map(([label, value]) => (
               <div key={label} className="flex flex-col">
-                <dt className="text-sm font-medium text-papier">{label}</dt>
-                <dd className="font-serif text-2xl font-semibold tabular-nums sm:text-3xl">{value}</dd>
+                <dt className="text-xs font-medium text-papier">{label}</dt>
+                <dd className="font-serif text-lg font-semibold tabular-nums">{value}</dd>
               </div>
             ))}
           </dl>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!longDistance && <TourMerken trailId={trailId} />}
-          <Link
-            href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
-            className="rounded-full border border-white/60 bg-black/30 px-4 py-2 text-sm font-medium text-papier hover:bg-black/45 focus-visible:outline-2 focus-visible:outline-papier"
-          >
-            Unterwegs
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {!longDistance && <TourMerken trailId={trailId} />}
+            <Link
+              href={`/unterwegs?trail=${encodeURIComponent(trailId)}`}
+              className="rounded-full border border-white/60 bg-wald-dunkel/90 px-4 py-2 text-sm font-medium text-papier hover:bg-wald focus-visible:outline-2 focus-visible:outline-papier"
+            >
+              Unterwegs
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -193,7 +194,7 @@ export default async function TrailPage({
         </div>
       )}
 
-      <footer className="text-[11px] text-papier [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
+      <footer className="schrift-feld text-[11px] text-papier">
         Quellen:{" "}
         {trail.sources.map((s, i) => (
           <span key={s.id}>

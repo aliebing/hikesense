@@ -189,6 +189,7 @@ test("no chat on the tour page, a clear back button instead", async () => {
   mockGetLodgings.mockResolvedValue([]);
   render(<ChatProvider>{await page({ von: "chat" })}</ChatProvider>);
   expect(screen.queryByRole("complementary", { name: "Planungs-Chat" })).toBeNull();
+  expect(screen.getByRole("heading", { name: "Tour 1" })).toHaveClass("schrift-feld", "w-full");
   const back = screen.getByRole("link", { name: "← Zurück zu den Vorschlägen" });
   expect(back).toHaveAttribute("href", "/");
   expect(back.className).toContain("rounded-full");

@@ -27,6 +27,19 @@ body {
     linear-gradient(160deg, #6f8f62 0%, #2f5d3a 45%, #16301d 100%);
 }
 
+/* White text standing on a photo: a dark green field behind it, so it stays readable.
+   In the components layer, so utilities (w-full, px-5 …) can override it. */
+@layer components {
+  .schrift-feld {
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    background: rgb(31 63 39 / 0.88);
+    box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  }
+}
+
 .scrollbar-schmal {
   scrollbar-width: thin;
   scrollbar-color: rgb(244 241 234 / 0.4) transparent;

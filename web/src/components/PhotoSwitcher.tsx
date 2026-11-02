@@ -83,7 +83,7 @@ export default function PhotoSwitcher({
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/5 to-black/65" />
         </div>
-        <div className={`flex max-w-full flex-wrap items-center gap-2 rounded-3xl bg-black/35 py-1 pr-3 pl-1 text-papier backdrop-blur-md ${className}`}>
+        <div className={`flex max-w-full flex-wrap items-center gap-2 rounded-3xl bg-wald-dunkel/88 py-1 pr-3 pl-1 text-papier backdrop-blur-md ${className}`}>
           {photos.length > 1 && (
             <>
               <button type="button" aria-label="Vorheriges Bild" onClick={() => go(-1)} className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-papier">

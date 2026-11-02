@@ -16,11 +16,11 @@ export default function PageFrame({
   return (
     <div className="relative isolate flex min-h-dvh flex-col bg-gradient-to-b from-[#0e2214] to-[#040a05] text-papier">
       <div className={`mx-auto flex w-full flex-1 flex-col gap-5 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
-          <Link href="/" className="whitespace-nowrap font-serif text-xl tracking-wide text-papier sm:text-2xl">
+        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <Link href="/" className="schrift-feld whitespace-nowrap font-serif text-xl tracking-wide text-papier sm:text-2xl">
             Hike all about
           </Link>
-          <nav className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-papier/90">
+          <nav className="schrift-feld flex empty:hidden flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-papier">
             {longDistance.length > 0 && (
               <details className="relative">
                 <summary className="cursor-pointer list-none whitespace-nowrap underline-offset-4 hover:underline">Fernwege</summary>
