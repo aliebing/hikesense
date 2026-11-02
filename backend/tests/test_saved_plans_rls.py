@@ -87,3 +87,10 @@ def test_authenticated_has_only_select_insert_delete(conn):
     for priv in ("UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"):
         sql = "select has_table_privilege('authenticated', 'saved_plans', %s)"
         assert conn.execute(sql, (priv,)).fetchone()[0] is False, priv
+
+
+def test_search_kind_allowed(conn):
+    a = _user(conn)
+    _as(conn, "authenticated", a)
+    conn.execute("insert into saved_plans (kind, title, payload) values ('search', 'x', '{}'::jsonb)")
+    assert conn.execute("select count(*) from saved_plans where kind = 'search'").fetchone()[0] == 1
