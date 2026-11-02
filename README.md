@@ -237,11 +237,27 @@ Planen im Chat, Pläne merken und eigene Fotos brauchen ein Konto. Auf http://lo
 
 - Die API nimmt `/chat` nur mit gültigem Supabase-Access-Token an (`Authorization: Bearer …`). Läuft die Sitzung mitten im Gespräch ab, zeigt der Chat „Sitzung abgelaufen – bitte erneut anmelden“, der getippte Text bleibt im Eingabefeld.
 - Das Backend prüft das Token über die JWKS der lokalen Supabase (`SUPABASE_URL`); ältere Projekte mit HS256 brauchen `SUPABASE_JWT_SECRET` in `.env`.
-- An das Modell und ins Protokoll (`logs/chat.jsonl`) gehen weder E-Mail noch Nutzer-ID, im Protokoll steht nur ein gekürzter SHA-256 der ID (12 Zeichen).
+- An das Modell gehen weder E-Mail noch Nutzer-ID. Das Protokoll (`data/logs/chat.jsonl`) enthält die Nutzer-ID für das Backend (siehe „Backend (Admin)“); ältere Zeilen haben nur einen gekürzten SHA-256 der ID (12 Zeichen).
 - Gemerkte Pläne und hochgeladene Fotos sieht nur ihr Eigentümer (Row Level Security). Fotos werden vor dem Hochladen im Browser neu als JPEG kodiert, dabei fallen EXIF- und GPS-Daten weg; erlaubt sind JPEG, PNG und WebP bis 10 MB.
 - **Rollen:** Jedes Konto hat eine Zeile in `profiles` mit Rolle `user` (Standard) oder `admin`; sie entsteht per Trigger bei der Registrierung, Clients können sie nur lesen. `make admin-user` setzt für `admin@hikeall.local` auch die Rolle `admin`. `GET /admin/me` (mit Bearer-Token, über Next als `/api/admin/me`) antwortet für Admins mit 200 und `{user_id, role}`, für normale Konten mit 403 „Kein Zugriff“, ohne gültiges Token mit 401 und bei ausgefallener Datenbank mit 503.
 - **Vor dem Freigeben (Tunnel):** `make admin-user` muss gelaufen sein, bevor die App von außen erreichbar ist: Die Registrierung braucht keine E-Mail-Bestätigung, sonst könnte jemand zuerst `admin@hikeall.local` anlegen und wäre Admin.
 - **Ergebnis merken:** Auf der Startseite speichert „Ergebnis merken“ (erst nach Ende der Antwort aktiv) eine Suche als Momentaufnahme: Nachrichten, Antwort, Hinweis und Kacheln. Sie steht unter „Meine Pläne“ im Abschnitt „Gemerkte Suchen“; `/gemerkt?id=…` zeigt sie so, wie sie war, ohne die Suche neu zu starten.
+
+### Backend (Admin)
+
+`/admin` zeigt Benutzer und ihre Suchen mit Details und Summen. Der Zugang gilt nur für Konten mit Rolle `admin` (z. B. `admin@hikeall.local` nach `make admin-user`); alle anderen sehen „Kein Zugriff“. Admins haben im Kopf zusätzlich den Link „Backend“.
+
+Das Protokoll enthält je Anfrage:
+
+- Suchtext (und bis zu 5 frühere Nachrichten des Gesprächs), verstandene Anfrage und Antwort
+- Tourkandidaten mit Begründung und den Mehrtagesplan
+- Prompts und Ausgaben jedes LLM-Aufrufs mit Tokens, Kosten und Dauer
+- Tool-Aufrufe mit Argumenten und Ergebnissen (bis zu 20.000 Zeichen je Ergebnis)
+- Gesamtdauer und Benutzer-ID
+
+Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. Ältere Zeilen (vor dieser Änderung) haben nur die Kennzahlen und werden über den Hash der Benutzer-ID den Benutzern zugeordnet.
+
+**Datenschutz:** Durch Suchtexte und Benutzer-ID enthält `data/logs/chat.jsonl` jetzt persönliche Daten. Die Datei nicht weitergeben, nicht einchecken und nicht in Berichte oder Screenshots übernehmen.
 
 ## Mehrtagestour
 
