@@ -592,3 +592,14 @@ def test_rejected_day_hike_with_own_upload_fails_loudly_and_rest_continues(conn,
     assert (
         conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 2
     )
+
+
+def test_graph_connected_but_not_greedy_chainable_relation_still_has_gaps():
+    # Way 12 ends in the middle of way 11 (T-junction without shared end vertex): the graph
+    # fallback could walk it, but day hikes stay on greedy chaining (opt-in only for trails).
+    ways = [
+        _way(11, [(48.07, 8.0), (48.07, 8.02), (48.07, 8.04)]),
+        _way(12, [(48.07, 8.02), (48.075, 8.02)]),
+    ]
+    cands, _ = _scan_all([_rel(3040, {"name": "T-Weg", "network": "lwn"}, ways)])
+    assert cands[3040].auto_reason == "Lücken im Verlauf"

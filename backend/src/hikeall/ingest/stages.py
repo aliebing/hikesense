@@ -37,6 +37,7 @@ def load_trail_specs(path: Path) -> list[TrailSpec]:
             osm_relation_ids=t["osm_relation_ids"],
             source=source(t, "source"),
             geometry_source=source(t, "geometry_source"),
+            assemble=t.get("assemble", "greedy"),
             stages=[
                 StageSpec(
                     seq=s["seq"],
@@ -98,5 +99,7 @@ def trim_to_stages(
 
     Some OSM relations run beyond the official trail (e.g. the Pfälzer Waldpfad starts in
     Kaiserslautern, ~14 km before Schopp); the trail length is the sum of its stages."""
+    if not specs:
+        return list(line)
     cuts = cut_indices(line, specs, max_offset_m)
     return list(line[cuts[0][0] : cuts[-1][1] + 1])

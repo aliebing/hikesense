@@ -93,7 +93,12 @@ def trail_line(spec: TrailSpec, data: dict[str, Any]) -> tuple[list[Point], list
     Returns the line and warnings about small leftover segments that assembly dropped."""
     lines, warnings = [], []
     for rid in spec.osm_relation_ids:
-        line, warns = relation_line(data, rid, context=f"{spec.id}: relation {_label(rid)}")
+        line, warns = relation_line(
+            data,
+            rid,
+            context=f"{spec.id}: relation {_label(rid)}",
+            graph_fallback=spec.assemble == "graph",
+        )
         lines.append(line)
         warnings.extend(warns)
     try:
@@ -114,7 +119,11 @@ def _label(relation_id: int | list[int]) -> str:
 
 
 def relation_line(
-    data: dict[str, Any], relation_id: int | list[int], context: str, oriented: bool = False
+    data: dict[str, Any],
+    relation_id: int | list[int],
+    context: str,
+    oriented: bool = False,
+    graph_fallback: bool = False,
 ) -> tuple[list[Point], list[str]]:
     """One relation's route members assembled into a line, plus warnings about dropped
     leftovers. A list of ids is assembled as one piece from the union of their route ways.
@@ -123,7 +132,7 @@ def relation_line(
     ids = relation_id if isinstance(relation_id, list) else [relation_id]
     segments = [s for rid in ids for s in relation_segments(data, rid)]
     try:
-        res = assemble_with_report(segments, max_gap_m=MAX_GAP_M)
+        res = assemble_with_report(segments, max_gap_m=MAX_GAP_M, graph_fallback=graph_fallback)
     except GapError as e:
         raise GapError(e.gap_m, e.at, context) from e
     warnings = []

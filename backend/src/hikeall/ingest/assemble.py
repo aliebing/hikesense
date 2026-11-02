@@ -20,7 +20,12 @@ def assemble(segments: list[list[Point]], max_gap_m: float = 200) -> list[Point]
     return assemble_with_report(segments, max_gap_m).line
 
 
-def assemble_with_report(segments: list[list[Point]], max_gap_m: float = 200) -> Assembly:
+GRAPH_MAX_DROPPED_M = 1000.0
+
+
+def assemble_with_report(
+    segments: list[list[Point]], max_gap_m: float = 200, graph_fallback: bool = False
+) -> Assembly:
     """Greedy chaining: start at the segment end farthest from all other ends, then
     repeatedly append the remaining segment whose start or end is nearest the chain end.
 
@@ -31,18 +36,128 @@ def assemble_with_report(segments: list[list[Point]], max_gap_m: float = 200) ->
     caller can report them. Longer leftovers (a return leg, a second carriageway) always raise.
     Nothing is ever bridged across a gap.
 
-    If that fails, one retry assembles the segments as a graph: they are split where another
-    way's endpoint touches their interior (a T-junction without a shared end vertex), and the
-    shortest path between the two free ends that lie farthest apart is walked. Dead-end spurs
-    and the longer side of parallel variants are dropped and counted. The Pfälzer Waldpfad
-    relation needs this; a path that does not exist (a real gap) still raises the first error."""
+    With `graph_fallback` (opt-in per curated trail, never for day hikes), a failed greedy run
+    is retried on the segments as a graph: they are split where another way's endpoint touches
+    their interior (a T-junction without a shared end vertex), and the shortest path between
+    the two free ends that lie farthest apart is walked. Loops and spurs that hang off the path
+    at one vertex are walked out and back; the rest (the longer side of parallel variants) is
+    dropped and counted. If more than GRAPH_MAX_DROPPED_M would be dropped, or no connected
+    path exists, the first GapError is raised."""
     try:
         return _assemble_greedy(segments, max_gap_m)
     except GapError as first:
-        res = _assemble_graph(_split_at_junctions(segments))
-        if res is None:
+        res = _assemble_graph(_split_at_junctions(segments)) if graph_fallback else None
+        if res is None or res.dropped_m > GRAPH_MAX_DROPPED_M:
             raise first from None
         return res
+
+
+def _splice_hanging(
+    line: list[Point], left: list[list[Point]], on_path: set[Point]
+) -> tuple[list[Point], list[list[Point]]]:
+    """Walk leftover components that touch the path at exactly one vertex and contain a cycle
+    (a loop, a lollipop) out and back; plain dead-end spurs stay dropped; returns the new line and what is still left over.
+
+    A component is walked as an Euler circuit from its attachment vertex; if exactly two
+    vertices have odd degree, the shortest connection between them is walked twice."""
+    parent = list(range(len(left)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    owner: dict[Point, int] = {}
+    for i, sg in enumerate(left):
+        for p in (sg[0], sg[-1]):
+            if p in on_path:
+                continue
+            if p in owner:
+                parent[find(i)] = find(owner[p])
+            else:
+                owner[p] = i
+    comps: dict[int, list[int]] = {}
+    for i in range(len(left)):
+        comps.setdefault(find(i), []).append(i)
+
+    rest: list[list[Point]] = []
+    for idxs in comps.values():
+        segs = [left[i] for i in idxs]
+        attach = {p for sg in segs for p in (sg[0], sg[-1]) if p in on_path}
+        nodes = {p for sg in segs for p in (sg[0], sg[-1])}
+        has_cycle = len(segs) >= len(nodes)  # a tree (plain spur) has one segment fewer
+        walk = _euler_walk(segs, next(iter(attach))) if len(attach) == 1 and has_cycle else None
+        if walk is None:
+            rest.extend(segs)
+            continue
+        k = line.index(walk[0])
+        line = line[: k + 1] + walk[1:] + line[k + 1 :]
+    return line, rest
+
+
+def _euler_walk(segs: list[list[Point]], start: Point) -> list[Point] | None:
+    """Closed walk from `start` over every segment (Hierholzer), or None if not possible."""
+    edges = list(range(len(segs)))
+    deg: dict[Point, int] = {}
+    for sg in segs:
+        for p in (sg[0], sg[-1]):
+            deg[p] = deg.get(p, 0) + 1
+    odd = [p for p, n in deg.items() if n % 2]
+    if len(odd) not in (0, 2):
+        return None
+    if odd:
+        # Dijkstra over the component's own segments between the two odd vertices.
+        a, b = odd
+        dist = {a: 0.0}
+        prev: dict[Point, tuple[Point, int]] = {}
+        heap = [(0.0, a)]
+        while heap:
+            d, node = heapq.heappop(heap)
+            if node == b:
+                break
+            if d > dist.get(node, float("inf")):
+                continue
+            for i, sg in enumerate(segs):
+                if node in (sg[0], sg[-1]):
+                    other = sg[-1] if node == sg[0] else sg[0]
+                    nd = d + path_length_km([sg])
+                    if nd < dist.get(other, float("inf")):
+                        dist[other] = nd
+                        prev[other] = (node, i)
+                        heapq.heappush(heap, (nd, other))
+        if b not in prev:
+            return None
+        node = b
+        while node != a:
+            node, i = prev[node]
+            edges.append(i)  # walked a second time
+    adj: dict[Point, list[int]] = {}
+    for n, i in enumerate(edges):
+        adj.setdefault(segs[i][0], []).append(n)
+        adj.setdefault(segs[i][-1], []).append(n)
+    used = [False] * len(edges)
+    circuit: list[list[Point]] = []
+    # Iterative Hierholzer; each stack item carries the points of the edge walked to reach it.
+    path_stack: list[tuple[Point, list[Point] | None]] = [(start, None)]
+    while path_stack:
+        node, via = path_stack[-1]
+        while adj.get(node) and used[adj[node][-1]]:
+            adj[node].pop()
+        if adj.get(node):
+            n = adj[node].pop()
+            used[n] = True
+            sg = segs[edges[n]]
+            pts = sg if sg[0] == node else sg[::-1]
+            path_stack.append((pts[-1], pts))
+        else:
+            path_stack.pop()
+            if via is not None:
+                circuit.append(via)
+    out: list[Point] = [start]
+    for pts in reversed(circuit):
+        out.extend(pts[1:])
+    return out if len(out) > 1 and out[-1] == start else None
 
 
 def _assemble_graph(segs: list[list[Point]]) -> Assembly | None:
@@ -96,7 +211,9 @@ def _assemble_graph(segs: list[list[Point]]) -> Assembly | None:
         sg = segs[i] if segs[i][0] == node else segs[i][::-1]
         line.extend(sg if not line else sg[1:])
         node = line[-1]
-    left = [sg for i, sg in enumerate(segs) if i not in set(used)]
+    used_set = set(used)
+    left = [sg for i, sg in enumerate(segs) if i not in used_set]
+    line, left = _splice_hanging(line, left, set(line))
     return Assembly(line, len(left), round(path_length_km(left) * 1000, 1) if left else 0.0)
 
 

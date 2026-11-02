@@ -43,15 +43,20 @@
 # Überlingen (Jubiläumsweg end; centre 1.1 km off).
 # Pfälzer Weinsteig: osm_relation_ids are the 11 stage relations in walking order (member order of
 # superroute 15761992); the Zuweg relations are not curated. Official total on the source page is
-# 172 km but its 11 stage lengths sum to 184 km (OSM 178.8 km); the per-stage km are used.
-# Weinsteig km deviations > 5 % (OSM line vs official, import 2026-11-02) are kept, not hidden:
-#   stage 7 Burrweiler - Dernbach 13.9 vs 17.2: relation 3286359 contains a ~3.2 km loop near
-#   Burrweiler that cannot be chained into the line; the assembler drops it (reported as warning),
+# 172 km but its 11 stage lengths sum to 184 km (OSM distance tags sum 184.0). The OSM line is
+# 182.0 km: all ways of the 11 stage relations add up to 182.05 km (no way role is skipped), so the
+# 185.2 km of the research note cannot be reproduced from the relations; per-stage km are used.
+# `assemble: graph` (Weinsteig and Waldpfad only): relations the greedy chaining cannot handle
+# are assembled as a graph (shortest path, loops that hang off it are walked out and back, at
+# most 1000 m of other route ways dropped, else GapError). Weinsteig stage 7 (relation 3286359)
+# has a ~3.2 km loop near Burrweiler that the official stage walks; it is part of the line.
+# Weinsteig km deviation > 5 % (OSM line vs official, import 2026-11-02) is kept, not hidden:
 #   stage 11 Bad Bergzabern - Schweigen-Rechtenbach 15.0 vs 16.
 # Pfälzer Waldpfad: OSM relation 1650025 starts in Kaiserslautern, ~14 km before Schopp; the line is
-# cut at Schopp (first stage start) and at Schweigen-Rechtenbach (trails length = sum of stages).
-# The OSM line has T-junctions without shared vertices and parallel variants; the assembler falls
-# back to the shortest path (9 small pieces, 355 m, dropped). Official total 129.1 km, stage sum 130.2.
+# cut at Schopp (first stage start) and at Schweigen-Rechtenbach (trail length = sum of stages).
+# Its surface/way-type shares (import-shares) are computed from ALL relation ways, so they still
+# include the ~14 km before Schopp. The OSM line has T-junctions without shared vertices and
+# parallel variants (9 small pieces, 355 m, dropped). Official total 129.1 km, stage sum 130.2.
 # Waldpfad km deviation > 5 %: stage 1 Schopp - Johanniskreuz 12.5 vs 15.3 (the OSM line does not
 # pass the official start section; Schopp is the nearest vertex of the line).
 # Jubiläumsweg Bodenseekreis: km are "ca." values (official total 111 km, stage sum 120 km, OSM
@@ -290,6 +295,7 @@ trails:
         end: {name: Schaffhausen, lat: 47.6960491, lon: 8.634513}
         km: 18.5
   - id: pfaelzer-weinsteig
+    assemble: graph
     name: Pfälzer Weinsteig
     kind: long_distance
     osm_relation_ids: [8124459, 2504578, 2504579, 2504580, 2504581, 2504582, 3286359, 3286360, 3286361, 3286362, 3286358]
@@ -341,6 +347,7 @@ trails:
         end: {name: Schweigen-Rechtenbach, lat: 49.0545613, lon: 7.9560342}
         km: 16
   - id: pfaelzer-waldpfad
+    assemble: graph
     name: Pfälzer Waldpfad
     kind: long_distance
     osm_relation_ids: [1650025]

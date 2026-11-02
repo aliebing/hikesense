@@ -280,3 +280,19 @@ def test_trim_to_stages_drops_line_before_first_and_after_last_stage():
         StageSpec(seq=2, start_name="B", end_name="C", start=line[5], end=line[7]),
     ]
     assert trim_to_stages(line, specs) == line[3:8]
+
+
+def test_trim_to_stages_without_stages_returns_the_line_unchanged():
+    from hikeall.ingest.stages import trim_to_stages
+
+    line = [(48.0, 8.0), (48.0, 8.01)]
+    assert trim_to_stages(line, []) == line
+
+
+def test_curated_graph_trails_are_flagged():
+    from hikeall.cli import TRAILS_YAML
+    from hikeall.ingest.stages import load_trail_specs
+
+    flags = {t.id: t.assemble for t in load_trail_specs(TRAILS_YAML)}
+    assert flags["pfaelzer-waldpfad"] == flags["pfaelzer-weinsteig"] == "graph"
+    assert flags["mittelweg"] == flags["seegang"] == "greedy"

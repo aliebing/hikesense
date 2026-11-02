@@ -1,6 +1,7 @@
 import pytest
 
 from hikeall.errors import GapError, HikeAllError
+from hikeall.geo import path_length_km
 from hikeall.ingest.assemble import assemble, assemble_with_report
 
 
@@ -84,15 +85,47 @@ def test_gap_followed_by_parallel_return_leg_still_raises():
     assert e.value.gap_m > 300
 
 
-def test_graph_fallback_walks_t_junction_and_drops_spur_and_longer_variant():
+def _t_junction_segments():
     # b touches a only in a's interior vertex (no shared end vertex); c is a dead-end spur;
-    # d/e are a longer parallel variant of the stretch x-y. Greedy chaining gets stuck.
+    # d is a longer parallel variant of the stretch between two interior vertices of b.
     a = [(48.0, 8.00), (48.0, 8.01), (48.0, 8.02)]
-    c = [(48.0, 8.01), (48.0008, 8.01)]  # spur off a's interior vertex
+    c = [(48.0, 8.01), (48.0008, 8.01)]
     b = [(48.0, 8.02), (48.0, 8.03), (48.0, 8.04), (48.0, 8.05)]
-    d = [(48.0, 8.03), (48.004, 8.035), (48.0, 8.04)]  # longer detour between b's vertices
-    res = assemble_with_report([a, c, b, d])
-    assert res.line[0] in {(48.0, 8.00), (48.0, 8.05)}
+    d = [(48.0, 8.03), (48.002, 8.035), (48.0, 8.04)]
+    return [a, c, b, d]
+
+
+def test_graph_fallback_is_opt_in():
+    with pytest.raises(GapError):
+        assemble_with_report(_t_junction_segments())
+
+
+def test_graph_fallback_walks_t_junction_and_drops_spur_and_longer_variant():
+    res = assemble_with_report(_t_junction_segments(), graph_fallback=True)
     assert {(48.0, 8.00), (48.0, 8.05)} == {res.line[0], res.line[-1]}
     assert len(res.line) == 6
     assert res.dropped_count == 2 and res.dropped_m > 0
+
+
+def test_graph_fallback_walks_a_lollipop_loop():
+    # main line a-b-c; at b's interior vertex a stem leads to a ring (not chainable greedily)
+    main1 = [(48.0, 8.00), (48.0, 8.01)]
+    main2 = [(48.0, 8.01), (48.0, 8.02)]
+    stem = [(48.0, 8.01), (48.003, 8.01)]
+    ring1 = [(48.003, 8.01), (48.004, 8.012), (48.003, 8.014)]
+    ring2 = [(48.003, 8.014), (48.002, 8.012), (48.003, 8.01)]
+    res = assemble_with_report([main1, stem, ring1, ring2, main2], graph_fallback=True)
+    plain = path_length_km([main1 + main2[1:]])
+    stem_km, ring_km = path_length_km([stem]), path_length_km([ring1, ring2])
+    assert res.dropped_count == 0
+    assert path_length_km([res.line]) == pytest.approx(plain + 2 * stem_km + ring_km, rel=1e-3)
+
+
+def test_graph_fallback_raises_when_more_than_1km_would_be_dropped():
+    a = [(48.0, 8.00), (48.0, 8.05)]
+    b = [(48.0, 8.05), (48.0, 8.10)]
+    # two parallel variants of a, each ~1.2 km longer; attached at both ends -> dropped
+    v1 = [(48.0, 8.01), (48.007, 8.03), (48.0, 8.04)]
+    v2 = [(48.0, 8.015), (48.008, 8.03), (48.0, 8.035)]
+    with pytest.raises(GapError):
+        assemble_with_report([a, b, v1, v2], graph_fallback=True)

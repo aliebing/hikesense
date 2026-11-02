@@ -70,6 +70,8 @@ class TrailSpec(BaseModel):
     source: Source  # stage division
     geometry_source: Source  # line geometry (OSM, ODbL)
     stages: list[StageSpec]
+    # "graph": retry a relation that cannot be chained greedily as a graph (see assemble.py)
+    assemble: str = "greedy"
 
     @property
     def relation_ids(self) -> list[int]:
