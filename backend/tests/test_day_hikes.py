@@ -22,6 +22,7 @@ from hikeall.ingest.day_hikes import (
     write_candidates,
 )
 from hikeall.models import BBox, Source
+from hikeall.regions import REGIONS, Region, get_region
 
 OSM = Source(
     id="test-osm-day",
@@ -31,6 +32,7 @@ OSM = Source(
     retrieved_at=date(2026, 10, 28),
 )
 AREA = BBox(south=47.9, west=7.9, north=48.1, east=8.1)
+AREA_REGION = (Region("test", "Test", AREA, ("DE",), ()),)
 
 # A closed ~8.9 km square loop starting at its south-west corner, cut into four ways.
 SW, SE, NE, NW = (48.0, 8.0), (48.0, 8.03), (48.02, 8.03), (48.02, 8.0)
@@ -82,11 +84,16 @@ def _tags_only(rels):
     return {"elements": [{"type": "relation", "id": r["id"], "tags": r["tags"]} for r in rels]}
 
 
-def _overpass_mock(relations, fail_ids=()):
-    """Answer tag queries with tags and `relation(id:...)` queries with geometry."""
+def _overpass_mock(relations, fail_ids=(), abroad_ids=()):
+    """Answer tag queries with tags, `relation(id:...)` queries with geometry and foreign-country
+    queries (`area[...]`) with those of `abroad_ids` that were asked for."""
 
     def handler(request):
         query = httpx.QueryParams(request.content.decode()).get("data")
+        if "area[" in query:
+            ids = {int(i) for i in query.split("relation(id:")[1].split(")")[0].split(",")}
+            hit = [{"type": "relation", "id": i} for i in sorted(ids & set(abroad_ids))]
+            return httpx.Response(200, json={"elements": hit})
         if "out tags" in query:
             return httpx.Response(200, json=_tags_only(relations))
         ids = {int(i) for i in query.split("relation(id:")[1].split(")")[0].split(",")}
@@ -180,7 +187,7 @@ def test_tiles_cover_bbox_without_overlap():
 
 def test_scan_builds_candidates_with_auto_decisions(overpass):
     route, client = overpass
-    res = scan(client, AREA, step_deg=0.1, pause_s=0)
+    res = scan(client, AREA_REGION, step_deg=0.1, pause_s=0)
     cands = {c.osm_relation_id: c for c in res.candidates}
     assert set(cands) == {2001, 2002, 2003, 2004, 2005}  # node-network segment left out
     assert res.skipped_segments == 1
@@ -201,15 +208,118 @@ def test_scan_rejects_relation_leaving_the_bbox():
     with respx.mock:
         respx.post(OVERPASS_URL).side_effect = _overpass_mock([far])
         with make_http_client(5) as http:
-            [c] = scan(OverpassClient(http, backoff_s=0), AREA, pause_s=0).candidates
+            [c] = scan(OverpassClient(http, backoff_s=0), AREA_REGION, pause_s=0).candidates
     assert c.auto_decision == "rejected" and "keiner Region" in c.auto_reason
+
+
+def _scan_all(relations, **kw):
+    with respx.mock:
+        route = respx.post(OVERPASS_URL)
+        route.side_effect = _overpass_mock(relations, **kw)
+        with make_http_client(5) as http:
+            res = scan(OverpassClient(http, backoff_s=0), REGIONS, pause_s=0)
+    return {c.osm_relation_id: c for c in res.candidates}, route
+
+
+def _loop_rel(rid, centre, name="Runde"):
+    lat, lon = centre
+    sw, se = (lat, lon), (lat, lon + 0.03)
+    ne, nw = (lat + 0.02, lon + 0.03), (lat + 0.02, lon)
+    ways = [
+        _way(1, _edge(sw, se)),
+        _way(2, _edge(se, ne)),
+        _way(3, _edge(ne, nw)),
+        _way(4, _edge(nw, sw)),
+    ]
+    return _rel(rid, {"name": name, "network": "lwn"}, ways)
+
+
+def test_scan_assigns_region():
+    rels = [
+        _loop_rel(3001, (48.0, 8.0)),
+        _loop_rel(3002, (49.3, 7.9)),
+        _loop_rel(3003, (47.6, 9.3)),
+    ]
+    cands, _ = _scan_all(rels)
+    assert {rid: c.region for rid, c in cands.items()} == {
+        3001: "black_forest",
+        3002: "palatinate",
+        3003: "lake_constance",
+    }
+    assert all(c.auto_decision == "accepted" for c in cands.values())
+
+
+def test_route_in_no_region_rejected():
+    rel = _rel(3010, {"name": "Quer"}, [_way(9, _edge((48.91, 8.0), (48.99, 8.0)))])
+    cands, _ = _scan_all([rel])
+    c = cands[3010]
+    assert c.auto_decision == "rejected" and c.auto_reason == "liegt in keiner Region vollständig"
+    assert c.region is None
+
+
+def test_palatinate_route_into_france_rejected():
+    rels = [
+        _loop_rel(3020, (49.3, 7.9), "Grenzrunde"),
+        _loop_rel(3021, (49.35, 7.95), "Pfalzrunde"),
+        _loop_rel(3022, (47.6, 9.3), "Seerunde"),
+    ]
+    cands, route = _scan_all(rels, abroad_ids=(3020, 3022))
+    assert (cands[3020].auto_decision, cands[3020].auto_reason) == (
+        "rejected",
+        "führt nach Frankreich",
+    )
+    assert cands[3021].auto_decision == "accepted"
+    assert cands[3022].auto_decision == "accepted"  # Lake Constance has no foreign check
+    queries = [httpx.QueryParams(c.request.content.decode()).get("data") for c in route.calls]
+    foreign = [q for q in queries if "area[" in q]
+    assert len(foreign) == 1 and '"ISO3166-1"="FR"' in foreign[0]
+    assert "3022" not in foreign[0]
+
+
+def test_old_csv_without_region_keeps_manual_decisions(tmp_path):
+    csv = tmp_path / "d.csv"
+    csv.write_text(
+        "osm_relation_id,name,length_km,roundtrip,auto_decision,auto_reason,"
+        "manual_decision,manual_reason\n"
+        "3001,Runde,8.90,true,accepted,automatisch,rejected,Weg gesperrt\n",
+        encoding="utf-8",
+    )
+    assert read_candidates(csv)[0].region == "black_forest"
+    cands, _ = _scan_all([_loop_rel(3001, (48.0, 8.0))])
+    write_candidates(csv, list(cands.values()))
+    [row] = read_candidates(csv)
+    assert row.region == "black_forest"
+    assert (row.manual_decision, row.manual_reason) == ("rejected", "Weg gesperrt")
+    assert csv.read_text(encoding="utf-8").splitlines()[0].startswith("osm_relation_id,region,")
+
+
+def test_scan_single_region_keeps_other_rows(tmp_path):
+    csv = tmp_path / "d.csv"
+    write_candidates(
+        csv,
+        [
+            Candidate(1, "A", 10, True, "accepted", "automatisch", region="black_forest"),
+            Candidate(2, "B", 10, True, "accepted", "automatisch", region="palatinate"),
+        ],
+    )
+    before = {c.osm_relation_id: c for c in read_candidates(csv)}
+    rels = [_loop_rel(3, (49.3, 7.9))]
+    with respx.mock:
+        respx.post(OVERPASS_URL).side_effect = _overpass_mock(rels)
+        with make_http_client(5) as http:
+            res = scan(OverpassClient(http, backoff_s=0), (get_region("palatinate"),), pause_s=0)
+    write_candidates(csv, res.candidates, {"palatinate"})
+    after = {c.osm_relation_id: c for c in read_candidates(csv)}
+    assert after[1] == before[1]  # Black Forest row untouched, not marked as gone
+    assert after[2].auto_reason == "nicht mehr in OSM gefunden (letzter Scan)"
+    assert after[3].region == "palatinate"
 
 
 def test_scan_fails_cleanly_when_overpass_fails():
     with respx.mock:
         respx.post(OVERPASS_URL).mock(return_value=httpx.Response(504))
         with make_http_client(5) as http, pytest.raises(OverpassError):
-            scan(OverpassClient(http, backoff_s=0), AREA, pause_s=0)
+            scan(OverpassClient(http, backoff_s=0), AREA_REGION, pause_s=0)
 
 
 # --- CSV -----------------------------------------------------------------------------------
@@ -231,7 +341,7 @@ def test_csv_round_trip_keeps_all_columns(tmp_path):
     ]
     write_candidates(csv, rows)
     assert csv.read_text(encoding="utf-8").splitlines()[0] == (
-        "osm_relation_id,name,length_km,roundtrip,auto_decision,auto_reason,"
+        "osm_relation_id,region,name,length_km,roundtrip,auto_decision,auto_reason,"
         "manual_decision,manual_reason"
     )
     back = read_candidates(csv)
@@ -338,6 +448,21 @@ def test_manual_accept_overrides_auto_reject_and_failure_is_reported(conn, overp
 
 
 @pytest.mark.db
+def test_import_sets_trail_region(conn):
+    rel = _loop_rel(2090, (49.3, 7.9), "Pfalzrunde")
+    cand = Candidate(2090, "Pfalzrunde", 8.9, True, "accepted", "automatisch", region="palatinate")
+    with respx.mock:
+        respx.post(OVERPASS_URL).side_effect = _overpass_mock([rel])
+        with make_http_client(5) as http:
+            res = import_day_hikes(
+                conn, [cand], OverpassClient(http, backoff_s=0), Ramp(), source=OSM
+            )
+    assert not res.failed
+    assert conn.execute("select region from trails where id = 'day-2090'").fetchone()[0] == (
+        "palatinate"
+    )
+
+
 def test_reimport_is_idempotent(conn, overpass):
     _, client = overpass
     import_day_hikes(conn, _cands(), client, Ramp(), source=OSM)
@@ -416,7 +541,9 @@ def test_rejected_day_hike_with_commons_photos_is_removed_with_its_photos(conn, 
     assert rep.failed == []
     assert rep.removed == ["day-2003"]
     assert [r[0] for r in _day_hikes(conn)] == ["day-2001"]
-    assert conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 0
+    assert (
+        conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 0
+    )
 
 
 @pytest.mark.db
@@ -437,4 +564,6 @@ def test_rejected_day_hike_with_own_upload_fails_loudly_and_rest_continues(conn,
     assert "ForeignKeyViolation" in rep.failed[0][1]
     assert [r[0] for r in _day_hikes(conn)] == ["day-2001", "day-2003"]  # trail stays
     # The savepoint rolled back, so the Commons photo is not lost either.
-    assert conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 2
+    assert (
+        conn.execute("select count(*) from photos where trail_id = 'day-2003'").fetchone()[0] == 2
+    )

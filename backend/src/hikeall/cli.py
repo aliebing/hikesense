@@ -41,6 +41,7 @@ from hikeall.ingest.trails import import_trail
 from hikeall.knowledge.corpus import chunk, fetch_articles, load_own_texts, load_sources
 from hikeall.knowledge.search import FastEmbedder, KnowledgeIndex
 from hikeall.models import BLACK_FOREST_BBOX
+from hikeall.regions import REGIONS, get_region
 from hikeall.tags.vocabulary import FEATURES_YAML, TagVocabulary, compute_trail_tags
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -104,20 +105,29 @@ def import_trails(only: str | None) -> int:
     return 1 if failed else 0
 
 
-def scan_day_hikes(csv_path: Path) -> int:
+def scan_day_hikes(csv_path: Path, region_id: str | None = None) -> int:
     settings = _settings()
     if settings is None:
         return 2
+    if region_id is None:
+        regions = REGIONS
+    else:
+        try:
+            regions = (get_region(region_id),)
+        except KeyError:
+            names = ", ".join(r.id for r in REGIONS)
+            print(f"Fehler: unbekannte Region {region_id!r} (verfügbar: {names}).", file=sys.stderr)
+            return 2
     with make_http_client(240) as http:
         overpass = OverpassClient(http, url=settings.overpass_url)
         try:
-            res = scan(overpass, BLACK_FOREST_BBOX)
+            res = scan(overpass, regions)
         except HikeAllError as e:
             print(f"Scan abgebrochen, CSV unverändert – {type(e).__name__}: {e}", file=sys.stderr)
             return 1
     found = res.candidates
     before = {c.osm_relation_id for c in read_candidates(csv_path)}
-    write_candidates(csv_path, found)
+    write_candidates(csv_path, found, None if region_id is None else {region_id})
     rows = read_candidates(csv_path)
     auto = sum(c.auto_decision == "accepted" for c in found)
     final = sum(final_decision(c)[0] == "accepted" for c in rows)
@@ -127,6 +137,10 @@ def scan_day_hikes(csv_path: Path) -> int:
         f"{len(found)} Wanderrelationen als Kandidaten ({new} neu, {gone} nicht mehr in OSM); "
         f"{res.skipped_segments} Wegenetz-Abschnitte (network:type=node_network) übergangen"
     )
+    for r in regions:
+        in_region = [c for c in found if c.region == r.id]
+        acc = sum(c.auto_decision == "accepted" for c in in_region)
+        print(f"  {r.name}: {len(in_region)} Kandidaten, automatisch accepted: {acc}")
     print(f"automatisch accepted: {auto}, nach manueller Entscheidung accepted: {final}")
     print(f"geschrieben: {csv_path}")
     return 0
@@ -594,6 +608,8 @@ def main(argv: list[str] | None = None) -> int:
     ):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--csv", type=Path, default=DAY_HIKES_CSV, help="Kurations-CSV")
+        if name == "scan-day-hikes":
+            p.add_argument("--region", help="nur diese Region neu scannen (Region-ID)")
     p = sub.add_parser("import-groups", help="Gruppenliste aus der Kurations-CSV importieren")
     p.add_argument("--csv", type=Path, default=GROUPS_CSV, help="Gruppen-CSV")
     args = parser.parse_args(argv)
@@ -624,7 +640,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-photos":
         return import_photos_cmd(args.only)
     if args.command == "scan-day-hikes":
-        return scan_day_hikes(_repo_path(args.csv))
+        return scan_day_hikes(_repo_path(args.csv), args.region)
     if args.command == "import-day-hikes":
         return import_day_hikes_cmd(_repo_path(args.csv))
     if args.command == "import-groups":

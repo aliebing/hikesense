@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import csv
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -19,7 +19,7 @@ import psycopg
 
 from hikeall.adapters.overpass import OverpassClient
 from hikeall.db import delete_day_hike, upsert_source, upsert_trail
-from hikeall.errors import GapError, HikeAllError, OutsideRegionError
+from hikeall.errors import GapError, HikeAllError
 from hikeall.geo import Point, haversine_km, path_length_km
 from hikeall.ingest.elevation import ElevationProvider, elevation_source, elevation_stats
 from hikeall.ingest.shares import fetch_way_tags, trail_shares
@@ -31,11 +31,14 @@ from hikeall.ingest.trails import (
     relations_query,
 )
 from hikeall.models import BBox, Source
+from hikeall.regions import Region, region_of_line
 
 MIN_KM, MAX_KM = 5.0, 30.0
 LONG_DISTANCE_NETWORKS = frozenset({"iwn", "nwn"})
 DECISIONS = ("accepted", "rejected")
 GONE_REASON = "nicht mehr in OSM gefunden (letzter Scan)"
+LEGACY_REGION = "black_forest"  # rows of a CSV written before the `region` column existed
+COUNTRY_NAMES = {"FR": "Frankreich"}
 
 
 @dataclass
@@ -48,9 +51,13 @@ class Candidate:
     auto_reason: str
     manual_decision: str = ""
     manual_reason: str = ""
+    region: str | None = None  # None: not (completely) inside any region
 
 
-COLUMNS = [f.name for f in fields(Candidate)]  # CSV header, in this order
+# CSV header, in this order: `region` right after the relation id
+COLUMNS = ["osm_relation_id", "region"] + [
+    f.name for f in fields(Candidate) if f.name not in ("osm_relation_id", "region")
+]
 
 
 def auto_decision(
@@ -121,12 +128,12 @@ def candidate_from_relation(data: dict[str, Any], rel: dict[str, Any]) -> Candid
         return Candidate(rid, name, km, None, *auto_decision(name, km, True, tags.get("network")))
     km = round(path_length_km([line]), 2)
     decision = auto_decision(name, km, False, tags.get("network"))
-    if decision[0] == "accepted":
-        try:
-            check_in_region(line, f"relation {rid}")
-        except OutsideRegionError:
-            decision = ("rejected", "liegt in keiner Region vollständig")
-    return Candidate(rid, name, km, is_roundtrip(tags, line), *decision)
+    region = region_of_line(line)
+    if decision[0] == "accepted" and region is None:
+        decision = ("rejected", "liegt in keiner Region vollständig")
+    return Candidate(
+        rid, name, km, is_roundtrip(tags, line), *decision, region=region.id if region else None
+    )
 
 
 class ScanResult(NamedTuple):
@@ -138,6 +145,44 @@ def is_network_segment(tags: dict[str, Any]) -> bool:
     """A piece of a waymarked node network between two signposts (`network:type=node_network`),
     e.g. the Schwarzwaldverein network: not a route in itself, so never a day-hike candidate."""
     return tags.get("network:type") == "node_network"
+
+
+def foreign_query(relation_ids: list[int], iso_codes: tuple[str, ...]) -> str:
+    """Relations (of the given ids) with at least one way inside one of the countries."""
+    ids = ",".join(str(i) for i in relation_ids)
+    if len(iso_codes) == 1:
+        iso = f'"ISO3166-1"="{iso_codes[0]}"'
+    else:
+        iso = f'"ISO3166-1"~"^({"|".join(iso_codes)})$"'
+    return (
+        "[out:json][timeout:180];\n"
+        f"area[{iso}][admin_level=2]->.x;\n"
+        f"relation(id:{ids})->.r;\n"
+        "way(r.r)(area.x)->.w;\n"
+        f"relation(bw.w)(id:{ids});\n"
+        "out ids;"
+    )
+
+
+def foreign_relations(
+    overpass: OverpassClient,
+    relation_ids: list[int],
+    iso_codes: tuple[str, ...],
+    batch_size: int = 50,
+    pause_s: float = 0.0,
+) -> set[int]:
+    """Ids among relation_ids that have at least one way in one of the countries."""
+    found: set[int] = set()
+    for batch in _batches(sorted(relation_ids), batch_size):
+        if pause_s:
+            time.sleep(pause_s)
+        data = overpass.run(foreign_query(batch, iso_codes))
+        found |= {
+            int(el["id"])
+            for el in data["elements"]
+            if el.get("type") == "relation" and int(el["id"]) in batch
+        }
+    return found
 
 
 def tag_rejection(rid: int, tags: dict[str, Any]) -> Candidate | None:
@@ -152,25 +197,31 @@ def tag_rejection(rid: int, tags: dict[str, Any]) -> Candidate | None:
 
 def scan(
     overpass: OverpassClient,
-    bbox: BBox,
+    regions: Sequence[Region],
     step_deg: float = 0.35,
     batch_size: int = 50,
     pause_s: float = 2.0,
 ) -> ScanResult:
-    """All route=hiking relations touching the bbox, with automatic decisions.
+    """All route=hiking relations touching the regions' boxes, with automatic decisions.
 
     Tags come tile by tile (cheap). Node-network segments are left out; relations without a
     name or on a long-distance network are rejected from their tags. Geometry is fetched,
     once per relation in id batches, only for the rest. Any Overpass failure (after the
     adapter's retries) raises, so a scan is never half written."""
     tags: dict[int, dict[str, Any]] = {}
-    for i, tile in enumerate(tiles(bbox, step_deg)):
-        if i and pause_s:
-            time.sleep(pause_s)
-        data = overpass.run(tags_query(tile))
-        for el in data["elements"]:
-            if el.get("type") == "relation":
-                tags[int(el["id"])] = el.get("tags") or {}
+    seen_in: dict[int, str] = {}  # region of the first tile a relation was seen in
+    first = True
+    for region in regions:
+        for tile in tiles(region.bbox, step_deg):
+            if not first and pause_s:
+                time.sleep(pause_s)
+            first = False
+            data = overpass.run(tags_query(tile))
+            for el in data["elements"]:
+                if el.get("type") == "relation":
+                    rid = int(el["id"])
+                    tags[rid] = el.get("tags") or {}
+                    seen_in.setdefault(rid, region.id)
     found: list[Candidate] = []
     need_geometry: list[int] = []
     skipped = 0
@@ -178,6 +229,7 @@ def scan(
         if is_network_segment(tags[rid]):
             skipped += 1
         elif (rejected := tag_rejection(rid, tags[rid])) is not None:
+            rejected.region = seen_in[rid]
             found.append(rejected)
         else:
             need_geometry.append(rid)
@@ -188,6 +240,23 @@ def scan(
         for el in data["elements"]:
             if el.get("type") == "relation" and el.get("id") in batch:
                 found.append(candidate_from_relation(data, el))
+    for region in regions:
+        if not region.foreign:
+            continue
+        ids = [
+            c.osm_relation_id
+            for c in found
+            if c.region == region.id and c.auto_decision == "accepted"
+        ]
+        if not ids:
+            continue
+        if pause_s:
+            time.sleep(pause_s)
+        abroad = foreign_relations(overpass, ids, region.foreign, batch_size, pause_s)
+        reason = "führt nach " + " / ".join(COUNTRY_NAMES.get(i, i) for i in region.foreign)
+        for c in found:
+            if c.osm_relation_id in abroad:
+                c.auto_decision, c.auto_reason = "rejected", reason
     return ScanResult(sorted(found, key=lambda c: c.osm_relation_id), skipped)
 
 
@@ -231,6 +300,7 @@ def read_candidates(path: Path) -> list[Candidate]:
                 auto_reason=r["auto_reason"],
                 manual_decision=manual,
                 manual_reason=r.get("manual_reason") or "",
+                region=(r["region"].strip() or None) if "region" in r else LEGACY_REGION,
             )
         )
     return out
@@ -247,9 +317,14 @@ def _write(path: Path, rows: list[Candidate]) -> None:
     tmp.replace(path)
 
 
-def write_candidates(path: Path, scanned: list[Candidate]) -> None:
+def write_candidates(
+    path: Path, scanned: list[Candidate], regions: Collection[str] | None = None
+) -> None:
     """Merge a scan into the CSV: OSM columns and auto decision come from the scan, the
-    manual columns from the existing file. Rows missing from the scan stay, marked as gone."""
+    manual columns from the existing file. Rows missing from the scan stay, marked as gone.
+
+    With `regions` (ids of a partial scan) only rows of those regions can be marked gone;
+    all other rows stay exactly as they are."""
     existing = {c.osm_relation_id: c for c in read_candidates(path)}
     merged: dict[int, Candidate] = {}
     for c in scanned:
@@ -258,7 +333,11 @@ def write_candidates(path: Path, scanned: list[Candidate]) -> None:
             c.manual_decision, c.manual_reason = old.manual_decision, old.manual_reason
         merged[c.osm_relation_id] = c
     for rid, old in existing.items():
-        if rid not in merged:
+        if rid in merged:
+            continue
+        if regions is not None and old.region not in regions:
+            merged[rid] = old
+        else:
             old.auto_decision, old.auto_reason = "rejected", GONE_REASON
             merged[rid] = old
     _write(path, list(merged.values()))
@@ -327,7 +406,9 @@ def import_day_hike(
     length_km = round(path_length_km([line]), 2)
     stats = elevation_stats(line, dem)
     roundtrip = is_roundtrip(tags, line)
-    surface, way_type = trail_shares(data, [rid], way_tags) if way_tags is not None else (None, None)
+    surface, way_type = (
+        trail_shares(data, [rid], way_tags) if way_tags is not None else (None, None)
+    )
     upsert_trail(
         conn,
         id=trail_id(rid),
