@@ -106,7 +106,7 @@ it("Merken saves the plan unchanged, only when signed in", async () => {
 });
 
 it("planTitle prefers the trail label", () => {
-  expect(planTitle({ ...data([day(1)], { labels: { "trail:westweg-west": "Westweg" } }), start_name: "Hausach" })).toBe("Westweg ab Hausach, 1 Tag");
+  expect(planTitle({ ...data([day(1)], { labels: { "trail:westweg-west": "Westweg" } }), start_name: "Hausach" }, "de")).toBe("Westweg ab Hausach, 1 Tag");
 });
 
 it("weather fallback says ohne Datum only for an undated day", () => {

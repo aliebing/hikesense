@@ -206,12 +206,6 @@ type ChatErrorKey = keyof ReturnType<typeof messagesFor>["errors"]["chat"];
 /** The web app's own error texts (not the backend's) in the given language. */
 export const chatError = (key: ChatErrorKey, lang: Locale): string => messagesFor(lang).errors.chat[key];
 
-export const ERROR_INTERRUPTED = chatError("interrupted", "de");
-export const ERROR_REJECTED = chatError("rejected", "de");
-export const ERROR_AUTH = chatError("sessionExpired", "de");
-export const ERROR_AUTH_UNAVAILABLE = chatError("authUnavailable", "de");
-export const ERROR_UNREACHABLE = chatError("unreachable", "de");
-
 /** True for the "sign-in cannot be checked" message in either language. */
 export const isAuthUnavailable = (message: string): boolean => message === chatError("authUnavailable", "de") || message === chatError("authUnavailable", "en");
 
@@ -250,9 +244,9 @@ export async function streamChat(
   threadId: string,
   message: string,
   onEvent: (e: ChatEvent) => void,
-  signal?: AbortSignal,
-  accessToken?: string | null,
-  lang: Locale = "de",
+  signal: AbortSignal | undefined,
+  accessToken: string | null | undefined,
+  lang: Locale,
 ): Promise<void> {
   try {
     const res = await fetch(`${apiUrl}/chat`, {

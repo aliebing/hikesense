@@ -66,8 +66,6 @@ export async function getAccessToken(): Promise<string | null> {
   }
 }
 
-export const MSG_CONFIRM_EMAIL = messagesFor("de").errors.auth.confirmEmail;
-
 /** Maps a Supabase error message to the web app's own text in the given language. */
 function localized(message: string | undefined, locale: Locale): string {
   const m = message ?? "";
@@ -93,10 +91,10 @@ async function run(call: () => Promise<{ error: { message: string } | null; sess
   }
 }
 
-export const signIn = (email: string, password: string, locale: Locale = "de"): Promise<AuthResult> =>
+export const signIn = (email: string, password: string, locale: Locale): Promise<AuthResult> =>
   run(() => getBrowserSupabase().auth.signInWithPassword({ email, password }), locale);
 
-export async function signUp(email: string, password: string, locale: Locale = "de"): Promise<AuthResult> {
+export async function signUp(email: string, password: string, locale: Locale): Promise<AuthResult> {
   try {
     const { data, error } = await getBrowserSupabase().auth.signUp({ email, password });
     if (error) return { error: localized(error.message, locale) };
@@ -108,7 +106,7 @@ export async function signUp(email: string, password: string, locale: Locale = "
   }
 }
 
-export const signOut = (): Promise<AuthResult> => run(() => getBrowserSupabase().auth.signOut(), "de");
+export const signOut = (locale: Locale): Promise<AuthResult> => run(() => getBrowserSupabase().auth.signOut(), locale);
 
 /** A bare name without "@" signs in as <name>@hikeall.local (local admin: "admin"). */
 export function loginEmail(input: string): string {

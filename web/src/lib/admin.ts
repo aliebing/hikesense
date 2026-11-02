@@ -1,4 +1,6 @@
 import { getAccessToken } from "./auth";
+import { messagesFor, type Locale } from "../i18n/locale";
+import { dateIn, MISSING, num } from "./format";
 
 export type AdminUser = { user_id: string; email: string | null; role: string | null; searches: number };
 
@@ -95,16 +97,17 @@ export type SearchDetail = {
   duration_ms?: number | null;
 };
 
-export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
+/** Failure carries only the HTTP status (0 = no connection); texts come from the catalog via adminErrorText. */
+export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number };
 
 export async function adminGet<T>(path: string): Promise<AdminResult<T>> {
   const token = await getAccessToken();
-  if (!token) return { ok: false, status: 401, message: "Bitte anmelden." };
+  if (!token) return { ok: false, status: 401 };
   let res: Response;
   try {
     res = await fetch("/api/admin" + path, { headers: { Authorization: `Bearer ${token}` } });
   } catch {
-    return { ok: false, status: 0, message: "Backend nicht erreichbar" };
+    return { ok: false, status: 0 };
   }
   let body: unknown = null;
   try {
@@ -112,28 +115,32 @@ export async function adminGet<T>(path: string): Promise<AdminResult<T>> {
   } catch {
     /* no JSON body */
   }
-  if (!res.ok) {
-    const d = (body as { detail?: unknown } | null)?.detail;
-    return { ok: false, status: res.status, message: typeof d === "string" ? d : `Fehler ${res.status}` };
-  }
+  if (!res.ok) return { ok: false, status: res.status };
   return { ok: true, data: body as T };
 }
 
-const usdFmt = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-const secFmt = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+/** Catalog text for a failed admin call. */
+export function adminErrorText(status: number, locale: Locale): string {
+  const a = messagesFor(locale).admin;
+  if (status === 401) return a.signInPlease;
+  if (status === 403) return a.noAccess;
+  if (status === 503) return a.notSetUp;
+  if (status === 0) return a.unreachable;
+  return a.error(status);
+}
 
-export const usd = (v: number | null | undefined): string => (v == null ? "–" : `${usdFmt.format(v)} $`);
-export const ms = (v: number | null | undefined): string => (v == null ? "–" : `${secFmt.format(v / 1000)} s`);
+export const usd = (v: number | null | undefined, locale: Locale): string => (v == null ? MISSING : `${num(v, locale, { min: 4 })} $`);
+export const ms = (v: number | null | undefined, locale: Locale): string => (v == null ? MISSING : `${num(v / 1000, locale, { min: 1 })} s`);
 
 const dayFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }); // YYYY-MM-DD
-const timeFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
-const dateFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" }); // "31.10."
 
-export function when(ts: string, now: Date = new Date()): string {
+export function when(ts: string, locale: Locale, now: Date = new Date()): string {
   const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return "–";
+  if (Number.isNaN(d.getTime())) return MISSING;
+  const a = messagesFor(locale).admin;
+  const time = dateIn(d, locale, { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
   const day = dayFmt.format(d);
-  if (day === dayFmt.format(now)) return `heute ${timeFmt.format(d)}`;
-  if (day === dayFmt.format(new Date(now.getTime() - 86_400_000))) return `gestern ${timeFmt.format(d)}`;
-  return `${dateFmt.format(d)} ${timeFmt.format(d)}`;
+  if (day === dayFmt.format(now)) return `${a.today} ${time}`;
+  if (day === dayFmt.format(new Date(now.getTime() - 86_400_000))) return `${a.yesterday} ${time}`;
+  return `${dateIn(d, locale, { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" })} ${time}`;
 }

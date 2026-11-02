@@ -3,7 +3,7 @@ import type { PlanStop } from "./chat";
 import { safeWebsite } from "./map";
 
 /** A finite number formatted, else „unbekannt“ / "unknown". */
-export function numOr(v: number | null | undefined, fmt: (n: number) => string, locale: Locale = "de"): string {
+export function numOr(v: number | null | undefined, fmt: (n: number) => string, locale: Locale): string {
   return typeof v === "number" && Number.isFinite(v) ? fmt(v) : messagesFor(locale).plan.unknown;
 }
 
@@ -17,7 +17,7 @@ export function searchLink(name: string, place?: string | null): string {
 }
 
 /** Website if it is a safe http(s) link, else a search for the name; null without a name. */
-export function lodgingLink(stop: Pick<PlanStop, "name" | "website">, place?: string | null, locale: Locale = "de"): { href: string; label: string } | null {
+export function lodgingLink(stop: Pick<PlanStop, "name" | "website">, place: string | null | undefined, locale: Locale): { href: string; label: string } | null {
   const t = messagesFor(locale).tour;
   const site = safeWebsite(stop.website);
   if (site) return { href: site, label: t.website };

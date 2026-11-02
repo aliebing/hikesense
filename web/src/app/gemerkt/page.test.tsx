@@ -2,7 +2,7 @@ import { stripFallback } from "../../components/ChatMessages";
 import { render, screen } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({ maybeSingle: vi.fn(), id: "" as string | null, session: null as null | object, row: null as unknown, error: null as unknown }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }), useRouter: () => ({ refresh: () => {} }) }));
 vi.mock("../../lib/auth", () => ({
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({
@@ -14,6 +14,7 @@ vi.mock("../../components/TourPreview", () => ({ default: ({ card }: { card: { n
 vi.mock("../../components/MerkenButton", () => ({ default: () => null }));
 
 import GemerktPage from "./page";
+import { renderWithLocale } from "../../test-utils";
 
 const card = (id: string, name: string) => ({
   trail_id: id, name, length_km: 10, ascent_m: 100, duration_h: 3, distance_km: null, cover_thumb_url: null, cover_author: null,
@@ -131,4 +132,39 @@ it("shows a near-miss card yellow with its badge", async () => {
   render(<GemerktPage />);
   expect(await screen.findByText("Knapp daneben")).toBeInTheDocument();
   expect(screen.getAllByText("Knapp daneben")).toHaveLength(1);
+});
+
+describe("in English", () => {
+  it("shows the saved date and the tiles' frame in English", async () => {
+    renderWithLocale(<GemerktPage />, "en");
+    expect(await screen.findByText("Saved on 31/10/2026")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Saved search" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← My plans" })).toHaveAttribute("href", "/meine-plaene");
+  });
+
+  it("translates the error codes", async () => {
+    h.row = null;
+    const { unmount } = renderWithLocale(<GemerktPage />, "en");
+    expect(await screen.findByRole("alert")).toHaveTextContent("This saved search does not exist (any more).");
+    unmount();
+    h.row = row({ v: 1, messages: [], results: { cards: [] } }, "day_hike");
+    const bad = renderWithLocale(<GemerktPage />, "en");
+    expect(await screen.findByRole("alert")).toHaveTextContent("This saved search cannot be displayed.");
+    bad.unmount();
+    h.row = null;
+    h.error = { message: "x" };
+    renderWithLocale(<GemerktPage />, "en");
+    expect(await screen.findByRole("alert")).toHaveTextContent("The saved search could not be loaded");
+  });
+
+  it("asks to sign in and says when there are no tours", async () => {
+    h.session = null;
+    const { unmount } = renderWithLocale(<GemerktPage />, "en");
+    expect(screen.getByText(/To view your search, please/)).toBeInTheDocument();
+    unmount();
+    h.session = { user: {} };
+    h.row = row(payload({ results: { ...payload().results, cards: [] } }));
+    renderWithLocale(<GemerktPage />, "en");
+    expect(await screen.findByText("This saved search contains no tours.")).toBeInTheDocument();
+  });
 });

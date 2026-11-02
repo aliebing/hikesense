@@ -16,23 +16,23 @@ afterEach(() => vi.unstubAllEnvs());
 
 it("maps supabase error to German", async () => {
   sb.signInWithPassword.mockResolvedValue({ data: {}, error: { message: "Invalid login credentials" } });
-  expect(await signIn("a@b.de", "x")).toEqual({ error: "E-Mail oder Passwort falsch" });
+  expect(await signIn("a@b.de", "x", "de")).toEqual({ error: "E-Mail oder Passwort falsch" });
   sb.signUp.mockResolvedValue({ data: {}, error: { message: "User already registered" } });
-  expect((await signUp("a@b.de", "xxxxxx")).error).toMatch(/schon registriert/);
+  expect((await signUp("a@b.de", "xxxxxx", "de")).error).toMatch(/schon registriert/);
 });
 
 it("sign-up without session asks to confirm the e-mail", async () => {
   sb.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-  expect(await signUp("a@b.de", "xxxxxx")).toEqual({ error: null, notice: "Bitte bestätige deine E-Mail-Adresse" });
+  expect(await signUp("a@b.de", "xxxxxx", "de")).toEqual({ error: null, notice: "Bitte bestätige deine E-Mail-Adresse" });
   sb.signUp.mockResolvedValue({ data: { session: {}, user: {} }, error: null });
-  expect(await signUp("a@b.de", "xxxxxx")).toEqual({ error: null });
+  expect(await signUp("a@b.de", "xxxxxx", "de")).toEqual({ error: null });
 });
 
 it("signs in and out, and reads the token", async () => {
   sb.signInWithPassword.mockResolvedValue({ data: {}, error: null });
-  expect(await signIn("a@b.de", "x")).toEqual({ error: null });
+  expect(await signIn("a@b.de", "x", "de")).toEqual({ error: null });
   sb.signOut.mockResolvedValue({ error: null });
-  expect(await signOut()).toEqual({ error: null });
+  expect(await signOut("de")).toEqual({ error: null });
   sb.getSession.mockResolvedValue({ data: { session: { access_token: "t" } } });
   expect(await getAccessToken()).toBe("t");
   sb.getSession.mockRejectedValue(new Error("x"));

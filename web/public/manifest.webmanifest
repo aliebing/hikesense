@@ -1,8 +1,8 @@
 {
-  "name": "Hike all about – Wandern im Schwarzwald",
+  "name": "Hike all about – Hiking in the Black Forest",
   "short_name": "Hike all about",
-  "description": "Wanderungen im Schwarzwald im Gespräch planen und unterwegs verfolgen.",
-  "lang": "de",
+  "description": "Plan hikes in the Black Forest in conversation and follow them on the trail.",
+  "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

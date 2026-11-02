@@ -61,7 +61,7 @@ export function normalizePlan(p: unknown): PlanData | null {
 }
 
 /** One line for the chat: the number of days, or (no day possible) the note that says why. */
-export function planSummary(p: PlanData, locale: Locale = "de"): string {
+export function planSummary(p: PlanData, locale: Locale): string {
   const n = p.plan.days.length;
   const t = messagesFor(locale).chat;
   if (n === 0) return p.plan.notes.join(" ") || t.noPlan;

@@ -44,7 +44,7 @@ export function savedSearchOf(state: ChatState): SavedSearch | null {
 const cut = (t: string) => (t.length > 80 ? t.slice(0, 79) + "…" : t);
 
 /** Title from the understood request (start, constraints, preferences); falls back to the messages. */
-export function searchTitle(s: SavedSearch, locale: Locale = "de"): string {
+export function searchTitle(s: SavedSearch, locale: Locale): string {
   const m = messagesFor(locale).results;
   const req = s.results?.request;
   if (req && s.results.cards.length > 0) {
@@ -72,37 +72,40 @@ export function isSavedSearch(payload: unknown): payload is SavedSearch {
 
 export type SavedPlan = { id: string; kind: PlanKind; title: string; payload: unknown; created_at: string };
 
-const MSG_FAILED = "Das Merken hat nicht geklappt – bitte versuche es noch einmal";
+/** Failure codes of the plan storage calls; the UI translates them at render time. */
+export type PlanError = "save" | "load" | "delete";
+
+export const planErrorText = (code: PlanError, locale: Locale): string => messagesFor(locale).errors.plans[code];
 
 /** Saves the payload exactly as received (TourCard / MultidayPlan); RLS ties the row to the signed-in user. */
-export async function savePlan(kind: PlanKind, title: string, payload: unknown): Promise<{ error: string | null }> {
+export async function savePlan(kind: PlanKind, title: string, payload: unknown): Promise<{ error: PlanError | null }> {
   try {
     const { error } = await getBrowserSupabase().from("saved_plans").insert({ kind, title, payload });
-    return { error: error ? MSG_FAILED : null };
+    return { error: error ? "save" : null };
   } catch {
-    return { error: MSG_FAILED };
+    return { error: "save" };
   }
 }
 
 /** Own plans, newest first (RLS hides everyone else's). */
-export async function listPlans(): Promise<{ plans: SavedPlan[]; error: string | null }> {
+export async function listPlans(): Promise<{ plans: SavedPlan[]; error: PlanError | null }> {
   try {
     const { data, error } = await getBrowserSupabase()
       .from("saved_plans")
       .select("id, kind, title, payload, created_at")
       .order("created_at", { ascending: false });
-    if (error) return { plans: [], error: "Die Pläne konnten nicht geladen werden" };
+    if (error) return { plans: [], error: "load" };
     return { plans: (data ?? []) as SavedPlan[], error: null };
   } catch {
-    return { plans: [], error: "Die Pläne konnten nicht geladen werden" };
+    return { plans: [], error: "load" };
   }
 }
 
-export async function deletePlan(id: string): Promise<{ error: string | null }> {
+export async function deletePlan(id: string): Promise<{ error: PlanError | null }> {
   try {
     const { error } = await getBrowserSupabase().from("saved_plans").delete().eq("id", id);
-    return { error: error ? "Das Löschen hat nicht geklappt" : null };
+    return { error: error ? "delete" : null };
   } catch {
-    return { error: "Das Löschen hat nicht geklappt" };
+    return { error: "delete" };
   }
 }

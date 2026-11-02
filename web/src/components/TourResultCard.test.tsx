@@ -5,7 +5,7 @@ import type { TourCard } from "../lib/chat";
 
 const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
 vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }) }));
-vi.mock("../lib/plans", () => ({ savePlan: h.savePlan }));
+vi.mock("../lib/plans", async (orig) => ({ ...(await orig<typeof import("../lib/plans")>()), savePlan: h.savePlan }));
 
 import { renderWithLocale } from "../test-utils";
 import TourResultCard from "./TourResultCard";
@@ -150,7 +150,7 @@ it("Merken saves the card unchanged as day_hike, then shows Gemerkt (disabled)",
 
 it("Merken shows a short German error and stays available", async () => {
   h.session = { user: {} };
-  h.savePlan.mockResolvedValue({ error: "Das Merken hat nicht geklappt – bitte versuche es noch einmal" });
+  h.savePlan.mockResolvedValue({ error: "save" });
   render(<TourResultCard card={card()} />);
   await userEvent.click(screen.getByRole("button", { name: "Merken" }));
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Das Merken hat nicht geklappt"));

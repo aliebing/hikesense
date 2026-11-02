@@ -14,6 +14,7 @@ vi.mock("../../lib/auth", () => ({
 vi.mock("../../lib/plans", async (orig) => ({ ...(await orig<typeof import("../../lib/plans")>()), listPlans: h.listPlans, deletePlan: h.deletePlan }));
 
 import MeinePlaene from "./page";
+import { renderWithLocale } from "../../test-utils";
 
 const plans = [
   { id: "p1", kind: "day_hike", title: "Feldsee-Runde", payload: { trail_id: "t1" }, created_at: "2026-10-30T10:00:00Z" },
@@ -58,7 +59,7 @@ it("shows an empty hint and load errors", async () => {
   const { unmount } = render(<MeinePlaene />);
   expect(await screen.findByText(/noch keine Pläne/)).toBeInTheDocument();
   unmount();
-  h.listPlans.mockResolvedValue({ plans: [], error: "Die Pläne konnten nicht geladen werden" });
+  h.listPlans.mockResolvedValue({ plans: [], error: "load" });
   render(<MeinePlaene />);
   expect(await screen.findByRole("alert")).toHaveTextContent("nicht geladen");
 });
@@ -105,4 +106,30 @@ it("says 1 Tour in the singular", async () => {
   h.listPlans.mockResolvedValue({ plans: [{ ...search, payload: { ...search.payload, results: { cards: [{}] } } }], error: null });
   render(<MeinePlaene />);
   expect(await screen.findByText("Suche · 31.10.2026 · 1 Tour")).toBeInTheDocument();
+});
+
+describe("in English", () => {
+  it("shows heading, kind, date and delete label", async () => {
+    renderWithLocale(<MeinePlaene />, "en");
+    expect(screen.getByRole("heading", { level: 1, name: "My plans" })).toBeInTheDocument();
+    expect(await screen.findByText("Day hike · 30/10/2026")).toBeInTheDocument();
+    expect(screen.getByText(/^Multi-day tour/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete: Feldsee-Runde" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← Back to chat" })).toHaveAttribute("href", "/");
+  });
+
+  it("asks to sign in, shows the empty hint and a translated error", async () => {
+    h.session = null;
+    const { unmount } = renderWithLocale(<MeinePlaene />, "en");
+    expect(screen.getByText(/To view your plans, please/)).toBeInTheDocument();
+    unmount();
+    h.session = { user: { email: "a@b.de" } };
+    h.listPlans.mockResolvedValue({ plans: [], error: null });
+    const second = renderWithLocale(<MeinePlaene />, "en");
+    expect(await screen.findByText("You haven't saved any plans yet.")).toBeInTheDocument();
+    second.unmount();
+    h.listPlans.mockResolvedValue({ plans: [], error: "load" });
+    renderWithLocale(<MeinePlaene />, "en");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your plans could not be loaded");
+  });
 });

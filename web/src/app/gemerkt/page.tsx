@@ -8,15 +8,17 @@ import ChatText from "../../components/ChatText";
 import PageFrame from "../../components/PageFrame";
 import TourPreview from "../../components/TourPreview";
 import TourResultCard from "../../components/TourResultCard";
+import { useLocale, useT } from "../../i18n";
+import { messagesFor } from "../../i18n/locale";
 import { getBrowserSupabase, useSession } from "../../lib/auth";
 import type { Labels, TourCard } from "../../lib/chat";
+import { dateIn } from "../../lib/format";
 import { isSavedSearch } from "../../lib/plans";
 
-const MSG_LOAD = "Die gemerkte Suche konnte nicht geladen werden";
-const MSG_BAD = "Diese gemerkte Suche lässt sich nicht anzeigen.";
+/** Load failures are codes (keys of errors.plans), translated at render time. */
+type LoadError = { error: "savedLoad" | "savedBad" | "savedGone" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MSG_GONE = "Diese gemerkte Suche gibt es nicht (mehr).";
-const date = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
+const DATE: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" };
 
 type Loaded = { createdAt: string; messages: string[]; answer: string; cards: TourCard[]; fallback: string | null; runWithoutPace: boolean; labels: Labels };
 
@@ -29,13 +31,13 @@ function usableCard(c: unknown): c is TourCard {
   return Array.isArray(c.preference.met) && Array.isArray(c.preference.missing) && Array.isArray(c.preference.avoided_hit);
 }
 
-async function load(id: string): Promise<Loaded | { error: string }> {
-  if (!UUID.test(id)) return { error: MSG_GONE };
+async function load(id: string): Promise<Loaded | LoadError> {
+  if (!UUID.test(id)) return { error: "savedGone" };
   try {
     const { data, error } = await getBrowserSupabase().from("saved_plans").select("title, kind, payload, created_at").eq("id", id).maybeSingle();
-    if (error) return { error: MSG_LOAD };
-    if (!data) return { error: MSG_GONE };
-    if (data.kind !== "search" || !isSavedSearch(data.payload)) return { error: MSG_BAD };
+    if (error) return { error: "savedLoad" };
+    if (!data) return { error: "savedGone" };
+    if (data.kind !== "search" || !isSavedSearch(data.payload)) return { error: "savedBad" };
     const p = data.payload;
     const r = p.results as unknown as Record<string, unknown>;
     return {
@@ -48,7 +50,7 @@ async function load(id: string): Promise<Loaded | { error: string }> {
       labels: isObj(r.labels) ? (r.labels as Labels) : {},
     };
   } catch {
-    return { error: MSG_LOAD };
+    return { error: "savedLoad" };
   }
 }
 
@@ -56,7 +58,10 @@ function Saved() {
   const id = useSearchParams().get("id");
   const { session, loading } = useSession();
   const signedIn = !!session;
-  const [result, setResult] = useState<Loaded | { error: string } | null>(null);
+  const { locale } = useLocale();
+  const t = useT().plans;
+  const e = messagesFor(locale).errors.plans;
+  const [result, setResult] = useState<Loaded | LoadError | null>(null);
 
   useEffect(() => {
     setResult(null); // another search or no session: never show the previous one
@@ -73,26 +78,26 @@ function Saved() {
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
-      <h1 className="font-serif text-3xl sm:text-4xl">Gemerkte Suche</h1>
+      <h1 className="font-serif text-3xl sm:text-4xl">{t.savedTitle}</h1>
       {!loading && !session && (
         <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
-          Zum Ansehen deiner Suche bitte{" "}
+          {t.savedSignInBefore}
           <Link href="/anmelden" className="underline">
-            Anmelden
+            {t.signIn}
           </Link>
           .
         </p>
       )}
-      {!loading && session && !id && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{MSG_GONE}</p>}
+      {!loading && session && !id && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{e.savedGone}</p>}
       {signedIn && result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
-          {result.error}
+          {e[result.error]}
         </p>
       )}
       {signedIn && result && "cards" in result && (
         <>
           {!Number.isNaN(new Date(result.createdAt).getTime()) && (
-            <p className="schrift-feld text-sm text-papier">Gemerkt am {date.format(new Date(result.createdAt))}</p>
+            <p className="schrift-feld text-sm text-papier">{t.savedOn(dateIn(new Date(result.createdAt), locale, DATE))}</p>
           )}
           {result.messages.length > 0 && (
             <div className="flex max-w-xl flex-col gap-2">
@@ -114,7 +119,7 @@ function Saved() {
             </p>
           )}
           {result.cards.length === 0 ? (
-            <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Diese gemerkte Suche enthält keine Touren.</p>
+            <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{t.noTours}</p>
           ) : result.cards.length === 1 ? (
             <TourPreview card={result.cards[0]} runWithoutPace={result.runWithoutPace} labels={result.labels} fallback={!!result.fallback} />
           ) : (
@@ -133,9 +138,16 @@ function Saved() {
 export default function GemerktPage() {
   return (
     <Suspense>
-      <PageFrame back={{ href: "/meine-plaene", label: "← Meine Pläne" }}>
-        <Saved />
-      </PageFrame>
+      <Framed />
     </Suspense>
+  );
+}
+
+function Framed() {
+  const t = useT().plans;
+  return (
+    <PageFrame back={{ href: "/meine-plaene", label: t.backPlans }}>
+      <Saved />
+    </PageFrame>
   );
 }

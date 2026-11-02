@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useT } from "../i18n";
+import { useLocale, useT } from "../i18n";
 import { useSession } from "../lib/auth";
-import { savePlan, type PlanKind } from "../lib/plans";
+import { planErrorText, savePlan, type PlanError, type PlanKind } from "../lib/plans";
 
 /** „Merken“ for signed-in users only; saves the payload unchanged, then shows „Gemerkt“. */
 export default function MerkenButton({ kind, title, payload, className = "", label, savedLabel, onPhoto = false, disabled = false }: { kind: PlanKind; title: string; payload: unknown; className?: string; label?: string; savedLabel?: string; onPhoto?: boolean; disabled?: boolean }) {
   const { session } = useSession();
+  const { locale } = useLocale();
   const t = useT().results;
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PlanError | null>(null);
   if (!session) return null;
   const save = async () => {
     setState("saving");
@@ -33,7 +34,7 @@ export default function MerkenButton({ kind, title, payload, className = "", lab
       </button>
       {error && (
         <p role="alert" className="text-xs text-red-800">
-          {error}
+          {planErrorText(error, locale)}
         </p>
       )}
     </div>

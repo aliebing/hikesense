@@ -1,4 +1,4 @@
-import { ERROR_REJECTED, parseSse, streamChat, type ChatEvent } from "./chat";
+import { chatError, parseSse, streamChat, type ChatEvent } from "./chat";
 
 const ev = (type: string, extra: object = {}) => `event: ${type}\ndata: ${JSON.stringify({ type, ...extra })}\n\n`;
 
@@ -20,7 +20,7 @@ it("handles CRLF and ignores comments", () => {
 it("shows a German error event when the API is unreachable", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
   const got: ChatEvent[] = [];
-  await streamChat("http://x", "t", "hi", (e) => got.push(e));
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, null, "de");
   expect(got).toHaveLength(1);
   expect(got[0]).toMatchObject({ type: "error", message: expect.stringContaining("nicht erreichbar") });
   vi.unstubAllGlobals();
@@ -47,7 +47,7 @@ it("parses a final event without trailing blank line", async () => {
   const body = `event: done\ndata: {"type":"done","usage":{},"unsupported":0}`;
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(streamOf(body), { status: 200 })));
   const got: ChatEvent[] = [];
-  await streamChat("http://x", "t", "hi", (e) => got.push(e));
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, null, "de");
   expect(got.map((e) => e.type)).toEqual(["done"]);
   vi.unstubAllGlobals();
 });
@@ -56,7 +56,7 @@ it("reports an error when the stream ends without done", async () => {
   const body = `event: token\ndata: {"type":"token","text":"a"}\n\n`;
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(streamOf(body), { status: 200 })));
   const got: ChatEvent[] = [];
-  await streamChat("http://x", "t", "hi", (e) => got.push(e));
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, null, "de");
   expect(got.map((e) => e.type)).toEqual(["token", "error"]);
   expect(got[1]).toMatchObject({ message: expect.stringContaining("unterbrochen") });
   vi.unstubAllGlobals();
@@ -66,7 +66,7 @@ it("passes through the 429 error event without a second error", async () => {
   const body = `event: error\ndata: {"type":"error","message":"Zu viele Anfragen. Bitte warte 30 Sekunden."}\n\n`;
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(streamOf(body), { status: 429 })));
   const got: ChatEvent[] = [];
-  await streamChat("http://x", "t", "hi", (e) => got.push(e));
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, null, "de");
   expect(got).toEqual([{ type: "error", message: "Zu viele Anfragen. Bitte warte 30 Sekunden." }]);
   vi.unstubAllGlobals();
 });
@@ -76,7 +76,7 @@ it("is silent when aborted", async () => {
   const got: ChatEvent[] = [];
   const ctrl = new AbortController();
   ctrl.abort();
-  await streamChat("http://x", "t", "hi", (e) => got.push(e), ctrl.signal);
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), ctrl.signal, null, "de");
   expect(got).toEqual([]);
   vi.unstubAllGlobals();
 });
@@ -87,8 +87,8 @@ it("a rejected request (4xx without events) gets its own message, not 'nicht err
     vi.fn().mockResolvedValue(new Response('{"detail":[]}', { status: 422, headers: { "Content-Type": "application/json" } })),
   );
   const got: ChatEvent[] = [];
-  await streamChat("http://api", "t", "x", (e) => got.push(e));
-  expect(got).toEqual([{ type: "error", message: ERROR_REJECTED }]);
+  await streamChat("http://api", "t", "x", (e) => got.push(e), undefined, null, "de");
+  expect(got).toEqual([{ type: "error", message: chatError("rejected", "de") }]);
   vi.unstubAllGlobals();
 });
 
@@ -100,10 +100,10 @@ it("sends the language in the request body", async () => {
   vi.unstubAllGlobals();
 });
 
-it("web error texts follow the language, with a German default", async () => {
-  const { chatError, isAuthUnavailable } = await import("./chat");
+it("web error texts follow the language, in both languages", async () => {
+  const { isAuthUnavailable } = await import("./chat");
   expect(chatError("unreachable", "en")).toBe("The planning service is not available right now. Please try again shortly.");
-  expect(chatError("rejected", "de")).toBe(ERROR_REJECTED);
+  expect(chatError("rejected", "de")).toBe("Die Nachricht konnte nicht verarbeitet werden. Bitte formuliere sie neu oder kürzer.");
   expect(isAuthUnavailable(chatError("authUnavailable", "en"))).toBe(true);
   expect(isAuthUnavailable(chatError("authUnavailable", "de"))).toBe(true);
   expect(isAuthUnavailable("anything else")).toBe(false);

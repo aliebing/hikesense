@@ -29,11 +29,11 @@ it("saves the card payload unchanged", async () => {
   expect(h.insert.mock.calls[0][0].payload).toBe(payload);
 });
 
-it("reports a German error when saving fails", async () => {
+it("reports a code when saving fails", async () => {
   h.insert.mockResolvedValue({ error: { message: "boom" } });
-  expect((await savePlan("multiday", "x", {})).error).toMatch(/Merken/);
+  expect((await savePlan("multiday", "x", {})).error).toBe("save");
   h.insert.mockRejectedValue(new Error("offline"));
-  expect((await savePlan("multiday", "x", {})).error).toMatch(/Merken/);
+  expect((await savePlan("multiday", "x", {})).error).toBe("save");
 });
 
 it("lists and deletes own plans", async () => {
@@ -50,7 +50,7 @@ it("list failure gives an empty list and a message", async () => {
   h.order.mockResolvedValue({ data: null, error: { message: "x" } });
   const r = await listPlans();
   expect(r.plans).toEqual([]);
-  expect(r.error).toMatch(/geladen/);
+  expect(r.error).toBe("load");
 });
 
 const card = (id: string) => ({ trail_id: id, name: id }) as unknown as TourCard;
@@ -108,11 +108,11 @@ it("savedSearchOf keeps fallback", () => {
 
 it("searchTitle joins, truncates and falls back", () => {
   const r = {} as LastResults;
-  expect(searchTitle({ v: 1, messages: ["Feldberg 15 km", "mit Einkehr"], answer: "", results: r })).toBe("Feldberg 15 km · mit Einkehr");
-  const t = searchTitle({ v: 1, messages: ["x".repeat(200)], answer: "", results: r });
+  expect(searchTitle({ v: 1, messages: ["Feldberg 15 km", "mit Einkehr"], answer: "", results: r }, "de")).toBe("Feldberg 15 km · mit Einkehr");
+  const t = searchTitle({ v: 1, messages: ["x".repeat(200)], answer: "", results: r }, "de");
   expect(t.length).toBe(80);
   expect(t.endsWith("…")).toBe(true);
-  expect(searchTitle({ v: 1, messages: [], answer: "", results: r })).toBe("Gemerkte Suche");
+  expect(searchTitle({ v: 1, messages: [], answer: "", results: r }, "de")).toBe("Gemerkte Suche");
 });
 
 const request = (over = {}) => ({
@@ -127,22 +127,22 @@ const request = (over = {}) => ({
 
 it("searchTitle is built from the understood request", () => {
   const results = stateOf([], { request: request() }).last!;
-  expect(searchTitle({ v: 1, messages: ["mit Einkehr"], answer: "", results })).toBe(
+  expect(searchTitle({ v: 1, messages: ["mit Einkehr"], answer: "", results }, "de")).toBe(
     "Feldberg (Gipfel) · Länge ≤ 15 km · Einkehr · ohne Asphalt",
   );
   const noLabel = stateOf([], { request: request({ start: null }) }).last!;
-  expect(searchTitle({ v: 1, messages: [], answer: "", results: noLabel })).toMatch(/^Feldberg · /);
+  expect(searchTitle({ v: 1, messages: [], answer: "", results: noLabel }, "de")).toMatch(/^Feldberg · /);
 });
 
 it("searchTitle cuts long request titles and falls back without a request or cards", () => {
   const long = stateOf([], { request: request({ start: { label: "x".repeat(200) } }) }).last!;
-  const t = searchTitle({ v: 1, messages: [], answer: "", results: long });
+  const t = searchTitle({ v: 1, messages: [], answer: "", results: long }, "de");
   expect(t.length).toBe(80);
   expect(t.endsWith("…")).toBe(true);
   const empty = stateOf([], { request: request(), cards: [] }).last!;
-  expect(searchTitle({ v: 1, messages: ["Feldberg", "mit Einkehr"], answer: "", results: empty })).toBe("Feldberg · mit Einkehr");
+  expect(searchTitle({ v: 1, messages: ["Feldberg", "mit Einkehr"], answer: "", results: empty }, "de")).toBe("Feldberg · mit Einkehr");
   const none = stateOf([], { request: null }).last!;
-  expect(searchTitle({ v: 1, messages: ["Feldberg"], answer: "", results: none })).toBe("Feldberg");
+  expect(searchTitle({ v: 1, messages: ["Feldberg"], answer: "", results: none }, "de")).toBe("Feldberg");
 });
 
 it("isSavedSearch rejects day_hike payloads", () => {

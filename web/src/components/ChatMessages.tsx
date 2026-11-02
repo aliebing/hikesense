@@ -53,14 +53,14 @@ function constraintChip(c: Constraint, locale: Locale): string | null {
 }
 
 /** The constraint chips of a request (shared with the saved-search title). */
-export function constraintChips(r: HikeRequest, locale: Locale = "de"): string[] {
+export function constraintChips(r: HikeRequest, locale: Locale): string[] {
   return r.constraints.flatMap((c) => {
     const text = constraintChip(c, locale);
     return text ? [text] : [];
   });
 }
 
-export function chipsFor(r: HikeRequest, labels: Labels, locale: Locale = "de"): { text: string; warn?: boolean }[] {
+export function chipsFor(r: HikeRequest, labels: Labels, locale: Locale): { text: string; warn?: boolean }[] {
   const t = messagesFor(locale).chat;
   return [
     ...constraintChips(r, locale).map((text) => ({ text })),
@@ -73,7 +73,7 @@ export function chipsFor(r: HikeRequest, labels: Labels, locale: Locale = "de"):
 }
 
 /** Real matches are counted as found; near misses are named separately. */
-export function foundText(cards: { near_miss?: boolean }[], locale: Locale = "de"): string {
+export function foundText(cards: { near_miss?: boolean }[], locale: Locale): string {
   const t = messagesFor(locale).chat;
   const near = cards.filter((c) => c.near_miss).length;
   const n = cards.length - near;

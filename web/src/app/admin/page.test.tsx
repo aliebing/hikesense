@@ -8,6 +8,7 @@ vi.mock("../../lib/auth", () => ({
 vi.mock("../../components/AccountMenu", () => ({ default: () => null }));
 
 import AdminPage from "./page";
+import { renderWithLocale } from "../../test-utils";
 
 const json = (status: number, body: unknown) => ({ ok: status < 300, status, json: async () => body }) as Response;
 const item = (id: string, owner: string, msg: string, over = {}) => ({
@@ -84,4 +85,28 @@ it("shows details of a clicked row", async () => {
   render(<AdminPage />);
   await screen.findByText("Alle (4)");
   expect(await screen.findByText("Detailtext")).toBeInTheDocument();
+});
+
+describe("in English", () => {
+  it("says No access for a 403", async () => {
+    route(json(403, { detail: "Kein Zugriff" }));
+    renderWithLocale(<AdminPage />, "en");
+    expect(await screen.findByText("No access")).toBeInTheDocument();
+  });
+
+  it("shows the table header and the total row in English", async () => {
+    route(json(200, { user_id: "u1", role: "admin" }));
+    renderWithLocale(<AdminPage />, "en");
+    expect(await screen.findByText("All (4)")).toBeInTheDocument();
+    expect(await screen.findByText("Total: 4 searches · 0.4100 $ · Ø 3.6 s")).toBeInTheDocument();
+    for (const h of ["Time", "User", "Search", "Hits"]) expect(screen.getByRole("columnheader", { name: h })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
+    expect(screen.getByText("Recent searches · all")).toBeInTheDocument();
+  });
+
+  it("translates a backend failure by its status", async () => {
+    route(json(503, { detail: "Nicht eingerichtet" }));
+    renderWithLocale(<AdminPage />, "en");
+    expect(await screen.findByText("Not set up")).toBeInTheDocument();
+  });
 });

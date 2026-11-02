@@ -18,19 +18,19 @@ export const POI_KIND: Record<TrailPoi["kind"], { icon: string; group: PoiGroup 
 };
 
 /** Name of a POI kind in the UI language. */
-export function poiKindLabel(kind: TrailPoi["kind"], locale: Locale = "de"): string {
+export function poiKindLabel(kind: TrailPoi["kind"], locale: Locale): string {
   return messagesFor(locale).tour.poiKinds[kind];
 }
 
 /** Labels of the controlled vocabulary (data/tags/features.yaml), keyed by tag_id in the catalog; unknown tags are left out. */
-export function tagLabels(tags: string[], locale: Locale = "de"): string[] {
+export function tagLabels(tags: string[], locale: Locale): string[] {
   const labels = messagesFor(locale).tour.tags as Record<string, string>;
   return tags.flatMap((t) => (labels[t] ? [labels[t]] : []));
 }
 
 const MIN_SHARE_PCT = 5;
 
-export function surfaceLine(shares: Record<string, number> | null, locale: Locale = "de"): string | null {
+export function surfaceLine(shares: Record<string, number> | null, locale: Locale): string | null {
   if (!shares) return null;
   const t = messagesFor(locale).tour;
   const kinds = t.surfaceKinds as Record<string, string>;
@@ -49,7 +49,7 @@ export function describeTour(
     time: string | null;
     pois: TrailPoi[];
   },
-  locale: Locale = "de",
+  locale: Locale,
 ): string | null {
   if (t.length_km === null) return null;
   const m = messagesFor(locale).tour;

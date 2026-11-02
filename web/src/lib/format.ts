@@ -14,22 +14,22 @@ const zero = (l: Locale) => formats[l].zero;
 export const MISSING = "–";
 
 /** 14.83 → "14,8 km"; null → "– km" */
-export function km(n: number | null, locale: Locale = "de"): string {
+export function km(n: number | null, locale: Locale): string {
   return `${n === null ? MISSING : one(locale).format(n)} km`;
 }
 
 /** 720 → "↑ 720 m"; null → "↑ – m" */
-export function hm(n: number | null, locale: Locale = "de"): string {
+export function hm(n: number | null, locale: Locale): string {
   return `↑ ${n === null ? MISSING : zero(locale).format(n)} m`;
 }
 
 /** 700 → "↓ 700 m"; null → "↓ – m" */
-export function hmDown(n: number | null, locale: Locale = "de"): string {
+export function hmDown(n: number | null, locale: Locale): string {
   return `↓ ${n === null ? MISSING : zero(locale).format(n)} m`;
 }
 
 /** 5.17 → "5:10 h" (rounded to whole minutes) */
-export function duration(hours: number, locale: Locale = "de"): string {
+export function duration(hours: number, locale: Locale): string {
   void locale; // "5:10 h" reads the same in both languages
   const minutes = Math.round(hours * 60);
   const h = Math.floor(minutes / 60);
@@ -59,7 +59,7 @@ export function walkingTime(
     ascent_m: number | null;
     descent_m: number | null;
   },
-  locale: Locale = "de",
+  locale: Locale,
 ): string | null {
   if (x.length_km === null || x.ascent_m === null || x.descent_m === null) return null;
   return duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m), locale);
@@ -69,7 +69,7 @@ const numCache = new Map<string, Intl.NumberFormat>();
 const dateCache = new Map<string, Intl.DateTimeFormat>();
 
 /** A plain number in the UI language, e.g. num(3.25, "en", { max: 1 }) → "3.3"; `min` forces decimals. */
-export function num(n: number, locale: Locale = "de", o: { min?: number; max?: number } = {}): string {
+export function num(n: number, locale: Locale, o: { min?: number; max?: number } = {}): string {
   const key = `${locale}|${o.min ?? 0}|${o.max ?? 0}`;
   let f = numCache.get(key);
   if (!f) {

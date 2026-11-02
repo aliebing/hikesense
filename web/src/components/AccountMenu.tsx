@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useT } from "../i18n";
+import { useLocale, useT } from "../i18n";
 import { adminGet } from "../lib/admin";
 import { signOut, useSession } from "../lib/auth";
 import { useResetChat } from "./ChatProvider";
@@ -13,6 +13,7 @@ const shorten = (email: string) => (email.length > 22 ? `${email.slice(0, 20)}â€
 export default function AccountMenu() {
   const { session, loading } = useSession();
   const resetChat = useResetChat();
+  const { locale } = useLocale();
   const t = useT().account;
   const [isAdmin, setIsAdmin] = useState(false);
   const userKey = session?.user.id ?? session?.user.email ?? (session ? "user" : null);
@@ -44,7 +45,7 @@ export default function AccountMenu() {
         {t.myPlans}
       </Link>
       <span title={session.user.email ?? undefined} className="hidden sm:inline">{shorten(session.user.email ?? t.account)}</span>
-      <button type="button" onClick={() => void signOut().finally(() => resetChat?.())} className="whitespace-nowrap underline-offset-4 hover:underline">
+      <button type="button" onClick={() => void signOut(locale).finally(() => resetChat?.())} className="whitespace-nowrap underline-offset-4 hover:underline">
         {t.signOut}
       </button>
     </span>

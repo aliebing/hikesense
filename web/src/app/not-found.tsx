@@ -1,11 +1,15 @@
+"use client";
+
+import { useT } from "../i18n";
 import Notice from "../components/Notice";
 import PageFrame from "../components/PageFrame";
 
 export default function NotFound() {
+  const t = useT().frame;
   return (
-    <PageFrame back={{ href: "/", label: "← Zur Startseite" }}>
-      <Notice title="Diesen Weg gibt es hier nicht.">
-        <p>Vielleicht wurde er (noch) nicht importiert. Zurück zur Startseite.</p>
+    <PageFrame back={{ href: "/", label: t.toHome }}>
+      <Notice title={t.notFoundTitle}>
+        <p>{t.notFoundBody}</p>
       </Notice>
     </PageFrame>
   );

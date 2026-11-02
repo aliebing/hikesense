@@ -25,7 +25,7 @@ function dateText(iso: string | null, locale: Locale): string | null {
 }
 
 /** „Westweg ab Hausach, 3 Tage“ — also the title of the saved plan. */
-export function planTitle(data: PlanData, locale: Locale = "de"): string {
+export function planTitle(data: PlanData, locale: Locale): string {
   const trail = data.labels?.[`trail:${data.plan.trail_id}`] ?? data.plan.trail_name;
   return messagesFor(locale).plan.title(trail, data.start_name ?? null, data.plan.days.length);
 }

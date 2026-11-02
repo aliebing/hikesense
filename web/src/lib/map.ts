@@ -7,7 +7,7 @@ import { haversineKm } from "./geo";
 export const BASEMAP_STYLE = "https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json";
 
 /** Map credits in the UI language. */
-export function attribution(locale: Locale = "de"): string[] {
+export function attribution(locale: Locale): string[] {
   return ["© BKG (basemap.de) CC BY 4.0", locale === "de" ? "© OpenStreetMap-Mitwirkende, ODbL" : "© OpenStreetMap contributors, ODbL"];
 }
 
@@ -112,7 +112,7 @@ export function lodgingsNearby(lodgings: LodgingOnTrail[], maxM = LODGING_MAX_DI
   return lodgings.filter((l) => l.dist_m !== null && l.dist_m <= maxM);
 }
 
-export function lodgingKind(kind: string | null, locale: Locale = "de"): string {
+export function lodgingKind(kind: string | null, locale: Locale): string {
   const t = messagesFor(locale).tour;
   return (kind && (t.lodgingKinds as Record<string, string>)[kind]) || t.lodgingNone;
 }
