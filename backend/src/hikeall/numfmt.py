@@ -14,7 +14,8 @@ Lang = Literal["en", "de"]  # the reply language, defined once here (agent.texts
 
 def _quantize(x: float, decimals: int) -> Decimal:
     # the same 6-decimal text the evidence is built from (grounding.Evidence.add)
-    return Decimal(f"{float(x):.6f}").quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
+    q = Decimal(f"{float(x):.6f}").quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
+    return q.copy_abs() if q == 0 else q  # no "-0" for small negative values
 
 
 def round_half_up(x: float, decimals: int = 0) -> float:

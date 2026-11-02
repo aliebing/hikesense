@@ -78,6 +78,12 @@ class Texts:
     weather_others: str
     weather_no_others: str
     weather_data: str
+    weather_fact_none: str  # facts for the model when the finder has no fitting day
+    weather_fact_misses: str
+    weather_fact_down: str
+    weather_fact_unknown: str
+    weather_label: str  # the model data's forecast line starts with it
+    weather_nopoint: str  # code sentence and fact: no usable forecast point
     # multi-day weather window (code-written; {starts} are dates, {days} the plan's day numbers)
     weather_window_found: str
     weather_window_none: str
@@ -188,6 +194,12 @@ DE = Texts(
     weather_others=" Weitere passende Tage: {days}.",
     weather_no_others=" In den nächsten 14 Tagen passt kein weiterer Tag.",
     weather_data="Wettervorhersage für „{wish}“ bei {place}, passende Tage: {days}",
+    weather_fact_none="Wettervorhersage für „{wish}“ bei {place}: In den nächsten 14 Tagen passt kein Tag.",
+    weather_fact_misses="Wettervorhersage für „{wish}“ bei {place}: {day} passt nicht zu „{wish}“.",
+    weather_fact_down="Wettervorhersage nicht abrufbar.",
+    weather_label="Wettervorhersage",
+    weather_fact_unknown="Wettervorhersage für „{wish}“ bei {place}: Ob {day} passt, lässt sich nicht sagen (Werte fehlen).",
+    weather_nopoint="Wetter für {place} nicht bestimmbar.",
     weather_window_found=(
         "Passende Starttage für ‚{wish}‘ bei den Tageszielen ({n} Tage): {starts}; "
         "der Plan beginnt am {first}"
@@ -302,6 +314,12 @@ EN = Texts(
     weather_others=" Other days that fit: {days}.",
     weather_no_others=" No other day in the next 14 days fits.",
     weather_data="Weather forecast for “{wish}” near {place}, days that fit: {days}",
+    weather_fact_none="Weather forecast for “{wish}” near {place}: No day in the next 14 days fits.",
+    weather_fact_misses="Weather forecast for “{wish}” near {place}: {day} does not fit “{wish}”.",
+    weather_fact_down="Weather forecast not available.",
+    weather_label="Weather forecast",
+    weather_fact_unknown="Weather forecast for “{wish}” near {place}: Whether {day} fits can't be said (values missing).",
+    weather_nopoint="Weather for {place} cannot be determined.",
     weather_window_found=(
         "Start dates that fit ‘{wish}’ at the day destinations ({n} days): {starts}; "
         "the plan starts on {first}"

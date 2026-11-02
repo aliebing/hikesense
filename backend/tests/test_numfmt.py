@@ -66,3 +66,10 @@ def test_fmt_english_and_german():
     assert fmt(11.6, "de") == "11,6"
     assert fmt(3.0, "en") == "3"
     assert fmt(4.35, "en") == "4.4"
+
+
+def test_small_negative_values_never_show_minus_zero():
+    from hikeall.numfmt import de, fmt
+
+    assert de(-0.2, 0) == "0" and fmt(-0.2, "de", 0) == "0" and fmt(-0.04, "en", 1) == "0"
+    assert fmt(-1.4, "en", 0) == "-1"

@@ -181,10 +181,14 @@ def score(w: DayWeather, wish: WeatherWish) -> float:
     """Ranking for "best days", higher is better. Missing values count as worst for the wish."""
     if wish == "snow":
         return w.snowfall_cm if w.snowfall_cm is not None else 0.0
-    # fine/dry: less precipitation first, then lower probability (prob is at most 100)
+    # fine/dry: less precipitation first, then lower probability (prob is at most 100);
+    # "fine" ranks codes 0-3 above all others before that
     mm = w.precip_mm if w.precip_mm is not None else 100.0
     prob = w.precip_prob_pct if w.precip_prob_pct is not None else 100.0
-    return -(mm + prob / 1000.0)
+    base = -(mm + prob / 1000.0)
+    if wish == "fine":  # clear to overcast ranks above fog or precipitation codes, whatever the mm
+        return base + (0.0 if w.code is not None and w.code in FINE_CODES else -1000.0)
+    return base
 
 
 def forecast_range(

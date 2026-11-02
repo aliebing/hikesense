@@ -698,6 +698,11 @@ _ANY_WEATHER = re.compile(
 )
 
 
+def has_weather_word(text: str, wish: WeatherWish) -> bool:
+    """Does the text contain a word of the weather wish (German or English)?"""
+    return bool(_WEATHER_WORDS[wish].search(_plain(text)))
+
+
 def _weather_wish(raw: RawRequest, message: str) -> tuple[WeatherWish | None, int]:
     """The model's weather wish if the message has a matching word; else dropped (counted)."""
     if raw.weather_wish is None:

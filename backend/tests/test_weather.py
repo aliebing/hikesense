@@ -307,3 +307,10 @@ def test_best_windows_unknown_does_not_fit_and_edge_cases():
     assert weather.best_windows([], 2, "fine") == []
     one_day = weather.best_windows([_series_fine({14})], 1, "fine")
     assert len(one_day) == 15 and one_day[0].start == TODAY + timedelta(days=14)
+
+
+def test_fine_score_ranks_clear_codes_above_fog_and_rain():
+    fog = _w(code=45, mm=0.0, prob=0)
+    drizzle_free_overcast = _w(code=3, mm=0.4, prob=25)
+    assert weather.score(drizzle_free_overcast, "fine") > weather.score(fog, "fine")
+    assert weather.score(_w(code=61, mm=0.0), "dry") > weather.score(_w(code=61, mm=2.0), "dry")

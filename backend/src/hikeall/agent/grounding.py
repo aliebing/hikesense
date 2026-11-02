@@ -5,6 +5,7 @@ from the database that the round's evidence does not mention are counted (never 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -429,6 +430,20 @@ def strip_unsat_claims(text: str, lang: Lang = "de") -> tuple[str, int]:
     removed = 0
     for part in sentence.findall(text):
         if claim.search(part):
+            removed += 1
+        else:
+            kept.append(part)
+    return (text, 0) if not removed else ("".join(kept).strip(), removed)
+
+
+def strip_weather_claims(text: str, has_word: Callable[[str], bool], lang: Lang = "de") -> tuple[str, int]:
+    """The text without sentences that contain a word of the weather wish (`has_word(sentence)`),
+    and how many were removed. Used when the forecast says the wish is not met or is unknown."""
+    sentence = _SENTENCE_EN if lang == "en" else _SENTENCE
+    kept: list[str] = []
+    removed = 0
+    for part in sentence.findall(text):
+        if has_word(part):
             removed += 1
         else:
             kept.append(part)

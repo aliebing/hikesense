@@ -2267,3 +2267,95 @@ def test_window_english(vocab, settings):
     deps = _mx(vocab, settings, _series({6, 10}), weather_wish="fine")
     text = text_of(run_en(deps, "2 days Westweg from Hausach in fine weather"))
     assert "at most 1 of 2 days fit, starting Wed 4 Nov." in text
+
+
+# --- weather: facts for the model, guard, honest "cannot determine" ---------------------------
+
+NO_FIT = [_wd(i, code=63, mm=6.0, prob=90) for i in range(15)]
+
+
+def test_weather_fact_for_model_when_no_day_fits_both_languages(vocab, settings):
+    deps = _wx(vocab, settings, NO_FIT, weather_wish="fine")
+    run(deps, FINE_MSG)
+    data = deps.gateway.answer_users[-1]
+    assert "Wettervorhersage für „schönes Wetter“ bei Feldberg: In den nächsten 14 Tagen passt kein Tag." in data
+    deps = _wx(vocab, settings, NO_FIT, weather_wish="fine")
+    list(run_chat(deps, "t1", "Round walk, fine weather", lang="en"))
+    data = deps.gateway.answer_users[-1]
+    assert "Weather forecast for “fine weather” near Feldberg: No day in the next 14 days fits." in data
+
+
+def test_weather_fact_when_asked_day_misses_and_service_down(vocab, settings):
+    deps = _wx(vocab, settings, _series({3}), weather_wish="fine", start_date="2026-11-01")
+    run(deps, FINE_MSG + " am 1.11.2026")
+    data = deps.gateway.answer_users[-1]
+    assert "So 1.11. passt nicht zu „schönes Wetter“." in data and "passende Tage:" in data
+    deps = _wx(vocab, settings, None, weather_wish="fine")
+    run(deps, FINE_MSG)
+    assert "Wettervorhersage nicht abrufbar." in deps.gateway.answer_users[-1]
+    deps = _wx(vocab, settings, None, weather_wish="fine")
+    list(run_chat(deps, "t1", "Round walk, fine weather", lang="en"))
+    assert "Weather forecast not available." in deps.gateway.answer_users[-1]
+
+
+def test_answer_prompts_carry_the_weather_rule():
+    from hikeall.agent.prompts import ANSWER_SYSTEM, ANSWER_SYSTEM_EN
+
+    assert "nur nach der Zeile „Wettervorhersage“" in ANSWER_SYSTEM
+    assert 'only from the "Weather forecast" line' in ANSWER_SYSTEM_EN
+
+
+def test_guard_drops_model_weather_claims_when_no_day_fits(vocab, settings):
+    deps = _wx(
+        vocab, settings, NO_FIT, weather_wish="snow",
+        answers=["Zwei Touren. Genieße die Wanderung im Schnee!"],
+    )  # fmt: skip
+    events = run(deps, "Rundweg ab Feldberg, unter 200 Hm, über 15 km, bei Schnee")
+    text = text_of(events)
+    assert "Genieße" not in text and "Zwei Touren." in text
+    assert log_lines(settings)[-1]["unsat_claims_removed"] == 1
+
+
+def test_guard_english_and_kept_when_days_fit(vocab, settings):
+    deps = _wx(
+        vocab, settings, NO_FIT, weather_wish="fine",
+        answers=["Two tours. Enjoy your hike in the sunny weather!"],
+    )  # fmt: skip
+    text = text_of(list(run_chat(deps, "t1", "Round walk, fine weather", lang="en")))
+    assert "Enjoy" not in text and "Two tours." in text
+    deps = _wx(
+        vocab, settings, _series({6}), weather_wish="fine",
+        answers=["Zwei Touren. Genieße das schöne Wetter."],
+    )  # fmt: skip
+    assert "Genieße das schöne Wetter." in text_of(run(deps, FINE_MSG))
+
+
+def test_wish_without_forecast_point_says_so_and_tells_the_model(vocab, settings, monkeypatch):
+    monkeypatch.setattr("hikeall.agent.graph._wish_point", lambda start: None)
+    deps = _wx(vocab, settings, _series({6}), weather_wish="fine")
+    events = run(deps, FINE_MSG)
+    assert deps.tools.calls["forecast_range"] == 0
+    assert "Wetter für Feldberg nicht bestimmbar." in text_of(events)
+    assert "Wettervorhersage: Wetter für Feldberg nicht bestimmbar." in deps.gateway.answer_users[-1]
+    deps = _wx(vocab, settings, _series({6}), weather_wish="fine")
+    text = text_of(list(run_chat(deps, "t1", "Round walk, fine weather", lang="en")))
+    assert "Weather for Feldberg cannot be determined." in text
+
+
+def test_multiday_wish_with_too_small_budget_or_no_coordinates(vocab, settings):
+    small = settings.model_copy(update={"max_tool_calls": 1})
+    deps = _mx(vocab, small, _series({6}), weather_wish="fine")
+    events = run(deps, WX_MSG)
+    assert "Wetter für Westweg" in text_of(events) and "nicht bestimmbar." in text_of(events)
+    assert "Wettervorhersage: Wetter für" in deps.gateway.answer_users[-1]
+    deps = _mx(vocab, settings, _series({6}), weather_wish="fine")
+    deps.tools.day_end_points = lambda trail_id, days: {}
+    text = text_of(run_en(deps, "2 days Westweg from Hausach in fine weather"))
+    assert "cannot be determined." in text
+    assert "Weather forecast: Weather for" in deps.gateway.answer_users[-1]
+
+
+def test_weather_log_carries_the_note(vocab, settings):
+    deps = _wx(vocab, settings, None, weather_wish="fine")
+    run(deps, FINE_MSG)
+    assert log_lines(settings)[-1]["weather_days"]["note"] == "Wetter gerade nicht abrufbar."

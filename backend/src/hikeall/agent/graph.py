@@ -44,7 +44,13 @@ from hikeall.agent.constraints import (
 )
 from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace, skip_reason
 from hikeall.agent.explain import candidate_rows
-from hikeall.agent.grounding import Evidence, grounding_check, has_number, strip_unsat_claims
+from hikeall.agent.grounding import (
+    Evidence,
+    grounding_check,
+    has_number,
+    strip_unsat_claims,
+    strip_weather_claims,
+)
 from hikeall.agent.multiday import (
     NEAR_M,
     DayPlan,
@@ -84,7 +90,14 @@ from hikeall.agent.tools import (
     StartNotOnTrail,
     TrailDetails,
 )
-from hikeall.agent.understand import DAYS_QUESTIONS, echo, parse, resolve, resolve_option
+from hikeall.agent.understand import (
+    DAYS_QUESTIONS,
+    echo,
+    has_weather_word,
+    parse,
+    resolve,
+    resolve_option,
+)
 from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
 from hikeall.agent.weather import (
     NoForecast,
@@ -467,6 +480,7 @@ class State(TypedDict, total=False):
     )  # code-written "Knapp daneben: ..." sentence, appended after the answer
     weather_sentence: str | None  # code-written weather day finder sentence, after the answer
     weather_days: dict | None  # the finder's result, for the log
+    weather_guard: str | None  # the wish whose words the draft must not use (not met / unknown)
     plan_request: dict | None  # the request behind `plan` (its start), persists per thread
     rain_days: list[int] | None  # "Regenvariante für Tag 2 und 3" on the stored plan
     data: str | None
@@ -500,6 +514,7 @@ def _turn(message: str, lang: Lang = "de") -> State:
         near_sentence=None,
         weather_sentence=None,
         weather_days=None,
+        weather_guard=None,
         prefix=None,
         rain_days=None,
         data=None,
@@ -832,6 +847,44 @@ def _weather_period(
     return event(window_days(best.start), True), _sentence(body), None
 
 
+def _weather_facts(
+    found: WeatherDaysEvent, target: date | None, lang: Lang
+) -> tuple[list[str], list[WeatherDay], bool]:
+    """Forecast line(s) for the model, the fitting days it may name, and whether the draft must
+    not talk about the wish (no day fits, the asked day does not, or the service is down)."""
+    t = texts(lang)
+    wish_text = _wish_text(found.wish, lang)
+    place = found.place.split(" (")[0]
+    if not found.days and not found.best_only:
+        return [t.weather_fact_down], [], True
+    fits = [d for d in found.days if d.match is True]
+    asked = found.days[0] if target and found.days and found.days[0].date == target else None
+    lines: list[str] = []
+    guard = False
+    if asked is not None and asked.match is not True:
+        key = t.weather_fact_misses if asked.match is False else t.weather_fact_unknown
+        lines.append(
+            key.format(day=_short_date(target, lang), wish=wish_text, place=place)
+        )
+        guard = True
+    elif found.best_only:
+        lines.append(t.weather_fact_none.format(wish=wish_text, place=place))
+        guard = True
+    if fits:
+        lines.append(
+            t.weather_data.format(wish=wish_text, place=place, days=_weather_days_text(fits, lang))
+        )
+    return lines, fits, guard
+
+
+def _nopoint_sentence(place: str | None, lang: Lang) -> str:
+    """Honest sentence when a weather wish has no usable forecast point."""
+    t = texts(lang)
+    if not place:
+        return _sentence(reason_text("no_place", lang))
+    return t.weather_nopoint.format(place=place.split(" (")[0])
+
+
 def _weather_log(ev: WeatherDaysEvent) -> dict:
     return {
         "wish": ev.wish,
@@ -850,6 +903,7 @@ def _weather_log(ev: WeatherDaysEvent) -> dict:
             for d in ev.days
         ],
         "best_only": ev.best_only,
+        "note": ev.note,
     }
 
 
@@ -1362,6 +1416,7 @@ def build_graph(deps: AgentDeps) -> Any:
             "candidates": candidate_rows(sel, lang),
         }
         fit_days: list[WeatherDay] = []
+        facts: list[str] = []
         point = _wish_point(req.start) if req.weather_wish else None
         if req.weather_wish and point and req.start:  # on both paths: with and without tours
             wish, place = req.weather_wish, req.start.label
@@ -1376,23 +1431,25 @@ def build_graph(deps: AgentDeps) -> Any:
                     got[0], wish, place, req.start_date, deps.today(), lang
                 )
             _emit(found)
+            facts, fit_days, guard = _weather_facts(found, req.start_date, lang)
             out |= {
                 "tool_calls": out["tool_calls"] + 1,
                 "weather_sentence": sentence,
                 "weather_days": _weather_log(found),
+                "weather_guard": wish if guard else None,
             }
-            fit_days = [d for d in found.days if d.match is True]
+        elif req.weather_wish:  # no usable forecast point: say so, never leave it silent
+            sentence = _nopoint_sentence(req.start.label if req.start else None, lang)
+            facts = [f"{t.weather_label}: {sentence}"]
+            out |= {"weather_sentence": sentence, "weather_guard": req.weather_wish}
         if not cards:
             return out | {"fixed": t.no_tours_hint}
         data = _search_data(req, cards, not sel.matches, vocab, lang)
         _card_evidence(ev, scored, area, lang)
-        if fit_days and req.weather_wish and req.start:
-            # the model may name them, so their numbers are evidence
-            data += "\n" + t.weather_data.format(
-                wish=_wish_text(req.weather_wish, lang),
-                place=req.start.label.split(" (")[0],
-                days=_weather_days_text(fit_days, lang),
-            )
+        if facts:
+            data += "\n" + "\n".join(facts)
+            ev.numbers += facts
+            # the model may name the fitting days, so their numbers are evidence
             for d in fit_days:
                 ev.add(d.weather.t_min_c, "°C")
                 ev.add(d.weather.t_max_c, "°C")
@@ -1480,6 +1537,7 @@ def build_graph(deps: AgentDeps) -> Any:
         out: State = {}
         period: tuple[WeatherDaysEvent, str, date | None] | None = None
         points: dict[int, tuple[float, float] | None] = {}
+        nopoint: str | None = None  # a weather wish without a usable forecast point
         if rain_days and stored is not None:
             plan = stored
             unknown = [n for n in rain_days if not 1 <= n <= len(plan.days)]
@@ -1505,12 +1563,16 @@ def build_graph(deps: AgentDeps) -> Any:
                 )
                 return {"tool_calls": 1, "plan": None, "plan_request": None, "fixed": text}
             out["plan_request"] = state["current"]
+            if req.weather_wish and plan.days and calls + 2 > budget:
+                nopoint = _nopoint_sentence(plan.trail_name, lang)
             if req.weather_wish and plan.days and calls + 2 <= budget:
                 # the forecast at every day's destination decides the period; the lookup of
                 # the destinations is reused for the per-day weather below
                 points = tools.day_end_points(plan.trail_id, plan.days)
                 calls += 1
-                if all(points.get(d.day) for d in plan.days):
+                if not all(points.get(d.day) for d in plan.days):
+                    nopoint = _nopoint_sentence(plan.trail_name, lang)
+                else:
                     got = tools.forecast_range([points[d.day] for d in plan.days], deps.today())
                     calls += 1
                     if isinstance(got, NoForecast):
@@ -1570,9 +1632,20 @@ def build_graph(deps: AgentDeps) -> Any:
                 start_name=start,
             )
         )
+        weather_fact: str | None = None
         if period is not None:
             _emit(period[0])
             out |= {"weather_sentence": period[1], "weather_days": _weather_log(period[0])}
+            weather_fact = f"{t.weather_label}: {period[1]}"
+            full_fit = (
+                not period[0].best_only
+                and len(period[0].days) == len(plan.days)
+                and all(d.match is True for d in period[0].days)
+            )
+            out["weather_guard"] = None if full_fit else req.weather_wish
+        elif nopoint is not None and req.weather_wish:
+            out |= {"weather_sentence": nopoint, "weather_guard": req.weather_wish}
+            weather_fact = f"{t.weather_label}: {nopoint}"
         sources = tools.sources([i for i in plan.source_ids if i != SOURCE_WEATHER])
         if any(isinstance(w, DayWeather) for w in weather.values()):
             meteo = weather_source()
@@ -1594,6 +1667,9 @@ def build_graph(deps: AgentDeps) -> Any:
         if start:
             ev.add_name(start)
         data = _plan_data(plan, start, weather, rain, prefix, lang)
+        if weather_fact:
+            data += "\n" + weather_fact
+            ev.numbers.append(weather_fact)
         return out | {"data": data, "system": plan_system(lang), "evidence": vars(ev)}
 
     def react(state: State) -> State:
@@ -1696,6 +1772,14 @@ def build_graph(deps: AgentDeps) -> Any:
             if not reason:  # the code did not fall back: no claim that no tour meets all wishes
                 draft, claims = strip_unsat_claims(draft, lang)
                 if not draft and state.get("route") == "search":  # the cards are shown
+                    draft = t.claim_only_tours
+            wish = state.get("weather_guard")
+            if wish and draft:  # the forecast says no / unknown: no weather claim of the model
+                draft, dropped = strip_weather_claims(
+                    draft, lambda part: has_weather_word(part, wish), lang
+                )
+                claims += dropped
+                if not draft and state.get("route") == "search":
                     draft = t.claim_only_tours
             g = grounding_check(
                 draft, Evidence(**state["evidence"]), deps.trail_names, lang
