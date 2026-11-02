@@ -79,7 +79,6 @@ from hikeall.agent.prompts import (
     NO_PLAN_TO_CHANGE,
     NO_SOURCE_REPLY,
     NO_TOURS_HINT,
-    OTHER_REPLY,
     PLAN_SYSTEM,
     REACT_SYSTEM,
     REACT_TOURS,
@@ -89,6 +88,7 @@ from hikeall.agent.prompts import (
     TRAIL_NOT_FOUND,
 )
 from hikeall.agent.request import MAX_DAYS, Clarify, Constraint, HikeRequest, RawRequest
+from hikeall.agent.texts import Lang, texts
 from hikeall.agent.tools import (
     DEFAULT_GROUP_RADIUS_KM,
     TOOL_SPECS,
@@ -288,6 +288,7 @@ class AgentDeps:
 
 class State(TypedDict, total=False):
     message: str
+    lang: Lang  # reply language of this turn (set per turn, never read from the checkpoint)
     request: dict | None  # last tour request (for "change"), persists per thread
     pending: dict | None  # open clarify question with the partial request, persists per thread
     last_tours: list[dict] | None  # trail_id + name of the last result cards, persists per thread
@@ -321,9 +322,10 @@ class State(TypedDict, total=False):
     candidates: list[dict]  # candidate_rows of the search, for the log
 
 
-def _turn(message: str) -> State:
+def _turn(message: str, lang: Lang = "de") -> State:
     return State(
         message=message,
+        lang=lang,
         route="",
         intent=None,
         activity=None,
@@ -905,7 +907,7 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"route": "groups"}
         if req.intent == "events":
             return out | {"route": "events"}
-        return out | {"reply": OTHER_REPLY, "route": "reply"}
+        return out | {"reply": texts(state.get("lang", "de")).other_reply, "route": "reply"}
 
     def clarify(state: State) -> State:
         c = state["clarify"] or {}
@@ -1312,7 +1314,12 @@ def _write_log(
 
 
 def _run(
-    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None, user_id: str | None
+    deps: AgentDeps,
+    thread_id: str,
+    message: str,
+    user_hash: str | None,
+    user_id: str | None,
+    lang: Lang = "de",
 ) -> Iterator[ChatEvent]:
     request_id = uuid.uuid4().hex
     with metered(max_cost_usd=deps.settings.max_cost_usd) as usage, traced() as tr:
@@ -1324,10 +1331,11 @@ def _run(
                 "request_id": request_id,
                 "user_hash": user_hash,
                 "user_id": user_id,
+                "lang": lang,
                 "trace": tr,
             }
         }
-        stream = deps.graph.stream(_turn(message), config, stream_mode="custom")
+        stream = deps.graph.stream(_turn(message, lang), config, stream_mode="custom")
         logged = False  # the log node writes the line and then emits "done"
         try:
             for event in stream:
@@ -1373,11 +1381,12 @@ def run_chat(
     message: str,
     user_hash: str | None = None,
     user_id: str | None = None,
+    lang: Lang = "de",
 ) -> Iterator[ChatEvent]:
     """Stream the events of one chat message. Each step runs in one fixed context, so the
     per-message cost metering holds even if the consumer calls next() from different threads."""
     ctx = contextvars.copy_context()
-    inner = _run(deps, thread_id, message, user_hash, user_id)
+    inner = _run(deps, thread_id, message, user_hash, user_id, lang)
     try:
         while True:
             try:

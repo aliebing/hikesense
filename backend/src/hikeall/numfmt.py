@@ -7,6 +7,9 @@ Rounds half-up on the decimal text, the same rule the grounding check uses for i
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
+
+Lang = Literal["en", "de"]  # the reply language, defined once here (agent.texts re-uses it)
 
 
 def _quantize(x: float, decimals: int) -> Decimal:
@@ -26,3 +29,13 @@ def de(x: float, decimals: int = 1) -> str:
     if "." in s:
         s = s.rstrip("0").removesuffix(".")
     return s.replace(".", ",")
+
+
+def fmt(x: float, lang: Lang, decimals: int = 1) -> str:
+    """Number in the reply language: German comma, English point and thousands comma."""
+    if lang == "de":
+        return de(x, decimals)
+    s = f"{_quantize(x, decimals):,.{decimals}f}"
+    if "." in s:
+        s = s.rstrip("0").removesuffix(".")
+    return s

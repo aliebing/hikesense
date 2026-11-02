@@ -56,3 +56,13 @@ def test_trail_end_note_rounds_days_half_up():
     # 5 km left over 2 days: ~2,5 -> "~3 km" (half-up), not banker's "~2 km"
     (note,) = md._notes(days, 5.0, "Kandern", "Basel")
     assert "bei ~3 km" in note
+
+
+def test_fmt_english_and_german():
+    from hikeall.numfmt import fmt
+
+    assert fmt(11.6, "en") == "11.6"
+    assert fmt(1200, "en", 0) == "1,200"
+    assert fmt(11.6, "de") == "11,6"
+    assert fmt(3.0, "en") == "3"
+    assert fmt(4.35, "en") == "4.4"

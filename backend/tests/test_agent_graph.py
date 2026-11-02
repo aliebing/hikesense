@@ -491,6 +491,17 @@ def test_other_intent_declines_politely(vocab, settings):
     assert deps.gateway.calls["answer"] == 0
 
 
+def test_other_intent_answers_in_the_request_language_and_resets_each_turn(vocab, settings):
+    from hikeall.agent.texts import texts
+
+    deps = make(vocab, settings, structured={RawRequest: [raw(intent="other")] * 2})
+    en = list(run_chat(deps, "t-lang", "Write me a poem", lang="en"))
+    assert text_of(en) == texts("en").other_reply
+    # the next turn without lang falls back to German: lang is not carried by the checkpoint
+    de_ = list(run_chat(deps, "t-lang", "Schreib mir ein Gedicht"))
+    assert text_of(de_) == OTHER_REPLY
+
+
 def test_missing_start_asks_before_search_and_answer_continues(vocab, settings):
     deps = make(
         vocab,

@@ -38,16 +38,19 @@ def settings(tmp_path):
 
 
 users: list = []  # user_id keyword the fake run_chat got
+langs: list = []  # lang keyword the fake run_chat got
 
 
 @pytest.fixture
 def seen(monkeypatch):
     calls = []
     users.clear()
+    langs.clear()
 
-    def fake_run_chat(deps, thread_id, message, user_hash=None, user_id=None):
+    def fake_run_chat(deps, thread_id, message, user_hash=None, user_id=None, lang="de"):
         calls.append((deps, thread_id, message))
         users.append(user_id)
+        langs.append(lang)
         yield UnderstoodEvent(text="Tagestour", request=HikeRequest(intent="day_hike"))
         yield TokenEvent(text="Hallo ")
         yield DoneEvent(usage=LLMUsage(), unsupported=0)
@@ -148,7 +151,7 @@ def test_cors_allows_authorization_header(client):
 
 
 def test_failure_log_has_user_hash_and_id(settings, monkeypatch):
-    def boom(deps, thread_id, message, user_hash=None, user_id=None):
+    def boom(deps, thread_id, message, user_hash=None, user_id=None, lang="de"):
         raise RuntimeError("x")
         yield
 
@@ -207,7 +210,7 @@ def test_cors_rejects_other_origin(client):
 
 
 def test_unexpected_error_becomes_error_event_and_log(settings, monkeypatch, caplog):
-    def boom(deps, thread_id, message, user_hash=None, user_id=None):
+    def boom(deps, thread_id, message, user_hash=None, user_id=None, lang="de"):
         yield TokenEvent(text="x")
         raise RuntimeError("secret db password")
 
@@ -277,3 +280,10 @@ def test_unknown_lang_422(client, seen):
     body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "fr"}
     assert client.post("/chat", json=body, headers=bearer()).status_code == 422
     assert seen == []
+
+
+def test_lang_is_passed_on_to_run_chat(client, seen):
+    body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "en"}
+    assert client.post("/chat", json=body, headers=bearer()).status_code == 200
+    assert post(client).status_code == 200
+    assert langs == ["en", "de"]

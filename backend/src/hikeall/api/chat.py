@@ -7,7 +7,7 @@ import logging
 import threading
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -24,6 +24,7 @@ from hikeall.adapters.web_search import OpenRouterWebSearch
 from hikeall.agent.events import EventFinder
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
+from hikeall.agent.texts import Lang
 from hikeall.agent.tools import DbTools
 from hikeall.api.auth import authenticate
 from hikeall.chatlog import ChatLogEntry
@@ -49,8 +50,8 @@ STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering"
 class ChatRequest(BaseModel):
     thread_id: uuid.UUID
     message: str
-    # reply language; missing field (old clients, tests, eval) means German; not yet passed on to run_chat
-    lang: Literal["en", "de"] = "de"
+    # reply language; missing field (old clients, tests, eval) means German
+    lang: Lang = "de"
 
 
 def default_deps_factory(
@@ -129,11 +130,11 @@ def make_router(
     router = APIRouter()
 
     async def stream(
-        thread_id: str, message: str, user_hash: str, user_id: str
+        thread_id: str, message: str, user_hash: str, user_id: str, lang: Lang
     ) -> AsyncIterator[dict[str, str]]:
         try:
             deps = await run_in_threadpool(deps_factory)
-            chat_stream = run_chat(deps, thread_id, message, user_hash, user_id=user_id)
+            chat_stream = run_chat(deps, thread_id, message, user_hash, user_id=user_id, lang=lang)
             async for event in iterate_in_threadpool(chat_stream):
                 yield _event(event)
         except Exception as exc:
@@ -180,7 +181,7 @@ def make_router(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
         return EventSourceResponse(
-            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id), user.user_id),
+            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id), user.user_id, body.lang),
             headers=STREAM_HEADERS,
         )
 
