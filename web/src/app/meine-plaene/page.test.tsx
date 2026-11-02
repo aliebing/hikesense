@@ -11,7 +11,7 @@ vi.mock("../../lib/auth", () => ({
   useSession: () => ({ session: h.session, loading: h.loading }),
   signOut: vi.fn(),
 }));
-vi.mock("../../lib/plans", () => ({ listPlans: h.listPlans, deletePlan: h.deletePlan }));
+vi.mock("../../lib/plans", async (orig) => ({ ...(await orig<typeof import("../../lib/plans")>()), listPlans: h.listPlans, deletePlan: h.deletePlan }));
 
 import MeinePlaene from "./page";
 
@@ -70,4 +70,33 @@ it("clears the list on sign-out (shared device)", async () => {
   rerender(<MeinePlaene />);
   expect(screen.queryByText("Feldsee-Runde")).toBeNull();
   expect(screen.getByText(/Zum Ansehen deiner Pläne/)).toBeInTheDocument();
+});
+
+const search = { id: "s1", kind: "search", title: "Rundweg mit Einkehr", payload: { v: 1, messages: ["Rundweg mit Einkehr"], answer: "", results: { cards: [{}, {}, {}] } }, created_at: "2026-10-31T10:00:00Z" };
+
+it("lists saved searches in their own section", async () => {
+  h.listPlans.mockResolvedValue({ plans: [search, ...plans], error: null });
+  render(<MeinePlaene />);
+  expect(await screen.findByRole("heading", { name: "Gemerkte Suchen" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Touren und Pläne" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Rundweg mit Einkehr" })).toHaveAttribute("href", "/gemerkt?id=s1");
+  expect(screen.getByText("Suche · 31.10.2026 · 3 Touren")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Feldsee-Runde" })).toHaveAttribute("href", "/t/t1");
+});
+
+it("hides a section without entries", async () => {
+  h.listPlans.mockResolvedValue({ plans: [search], error: null });
+  render(<MeinePlaene />);
+  await screen.findByRole("heading", { name: "Gemerkte Suchen" });
+  expect(screen.queryByRole("heading", { name: "Touren und Pläne" })).toBeNull();
+  expect(screen.queryByText(/noch keine Pläne/)).toBeNull();
+});
+
+it("deletes a saved search", async () => {
+  h.deletePlan.mockResolvedValue({ error: null });
+  h.listPlans.mockResolvedValue({ plans: [search, ...plans], error: null });
+  render(<MeinePlaene />);
+  await userEvent.click(await screen.findByRole("button", { name: "Löschen: Rundweg mit Einkehr" }));
+  await waitFor(() => expect(screen.queryByText("Rundweg mit Einkehr")).toBeNull());
+  expect(h.deletePlan).toHaveBeenCalledWith("s1");
 });
