@@ -59,7 +59,7 @@ it("shows 'Noch keine Vorhersage' and weather values", () => {
       data={data([day(1), day(2)], {
         weather: {
           "1": { date: "2026-11-02", code: 2, text: "Teils bewölkt", t_min_c: 3, t_max_c: 11.4, precip_mm: 0.2, precip_prob_pct: 10, source_id: "open-meteo" },
-          "2": { reason: "Noch keine Vorhersage (mehr als 14 Tage)" },
+          "2": { reason: "Noch keine Vorhersage (mehr als 14 Tage)", code: "not_yet" },
         },
       })}
     />,
@@ -69,6 +69,23 @@ it("shows 'Noch keine Vorhersage' and weather values", () => {
   expect(screen.getByText(/Regen 10 % \/ 0,2 mm/)).toBeInTheDocument();
   expect(screen.getByText(/Noch keine Vorhersage/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open-Meteo.com" })).toBeInTheDocument();
+});
+
+it("decides on the reason code, not on the text", () => {
+  render(
+    <PlanDays
+      data={data([day(1), day(2), day(3)], {
+        weather: {
+          "1": { reason: "No forecast yet (more than 14 days ahead)", code: "not_yet" },
+          "2": { reason: "Weather service not reachable", code: "unavailable" },
+          "3": { reason: "Noch keine Vorhersage (mehr als 14 Tage)", code: "missing" },
+        },
+      })}
+    />,
+  );
+  expect(screen.queryByText(/No forecast yet/)).toBeNull();
+  expect(screen.getByText(/\(Weather service not reachable\)/)).toBeInTheDocument();
+  expect(screen.getByText(/\(Noch keine Vorhersage \(mehr als 14 Tage\)\)/)).toBeInTheDocument();
 });
 
 it("rain variant is collapsible; null says no station", async () => {

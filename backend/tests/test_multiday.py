@@ -243,3 +243,67 @@ def test_real_westweg_hausach_3_days(conn):
         assert d.stop is not None
         assert d.stop.dist_m <= 1000 or any(d.stop.name in n for n in p.notes)
         assert d.within_band or d.gap
+
+
+# --- English texts (Zweisprachig Teil B, Task 5) ---------------------------------------------
+
+
+def test_english_plan_notes_gaps_and_numbers():
+    stops = [stop(1, 5.0), stop(2, 24.0), stop(3, 40.0)]
+    p = plan_multiday(stops, FLAT, trail_len_km=100, start_km=0, days=1, lang="en")
+    assert p.lang == "en"
+    assert p.days[0].gap == "No accommodation within 1 km between km 12 and km 18"
+    far = plan_multiday(
+        [stop(1, 5.0), stop(2, 15.0, 1400), stop(3, 29.0), stop(4, 40.0)],
+        FLAT, trail_len_km=100, start_km=0, days=2, lang="en",
+    )  # fmt: skip
+    assert (
+        "Accommodation Haus 2 lies 1.4 km off the trail as the crow flies – "
+        "access path counted as the crow flies, without its ascent"
+    ) in far.notes
+    end = plan_multiday([stop(1, 10.0)], FLAT, trail_len_km=20, start_km=0, days=2, lang="en")
+    assert end.notes == ["From km 0 there are 20 km to the end of the trail – 2 day(s) at ~10 km"]
+    assert plan_multiday([stop(1, 10.0)], FLAT, 20, 0, 2).notes == [
+        "Ab km 0 bleiben 20 km bis zum Wegende – 2 Tag(e) bei ~10 km"
+    ]
+
+
+def test_english_too_long_day_and_dead_end():
+    p = plan_multiday([stop(1, 100.0)], FLAT, trail_len_km=200, start_km=0, days=1, lang="en")
+    assert "Daily distance too long for one day (25 h without breaks)" in p.days[0].gap
+    assert "No accommodation within 1 km between km 12 and km 18" in p.days[0].gap
+    stops = [stop(1, 3.0, 1500)]
+    dead = plan_multiday(stops, FLAT, trail_len_km=100, start_km=0, days=3, lang="en")
+    assert any(n.endswith("– the plan ends here.") for n in dead.notes)
+    assert not any("Keine" in n or "Plan endet" in n for n in dead.notes)
+
+
+def test_english_change_day_unchanged_message_uses_the_plans_language():
+    p = plan_multiday([stop(1, 15.0)], FLAT, trail_len_km=15, start_km=0, days=1, lang="en")
+    out = change_day(p, 1, "shorter", [stop(1, 15.0)], FLAT, 15)
+    assert out.notes[-1] == (
+        "Day 1 cannot be planned shorter – no accommodation that changes the distance "
+        "by at least 2 km"
+    )
+    de = plan_multiday([stop(1, 15.0)], FLAT, trail_len_km=15, start_km=0, days=1)
+    assert change_day(de, 1, "longer", [stop(1, 15.0)], FLAT, 15).notes[-1].startswith(
+        "Tag 1 lässt sich nicht länger planen"
+    )
+    # a plan stored before `lang` existed has none: it is German
+    old = json.loads(de.model_dump_json())
+    old.pop("lang")
+    from hikeall.agent.multiday import MultidayPlan
+
+    assert MultidayPlan.model_validate(old).lang == "de"
+
+
+def test_english_rain_variant_texts():
+    profile = [[0.0, 100.0], [15.0, 100.0], [27.0, 400.0], [40.0, 400.0]]
+    p = plan_multiday([stop(1, 15.0), stop(2, 30.0)], profile, 40, 0, 2)
+    st = [StationOnTrail(poi_id=3, name=None, along_km=27.0, dist_m=0)]
+    rv = rain_variant(p.days[1], st, profile, "en")
+    assert rv.station_name == "Unnamed stop"
+    assert rv.note == (
+        "Continue by bus/train to the accommodation – please check the timetable yourself."
+    )
+    assert rain_variant(p.days[1], st, profile).station_name == "Haltestelle ohne Namen"

@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
+from typing import Literal
 
-from hikeall.adapters.open_meteo import DayWeather, OpenMeteoClient
+from hikeall.adapters.open_meteo import DayWeather, OpenMeteoClient, weather_text
 from hikeall.errors import WeatherUnavailable
+from hikeall.numfmt import Lang
 
-__all__ = ["DayWeather", "NoForecast", "is_rain_day", "weather_for", "weather_for_days"]
+__all__ = [
+    "DayWeather",
+    "NoForecast",
+    "is_rain_day",
+    "localize",
+    "reason_text",
+    "weather_for",
+    "weather_for_days",
+]
 
 HORIZON_DAYS = 14  # days 0..14 ahead of today have a forecast; 15+ do not
 CACHE_TTL_S = 3600.0
@@ -21,12 +32,47 @@ REASON_PAST = "Datum liegt in der Vergangenheit"
 REASON_DOWN = "Wetterdienst nicht erreichbar"
 REASON_MISSING = "Für diesen Tag liegt keine Vorhersage vor"
 
+ReasonCode = Literal["not_yet", "past", "unavailable", "missing", "no_place"]
+
+REASON_TEXTS: dict[ReasonCode, dict[Lang, str]] = {
+    "not_yet": {"de": REASON_TOO_FAR, "en": "No forecast yet (more than 14 days ahead)"},
+    "past": {"de": REASON_PAST, "en": "The date is in the past"},
+    "unavailable": {"de": REASON_DOWN, "en": "Weather service not reachable"},
+    "missing": {"de": REASON_MISSING, "en": "There is no forecast for this day"},
+    "no_place": {
+        "de": "Ort für die Vorhersage unbekannt",
+        "en": "Place for the forecast unknown",
+    },
+}
+
 _cache: dict[tuple[float, float, date], tuple[float, DayWeather]] = {}
 
 
 @dataclass(frozen=True)
 class NoForecast:
+    """No forecast for a day: `reason` is the text (German unless localised), `code` the reason
+    for code (the web checks it, not the text). The code is not part of equality."""
+
     reason: str
+    code: ReasonCode = field(default="unavailable", compare=False)
+
+
+def reason_text(code: ReasonCode, lang: Lang = "de") -> str:
+    return REASON_TEXTS[code][lang]
+
+
+def no_forecast(code: ReasonCode, lang: Lang = "de") -> NoForecast:
+    return NoForecast(reason_text(code, lang), code)
+
+
+def localize(w: DayWeather | NoForecast, lang: Lang) -> DayWeather | NoForecast:
+    """The forecast with its words in the reply language (the cache holds German words; German
+    stays as it is). The weather code, not the cached text, decides the English word."""
+    if lang == "de":
+        return w
+    if isinstance(w, NoForecast):
+        return no_forecast(w.code, lang)
+    return dataclasses.replace(w, text=weather_text(w.code, lang))
 
 
 def weather_for(
@@ -47,10 +93,10 @@ def weather_for_days(
     for i, (lat, lon, day) in enumerate(wanted):
         offset = (day - today).days
         if offset < 0:
-            out.append(NoForecast(REASON_PAST))
+            out.append(NoForecast(REASON_PAST, "past"))
             continue
         if offset > HORIZON_DAYS:
-            out.append(NoForecast(REASON_TOO_FAR))
+            out.append(NoForecast(REASON_TOO_FAR, "not_yet"))
             continue
         loc = (round(lat, 2), round(lon, 2))
         hit = _cache.get((*loc, day))
@@ -72,10 +118,10 @@ def weather_for_days(
                 _cache[(*loc, w.date)] = (time.monotonic(), w)
             for i in misses[loc]:
                 if series is None:
-                    out[i] = NoForecast(REASON_DOWN)
+                    out[i] = NoForecast(REASON_DOWN, "unavailable")
                 else:
-                    out[i] = by_date.get(wanted[i][2]) or NoForecast(REASON_MISSING)
-    return [w if w is not None else NoForecast(REASON_MISSING) for w in out]
+                    out[i] = by_date.get(wanted[i][2]) or NoForecast(REASON_MISSING, "missing")
+    return [w if w is not None else NoForecast(REASON_MISSING, "missing") for w in out]
 
 
 def is_rain_day(w: DayWeather) -> bool | None:

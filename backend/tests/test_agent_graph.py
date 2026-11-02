@@ -151,7 +151,7 @@ class FakeTools:
     def stage_places(self, trail_id):
         return ["Hausach", "Kandern"]
 
-    def plan_multiday(self, req):
+    def plan_multiday(self, req, lang="de"):
         self.calls["plan_multiday"] += 1
         km = self.start_km(req.trail_id, req.start.lat, req.start.lon)
         if km is None or km >= TRAIL_LEN:  # off the trail or at its very end
@@ -160,7 +160,7 @@ class FakeTools:
             STOPS, PROFILE, TRAIL_LEN, km, req.days, req.day_km or 15.0, req.start_date,
             req.start_time or time(9), trail_id=req.trail_id, trail_name="Westweg (Westvariante)",
             source_ids=["osm", "stages-schwarzwald-tourismus"], start_name=req.start.label,
-            end_name="Kandern",
+            end_name="Kandern", lang=lang,
         )  # fmt: skip
 
     def change_day(self, plan, day_change, start_name=None):
@@ -180,14 +180,16 @@ class FakeTools:
 
         def one(day):
             if (day - today).days > 14:
-                return NoForecast(REASON_TOO_FAR)
-            return self.forecast.get(day) or NoForecast("Für diesen Tag liegt keine Vorhersage vor")
+                return NoForecast(REASON_TOO_FAR, "not_yet")
+            return self.forecast.get(day) or NoForecast(
+                "Für diesen Tag liegt keine Vorhersage vor", "missing"
+            )
 
         return [one(day) for _, _, day in points]
 
-    def rain_variants(self, plan, days):
+    def rain_variants(self, plan, days, lang="de"):
         self.calls["rain_variants"] += 1
-        return {n: md.rain_variant(plan.days[n - 1], STATIONS, PROFILE) for n in days}
+        return {n: md.rain_variant(plan.days[n - 1], STATIONS, PROFILE, lang) for n in days}
 
     def sources(self, ids):
         return [
@@ -1125,7 +1127,10 @@ def test_multiday_flow_events_in_order(vocab, settings):
     assert dumped["plan"]["days"][0]["date"] == "2026-11-02"
     assert dumped["plan"]["days"][0]["start_time"] == "09:00:00"
     assert dumped["weather"]["1"]["t_max_c"] == 11.4
-    assert dumped["weather"]["2"] == {"reason": "Für diesen Tag liegt keine Vorhersage vor"}
+    assert dumped["weather"]["2"] == {
+        "reason": "Für diesen Tag liegt keine Vorhersage vor",
+        "code": "missing",
+    }
 
 
 def test_log_plan_for_multiday(vocab, settings):
@@ -1268,7 +1273,7 @@ def test_plan_without_days_is_honest_and_skips_the_model(vocab, settings):
         structured={RawRequest: [westweg_raw(days=1, day_km=4, start_text="Hausach")]},
     )
     tools = deps.tools
-    tools.plan_multiday = lambda req: md.plan_multiday(  # nothing within reach of km 50
+    tools.plan_multiday = lambda req, lang="de": md.plan_multiday(  # nothing within reach of km 50
         [], PROFILE, TRAIL_LEN, 50.0, 1, 4.0, trail_id="westweg-west", trail_name="Westweg",
         start_name="Hausach", end_name="Kandern",
     )  # fmt: skip
@@ -1354,16 +1359,16 @@ def test_dated_14_day_plan_stays_within_the_tool_limit(vocab, settings):
                 for i in range(15)]  # fmt: skip
 
     class LongTrail(FakeTools):
-        def plan_multiday(self, req):
+        def plan_multiday(self, req, lang="de"):
             self.calls["plan_multiday"] += 1
             return md.plan_multiday(
                 long_stops, flat, 225.0, 0.0, req.days, 15.0, req.start_date,
-                trail_id="westweg-west", trail_name="Westweg", start_name="Hausach",
+                trail_id="westweg-west", trail_name="Westweg", start_name="Hausach", lang=lang,
             )  # fmt: skip
 
-        def rain_variants(self, plan, days):
+        def rain_variants(self, plan, days, lang="de"):
             self.calls["rain_variants"] += 1
-            return {n: md.rain_variant(plan.days[n - 1], stations, flat) for n in days}
+            return {n: md.rain_variant(plan.days[n - 1], stations, flat, lang) for n in days}
 
     rainy = {
         TODAY + timedelta(days=n): DayWeather(date=TODAY + timedelta(days=n), precip_mm=9.0)
@@ -1461,7 +1466,7 @@ def test_rain_note_is_evidence(vocab, settings):
 
 def test_a_planner_bug_is_not_called_off_trail(vocab, settings):
     class Broken(FakeTools):
-        def plan_multiday(self, req):
+        def plan_multiday(self, req, lang="de"):
             raise ValueError("bug")
 
     deps = make(vocab, settings, tools=Broken(), structured={RawRequest: [westweg_raw(days=2)]})
@@ -1497,10 +1502,10 @@ def test_second_plan_in_thread_uses_its_own_start(vocab, settings):
 
 
 class _RefusesSecondTools(_TodtnauTools):
-    def plan_multiday(self, req):
+    def plan_multiday(self, req, lang="de"):
         if req.start.label != "Hausach":
             raise StartNotOnTrail("start at the trail end")
-        return super().plan_multiday(req)
+        return super().plan_multiday(req, lang)
 
 
 def test_no_plan_at_start_names_the_current_start(vocab, settings):
@@ -1912,3 +1917,63 @@ def test_english_answer_numbers_are_grounded_in_english(vocab, settings):
     assert "999" not in text and "? m of descent" in text
     assert "Note: 1 figure(s) could not be verified and were removed." in text
     assert "Hinweis" not in text
+
+
+def test_english_plan_with_weather_rain_variant_and_missing_forecast(vocab, settings):
+    light = DayWeather(
+        date=date(2026, 11, 3), code=61, text="Regen", t_min_c=4.2, t_max_c=9.8, precip_mm=7.5,
+        precip_prob_pct=85,
+    )  # fmt: skip
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=3, start_date="2026-11-02")]},
+        answers=["Plan."],
+        tools=FakeTools(weather={DRY.date: DRY, light.date: light}),
+    )
+    events = run_en(deps, "3 Tage Westweg ab Hausach am 2.11.2026")
+    plan = one(events, "plan")
+    assert plan.plan.lang == "en"
+    assert plan.weather[1].text == "Partly cloudy" and plan.weather[2].text == "Light rain"
+    assert plan.weather[3].code == "missing"
+    assert plan.weather[3].reason == "There is no forecast for this day"
+    assert plan.rain[2].note.startswith("Continue by bus/train")
+    data = deps.gateway.answer_users[-1]
+    assert "light rain" in data.lower() and "rain variant: to " in data
+    assert "Regen" not in data and "Vorhersage" not in data
+    assert "Day 3: There is no forecast for this day." in text_of(events)
+    assert "11.4 °C" in data and "11,4" not in data
+
+
+def test_english_no_forecast_beyond_14_days_and_no_date(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-20")]},
+        answers=["Plan."],
+    )
+    events = run_en(deps, "2 Tage Westweg ab Hausach am 20.11.2026")
+    plan = one(events, "plan")
+    assert all(w.code == "not_yet" for w in plan.weather.values())
+    assert text_of(events).count("No forecast yet (more than 14 days ahead)") == 1
+    assert "Noch keine" not in text_of(events)
+
+
+def test_english_plan_prefix_texts_and_a_german_plan_keeps_its_language(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={
+            RawRequest: [
+                westweg_raw(days=2),
+                RawRequest(intent="change", day_change_day=2, day_change_direction="shorter"),
+            ]
+        },
+        answers=["Plan.", "Plan."],
+    )
+    list(run_chat(deps, "p-keep", "2 Tage Westweg ab Hausach"))  # German plan
+    events = list(run_chat(deps, "p-keep", "day 2 shorter", lang="en"))
+    plan = one(events, "plan").plan
+    assert plan.lang == "de"  # a stored plan keeps its language (spec decision 10)
+    data = deps.gateway.answer_users[-1]
+    assert data.startswith("Multi-day plan ") and "Day 1: " in data  # the data labels follow the reply

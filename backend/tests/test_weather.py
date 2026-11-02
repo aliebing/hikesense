@@ -138,3 +138,42 @@ def test_many_days_failure_is_no_forecast_for_each(client):
     respx.get(FORECAST_URL).mock(side_effect=httpx.ConnectError("down"))
     got = weather_for_days(client, [(47.9, 8.1, TODAY), (48.0, 8.2, TODAY)], TODAY)
     assert got == [NoForecast("Wetterdienst nicht erreichbar")] * 2
+
+
+# --- English texts and reason codes (Zweisprachig Teil B, Task 5) -----------------------------
+
+
+def test_weather_text_english():
+    from hikeall.adapters.open_meteo import weather_text
+
+    assert weather_text(61, "en") == "Light rain"
+    assert weather_text(63, "en") == "Rain" and weather_text(65, "en") == "Heavy rain"
+    assert weather_text(80, "en") == "Rain showers" and weather_text(95, "en") == "Thunderstorm"
+    assert weather_text(2, "en") == "Partly cloudy" and weather_text(None, "en") is None
+    assert weather_text(999, "en") is None
+    # German is unchanged: one word for light, moderate and heavy rain
+    assert [weather_text(c) for c in (61, 63, 65, 80)] == ["Regen", "Regen", "Regen", "Regenschauer"]
+
+
+@respx.mock
+def test_reason_codes(client):
+    respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
+    far = weather_for(client, 47.9, 8.1, date(2026, 11, 14), TODAY)
+    past = weather_for(client, 47.9, 8.1, date(2026, 10, 29), TODAY)
+    assert (far.code, past.code) == ("not_yet", "past")
+    respx.get(FORECAST_URL).mock(side_effect=httpx.ConnectError("down"))
+    assert weather_for(client, 47.9, 8.1, TODAY, TODAY).code == "unavailable"
+
+
+def test_localize_forecast_and_reasons():
+    from hikeall.agent.weather import localize, no_forecast
+
+    d = date(2026, 11, 3)
+    w = DayWeather(d, code=61, text="Regen")
+    assert localize(w, "en").text == "Light rain" and localize(w, "de") is w
+    assert w.text == "Regen"  # the cached object is not touched
+    nf = no_forecast("not_yet")
+    assert nf.reason == "Noch keine Vorhersage (mehr als 14 Tage)"
+    assert localize(nf, "en").reason == "No forecast yet (more than 14 days ahead)"
+    assert localize(nf, "en").code == "not_yet"
+    assert no_forecast("no_place", "en").reason == "Place for the forecast unknown"

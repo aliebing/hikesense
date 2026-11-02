@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from hikeall.geo import METRIC_SRID
 from hikeall.hiking_time import din33466
-from hikeall.numfmt import de, round_half_up
+from hikeall.numfmt import Lang, fmt, round_half_up
 
 NEAR_M = 1000
 FAR_M = 2000
@@ -30,8 +30,69 @@ MIN_CHANGE_KM = 2.0
 RAIN_MIN_KM = 3.0
 OFF_TRAIL_KM = 2.0  # start_km_for: farther away from the line counts as "not on the trail"
 
-RAIN_NOTE = "Weiter mit Bus/Bahn zur Unterkunft – Fahrplan bitte selbst prüfen."
-NO_RAIN_VARIANT = "Keine Haltestelle am Weg – Regenvariante nicht möglich"
+# Fixed sentences of the plan in both reply languages. The German constants below keep their old
+# names (RAIN_NOTE, NO_RAIN_VARIANT, ACCESS_STRAIGHT); the English ones are reached via the helpers.
+_T: dict[Lang, dict[str, str]] = {
+    "de": {
+        "rain_note": "Weiter mit Bus/Bahn zur Unterkunft – Fahrplan bitte selbst prüfen.",
+        "no_rain": "Keine Haltestelle am Weg – Regenvariante nicht möglich",
+        "access": "Zuweg als Luftlinie eingerechnet, ohne Höhenmeter des Zuwegs",
+        "too_long": "Tagesstrecke zu lang für einen Tag ({h} h ohne Pausen)",
+        "remaining": (
+            "Ab {start} bleiben {rest} km bis {end} – {n} Tag(e) bei ~{avg} km"
+        ),
+        "start_km": "km {km}",
+        "trail_end": "zum Wegende",
+        "lodging_off": "Unterkunft {name} liegt {km} km Luftlinie abseits – {access}",
+        "unnamed_lodging": "ohne Namen",
+        "gap": "Keine Unterkunft ≤ {within} km zwischen km {a} und km {b}",
+        "dead_end": "{gap} – der Plan endet hier.",
+        "cannot_change": (
+            "Tag {day} lässt sich nicht {word} planen – keine Unterkunft, "
+            "die die Strecke um mindestens {km} km ändert"
+        ),
+        "shorter": "kürzer",
+        "longer": "länger",
+        "unnamed_stop": "Haltestelle ohne Namen",
+    },
+    "en": {
+        "rain_note": "Continue by bus/train to the accommodation – please check the timetable yourself.",
+        "no_rain": "No stop on the trail – rain variant not possible",
+        "access": "access path counted as the crow flies, without its ascent",
+        "too_long": "Daily distance too long for one day ({h} h without breaks)",
+        "remaining": (
+            "From {start} there are {rest} km to {end} – {n} day(s) at ~{avg} km"
+        ),
+        "start_km": "km {km}",
+        "trail_end": "the end of the trail",
+        "lodging_off": "Accommodation {name} lies {km} km off the trail as the crow flies – {access}",
+        "unnamed_lodging": "(unnamed)",
+        "gap": "No accommodation within {within} km between km {a} and km {b}",
+        "dead_end": "{gap} – the plan ends here.",
+        "cannot_change": (
+            "Day {day} cannot be planned {word} – no accommodation "
+            "that changes the distance by at least {km} km"
+        ),
+        "shorter": "shorter",
+        "longer": "longer",
+        "unnamed_stop": "Unnamed stop",
+    },
+}
+
+RAIN_NOTE = _T["de"]["rain_note"]
+NO_RAIN_VARIANT = _T["de"]["no_rain"]
+
+
+def rain_note(lang: Lang = "de") -> str:
+    return _T[lang]["rain_note"]
+
+
+def no_rain_variant(lang: Lang = "de") -> str:
+    return _T[lang]["no_rain"]
+
+
+def access_straight(lang: Lang = "de") -> str:
+    return _T[lang]["access"]
 
 Profile = list[list[float]]  # [[km, elevation_m], ...]
 
@@ -80,6 +141,7 @@ class MultidayPlan(BaseModel):
     days: list[DayPlan]
     notes: list[str]
     source_ids: list[str]
+    lang: Lang = "de"  # the language of notes and gaps: a stored plan keeps it (spec decision 10)
 
 
 class RainVariant(BaseModel):
@@ -87,19 +149,19 @@ class RainVariant(BaseModel):
     walk_km: float
     ascent_m: int
     duration_h: float
-    note: str = RAIN_NOTE
+    note: str = RAIN_NOTE  # rain_variant() writes it in the reply language
 
 
 # The access walk is counted as the straight-line distance, without its elevation.
-ACCESS_STRAIGHT = "Zuweg als Luftlinie eingerechnet, ohne Höhenmeter des Zuwegs"
+ACCESS_STRAIGHT = _T["de"]["access"]
 
 
 # --- helpers -----------------------------------------------------------------
 
 
-def _fmt(x: float) -> str:
-    """German number: one decimal with comma, without a trailing ',0' (half-up, see numfmt)."""
-    return de(x, 1)
+def _fmt(x: float, lang: Lang = "de") -> str:
+    """Number in the reply language: one decimal, without a trailing ',0' (half-up, see numfmt)."""
+    return fmt(x, lang, 1)
 
 
 def _access(stop: Stop | None) -> float:
@@ -138,6 +200,7 @@ def _make_day(
     gap: str | None,
     profile: Profile,
     start_time: time,
+    lang: Lang = "de",
 ) -> DayPlan:
     walk = end_km - start_km
     access = carry_in + _access(stop)
@@ -150,7 +213,7 @@ def _make_day(
     arrival: time | None = t1.time()
     if t1.date() != t0.date():  # never show an arrival past midnight
         arrival = None
-        too_long = f"Tagesstrecke zu lang für einen Tag ({_fmt(hours)} h ohne Pausen)"
+        too_long = _T[lang]["too_long"].format(h=_fmt(hours, lang))
         gap = f"{gap}; {too_long}" if gap else too_long
     lo, hi = target_km * (1 - BAND), target_km * (1 + BAND)
     return DayPlan(
@@ -178,21 +241,31 @@ def _notes(
     start_name: str | None,
     end_name: str | None,
     dead_end: str | None = None,
+    lang: Lang = "de",
 ) -> list[str]:
+    t = _T[lang]
     notes: list[str] = []
     if days and days[-1].stop is None:
         start = days[0].start_km
         rest = trail_len_km - start
         n = len(days)
         notes.append(
-            f"Ab {start_name or 'km ' + _fmt(start)} bleiben {_fmt(rest)} km bis "
-            f"{end_name or 'zum Wegende'} – {n} Tag(e) bei ~{round_half_up(rest / n)} km"
+            t["remaining"].format(
+                start=start_name or t["start_km"].format(km=_fmt(start, lang)),
+                rest=_fmt(rest, lang),
+                end=end_name or t["trail_end"],
+                n=n,
+                avg=fmt(round_half_up(rest / n), lang, 0),
+            )
         )
     for d in days:
         if d.stop is not None and d.stop.dist_m > NEAR_M:
             notes.append(
-                f"Unterkunft {d.stop.name or 'ohne Namen'} liegt "
-                f"{_fmt(d.stop.dist_m / 1000)} km Luftlinie abseits – {ACCESS_STRAIGHT}"
+                t["lodging_off"].format(
+                    name=d.stop.name or t["unnamed_lodging"],
+                    km=_fmt(d.stop.dist_m / 1000, lang),
+                    access=t["access"],
+                )
             )
     if dead_end:
         notes.append(dead_end)
@@ -209,7 +282,9 @@ class _Planner:
         target_km: float,
         start_km: float,
         start_carry: float,
+        lang: Lang = "de",
     ) -> None:
+        self.lang = lang
         self.stops = sorted(stops, key=lambda s: (s.along_km, s.dist_m, s.lodging_id))
         self.trail_len = trail_len_km
         self.target = target_km
@@ -259,9 +334,10 @@ class _Planner:
 
     def gap_text(self, state: int, within_km: int) -> str:
         km, carry = self.pos(state)
-        return (
-            f"Keine Unterkunft ≤ {within_km} km zwischen km {_fmt(km + self.lo - carry)} "
-            f"und km {_fmt(km + self.hi - carry)}"
+        return _T[self.lang]["gap"].format(
+            within=within_km,
+            a=_fmt(km + self.lo - carry, self.lang),
+            b=_fmt(km + self.hi - carry, self.lang),
         )
 
     def key(self, cand: int) -> tuple[int, int]:
@@ -308,11 +384,14 @@ class _Planner:
             end_km = self.trail_len if stop is None else stop.along_km
             out.append(
                 _make_day(
-                    n, start_date, km, end_km, carry, stop, self.target, gap, profile, start_time
+                    n, start_date, km, end_km, carry, stop, self.target, gap, profile, start_time,
+                    self.lang,
                 )
             )
             state = c
-        dead_end = f"{self.gap_text(state, 2)} – der Plan endet hier." if lost else None
+        dead_end = (
+            _T[self.lang]["dead_end"].format(gap=self.gap_text(state, 2)) if lost else None
+        )
         return out, dead_end
 
 
@@ -334,6 +413,7 @@ def plan_multiday(
     source_ids: list[str] | None = None,
     start_name: str | None = None,
     end_name: str | None = None,
+    lang: Lang = "de",
 ) -> MultidayPlan:
     if days < 1:
         raise ValueError("days must be >= 1")
@@ -341,15 +421,16 @@ def plan_multiday(
         raise ValueError("target_km must be > 0")
     if not 0 <= start_km < trail_len_km:
         raise ValueError("start_km must lie on the trail")
-    planner = _Planner(stops, trail_len_km, target_km, start_km, 0.0)
+    planner = _Planner(stops, trail_len_km, target_km, start_km, 0.0, lang)
     day_plans, dead_end = planner.days(_START, days, 1, start_date, start_time, profile)
     return MultidayPlan(
         trail_id=trail_id,
         trail_name=trail_name,
         target_km=target_km,
         days=day_plans,
-        notes=_notes(day_plans, trail_len_km, start_name, end_name, dead_end),
+        notes=_notes(day_plans, trail_len_km, start_name, end_name, dead_end, lang),
         source_ids=list(source_ids or []),
+        lang=lang,
     )
 
 
@@ -369,14 +450,15 @@ def change_day(
     Days before `day` are kept as they are (same objects); the following days are
     planned again with the same target, keeping the number of days unless the
     trail ends first. If no lodging qualifies, the plan is returned unchanged with
-    a note saying so.
+    a note saying so. Texts are written in the language of the stored plan (`plan.lang`).
     """
+    lang = plan.lang
     if not 1 <= day <= len(plan.days):
         raise ValueError("day out of range")
     old = plan.days[day - 1]
     carry_in = _access(plan.days[day - 2].stop) if day > 1 else 0.0
     # Planner whose start state is this day's start; it scores candidates for us.
-    planner = _Planner(stops, trail_len_km, plan.target_km, old.start_km, carry_in)
+    planner = _Planner(stops, trail_len_km, plan.target_km, old.start_km, carry_in, lang)
     old_len = old.end_km - old.start_km + old.access_km
     near: list[tuple[float, tuple[int, int], int]] = []
     far: list[tuple[float, tuple[int, int], int]] = []
@@ -396,10 +478,8 @@ def change_day(
         near.append((end_len, planner.key(_END), _END))
     pool = near or far
     if not pool:
-        word = "kürzer" if change == "shorter" else "länger"
-        msg = (
-            f"Tag {day} lässt sich nicht {word} planen – keine Unterkunft, "
-            f"die die Strecke um mindestens {_fmt(MIN_CHANGE_KM)} km ändert"
+        msg = _T[lang]["cannot_change"].format(
+            day=day, word=_T[lang][change], km=_fmt(MIN_CHANGE_KM, lang)
         )
         return plan.model_copy(update={"notes": [*plan.notes, msg]})
     if change == "shorter":  # closest below: the longest remaining day
@@ -421,6 +501,7 @@ def change_day(
         None,
         profile,
         old.start_time,
+        lang,
     )
     days = [*plan.days[: day - 1], changed]
     left = len(plan.days) - day
@@ -428,12 +509,12 @@ def change_day(
     if stop is not None and left > 0:
         more, dead_end = planner.days(pick, left, day + 1, first_date, old.start_time, profile)
         days += more
-    notes = _notes(days, trail_len_km, start_name, end_name, dead_end)
+    notes = _notes(days, trail_len_km, start_name, end_name, dead_end, lang)
     return plan.model_copy(update={"days": days, "notes": notes})
 
 
 def rain_variant(
-    day_plan: DayPlan, stations: list[StationOnTrail], profile: Profile
+    day_plan: DayPlan, stations: list[StationOnTrail], profile: Profile, lang: Lang = "de"
 ) -> RainVariant | None:
     """Shorter day ending at the last station on the trail >= 3 km after the day's start.
 
@@ -450,10 +531,11 @@ def rain_variant(
     ascent, descent = _up_down(profile, day_plan.start_km, st.along_km)
     walk = round(walk, 1)
     return RainVariant(
-        station_name=st.name or "Haltestelle ohne Namen",
+        station_name=st.name or _T[lang]["unnamed_stop"],
         walk_km=walk,
         ascent_m=ascent,
         duration_h=din33466(walk, ascent, descent).hours,
+        note=rain_note(lang),
     )
 
 

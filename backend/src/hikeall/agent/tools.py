@@ -507,8 +507,9 @@ class AgentTools(Protocol):
 
     def stage_places(self, trail_id: str) -> list[str]: ...
 
-    def plan_multiday(self, req: HikeRequest) -> MultidayPlan:
-        """Raises StartNotOnTrail if the start is off the trail or at its very end."""
+    def plan_multiday(self, req: HikeRequest, lang: Lang = "de") -> MultidayPlan:
+        """Raises StartNotOnTrail if the start is off the trail or at its very end. Notes and
+        gaps of the plan are written in `lang`."""
         ...
 
     def change_day(
@@ -526,7 +527,7 @@ class AgentTools(Protocol):
         ...
 
     def rain_variants(
-        self, plan: MultidayPlan, days: list[int]
+        self, plan: MultidayPlan, days: list[int], lang: Lang = "de"
     ) -> dict[int, RainVariant | None]: ...
 
     def sources(self, ids: list[str]) -> list[SourceBrief]: ...
@@ -600,7 +601,7 @@ class DbTools:
                     self._trails[trail_id] = load_trail_data(conn, trail_id)
             return self._trails[trail_id]
 
-    def plan_multiday(self, req: HikeRequest) -> MultidayPlan:
+    def plan_multiday(self, req: HikeRequest, lang: Lang = "de") -> MultidayPlan:
         if req.trail_id is None or req.days is None or req.start is None:
             raise ValueError("multi-day request without trail, days or start")
         if req.start.lat is None or req.start.lon is None:
@@ -623,6 +624,7 @@ class DbTools:
             source_ids=trail.source_ids,
             start_name=req.start.label,
             end_name=trail.end_name,
+            lang=lang,
         )
 
     def change_day(
@@ -650,13 +652,16 @@ class DbTools:
         self, points: list[tuple[float, float, date]], today: date
     ) -> list[DayWeather | NoForecast]:
         if self._weather_client is None:
-            return [NoForecast(REASON_DOWN) for _ in points]
+            return [NoForecast(REASON_DOWN, "unavailable") for _ in points]
         return weather_for_days(self._weather_client, points, today)
 
-    def rain_variants(self, plan: MultidayPlan, days: list[int]) -> dict[int, RainVariant | None]:
+    def rain_variants(
+        self, plan: MultidayPlan, days: list[int], lang: Lang = "de"
+    ) -> dict[int, RainVariant | None]:
         trail = self._trail(plan.trail_id)
         return {
-            n: multiday.rain_variant(plan.days[n - 1], trail.stations, trail.profile) for n in days
+            n: multiday.rain_variant(plan.days[n - 1], trail.stations, trail.profile, lang)
+            for n in days
         }
 
     def sources(self, ids: list[str]) -> list[SourceBrief]:

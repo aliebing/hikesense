@@ -10,6 +10,7 @@ import httpx
 from hikeall.adapters.http import request_json
 from hikeall.errors import WeatherUnavailable
 from hikeall.models import Source
+from hikeall.numfmt import Lang
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 DAILY_FIELDS = (
@@ -29,33 +30,71 @@ def weather_source(retrieved_at: date | None = None) -> Source:
     )
 
 
-def weather_text(code: int | None) -> str | None:
-    """WMO weather code (as sent by Open-Meteo) → short German text; None if unknown."""
-    if code is None:
-        return None
+_WEATHER_EN = {
+    "clear": "Clear",
+    "mostly_clear": "Mostly clear",
+    "partly_cloudy": "Partly cloudy",
+    "overcast": "Overcast",
+    "fog": "Fog",
+    "drizzle": "Drizzle",
+    "freezing_drizzle": "Freezing drizzle",
+    "light_rain": "Light rain",
+    "rain": "Rain",
+    "heavy_rain": "Heavy rain",
+    "showers": "Rain showers",
+    "freezing_rain": "Freezing rain",
+    "snow": "Snow",
+    "thunderstorm": "Thunderstorm",
+}
+_WEATHER_DE = {
+    "clear": "Klar",
+    "mostly_clear": "Überwiegend klar",
+    "partly_cloudy": "Teils bewölkt",
+    "overcast": "Bedeckt",
+    "fog": "Nebel",
+    "drizzle": "Nieselregen",
+    "freezing_drizzle": "Gefrierender Nieselregen",
+    "light_rain": "Regen",
+    "rain": "Regen",
+    "heavy_rain": "Regen",
+    "showers": "Regenschauer",
+    "freezing_rain": "Gefrierender Regen",
+    "snow": "Schnee",
+    "thunderstorm": "Gewitter",
+}
+
+
+def _weather_kind(code: int) -> str | None:
     if code == 0:
-        return "Klar"
-    if code == 1:
-        return "Überwiegend klar"
-    if code == 2:
-        return "Teils bewölkt"
-    if code == 3:
-        return "Bedeckt"
+        return "clear"
+    if code in (1, 2, 3):
+        return ("mostly_clear", "partly_cloudy", "overcast")[code - 1]
     if code in (45, 48):
-        return "Nebel"
+        return "fog"
     if 51 <= code <= 55:
-        return "Nieselregen"
+        return "drizzle"
     if code in (56, 57):
-        return "Gefrierender Nieselregen"
-    if code in (61, 63, 65, 80, 81, 82):
-        return "Regenschauer" if code >= 80 else "Regen"
+        return "freezing_drizzle"
+    if code in (61, 63, 65):
+        return {61: "light_rain", 63: "rain", 65: "heavy_rain"}[code]
+    if code in (80, 81, 82):
+        return "showers"
     if code in (66, 67):
-        return "Gefrierender Regen"
+        return "freezing_rain"
     if 71 <= code <= 77 or code in (85, 86):
-        return "Schnee"
+        return "snow"
     if 95 <= code <= 99:
-        return "Gewitter"
+        return "thunderstorm"
     return None
+
+
+def weather_text(code: int | None, lang: Lang = "de") -> str | None:
+    """WMO weather code (as sent by Open-Meteo) → short text in the reply language; None if
+    unknown. German keeps one word for light/moderate/heavy rain, English tells them apart."""
+    kind = _weather_kind(code) if code is not None else None
+    if kind is None:
+        return None
+    return (_WEATHER_DE if lang == "de" else _WEATHER_EN)[kind]
 
 
 @dataclass(frozen=True)

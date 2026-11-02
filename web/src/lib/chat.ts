@@ -113,6 +113,8 @@ export type MultidayPlan = {
   days: DayPlan[];
   notes: string[];
   source_ids: string[];
+  /** language of notes and gaps; absent in plans saved before it existed (German) */
+  lang?: "de" | "en";
 };
 
 export type DayWeather = {
@@ -126,7 +128,10 @@ export type DayWeather = {
   source_id: string;
 };
 
-export type NoForecast = { reason: string };
+/** Why there is no forecast. `reason` is the text in the reply language; the web checks `code`. */
+export type NoForecastCode = "not_yet" | "past" | "unavailable" | "missing" | "no_place";
+/** `code` is absent in plans saved before it existed. */
+export type NoForecast = { reason: string; code?: NoForecastCode };
 
 export type RainVariant = {
   station_name: string;

@@ -42,16 +42,16 @@ from hikeall.agent.constraints import (
     contradiction,
     format_deviation,
 )
-from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace
+from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace, skip_reason
 from hikeall.agent.explain import candidate_rows
 from hikeall.agent.grounding import Evidence, grounding_check, has_number, strip_unsat_claims
 from hikeall.agent.multiday import (
-    ACCESS_STRAIGHT,
     NEAR_M,
-    NO_RAIN_VARIANT,
     DayPlan,
     MultidayPlan,
     RainVariant,
+    access_straight,
+    no_rain_variant,
 )
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
@@ -79,7 +79,7 @@ from hikeall.agent.tools import (
 )
 from hikeall.agent.understand import DAYS_QUESTIONS, echo, parse, resolve, resolve_option
 from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
-from hikeall.agent.weather import NoForecast, is_rain_day
+from hikeall.agent.weather import NoForecast, is_rain_day, localize, no_forecast
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
 from hikeall.guard import leaks_system_prompt, looks_like_injection, sanitize_text
@@ -648,7 +648,7 @@ def _plan_prefix(
         lines.append(f"{d['weather']}: {next(iter(missing.values()))}")
     else:
         lines += [f"{d['day']} {n}: {reason}" for n, reason in missing.items()]
-    lines += [f"{d['day']} {n}: {NO_RAIN_VARIANT}" for n, v in rain.items() if v is None]
+    lines += [f"{d['day']} {n}: {no_rain_variant(lang)}" for n, v in rain.items() if v is None]
     if plan.days:
         lines.append(d["all_times"])
     return "\n".join(dict.fromkeys(_sentence(x) for x in lines))
@@ -715,7 +715,7 @@ def _day_line(
             name=day.stop.name or d["stop_noname"], dist=fmt(day.stop.dist_m, lang, 0)
         )
         if day.stop.dist_m > NEAR_M:
-            line += f" ({ACCESS_STRAIGHT})"
+            line += f" ({access_straight(lang)})"
     else:
         line += d["stop_end"]
     if day.gap:
@@ -733,7 +733,7 @@ def _day_line(
             note=v.note,
         )
     elif has_rain:
-        line += d["rain_none"].format(note=NO_RAIN_VARIANT)
+        line += d["rain_none"].format(note=no_rain_variant(lang))
     return line
 
 
@@ -941,7 +941,7 @@ def _events_text(found: EventsResult, lang: Lang = "de") -> str:
     else:
         text = t.events_none.format(pages=read, page_noun=pages(read))
     if found.skipped:
-        reasons = "; ".join(dict.fromkeys(s.reason for s in found.skipped))
+        reasons = "; ".join(dict.fromkeys(skip_reason(s.reason, lang) for s in found.skipped))
         k = len(found.skipped)
         text += t.events_skipped.format(n=k, page_noun=pages(k), reasons=reasons)
     return text
@@ -1228,7 +1228,7 @@ def build_graph(deps: AgentDeps) -> Any:
             plan, calls = tools.change_day(stored, req.day_change, start_name=start), 1
         else:
             try:
-                plan, calls = tools.plan_multiday(req), 1
+                plan, calls = tools.plan_multiday(req, lang), 1
             except StartNotOnTrail:
                 tag = vocab.get(f"trail:{req.trail_id}")
                 trail = tag.label if tag else str(req.trail_id)
@@ -1244,8 +1244,8 @@ def build_graph(deps: AgentDeps) -> Any:
             located = [d for d in dated if points.get(d.day)]
             wanted_points = [(*points[d.day], d.date) for d in located]
             got = tools.weather_days(wanted_points, deps.today())
-            weather = {d.day: NoForecast("Ort für die Vorhersage unbekannt") for d in dated}
-            weather |= {d.day: w for d, w in zip(located, got, strict=True)}
+            weather = {d.day: no_forecast("no_place", lang) for d in dated}
+            weather |= {d.day: localize(w, lang) for d, w in zip(located, got, strict=True)}
             calls += 2
         elif dated:
             lead.append(
@@ -1255,7 +1255,7 @@ def build_graph(deps: AgentDeps) -> Any:
         wanted = sorted({*wanted, *rain_days})
         rain: dict[int, RainVariant | None] = {}
         if wanted and calls + 1 <= budget:
-            rain = tools.rain_variants(plan, wanted)
+            rain = tools.rain_variants(plan, wanted, lang)
             calls += 1
         elif wanted:
             lead.append(_D[lang]["no_rain_calc"].format(days=_days_text(wanted, lang)))

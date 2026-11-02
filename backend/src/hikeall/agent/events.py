@@ -22,6 +22,7 @@ from hikeall.agent.prompts import EXTRACT_SYSTEM
 from hikeall.config import data_root
 from hikeall.llm.gateway import LLMGateway
 from hikeall.llm.usage import BudgetExceeded, LLMError
+from hikeall.numfmt import Lang
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +99,41 @@ class EventsResult(BaseModel):
     pages: list[str] = []  # pages read
     calls: int = 0  # search + page fetches + extractions (count against max_tool_calls)
     search_failed: bool = False
+
+
+# Why a page was skipped: the reasons come from the page fetcher / this module in German; the
+# English wording is looked up by pattern (the German text stays what it is).
+_SKIP_EN: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(rx), en)
+    for rx, en in (
+        (r"Zeitlimit (\S+) s überschritten", r"time limit of \1 s exceeded"),
+        (r"Adresse nicht auflösbar", "address cannot be resolved"),
+        (r"private oder reservierte Adresse – nicht abgerufen", "private or reserved address – not fetched"),
+        (r"Unix-Sockets werden nicht abgerufen", "Unix sockets are not fetched"),
+        (r"nur http/https-Adressen werden abgerufen", "only http/https addresses are fetched"),
+        (r"Domain ist gesperrt \(Nutzungsbedingungen\)", "domain is blocked (terms of use)"),
+        (r"ungültiger Port", "invalid port"),
+        (r"nur Standard-Ports \(80/443\)", "only standard ports (80/443)"),
+        (r"robots\.txt verbietet den Abruf", "robots.txt forbids fetching"),
+        (r"kein HTML \((.*)\)", r"not HTML (\1)"),
+        (r"größer als (\S+) MB", r"larger than \1 MB"),
+        (r"nicht erreichbar \((.*)\)", r"not reachable (\1)"),
+        (r"zu viele Weiterleitungen \(mehr als (\d+)\)", r"too many redirects (more than \1)"),
+        (r"Kodierung (.*) nicht unterstützt", r"encoding \1 not supported"),
+        (r"Inhalt nicht lesbar \(Kompression\)", "content not readable (compression)"),
+        (r"Auswertung fehlgeschlagen \((.*)\)", r"evaluation failed (\1)"),
+    )
+)  # fmt: skip
+
+
+def skip_reason(reason: str, lang: Lang = "de") -> str:
+    """The reason a page was skipped in the reply language (German is returned unchanged)."""
+    if lang == "de":
+        return reason
+    for rx, en in _SKIP_EN:
+        if rx.fullmatch(reason):
+            return rx.sub(en, reason)
+    return reason
 
 
 def load_calendars(path: Path | None = None) -> list[CalendarLink]:

@@ -715,3 +715,15 @@ def test_dates_in_reads_english_month_names():
     ):
         assert dates_in(text) == want, text
     assert dates_in("18. April 2027") == {date(2027, 4, 18)}  # German unchanged
+
+
+def test_skip_reasons_in_english():
+    from hikeall.agent.events import skip_reason
+
+    assert skip_reason("robots.txt verbietet den Abruf", "en") == "robots.txt forbids fetching"
+    assert skip_reason("Zeitlimit 10 s überschritten", "en") == "time limit of 10 s exceeded"
+    assert skip_reason("größer als 1 MB", "en") == "larger than 1 MB"
+    assert skip_reason("nicht erreichbar (ConnectError)", "en") == "not reachable (ConnectError)"
+    assert skip_reason("Auswertung fehlgeschlagen (LLMError)", "en") == "evaluation failed (LLMError)"
+    assert skip_reason("HTTP 404", "en") == "HTTP 404"
+    assert skip_reason("robots.txt verbietet den Abruf") == "robots.txt verbietet den Abruf"

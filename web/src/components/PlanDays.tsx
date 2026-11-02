@@ -37,11 +37,14 @@ function Weather({ w, dated, asOf }: { w: DayWeather | NoForecast | undefined; d
   const { locale } = useLocale();
   const t = useT().plan;
   if (!isForecast(w)) {
+    // "not yet" is already what the generic label says; every other reason is added.
+    // Saved plans from before the code existed carry only the German text.
+    const notYet = w?.code === "not_yet" || (w?.code === undefined && !!w?.reason.startsWith("Noch keine Vorhersage"));
     const reason = w?.reason;
     return (
       <p className="text-xs text-wald-dunkel/80">
         {t.noForecast}
-        {reason && !reason.startsWith("Noch keine Vorhersage") ? ` (${reason})` : ""}
+        {reason && !notYet ? ` (${reason})` : ""}
         {!w && !dated && ` (${t.noDate})`}
       </p>
     );
