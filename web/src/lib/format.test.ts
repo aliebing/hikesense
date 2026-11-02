@@ -34,3 +34,13 @@ test("walkingTime is omitted when any input is missing", () => {
   expect(walkingTime({ length_km: 12, ascent_m: null, descent_m: 600 })).toBeNull();
   expect(walkingTime({ length_km: 12, ascent_m: 600, descent_m: null })).toBeNull();
 });
+
+test("format in both languages", () => {
+  expect(km(11.6, "en")).toBe("11.6 km");
+  expect(km(11.6, "de")).toBe("11,6 km");
+  expect(km(null, "en")).toBe("– km");
+  expect(hm(1200, "en")).toBe("↑ 1,200 m");
+  expect(hm(1200, "de")).toBe("↑ 1.200 m");
+  expect(hmDown(1200, "en")).toBe("↓ 1,200 m");
+  expect(duration(5.17, "en")).toBe("5:10 h");
+});

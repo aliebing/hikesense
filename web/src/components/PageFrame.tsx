@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LanguageFlags from "./LanguageFlags";
 import AccountMenu from "./AccountMenu";
 
 /** Page frame: dark green ground very dark green running towards black, header with logo, optional „Fernwege“ menu and back link. No photo backdrop. */
@@ -35,6 +36,7 @@ export default function PageFrame({
                 </ul>
               </details>
             )}
+            <LanguageFlags />
             <AccountMenu />
             {back && (
               <Link href={back.href} className="whitespace-nowrap underline-offset-4 hover:underline">

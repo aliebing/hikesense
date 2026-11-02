@@ -91,3 +91,11 @@ it("a rejected request (4xx without events) gets its own message, not 'nicht err
   expect(got).toEqual([{ type: "error", message: ERROR_REJECTED }]);
   vi.unstubAllGlobals();
 });
+
+it("sends the language in the request body", async () => {
+  const fetchMock = vi.fn().mockRejectedValue(new TypeError("x"));
+  vi.stubGlobal("fetch", fetchMock);
+  await streamChat("http://x", "t", "hi", () => {}, undefined, null, "en");
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ thread_id: "t", message: "hi", lang: "en" });
+  vi.unstubAllGlobals();
+});

@@ -1,29 +1,33 @@
-const de1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const de0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+import { intlLocale, type Locale } from "../i18n";
+
+const one = (l: Locale) => new Intl.NumberFormat(intlLocale(l), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const zero = (l: Locale) => new Intl.NumberFormat(intlLocale(l), { maximumFractionDigits: 0 });
 
 /** Shown instead of a number that is missing in the data (never 0). */
 export const MISSING = "–";
 
 /** 14.83 → "14,8 km"; null → "– km" */
-export function km(n: number | null): string {
-  return `${n === null ? MISSING : de1.format(n)} km`;
+export function km(n: number | null, locale: Locale = "de"): string {
+  return `${n === null ? MISSING : one(locale).format(n)} km`;
 }
 
 /** 720 → "↑ 720 m"; null → "↑ – m" */
-export function hm(n: number | null): string {
-  return `↑ ${n === null ? MISSING : de0.format(n)} m`;
+export function hm(n: number | null, locale: Locale = "de"): string {
+  return `↑ ${n === null ? MISSING : zero(locale).format(n)} m`;
 }
 
 /** 700 → "↓ 700 m"; null → "↓ – m" */
-export function hmDown(n: number | null): string {
-  return `↓ ${n === null ? MISSING : de0.format(n)} m`;
+export function hmDown(n: number | null, locale: Locale = "de"): string {
+  return `↓ ${n === null ? MISSING : zero(locale).format(n)} m`;
 }
 
 /** 5.17 → "5:10 h" (rounded to whole minutes) */
-export function duration(hours: number): string {
+export function duration(hours: number, locale: Locale = "de"): string {
   const minutes = Math.round(hours * 60);
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
+  // "5:10 h" in both languages; locale is kept for a uniform helper signature
+  void locale;
   return `${h}:${String(m).padStart(2, "0")} h`;
 }
 
@@ -43,11 +47,14 @@ export function din33466Hours(distanceKm: number, ascentM: number, descentM: num
 }
 
 /** DIN walking time as text, or null when distance, ascent or descent is missing. */
-export function walkingTime(x: {
-  length_km: number | null;
-  ascent_m: number | null;
-  descent_m: number | null;
-}): string | null {
+export function walkingTime(
+  x: {
+    length_km: number | null;
+    ascent_m: number | null;
+    descent_m: number | null;
+  },
+  locale: Locale = "de",
+): string | null {
   if (x.length_km === null || x.ascent_m === null || x.descent_m === null) return null;
-  return duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m));
+  return duration(din33466Hours(x.length_km, x.ascent_m, x.descent_m), locale);
 }

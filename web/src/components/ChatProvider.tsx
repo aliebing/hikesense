@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, onSignedOut } from "../lib/auth";
 import { ERROR_AUTH_UNAVAILABLE, streamChat } from "../lib/chat";
+import { useLocale } from "../i18n";
 import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, STORAGE_KEY, type ChatState } from "../lib/chatState";
 
 /** Same origin by default: next.config.ts proxies /api/chat to the backend (one tunnel for the phone). */
@@ -38,6 +39,9 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
   const [state, setState] = useState(() => initialState(newId()));
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { locale } = useLocale();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const stateRef = useRef(state);
   const busyRef = useRef(false);
   const ctrl = useRef<AbortController | null>(null);
@@ -89,6 +93,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
         },
         c.signal,
         token,
+        localeRef.current,
       );
       if (ctrl.current === c) ctrl.current = null;
       const result = { auth, keepDraft: auth || unavailable };

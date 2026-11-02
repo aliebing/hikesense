@@ -264,3 +264,16 @@ def test_stream_is_not_buffered_by_proxies(client, seen):
     assert "no-transform" in r.headers["cache-control"]
     assert "no-cache" in r.headers["cache-control"]
     assert r.headers["x-accel-buffering"] == "no"
+
+
+def test_lang_is_accepted_and_defaults_to_de(client, seen):
+    body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "en"}
+    assert client.post("/chat", json=body, headers=bearer()).status_code == 200
+    assert post(client).status_code == 200
+    assert chat_api.ChatRequest(thread_id=uuid.uuid4(), message="x").lang == "de"
+
+
+def test_unknown_lang_422(client, seen):
+    body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "fr"}
+    assert client.post("/chat", json=body, headers=bearer()).status_code == 422
+    assert seen == []

@@ -7,7 +7,7 @@ import logging
 import threading
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -49,6 +49,8 @@ STREAM_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering"
 class ChatRequest(BaseModel):
     thread_id: uuid.UUID
     message: str
+    # reply language; missing field (old clients, tests, eval) means German; not yet passed on to run_chat
+    lang: Literal["en", "de"] = "de"
 
 
 def default_deps_factory(

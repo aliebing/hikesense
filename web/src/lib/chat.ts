@@ -1,5 +1,7 @@
 /** Chat protocol: SSE parsing and streaming against POST /chat (backend/src/hikeall/api/chat.py). */
 
+import type { Locale } from "../i18n";
+
 export type ConstraintKind = "roundtrip" | "length_km" | "ascent_m" | "duration_h" | "radius_km";
 
 export type Constraint = {
@@ -248,6 +250,7 @@ export async function streamChat(
   onEvent: (e: ChatEvent) => void,
   signal?: AbortSignal,
   accessToken?: string | null,
+  lang: Locale = "de",
 ): Promise<void> {
   try {
     const res = await fetch(`${apiUrl}/chat`, {
@@ -257,7 +260,7 @@ export async function streamChat(
         Accept: "text/event-stream",
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
-      body: JSON.stringify({ thread_id: threadId, message }),
+      body: JSON.stringify({ thread_id: threadId, message, lang }),
       signal,
     });
     // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
