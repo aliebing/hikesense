@@ -10,7 +10,8 @@ import PageFrame from "../../../components/PageFrame";
 import PhotoSwitcher from "../../../components/PhotoSwitcher";
 import PoiList from "../../../components/PoiList";
 import StageCards from "../../../components/StageCards";
-import TourDescription, { hasDescription } from "../../../components/TourDescription";
+import TourDescription from "../../../components/TourDescription";
+import { hasDescription } from "../../../lib/tourDescription";
 import TourMerken from "../../../components/TourMerken";
 import TrailMap from "../../../components/TrailMap";
 import {

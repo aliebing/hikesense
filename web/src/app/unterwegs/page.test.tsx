@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(h
 vi.mock("../../lib/data", () => ({ getTrail: (...a: unknown[]) => h.getTrail(...a) }));
 // the view itself is tested in Unterwegs.test.tsx: here only what the page hands over
 vi.mock("../../components/Unterwegs", () => ({
-  default: (p: { title: string; line: number[][]; startKm?: number; lengthKm: number | null; profile: unknown; days?: unknown[] }) => {
+  default: function UnterwegsStub(p: { title: string; line: number[][]; startKm?: number; lengthKm: number | null; profile: unknown; days?: unknown[] }) {
     // mount/unmount counters stand in for the running position watch
     useEffect(() => {
       h.lifecycle.mounts++;

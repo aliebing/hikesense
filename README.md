@@ -119,6 +119,14 @@ Die Arbeit ist so aufgeteilt:
 - **Die Grounding-Prüfung** sucht jede Zahl mit Einheit im Antworttext in den Werkzeugergebnissen der Runde. Nicht belegte Zahlen ersetzt sie durch „?“. Tournamen, die in den Ergebnissen nicht vorkommen, bekommen einen Hinweis.
 - **Die ehrlichen Sätze schreibt der Code selbst.** Das sind „Keine Tour erfüllt alle Wünsche, weil …“, Lücken bei Unterkünften und „Zeiten ohne Pausen“. Sie stehen wörtlich vor dem Text des Modells.
 
+## Sprache
+
+Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen oben rechts (🇬🇧 / 🇩🇪) schalten um, ohne die Seite neu zu laden. Die Wahl steht im Cookie `hikeall.lang` und bleibt erhalten; ohne Wahl gilt Englisch. Server und Browser lesen dasselbe Cookie, damit die erste Anzeige schon in der richtigen Sprache kommt. Datum und Zahlen folgen der Sprache (`11.4 km` / `11,4 km`). Die Texte stehen in `web/src/i18n/en.ts` und `de.ts`; ein Test stellt sicher, dass beide Kataloge dieselben Schlüssel haben und kein Rahmentext fest im Code steht.
+
+**Teil A (fertig):** alles, was die Web-App selbst schreibt: Menüs, Beschriftungen, Tourseite, Plan, Meine Pläne, Admin, Fehler- und Leerzustände.
+
+**Teil B (folgt):** Texte, die das Backend erzeugt, kommen noch **auf Deutsch**, auch auf der englischen Oberfläche: die Antwort im Chat, Rückfragen, das „Verstanden: …“-Echo, die Abweichungstexte bei „Knapp daneben“, ✓/✗-Zeilen der Karten, Mehrtages-Notizen, Wettertext und Chat-Fehlermeldungen. Teil B lässt das Backend diese Texte in der Sprache der Anfrage schreiben und lässt die Zahlenprüfung (Grounding) auch englische Schreibweisen („11.6 km“, „1,200 m“) und Zahlwörter kennen. Gemerkte Suchen behalten den Titel in der Sprache, in der sie gemerkt wurden.
+
 ## Daten und Lizenzen
 
 Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikeall import-*`, siehe `Makefile`) erzeugen einen festen Stand, die App fragt OSM zur Laufzeit nicht ab. Wege, Etappen, Unterkünfte, Orte und Punkte verweisen je Zeile auf eine Quelle mit Lizenz (Tabelle `sources`), Bilder tragen Urheber und Lizenz selbst. Die Karte zeigt die Attribution für OSM und BKG, jedes Bild seinen Urheber und seine Lizenz. Die Mengen unten wurden am 2026-10-31 aus der Datenbank abgefragt, die Abfrage steht als Kommentar daneben.
