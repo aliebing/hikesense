@@ -2029,7 +2029,7 @@ def test_weather_fine_days_are_listed_in_event_and_sentence(vocab, settings):
     assert [d.date for d in ev.days] == [TODAY + timedelta(days=6), TODAY + timedelta(days=7)]
     assert all(d.match is True for d in ev.days)
     text = text_of(events)
-    assert "Passende Tage für ‚schönes Wetter‘ am Feldberg (Schwarzwald): " in text
+    assert "Passende Tage für ‚schönes Wetter‘ bei Feldberg: " in text
     assert "Do 5.11. (Klar, 2–11 °C, 0 mm), Fr 6.11. (Klar, 2–11 °C, 0 mm)." in text
     assert text.rstrip().endswith("(Klar, 2–11 °C, 0 mm).")  # after the answer
     assert deps.tools.calls["forecast_range"] == 1 and len(deps.tools.range_points) == 1
@@ -2047,7 +2047,7 @@ def test_weather_fine_days_in_english(vocab, settings):
     deps = _wx(vocab, settings, _series({6}), weather_wish="fine")
     events = list(run_chat(deps, "t1", "Round walk, fine weather", lang="en"))
     text = text_of(events)
-    assert "Days that fit ‘fine weather’ near Feldberg (Schwarzwald): Thu 5 Nov (Clear, 2–11 °C, 0 mm)." in text
+    assert "Days that fit ‘fine weather’ near Feldberg: Thu 5 Nov (Clear, 2–11 °C, 0 mm)." in text
     assert one(events, "weather_days").days[0].weather.text == "Clear"
 
 
@@ -2060,7 +2060,7 @@ def test_weather_no_fitting_day_gives_best_three_and_honest_sentence(vocab, sett
     assert [d.date for d in ev.days] == [TODAY + timedelta(days=i) for i in range(3)]
     assert all(d.match is False for d in ev.days)
     text = text_of(events)
-    assert "In den nächsten 14 Tagen passt kein Tag zu ‚schönes Wetter‘ am Feldberg" in text
+    assert "In den nächsten 14 Tagen passt kein Tag zu ‚schönes Wetter‘ bei Feldberg" in text
     assert "; am ehesten: Fr 30.10. (Schnee, 2–11 °C, 2 mm)" in text
     assert "Passende Tage" not in text
 
@@ -2069,7 +2069,7 @@ def test_weather_no_fitting_day_in_english(vocab, settings):
     series = [_wd(i, code=63, mm=6.0, prob=90) for i in range(15)]
     deps = _wx(vocab, settings, series, weather_wish="fine")
     text = text_of(list(run_chat(deps, "t1", "Round walk, fine weather", lang="en")))
-    assert "No day in the next 14 days fits ‘fine weather’ near Feldberg (Schwarzwald); closest: " in text
+    assert "No day in the next 14 days fits ‘fine weather’ near Feldberg; closest: " in text
 
 
 def test_weather_date_does_not_fit_names_it_and_offers_alternatives(vocab, settings):
@@ -2080,7 +2080,7 @@ def test_weather_date_does_not_fit_names_it_and_offers_alternatives(vocab, setti
     assert ev.days[0].date == date(2026, 11, 1) and ev.days[0].match is False
     assert [d.match for d in ev.days[1:]] == [True, True]
     text = text_of(events)
-    assert "So 1.11. passt nicht zu ‚schönes Wetter‘ am Feldberg (Schwarzwald): Regen, 2–11 °C, 6 mm." in text
+    assert "So 1.11. passt nicht zu ‚schönes Wetter‘ bei Feldberg: Regen, 2–11 °C, 6 mm." in text
     assert " Weitere passende Tage: Di 3.11. (Klar, 2–11 °C, 0 mm), Do 5.11. (" in text
 
 
@@ -2145,3 +2145,19 @@ def test_weather_sentence_numbers_survive_grounding(vocab, settings):
     text = text_of(events)
     assert "30 °C" not in text  # invented number replaced
     assert "(Klar, -2–8 °C, 0,3 mm)" in text  # the code's sentence is untouched
+
+
+def test_weather_sentence_without_tours_follows_the_hint(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw(weather_wish="fine")]},
+        tools=FakeTools(cands=[], series=_series({6})),
+    )
+    events = run(deps, FINE_MSG)
+    text = text_of(events)
+    hint = text.index("Versuch es mit einem größeren Umkreis")
+    assert hint < text.index("Passende Tage für ‚schönes Wetter‘ bei Feldberg:")
+    assert one(events, "weather_days").place == "Feldberg (Schwarzwald)"
+    assert log_lines(settings)[-1]["weather_days"]["place"] == "Feldberg (Schwarzwald)"
+    assert log_lines(settings)[-1]["tool_calls"] == 2

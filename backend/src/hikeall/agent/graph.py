@@ -685,6 +685,11 @@ def _wish_point(start: ResolvedStart | None) -> tuple[float, float] | None:
     return None
 
 
+def _wish_text(wish: WeatherWish, lang: Lang = "de") -> str:
+    t = texts(lang)
+    return {"fine": t.wish_fine, "dry": t.wish_dry, "snow": t.wish_snow}[wish]
+
+
 def _weather_detail(w: DayWeather, lang: Lang = "de") -> str:
     """ "Klar, 2–11 °C, 0 mm" (only what is known)."""
     parts = [w.text] if w.text else []
@@ -711,7 +716,8 @@ def _find_weather_days(
 ) -> tuple[WeatherDaysEvent, str]:
     """Event and code-written sentence for one point's forecast (today..today+14)."""
     t = texts(lang)
-    wish_text = {"fine": t.wish_fine, "dry": t.wish_dry, "snow": t.wish_snow}[wish]
+    wish_text = _wish_text(wish, lang)
+    full_place, place = place, place.split(" (")[0]  # sentences use the short name
 
     def day(w: DayWeather) -> WeatherDay:
         loc = localize(w, lang)
@@ -720,7 +726,7 @@ def _find_weather_days(
 
     def event(days: list[WeatherDay], best_only: bool, note: str | None) -> WeatherDaysEvent:
         return WeatherDaysEvent(
-            wish=wish, place=place, days=days, best_only=best_only, note=note
+            wish=wish, place=full_place, days=days, best_only=best_only, note=note
         )
 
     if not series:
@@ -1289,12 +1295,9 @@ def build_graph(deps: AgentDeps) -> Any:
             "near_sentence": _near_sentence(near_cards, lang),
             "candidates": candidate_rows(sel, lang),
         }
-        if not cards:
-            return out | {"fixed": t.no_tours_hint}
-        data = _search_data(req, cards, not sel.matches, vocab, lang)
-        _card_evidence(ev, scored, area, lang)
+        fit_days: list[WeatherDay] = []
         point = _wish_point(req.start) if req.weather_wish else None
-        if req.weather_wish and point and req.start:
+        if req.weather_wish and point and req.start:  # on both paths: with and without tours
             wish, place = req.weather_wish, req.start.label
             got = tools.forecast_range([point], deps.today())
             if isinstance(got, NoForecast):
@@ -1308,22 +1311,28 @@ def build_graph(deps: AgentDeps) -> Any:
                 )
             _emit(found)
             out |= {
-                "tool_calls": 2,
+                "tool_calls": out["tool_calls"] + 1,
                 "weather_sentence": sentence,
                 "weather_days": _weather_log(found),
             }
             fit_days = [d for d in found.days if d.match is True]
-            wish_text = {"fine": t.wish_fine, "dry": t.wish_dry, "snow": t.wish_snow}[wish]
-            if fit_days:  # the model may name them, so their numbers are evidence
-                data += "\n" + t.weather_data.format(
-                    wish=wish_text, place=place, days=_weather_days_text(fit_days, lang)
-                )
-                for d in fit_days:
-                    ev.add(d.weather.t_min_c, "°C")
-                    ev.add(d.weather.t_max_c, "°C")
-                    ev.add(d.weather.precip_mm, "mm")
-                    ev.add(d.weather.precip_prob_pct, "%")
-                    ev.add(d.weather.snowfall_cm, "cm")
+        if not cards:
+            return out | {"fixed": t.no_tours_hint}
+        data = _search_data(req, cards, not sel.matches, vocab, lang)
+        _card_evidence(ev, scored, area, lang)
+        if fit_days and req.weather_wish and req.start:
+            # the model may name them, so their numbers are evidence
+            data += "\n" + t.weather_data.format(
+                wish=_wish_text(req.weather_wish, lang),
+                place=req.start.label.split(" (")[0],
+                days=_weather_days_text(fit_days, lang),
+            )
+            for d in fit_days:
+                ev.add(d.weather.t_min_c, "°C")
+                ev.add(d.weather.t_max_c, "°C")
+                ev.add(d.weather.precip_mm, "mm")
+                ev.add(d.weather.precip_prob_pct, "%")
+                ev.add(d.weather.snowfall_cm, "cm")
         ev.add(result.searched_radius_km, "km")
         ev.numbers.append(reason or "")
         if req.start is not None:

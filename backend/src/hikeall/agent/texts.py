@@ -171,18 +171,18 @@ DE = Texts(
     wish_dry="trocken",
     wish_snow="Schnee",
     weather_unavailable="Wetter gerade nicht abrufbar.",
-    weather_found="Passende Tage für ‚{wish}‘ am {place}: {days}.",
+    weather_found="Passende Tage für ‚{wish}‘ bei {place}: {days}.",
     weather_none=(
-        "In den nächsten 14 Tagen passt kein Tag zu ‚{wish}‘ am {place}; am ehesten: {days}."
+        "In den nächsten 14 Tagen passt kein Tag zu ‚{wish}‘ bei {place}; am ehesten: {days}."
     ),
-    weather_day_fits="{day} passt zu ‚{wish}‘ am {place}: {detail}.",
-    weather_day_misses="{day} passt nicht zu ‚{wish}‘ am {place}: {detail}.",
+    weather_day_fits="{day} passt zu ‚{wish}‘ bei {place}: {detail}.",
+    weather_day_misses="{day} passt nicht zu ‚{wish}‘ bei {place}: {detail}.",
     weather_day_unknown=(
-        "Ob {day} zu ‚{wish}‘ am {place} passt, lässt sich nicht sagen (Werte fehlen): {detail}."
+        "Ob {day} zu ‚{wish}‘ bei {place} passt, lässt sich nicht sagen (Werte fehlen): {detail}."
     ),
     weather_others=" Weitere passende Tage: {days}.",
     weather_no_others=" In den nächsten 14 Tagen passt kein weiterer Tag.",
-    weather_data="Wettervorhersage für „{wish}“ am {place}, passende Tage: {days}",
+    weather_data="Wettervorhersage für „{wish}“ bei {place}, passende Tage: {days}",
 )
 
 EN = Texts(
