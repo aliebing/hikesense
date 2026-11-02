@@ -113,19 +113,26 @@ def _batches(ids: list[int], size: int) -> list[list[int]]:
     return [ids[i : i + size] for i in range(0, len(ids), size)]
 
 
-def candidate_from_relation(data: dict[str, Any], rel: dict[str, Any]) -> Candidate:
-    """Length, roundtrip and automatic decision for one relation of an `out geom` response."""
+def candidate_from_relation(
+    data: dict[str, Any], rel: dict[str, Any], seen_region: str | None = None
+) -> Candidate:
+    """Length, roundtrip and automatic decision for one relation of an `out geom` response.
+
+    Without a usable line the region is `seen_region` (where the scan found the relation)."""
     rid = int(rel["id"])
     tags = rel.get("tags") or {}
     name = tags.get("name") or None
     segments = relation_segments(data, rid)
     if not segments:
-        return Candidate(rid, name, None, None, "rejected", "keine Wege in der Relation")
+        return Candidate(
+            rid, name, None, None, "rejected", "keine Wege in der Relation", region=seen_region
+        )
     try:
         line, _ = relation_line(data, rid, context=f"relation {rid}", oriented=True)
     except GapError:
         km = round(path_length_km(segments), 2)
-        return Candidate(rid, name, km, None, *auto_decision(name, km, True, tags.get("network")))
+        decision = auto_decision(name, km, True, tags.get("network"))
+        return Candidate(rid, name, km, None, *decision, region=seen_region)
     km = round(path_length_km([line]), 2)
     decision = auto_decision(name, km, False, tags.get("network"))
     region = region_of_line(line)
@@ -239,7 +246,7 @@ def scan(
         data = overpass.run(relations_query(batch))
         for el in data["elements"]:
             if el.get("type") == "relation" and el.get("id") in batch:
-                found.append(candidate_from_relation(data, el))
+                found.append(candidate_from_relation(data, el, seen_in.get(int(el["id"]))))
     for region in regions:
         if not region.foreign:
             continue

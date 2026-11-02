@@ -315,6 +315,31 @@ def test_scan_single_region_keeps_other_rows(tmp_path):
     assert after[3].region == "palatinate"
 
 
+def test_gap_and_no_way_relations_keep_the_region_they_were_seen_in():
+    gap = _rel(3030, {"name": "Lücke", "network": "lwn"}, GAP_WAYS)  # lat 48.07: Black Forest
+    empty = _rel(3031, {"name": "Leer", "network": "lwn"}, [])
+    cands, _ = _scan_all([gap, empty])
+    assert cands[3030].auto_reason == "Lücken im Verlauf"
+    assert cands[3031].auto_reason == "keine Wege in der Relation"
+    assert cands[3030].region == "black_forest" and cands[3031].region == "black_forest"
+
+
+def test_cli_region_scan_summary_ignores_other_regions(monkeypatch, capsys, tmp_path):
+    from hikeall import cli
+    from hikeall.config import Settings
+
+    csv = tmp_path / "d.csv"
+    write_candidates(
+        csv, [Candidate(1, "A", 10, True, "accepted", "automatisch", region="black_forest")]
+    )
+    monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
+    with respx.mock:
+        respx.post(OVERPASS_URL).side_effect = _overpass_mock([_loop_rel(3, (49.3, 7.9))])
+        assert cli.main(["scan-day-hikes", "--csv", str(csv), "--region", "palatinate"]) == 0
+    out = capsys.readouterr().out
+    assert "1 neu, 0 nicht mehr in OSM" in out
+
+
 def test_scan_fails_cleanly_when_overpass_fails():
     with respx.mock:
         respx.post(OVERPASS_URL).mock(return_value=httpx.Response(504))

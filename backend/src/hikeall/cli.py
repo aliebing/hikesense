@@ -126,7 +126,8 @@ def scan_day_hikes(csv_path: Path, region_id: str | None = None) -> int:
             print(f"Scan abgebrochen, CSV unverändert – {type(e).__name__}: {e}", file=sys.stderr)
             return 1
     found = res.candidates
-    before = {c.osm_relation_id for c in read_candidates(csv_path)}
+    scanned = {r.id for r in regions}
+    before = {c.osm_relation_id for c in read_candidates(csv_path) if c.region in scanned}
     write_candidates(csv_path, found, None if region_id is None else {region_id})
     rows = read_candidates(csv_path)
     auto = sum(c.auto_decision == "accepted" for c in found)
