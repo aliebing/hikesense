@@ -6,20 +6,83 @@ from dataclasses import dataclass, field
 
 from hikeall.agent.request import Constraint, HikeRequest, Preference
 from hikeall.hiking_time import din33466
-from hikeall.numfmt import de
+from hikeall.numfmt import Lang, fmt
 
 MAX_MATCHES = 5
 MAX_REJECTED = 20
 NEAR_MISS_MAX_REL = 0.25  # a near miss misses one hard condition by at most this much
 NEAR_MISS_FILL_TO = 3  # 1-2 matches are filled up with near misses to this many cards
 _LABEL = {
-    "length_km": "Länge",
-    "ascent_m": "Höhenmeter",
-    "duration_h": "Dauer",
-    "radius_km": "Entfernung",
-    "roundtrip": "Rundweg",
+    "de": {
+        "length_km": "Länge",
+        "ascent_m": "Höhenmeter",
+        "duration_h": "Dauer",
+        "radius_km": "Entfernung",
+        "roundtrip": "Rundweg",
+    },
+    "en": {
+        "length_km": "Length",
+        "ascent_m": "Ascent",
+        "duration_h": "Duration",
+        "radius_km": "Distance",
+        "roundtrip": "Round walk",
+    },
 }
-_UNIT = {"length_km": "km", "ascent_m": "Hm", "duration_h": "h", "radius_km": "km"}
+_UNIT = {
+    "de": {"length_km": "km", "ascent_m": "Hm", "duration_h": "h", "radius_km": "km"},
+    "en": {"length_km": "km", "ascent_m": "m", "duration_h": "h", "radius_km": "km"},
+}
+# fixed words of the bound, deviation and fallback texts, per reply language
+WORDS = {
+    "de": {
+        "min": "mindestens {v}",
+        "max": "höchstens {v}",
+        "and": " und ",
+        "rt_yes": "Rundweg",
+        "rt_no": "kein Rundweg",
+        "rt_contra": "Rundweg: Rundweg und kein Rundweg schließen sich aus",
+        "contra": "{label}: mindestens {lo}{unit} und höchstens {hi}{unit} schließen sich aus",
+        "rt_unknown": "Rundweg unbekannt",
+        "rt_not": "kein Rundweg",
+        "rt_instead": "Rundweg statt Streckentour",
+        "unknown": "{label} unbekannt",
+        "away": " entfernt",
+        "dev": "{actual} {unit}{away} statt {bound}",
+        "head": "Keine Tour erfüllt alle Wünsche, weil ",
+        "every": "jede Tour mindestens eine Bedingung nicht erfüllt, am knappsten: ",
+        "missing": "Angaben fehlen, ",
+        "unchecked": "{prefix}nicht prüfbar: {names}",
+        "area": "im Gebiet keine passende Tour liegt",
+        "radius": "im Umkreis von {r} km keine passende Tour liegt",
+        "none": "keine passende Tour gefunden wurde",
+        "several": "jede Tour mehr als eine Bedingung verletzt",
+        "top": "nur die besten {n} gezeigt",
+    },
+    "en": {
+        "min": "at least {v}",
+        "max": "at most {v}",
+        "and": " and ",
+        "rt_yes": "round walk",
+        "rt_no": "not a round walk",
+        "rt_contra": "Round walk: a round walk and not a round walk are mutually exclusive",
+        "contra": "{label}: at least {lo}{unit} and at most {hi}{unit} are mutually exclusive",
+        "rt_unknown": "Round walk unknown",
+        "rt_not": "not a round walk",
+        "rt_instead": "round walk instead of a point-to-point tour",
+        "unknown": "{label} unknown",
+        "away": " away",
+        "dev": "{actual} {unit}{away} instead of {bound}",
+        "head": "No tour meets all your wishes, because ",
+        "every": "every tour fails at least one condition, closest: ",
+        "missing": "information is missing, ",
+        "unchecked": "{prefix}cannot be checked: {names}",
+        "area": "there is no suitable tour in the area",
+        "radius": "there is no suitable tour within {r} km",
+        "none": "no suitable tour was found",
+        "several": "every tour fails more than one condition",
+        "top": "only the best {n} shown",
+    },
+}
 
 
 @dataclass
@@ -76,17 +139,17 @@ class Selection:
     near_misses: list[Scored] = field(default_factory=list)
 
 
-def _num(x: float, decimals: int = 1) -> str:
-    return de(x, decimals)  # half-up, like the grounding check
+def _num(x: float, lang: Lang = "de", decimals: int = 1) -> str:
+    return fmt(x, lang, decimals)  # half-up, like the grounding check
 
 
-def _num_distinct(actual: float, bound: float | None) -> str:
+def _num_distinct(actual: float, bound: float | None, lang: Lang = "de") -> str:
     """Format with as many decimals as needed so a violation never looks equal to its bound."""
     for decimals in (1, 2, 3, 4):
-        text = _num(actual, decimals)
-        if bound is None or text != _num(bound, decimals):
+        text = _num(actual, lang, decimals)
+        if bound is None or text != _num(bound, lang, decimals):
             return text
-    return _num(actual, 4)
+    return _num(actual, lang, 4)
 
 
 def duration_h(c: Candidate, activity: str, pace: float | None) -> float | None:
@@ -115,55 +178,65 @@ def _rel(actual: float, bound: float) -> float:
     return abs(actual - bound) / (abs(bound) if bound else 1.0)
 
 
-def _check_one(c: Candidate, k: Constraint, activity: str, pace: float | None) -> ConstraintResult:
+def _check_one(
+    c: Candidate, k: Constraint, activity: str, pace: float | None, lang: Lang = "de"
+) -> ConstraintResult:
+    t = WORDS[lang]
     actual = _actual(c, k.kind, activity, pace)
     if k.kind == "roundtrip":
-        bound = "Rundweg" if k.required else "kein Rundweg"
+        bound = t["rt_yes"] if k.required else t["rt_no"]
         if actual is None:
             return ConstraintResult(k.kind, None, None, bound, 1.0)
         ok = bool(actual) == bool(k.required)
         return ConstraintResult(k.kind, ok, bool(actual), bound, 0.0 if ok else 1.0)
     if actual is None:
-        return ConstraintResult(k.kind, None, None, _range(k), 1.0)
+        return ConstraintResult(k.kind, None, None, _range(k, lang), 1.0)
     if k.min is not None and actual < k.min:
         return ConstraintResult(
-            k.kind, False, actual, f"mindestens {_num(k.min)}", _rel(actual, k.min), k.min
+            k.kind, False, actual, t["min"].format(v=_num(k.min, lang)), _rel(actual, k.min), k.min
         )
     if k.max is not None and actual > k.max:
         return ConstraintResult(
-            k.kind, False, actual, f"höchstens {_num(k.max)}", _rel(actual, k.max), k.max
+            k.kind, False, actual, t["max"].format(v=_num(k.max, lang)), _rel(actual, k.max), k.max
         )
-    return ConstraintResult(k.kind, True, actual, _range(k), 0.0)
+    return ConstraintResult(k.kind, True, actual, _range(k, lang), 0.0)
 
 
-def _range(k: Constraint) -> str:
+def _range(k: Constraint, lang: Lang = "de") -> str:
+    t = WORDS[lang]
     parts = []
     if k.min is not None:
-        parts.append(f"mindestens {_num(k.min)}")
+        parts.append(t["min"].format(v=_num(k.min, lang)))
     if k.max is not None:
-        parts.append(f"höchstens {_num(k.max)}")
-    return " und ".join(parts)
+        parts.append(t["max"].format(v=_num(k.max, lang)))
+    return t["and"].join(parts)
 
 
 def check(
-    c: Candidate, constraints: list[Constraint], activity: str, pace: float | None
+    c: Candidate,
+    constraints: list[Constraint],
+    activity: str,
+    pace: float | None,
+    lang: Lang = "de",
 ) -> list[ConstraintResult]:
-    return [_check_one(c, k, activity, pace) for k in constraints]
+    return [_check_one(c, k, activity, pace, lang) for k in constraints]
 
 
-def contradiction(constraints: list[Constraint]) -> str | None:
+def contradiction(constraints: list[Constraint], lang: Lang = "de") -> str | None:
+    t = WORDS[lang]
     required = {k.required for k in constraints if k.kind == "roundtrip"}
     if required == {True, False}:
-        return "Rundweg: Rundweg und kein Rundweg schließen sich aus"
-    for kind in list(_UNIT):
+        return t["rt_contra"]
+    for kind in list(_UNIT["de"]):
         ks = [k for k in constraints if k.kind == kind]
         mins = [k.min for k in ks if k.min is not None]
         maxs = [k.max for k in ks if k.max is not None]
         if mins and maxs and max(mins) > min(maxs):
-            unit = f" {_UNIT[kind]}"
-            return (
-                f"{_LABEL[kind]}: mindestens {_num(max(mins))}{unit} und "
-                f"höchstens {_num(min(maxs))}{unit} schließen sich aus"
+            return t["contra"].format(
+                label=_LABEL[lang][kind],
+                lo=_num(max(mins), lang),
+                hi=_num(min(maxs), lang),
+                unit=f" {_UNIT[lang][kind]}",
             )
     return None
 
@@ -182,45 +255,54 @@ def preference_score(c: Candidate, prefs: list[Preference]) -> PreferenceMatch:
     return PreferenceMatch(score, met, missing, hit)
 
 
-def format_deviation(r: ConstraintResult) -> str:
+def format_deviation(r: ConstraintResult, lang: Lang = "de") -> str:
+    t = WORDS[lang]
     if r.kind == "roundtrip":
         if r.ok is None:
-            return "Rundweg unbekannt"
-        return "kein Rundweg" if r.bound == "Rundweg" else "Rundweg statt Streckentour"
+            return t["rt_unknown"]
+        # the bound is the requirement's text in the language it was built in
+        required = r.bound in (WORDS["de"]["rt_yes"], WORDS["en"]["rt_yes"])
+        return t["rt_not"] if required else t["rt_instead"]
     if r.ok is None:
-        return f"{_LABEL[r.kind]} unbekannt"
+        return t["unknown"].format(label=_LABEL[lang][r.kind])
     if isinstance(r.actual, bool) or not isinstance(r.actual, int | float):
         raise ValueError(f"{r.kind}: numeric actual expected")  # noqa: TRY004
-    suffix = " entfernt" if r.kind == "radius_km" else ""
-    return f"{_num_distinct(r.actual, r.bound_value)} {_UNIT[r.kind]}{suffix} statt {r.bound}"
+    bound = r.bound  # normally rebuilt from the value, so the result's own language never leaks
+    if r.bound_value is not None:
+        side = "min" if r.actual < r.bound_value else "max"
+        bound = t[side].format(v=_num(r.bound_value, lang))
+    return t["dev"].format(
+        actual=_num_distinct(r.actual, r.bound_value, lang),
+        unit=_UNIT[lang][r.kind],
+        away=t["away"] if r.kind == "radius_km" else "",
+        bound=bound,
+    )
 
 
-def _reason(fallbacks: list[Scored], has_cands: bool, req: HikeRequest) -> str:
-    head = "Keine Tour erfüllt alle Wünsche, weil "
+def _reason(fallbacks: list[Scored], has_cands: bool, req: HikeRequest, lang: Lang = "de") -> str:
+    t = WORDS[lang]
+    head = t["head"]
     if fallbacks:
         real = [f.violated for f in fallbacks if f.violated and f.violated.ok is False]
         unknown = [f.violated for f in fallbacks if f.violated and f.violated.ok is None]
         parts = []
         if real:
-            parts.append(
-                "jede Tour mindestens eine Bedingung nicht erfüllt, am knappsten: "
-                + "; ".join(format_deviation(r) for r in real)
-            )
+            parts.append(t["every"] + "; ".join(format_deviation(r, lang) for r in real))
         if unknown:
-            prefix = "" if real else "Angaben fehlen, "
-            names = "; ".join(format_deviation(r) for r in unknown)
-            parts.append(f"{prefix}nicht prüfbar: {names}")
+            prefix = "" if real else t["missing"]
+            names = "; ".join(format_deviation(r, lang) for r in unknown)
+            parts.append(t["unchecked"].format(prefix=prefix, names=names))
         return head + "; ".join(parts)
     if not has_cands:
         radius = next(
             (k.max for k in req.constraints if k.kind == "radius_km" and k.max is not None), None
         )
         if req.start is not None and req.start.kind == "area":
-            return head + "im Gebiet keine passende Tour liegt"
+            return head + t["area"]
         if req.start is not None and req.start.kind == "place" and radius is not None:
-            return head + f"im Umkreis von {_num(radius)} km keine passende Tour liegt"
-        return head + "keine passende Tour gefunden wurde"
-    return head + "jede Tour mehr als eine Bedingung verletzt"
+            return head + t["radius"].format(r=_num(radius, lang))
+        return head + t["none"]
+    return head + t["several"]
 
 
 def _fallback_key(s: Scored) -> tuple:
@@ -273,13 +355,13 @@ def _near_misses(scored: list[Scored], n_matches: int) -> list[Scored]:
     return picked
 
 
-def select(cands: list[Candidate], req: HikeRequest) -> Selection:
-    contra = contradiction(req.constraints)
+def select(cands: list[Candidate], req: HikeRequest, lang: Lang = "de") -> Selection:
+    contra = contradiction(req.constraints, lang)
     if contra:
-        return Selection([], [], f"Keine Tour erfüllt alle Wünsche, weil {contra}", contra)
+        return Selection([], [], WORDS[lang]["head"] + contra, contra)
     scored = []
     for c in cands:
-        results = check(c, req.constraints, req.activity, req.pace_min_per_km)
+        results = check(c, req.constraints, req.activity, req.pace_min_per_km, lang)
         scored.append(
             Scored(
                 c,
@@ -305,5 +387,9 @@ def select(cands: list[Candidate], req: HikeRequest) -> Selection:
             best[bad[0].kind] = s
     fallbacks = sorted(best.values(), key=_fallback_key)
     return Selection(
-        [], fallbacks, _reason(fallbacks, bool(cands), req), None, _rejected(scored, fallbacks)
+        [],
+        fallbacks,
+        _reason(fallbacks, bool(cands), req, lang),
+        None,
+        _rejected(scored, fallbacks),
     )

@@ -43,3 +43,16 @@ def test_rows_near_miss_status_and_note():
     rows = candidate_rows(sel)
     assert [r["status"] for r in rows] == ["shown", "near_miss"]
     assert rows[1]["note"] == format_deviation(sel.near_misses[0].violated)
+
+
+def test_english_notes():
+    from hikeall.agent.constraints import Candidate, select
+    from hikeall.agent.explain import candidate_rows
+    from hikeall.agent.request import Constraint, HikeRequest
+
+    c = Candidate("t", "Tour", 11.6, 300, 300, True, 1.0)
+    r = HikeRequest(intent="day_hike", constraints=[Constraint(kind="length_km", max=11.5)])
+    rows = candidate_rows(select([c], r, "en"), "en")
+    assert rows[0]["note"] == "11.6 km instead of at most 11.5"
+    assert rows[0]["results"][0]["bound"] == "at most 11.5"
+    assert candidate_rows(select([c], r))[0]["note"] == "11,6 km statt höchstens 11,5"

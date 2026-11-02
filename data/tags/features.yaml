@@ -4,46 +4,55 @@
 # A missing share (null) never grants a tag.
 - id: "feature:aussicht"
   label: Aussicht
+  label_en: Viewpoint
   category: feature
   synonyms: [Ausblick, Panorama, Fernsicht, Aussichtspunkt, Weitblick]
   rule: {type: poi_near, kinds: [viewpoint], within_m: 300}
 - id: "feature:gipfel"
   label: Gipfel
+  label_en: Summit
   category: feature
   synonyms: [Berg, Bergspitze, Gipfelkreuz, Gipfelblick]
   rule: {type: poi_near, kinds: [peak], within_m: 300}
 - id: "feature:wasserfall"
   label: Wasserfall
+  label_en: Waterfall
   category: feature
   synonyms: [Wasserfaelle, Kaskade]
   rule: {type: poi_near, kinds: [waterfall], within_m: 300}
 - id: "feature:einkehr"
   label: Einkehr
+  label_en: Inn
   category: feature
   synonyms: [Gasthaus, Huette, Wirtschaft, Restaurant, Gaststaette, Rast, Vesper]
   rule: {type: poi_near, kinds: [food, hut], within_m: 300}
 - id: "feature:bahnhof"
   label: Bahnhof
+  label_en: Railway station
   category: feature
   synonyms: [Bahn, Zug, Oepnv, Anreise mit der Bahn, Haltestelle]
   rule: {type: poi_near, kinds: [station], within_m: 300}
 - id: "feature:rundweg"
   label: Rundweg
+  label_en: Round walk
   category: feature
   synonyms: [Rundtour, Rundwanderung, Rundkurs, Runde]
   rule: {type: attribute, roundtrip: true}
 - id: "surface:wenig_asphalt"
   label: Wenig Asphalt
+  label_en: Little tarmac
   category: surface
   synonyms: [kaum Asphalt, ohne Asphalt, wenig Teer, abseits von Strassen]
   rule: {type: share_at_most, field: surface, keys: [paved], share: 0.2}
 - id: "surface:naturweg"
   label: Naturweg
+  label_en: Natural path
   category: surface
   synonyms: [Pfad, Wanderpfad, Trampelpfad, Naturpfad, schmale Wege]
   rule: {type: share_at_least, field: way_type, keys: [path], share: 0.4}
 - id: "surface:gut_laufbar"
   label: Gut laufbar
+  label_en: Good for running
   category: surface
   synonyms: [gut begehbar, bequem, fester Untergrund, kinderwagentauglich, leicht zu gehen]
   rule: {type: share_at_least, field: surface, keys: [paved, gravel], share: 0.6}

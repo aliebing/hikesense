@@ -111,12 +111,12 @@ class FakeTools:
         self.calls: Counter[str] = Counter()
         self.requests = []
 
-    def search_day_hikes(self, req):
+    def search_day_hikes(self, req, lang="de"):
         self.calls["search_day_hikes"] += 1
         self.requests.append(req)
         cands = [Candidate(**vars(c)) for c in self.cands]
         return DayHikeResult(
-            selection=select(cands, req),
+            selection=select(cands, req, lang),
             searched_radius_km=search_radius_km(req),
             total_in_area=len(cands),
             source_ids=["osm-test"],
@@ -857,8 +857,8 @@ OSM = SourceBrief(
 class SourcedTools(FakeTools):
     """search_day_hikes returns full SourceBriefs, as DbTools does (I-1)."""
 
-    def search_day_hikes(self, req):
-        result = super().search_day_hikes(req)
+    def search_day_hikes(self, req, lang="de"):
+        result = super().search_day_hikes(req, lang)
         return result.model_copy(update={"sources": [OSM]})
 
 
@@ -1615,8 +1615,11 @@ def test_english_feldberg_flow_prompt_data_and_sentences(vocab, settings):
     events = run_en(deps, "Round walk from Feldberg, under 200 m ascent, over 15 km")
     data = deps.gateway.answer_users[-1]
     assert "Fallback tours" in data and "length 9 km" in data and "ascent 150 m" in data
-    facts = data.split("Fallback tours", 1)[1]  # (the "Understood" echo and the deviation texts
-    assert "Länge" not in facts and "Anstieg" not in facts  # stay German until Task 3)
+    facts = data.split("Fallback tours", 1)[1]
+    assert "Länge" not in facts and "Anstieg" not in facts
+    assert data.startswith("Understood: day hike, walking, start: Feldberg (Schwarzwald)")
+    assert "instead of at least 15" in facts and "statt" not in data
+    assert "Verstanden" not in data and "Hm" not in data
     assert " Hm" not in facts.replace("statt", "").split("conditions")[0]
     assert "Matching" not in data and "Passende" not in data
     assert "token" in types(events) and types(events)[-1] == "done"
@@ -1789,3 +1792,92 @@ def test_leak_check_replaces_a_prompt_fragment_per_language(vocab, settings, lan
     events = list(run_chat(deps, f"leak-{lang}", FELDBERG_MSG, lang=lang))
     assert texts(lang).leak_reply in text_of(events)
     assert leaked not in text_of(events)
+
+
+# --- English echo, clarify, deviations (Zweisprachig Teil B, Task 3) ---------------------------
+
+
+def test_english_fallback_cards_bound_and_reason_come_in_english(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Short."])
+    events = run_en(deps, "Round walk from Feldberg, under 200 m ascent, over 15 km")
+    res = one(events, "results")
+    assert res.fallback_reason.startswith("No tour meets all your wishes, because ")
+    assert "instead of at least 15" in res.fallback_reason and "statt" not in res.fallback_reason
+    card = res.cards[0]
+    assert card.deviation_text == "9 km instead of at least 15"
+    assert {r.bound for r in card.results} <= {
+        "at least 15",
+        "at most 200",
+        "round walk",
+        "at most 15",
+    }
+    understood = one(events, "understood")
+    assert understood.text.startswith("Understood: day hike, walking")
+    assert understood.labels == {}
+    log = log_lines(settings)[-1]
+    assert log["fallback_reason"] == res.fallback_reason
+    assert all("statt" not in (r["note"] or "") for r in log["candidates"])
+
+
+def test_english_clarify_and_option_click_resolves(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [raw(start_text="Feldberg", roundtrip=True, length_km_min=15)]},
+        answers=["Answer."],
+    )
+    events = run_en(deps, "A round walk of over 15 km at Feldberg")
+    clarify = one(events, "clarify")
+    assert clarify.question.startswith("Did you mean „Feldberg (peak)“ or ")
+    assert clarify.options == ["Feldberg (peak)", "Feldberg (Schwarzwald) – village"]
+    run_en(deps, "Feldberg (Schwarzwald) – village")
+    req = deps.tools.requests[-1]
+    kinds = {c.kind: c for c in req.constraints}
+    assert req.start.tag_id == "place:feldberg-schwarzwald"
+    assert kinds["roundtrip"].required is True and kinds["length_km"].min == 15
+
+
+def test_german_option_still_resolves_after_an_english_question(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [raw(start_text="Feldberg", length_km_min=15)]},
+        answers=["Answer."],
+    )
+    run_en(deps, "A walk of over 15 km at Feldberg")
+    run(deps, "Feldberg (Gipfel)", thread="t-en")
+    assert deps.tools.requests[-1].start.tag_id == "place:feldberg"
+
+
+def test_english_days_answer_continues_a_multiday_request(vocab, settings):
+    from hikeall.agent.understand import DAYS_QUESTIONS
+
+    assert DAYS_QUESTIONS == {"Wie viele Tage?", "How many days?"}
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(),
+        structured={
+            RawRequest: [raw(intent="multiday", trail_text="Westweg", start_text="Hausach")]
+        },
+    )
+    first = run_en(deps, "Westweg from Hausach", thread="days")
+    assert one(first, "clarify").question == "How many days?"
+
+
+def test_english_near_miss_deviation_is_english(vocab, settings):
+    cands = [
+        Candidate("t-ok", "Alpenrunde", 16.0, 150, 150, True, 1.0),
+        Candidate("t-near", "Jägersteig", 16.0, 230, 230, True, 2.0),
+    ]
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(cands=cands),
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["The Alpenrunde fits."],
+    )
+    events = run_en(deps, "Round walk from Feldberg, under 200 m ascent, over 15 km")
+    cards = one(events, "results").cards
+    assert cards[1].deviation_text == "230 m instead of at most 200"
+    assert text_of(events).endswith("Near miss: Jägersteig (230 m instead of at most 200).")

@@ -77,7 +77,7 @@ from hikeall.agent.tools import (
     StartNotOnTrail,
     TrailDetails,
 )
-from hikeall.agent.understand import DAYS_QUESTION, echo, parse, resolve, resolve_option
+from hikeall.agent.understand import DAYS_QUESTIONS, echo, parse, resolve, resolve_option
 from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
 from hikeall.agent.weather import NoForecast, is_rain_day
 from hikeall.chatlog import ChatLogEntry
@@ -490,7 +490,7 @@ def _de(x: float, decimals: int = 1) -> str:
 # --- search: cards, facts for the model, evidence -----------------------------------------
 
 
-def _card(s: Scored, area: bool, near_miss: bool = False) -> TourCard:
+def _card(s: Scored, area: bool, near_miss: bool = False, lang: Lang = "de") -> TourCard:
     c = s.candidate
     return TourCard(
         trail_id=c.trail_id,
@@ -505,7 +505,7 @@ def _card(s: Scored, area: bool, near_miss: bool = False) -> TourCard:
         cover_license_url=c.cover_license_url,
         cover_page_url=c.cover_page_url,
         results=[_as_float(r) for r in s.results],
-        deviation_text=format_deviation(s.violated) if s.violated else None,
+        deviation_text=format_deviation(s.violated, lang) if s.violated else None,
         near_miss=near_miss,
         preference=s.preference,
     )
@@ -519,8 +519,8 @@ def _near_sentence(near: list[TourCard], lang: Lang = "de") -> str | None:
     return f"{head}: " + "; ".join(f"{c.name} ({c.deviation_text})" for c in near) + "."
 
 
-def _labels(vocab: TagVocabulary, tag_ids: list[str]) -> dict[str, str]:
-    return {t: (tag.label if (tag := vocab.get(t)) else t) for t in tag_ids}
+def _labels(vocab: TagVocabulary, tag_ids: list[str], lang: Lang = "de") -> dict[str, str]:
+    return {t: vocab.label(t, lang) for t in tag_ids}
 
 
 def _card_tags(cards: list[TourCard]) -> list[str]:
@@ -545,7 +545,7 @@ def _result_text(r: ConstraintResult, lang: Lang = "de") -> str:
         return d["ok"].format(label=label)
     if r.ok is None:
         return d["unknown"].format(label=label)
-    return d["fail"].format(label=label, dev=format_deviation(r))
+    return d["fail"].format(label=label, dev=format_deviation(r, lang))
 
 
 def _search_data(
@@ -558,10 +558,9 @@ def _search_data(
     d = _D[lang]
 
     def label(tag_id: str) -> str:
-        tag = vocab.get(tag_id)
-        return tag.label if tag else tag_id
+        return vocab.label(tag_id, lang)
 
-    lines = [echo(req, vocab)]
+    lines = [echo(req, vocab, lang)]
     lines.append(d["fallback_head"] if fallback else d["match_head"])
     time_word = d["time_run"] if req.activity == "run" else d["time_walk"]
     for i, card in enumerate(cards, start=1):
@@ -594,7 +593,7 @@ def _search_data(
     return "\n".join(lines)
 
 
-def _card_evidence(ev: Evidence, scored: list[Scored], area: bool) -> None:
+def _card_evidence(ev: Evidence, scored: list[Scored], area: bool, lang: Lang = "de") -> None:
     for s in scored:
         c = s.candidate
         ev.add_name(c.name)
@@ -606,7 +605,7 @@ def _card_evidence(ev: Evidence, scored: list[Scored], area: bool) -> None:
         ev.add(s.duration_h, "h")
         for r in s.results:
             if r.ok is not True:
-                ev.numbers.append(format_deviation(r))
+                ev.numbers.append(format_deviation(r, lang))
 
 
 _BOUND_UNIT = {"length_km": "km", "ascent_m": "Hm", "duration_h": "h", "radius_km": "km"}
@@ -968,10 +967,14 @@ def build_graph(deps: AgentDeps) -> Any:
             }
         return {"message": text, "history": history, "route": "understand"}
 
-    def _resolve(raw: RawRequest, message: str, previous: HikeRequest | None, **kw: Any):
-        return resolve(vocab, raw, message, previous, today=deps.today(), trails=tools, **kw)
+    def _resolve(
+        raw: RawRequest, message: str, previous: HikeRequest | None, lang: Lang, **kw: Any
+    ):
+        return resolve(
+            vocab, raw, message, previous, today=deps.today(), trails=tools, lang=lang, **kw
+        )
 
-    def _continue_pending(pending: dict, message: str, previous: HikeRequest | None):
+    def _continue_pending(pending: dict, message: str, previous: HikeRequest | None, lang: Lang):
         """Answer to an open clarify question: a place answer continues the partial request
         without a model call; anything else goes to the model with the earlier message."""
         if pending.get("raw"):
@@ -979,13 +982,13 @@ def build_graph(deps: AgentDeps) -> Any:
             if raw.intent in (*TOUR_INTENTS, "multiday"):
                 start = resolve_option(vocab, message)
                 if start is not None:
-                    res = _resolve(raw, pending["message"], previous, start=start)
+                    res = _resolve(raw, pending["message"], previous, lang, start=start)
                 else:
                     probe = raw.model_copy(update={"start_text": message})
-                    res = _resolve(probe, pending["message"], previous)
+                    res = _resolve(probe, pending["message"], previous, lang)
                 if isinstance(res, HikeRequest) and res.start is not None:
                     return raw, res, pending["message"]
-        if pending["question"] == DAYS_QUESTION and re.fullmatch(r"\s*\d{1,2}\s*", message):
+        if pending["question"] in DAYS_QUESTIONS and re.fullmatch(r"\s*\d{1,2}\s*", message):
             message = f"{message.strip()} Tage"  # "3" answers "Wie viele Tage?"
         combined = f"{pending['message']}\nRückfrage: {pending['question']}\nAntwort: {message}"
         return None, None, combined
@@ -1033,10 +1036,10 @@ def build_graph(deps: AgentDeps) -> Any:
             }
         raw, res, base = None, None, message
         if state.get("pending"):
-            raw, res, base = _continue_pending(state["pending"], message, previous)
+            raw, res, base = _continue_pending(state["pending"], message, previous, lang)
         if res is None:
             raw = parse(gw, vocab, base, previous)
-            res = _resolve(raw, base, previous)
+            res = _resolve(raw, base, previous, lang)
         out: State = {"pending": None, "intent": raw.intent, "activity": raw.activity}
         if isinstance(res, HikeRequest):
             out.update(intent=res.intent, activity=res.activity)
@@ -1054,9 +1057,9 @@ def build_graph(deps: AgentDeps) -> Any:
         if req.intent != "other":
             _emit(
                 UnderstoodEvent(
-                    text=echo(req, vocab),
+                    text=echo(req, vocab, lang),
                     request=req,
-                    labels=_labels(vocab, [p.tag_id for p in req.preferences]),
+                    labels=_labels(vocab, [p.tag_id for p in req.preferences], lang),
                 )
             )
         out["current"] = req.model_dump(mode="json")
@@ -1095,22 +1098,22 @@ def build_graph(deps: AgentDeps) -> Any:
         req = HikeRequest.model_validate(state["current"])
         ev = Evidence()
         _bound_evidence(ev, req.constraints)
-        contra = contradiction(req.constraints)
+        contra = contradiction(req.constraints, lang)
         if contra:  # no search, no fallback tours
             reason = _D[lang]["no_contra"].format(contra=contra)
             _emit(ResultsEvent(cards=[], fallback_reason=reason))
             return {"reason": reason, "fixed": t.contradiction_hint}
-        result = tools.search_day_hikes(req)
+        result = tools.search_day_hikes(req, lang)
         sel = result.selection
         scored = sel.matches or sel.fallbacks
         area = req.start is not None and req.start.kind == "area"
-        cards = [_card(s, area) for s in scored]
-        near_cards = [_card(s, area, near_miss=True) for s in sel.near_misses]
+        cards = [_card(s, area, lang=lang) for s in scored]
+        near_cards = [_card(s, area, near_miss=True, lang=lang) for s in sel.near_misses]
         shown = cards + near_cards
         reason = None if sel.matches else sel.reason
         _emit(
             ResultsEvent(
-                cards=shown, fallback_reason=reason, labels=_labels(vocab, _card_tags(shown))
+                cards=shown, fallback_reason=reason, labels=_labels(vocab, _card_tags(shown), lang)
             )
         )
         briefs = {s.id: s for s in result.sources}
@@ -1124,12 +1127,12 @@ def build_graph(deps: AgentDeps) -> Any:
             "sources": _add_sources([], sources),
             "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in shown],
             "near_sentence": _near_sentence(near_cards, lang),
-            "candidates": candidate_rows(sel),
+            "candidates": candidate_rows(sel, lang),
         }
         if not cards:
             return out | {"fixed": t.no_tours_hint}
         data = _search_data(req, cards, not sel.matches, vocab, lang)
-        _card_evidence(ev, scored, area)
+        _card_evidence(ev, scored, area, lang)
         ev.add(result.searched_radius_km, "km")
         ev.numbers.append(reason or "")
         if req.start is not None:

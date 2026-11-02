@@ -38,6 +38,7 @@ from hikeall.geo import METRIC_SRID
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikeall.models import HikingTime
+from hikeall.numfmt import Lang
 
 MAX_SEARCH_KM = 50.0
 SEARCH_FACTOR = 3.0
@@ -152,7 +153,9 @@ _COVER_JOIN = """left join lateral (
         order by p.id limit 1) c on true"""
 
 
-def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResult:
+def search_day_hikes(
+    conn: psycopg.Connection, req: HikeRequest, lang: Lang = "de"
+) -> DayHikeResult:
     radius = search_radius_km(req)
     start = req.start
     if (
@@ -215,7 +218,7 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
         )
         for r in rows
     ]
-    selection = select(cands, req)
+    selection = select(cands, req, lang)
     shown = shown_trail_ids(selection)
     source_ids = sorted({sources[i] for i in shown if sources.get(i)})
     return DayHikeResult(
@@ -229,7 +232,10 @@ def search_day_hikes(conn: psycopg.Connection, req: HikeRequest) -> DayHikeResul
 
 def shown_trail_ids(selection) -> list[str]:
     """Trails that become cards (matches, near misses, fallbacks): their sources are listed."""
-    return [s.candidate.trail_id for s in selection.matches + selection.near_misses + selection.fallbacks]
+    return [
+        s.candidate.trail_id
+        for s in selection.matches + selection.near_misses + selection.fallbacks
+    ]
 
 
 def _source_briefs(conn: psycopg.Connection, ids: list[str]) -> list[SourceBrief]:
@@ -476,7 +482,7 @@ def day_end_points(
 
 
 class AgentTools(Protocol):
-    def search_day_hikes(self, req: HikeRequest) -> DayHikeResult: ...
+    def search_day_hikes(self, req: HikeRequest, lang: Lang = "de") -> DayHikeResult: ...
 
     def get_trail_details(self, trail_id: str) -> TrailDetails | None: ...
 
@@ -519,7 +525,9 @@ class AgentTools(Protocol):
         """Forecast per (lat, lon, day), all fetched in one request."""
         ...
 
-    def rain_variants(self, plan: MultidayPlan, days: list[int]) -> dict[int, RainVariant | None]: ...
+    def rain_variants(
+        self, plan: MultidayPlan, days: list[int]
+    ) -> dict[int, RainVariant | None]: ...
 
     def sources(self, ids: list[str]) -> list[SourceBrief]: ...
 
@@ -549,9 +557,9 @@ class DbTools:
         # a missing index is opened again on the next question (built while the API was up)
         self._knowledge_opener = knowledge_opener
 
-    def search_day_hikes(self, req: HikeRequest) -> DayHikeResult:
+    def search_day_hikes(self, req: HikeRequest, lang: Lang = "de") -> DayHikeResult:
         with self._conn_factory() as conn:
-            return search_day_hikes(conn, req)
+            return search_day_hikes(conn, req, lang)
 
     def get_trail_details(self, trail_id: str) -> TrailDetails | None:
         with self._conn_factory() as conn:

@@ -311,14 +311,19 @@ def test_near_miss_excludes_roundtrip_and_unknown():
         cand(trail_id="rt", length_km=9.0, roundtrip=False),
         cand(trail_id="unk", length_km=None),
     ]
-    sel = select(cands, req(Constraint(kind="length_km", max=10), Constraint(kind="roundtrip", required=True)))
+    sel = select(
+        cands,
+        req(Constraint(kind="length_km", max=10), Constraint(kind="roundtrip", required=True)),
+    )
     assert [s.candidate.trail_id for s in sel.matches] == ["ok"]
     assert sel.near_misses == []
 
 
 def test_near_miss_needs_exactly_one_miss():
     cands = [cand(trail_id="ok", length_km=9.0), cand(trail_id="two", length_km=10.5, ascent_m=420)]
-    sel = select(cands, req(Constraint(kind="length_km", max=10), Constraint(kind="ascent_m", max=400)))
+    sel = select(
+        cands, req(Constraint(kind="length_km", max=10), Constraint(kind="ascent_m", max=400))
+    )
     assert sel.near_misses == []
 
 
@@ -333,5 +338,55 @@ def test_no_near_misses_with_zero_or_three_matches():
 def test_shown_trail_ids_include_near_misses():
     from hikeall.agent.tools import shown_trail_ids
 
-    sel = select([cand(trail_id="ok", length_km=9.0), cand(trail_id="n", length_km=10.5)], _near_req())
+    sel = select(
+        [cand(trail_id="ok", length_km=9.0), cand(trail_id="n", length_km=10.5)], _near_req()
+    )
     assert shown_trail_ids(sel) == ["ok", "n"]
+
+
+# --- English deviations, bounds and fallback sentence (Zweisprachig Teil B, Task 3) ------------
+
+
+def test_english_deviation_and_bound_texts():
+    c = cand(length_km=11.6, roundtrip=False)
+    res = check(c, [Constraint(kind="length_km", min=8.5, max=11.5)], "hike", None)[0]
+    assert format_deviation(res) == "11,6 km statt höchstens 11,5"
+    assert format_deviation(res, "en") == "11.6 km instead of at most 11.5"
+    assert res.bound == "höchstens 11,5"
+    res_en = check(c, [Constraint(kind="length_km", min=8.5, max=11.5)], "hike", None, "en")[0]
+    assert res_en.bound == "at most 11.5"
+    ok = check(cand(), [Constraint(kind="length_km", min=8.5, max=13)], "hike", None, "en")[0]
+    assert ok.bound == "at least 8.5 and at most 13"
+    rt = check(c, [Constraint(kind="roundtrip", required=True)], "hike", None, "en")[0]
+    assert rt.bound == "round walk" and format_deviation(rt, "en") == "not a round walk"
+    rt2 = check(cand(), [Constraint(kind="roundtrip", required=False)], "hike", None, "en")[0]
+    assert format_deviation(rt2, "en") == "round walk instead of a point-to-point tour"
+    radius = check(cand(distance_km=20), [Constraint(kind="radius_km", max=15)], "hike", None, "en")
+    assert format_deviation(radius[0], "en") == "20 km away instead of at most 15"
+    unknown = check(
+        cand(length_km=None), [Constraint(kind="length_km", max=12)], "hike", None, "en"
+    )
+    assert format_deviation(unknown[0], "en") == "Length unknown"
+
+
+def test_english_fallback_reason_and_contradiction():
+    r = req(Constraint(kind="roundtrip", required=True), Constraint(kind="length_km", min=15))
+    sel = select([cand(length_km=9.0)], r, "en")
+    assert sel.reason.startswith("No tour meets all your wishes, because ")
+    assert (
+        "every tour fails at least one condition, closest: 9 km instead of at least 15"
+        in sel.reason
+    )
+    assert "Keine" not in sel.reason
+    assert select([cand(length_km=9.0)], r).reason.startswith("Keine Tour erfüllt alle Wünsche")
+    both = req(Constraint(kind="length_km", min=15, max=10))
+    sel = select([cand()], both, "en")
+    assert sel.contradiction == "Length: at least 15 km and at most 10 km are mutually exclusive"
+    assert sel.reason == f"No tour meets all your wishes, because {sel.contradiction}"
+    assert contradiction(both.constraints) == (
+        "Länge: mindestens 15 km und höchstens 10 km schließen sich aus"
+    )
+    empty = select([], req(radius_max=8, start_kind="place"), "en")
+    assert empty.reason == (
+        "No tour meets all your wishes, because there is no suitable tour within 8 km"
+    )

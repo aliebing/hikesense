@@ -1098,3 +1098,102 @@ def test_swiss_place_resolves(vocab):
     req = understand(gw_of(start_text="Stein am Rhein"), v, "Start in Stein am Rhein", None)
     assert isinstance(req, HikeRequest)
     assert req.start.kind == "place" and req.start.tag_id == "place:stein-am-rhein"
+
+
+# --- English echo, clarify questions and notes (Zweisprachig Teil B, Task 3) -------------------
+
+
+def test_english_echo_mirrors_the_german_structure(vocab):
+    req = understand(
+        gw_of(
+            start_text="Hinterzarten",
+            roundtrip=True,
+            length_km_min=8.5,
+            length_km_max=11.5,
+            ascent_m_max=300,
+            wishes=[RawWish(text="Aussicht"), RawWish(text="Einkehr", mode="avoid")],
+        ),
+        vocab,
+        "Rundweg 8,5 bis 11,5 km, max. 300 Hm, Aussicht, ohne Einkehr",
+        None,
+    )
+    assert isinstance(req, HikeRequest)
+    assert echo(req, vocab).startswith("Verstanden: Tagestour, Wandern, Start: Hinterzarten")
+    text = echo(req, vocab, "en")
+    assert text.startswith("Understood: day hike, walking, start: Hinterzarten, round walk")
+    assert "length 8.5–11.5 km" in text and "ascent at most 300 m" in text
+    assert "wishes: Viewpoint (weight 3), without Inn" in text
+    assert "Länge" not in text and "Verstanden" not in text
+
+
+def test_english_echo_multiday_and_unmatched():
+    v = TagVocabulary(TagVocabulary.from_features(FEATURES_YAML).all())
+    req = HikeRequest(
+        intent="multiday",
+        trail_id="westweg",
+        days=5,
+        start_date=date(2027, 3, 12),
+        start_time=time(8, 30),
+        unmatched=["Date: not recognised"],
+    )
+    text = echo(req, v, "en")
+    assert "5 days" in text and "daily target 15 km (default)" in text
+    assert "on 12/03/2027" in text and "start 08:30 (default)" not in text
+    assert "start 08:30" in text and "cannot be checked: Date: not recognised" in text
+
+
+def test_english_clarify_question_keeps_place_names_as_options(vocab):
+    res = understand(gw_of(start_text="Feldberg"), vocab, "A walk at Feldberg", None, lang="en")
+    assert isinstance(res, Clarify)
+    assert set(res.options) == {"Feldberg", "Feldberg (Schwarzwald)"}
+    assert res.question.startswith("Did you mean „") and "is ambiguous" in res.question
+    res = understand(gw_of(start_text="Hinterzarden"), vocab, "Tour", None, lang="en")
+    assert res.question.startswith("I don't know the place „Hinterzarden“.")
+    assert "Did you mean „Hinterzarten“?" in res.question
+
+
+def test_english_kind_options_resolve_in_both_languages(vocab):
+    from hikeall.agent.understand import resolve_option
+
+    v = _kind_vocab(vocab)
+    res = understand(gw_of(start_text="Feldberg"), v, "A walk at Feldberg", None, lang="en")
+    assert res.options == ["Feldberg (peak)", "Feldberg (Schwarzwald) – village"]
+    for answer, tag_id in (
+        ("Feldberg (peak)", "place:feldberg"),
+        ("Feldberg (Schwarzwald) – village", "place:feldberg-schwarzwald"),
+        ("Feldberg (Gipfel)", "place:feldberg"),
+    ):
+        assert resolve_option(v, answer).tag_id == tag_id
+
+
+def test_english_fixed_questions_and_notes(vocab):
+    res = understand(gw_of(intent="change", length_km_max=12), vocab, "shorter", None, lang="en")
+    assert res.question.startswith("What does the change refer to?")
+    res = understand(
+        gw_of(activity="run", start_text="Todtnau", duration_h_max=2),
+        vocab,
+        "a run of at most 2 hours",
+        None,
+        lang="en",
+    )
+    assert res.question == "Roughly what pace do you run (min/km)?"
+    trail = gw_of(intent="multiday", trail_text="Westweg", start_text="Hausach")
+    res = understand(trail, vocab, "Westweg from Hausach", None, lang="en")
+    assert res.question == "How many days?"
+    req = understand(
+        gw_of(start_text="Todtnau", ascent_m_max=-5), vocab, "a walk, at most -5 m ascent", None, lang="en"
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.unmatched == ["Ascent: -5 is not a valid value"]
+    german = understand(
+        gw_of(start_text="Todtnau", ascent_m_max=-5), vocab, "Tour, max. -5 Hm", None
+    )
+    assert german.unmatched == ["Anstieg: -5 ist kein gültiger Wert"]
+
+
+def test_vocabulary_label_per_language(vocab):
+    assert vocab.label("feature:einkehr") == "Einkehr"
+    assert vocab.label("feature:einkehr", "en") == "Inn"
+    assert vocab.label("place:todtnau", "en") == "Todtnau"  # a name stays
+    assert vocab.label("feature:unbekannt", "en") == "feature:unbekannt"
+    assert all(t.label_en for t in vocab.all() if t.category in ("feature", "surface"))

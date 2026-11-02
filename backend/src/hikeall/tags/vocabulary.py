@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from hikeall.config import data_root
 from hikeall.models import BLACK_FOREST_BBOX, BBox
+from hikeall.numfmt import Lang
 from hikeall.regions import REGIONS
 
 FEATURES_YAML = data_root() / "tags" / "features.yaml"
@@ -103,6 +104,7 @@ TagRule = Annotated[
 class Tag(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9_]+:[a-z0-9_\-]+$")
     label: str = Field(min_length=1)
+    label_en: str | None = None  # English label; None = the label is a name (places, trails)
     category: TagCategory
     synonyms: list[str] = Field(default_factory=list)
     rule: TagRule
@@ -154,6 +156,13 @@ class TagVocabulary:
 
     def get(self, tag_id: str) -> Tag | None:
         return self._tags.get(tag_id)
+
+    def label(self, tag_id: str, lang: Lang = "de") -> str:
+        """Display label in the reply language; names and unknown ids stay as they are."""
+        tag = self._tags.get(tag_id)
+        if tag is None:
+            return tag_id
+        return (tag.label_en or tag.label) if lang == "en" else tag.label
 
     def all(self) -> list[Tag]:
         return list(self._tags.values())
