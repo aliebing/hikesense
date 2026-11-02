@@ -1,7 +1,14 @@
-import { intlLocale, type Locale } from "../i18n";
+import { intlLocale, type Locale } from "../i18n/locale";
 
-const one = (l: Locale) => new Intl.NumberFormat(intlLocale(l), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const zero = (l: Locale) => new Intl.NumberFormat(intlLocale(l), { maximumFractionDigits: 0 });
+const formats = {
+  en: { one: mk("en", 1), zero: mk("en", 0) },
+  de: { one: mk("de", 1), zero: mk("de", 0) },
+};
+function mk(l: Locale, digits: number) {
+  return new Intl.NumberFormat(intlLocale(l), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+const one = (l: Locale) => formats[l].one;
+const zero = (l: Locale) => formats[l].zero;
 
 /** Shown instead of a number that is missing in the data (never 0). */
 export const MISSING = "–";
@@ -22,12 +29,10 @@ export function hmDown(n: number | null, locale: Locale = "de"): string {
 }
 
 /** 5.17 → "5:10 h" (rounded to whole minutes) */
-export function duration(hours: number, locale: Locale = "de"): string {
+export function duration(hours: number, _locale: Locale = "de"): string {
   const minutes = Math.round(hours * 60);
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  // "5:10 h" in both languages; locale is kept for a uniform helper signature
-  void locale;
   return `${h}:${String(m).padStart(2, "0")} h`;
 }
 

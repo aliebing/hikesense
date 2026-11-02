@@ -1,22 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { de } from "./de";
-import { en, type Messages } from "./en";
+import { useRouter } from "next/navigation";
+import { COOKIE_NAME, intlLocale, isLocale, messagesFor, STORAGE_KEY, type Locale } from "./locale";
+import type { Messages } from "./en";
 
-export type Locale = "en" | "de";
-export const STORAGE_KEY = "hikeall.lang";
-
-const catalogs: Record<Locale, Messages> = { en, de };
-
-/** Intl locale for a UI language (time zone stays Europe/Berlin where used). */
-export function intlLocale(l: Locale): "en-GB" | "de-DE" {
-  return l === "de" ? "de-DE" : "en-GB";
-}
-
-function isLocale(v: unknown): v is Locale {
-  return v === "en" || v === "de";
-}
+export { intlLocale, messagesFor, STORAGE_KEY };
+export type { Locale };
 
 function readStored(): Locale | null {
   try {
@@ -37,12 +27,14 @@ function fallbackLocale(): Locale {
 }
 
 /** Server and first client render are English; the stored choice is applied right after mount. */
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
+export function LocaleProvider({ children, initialLocale = "en" }: { children: React.ReactNode; initialLocale?: Locale }) {
+  const router = useRouter();
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   useEffect(() => {
     const stored = readStored();
     if (stored) setLocaleState(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -54,9 +46,12 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, l);
     } catch {
-      // storage unavailable: the choice just lasts for this page view
+      // storage unavailable: the cookie below still carries the choice
     }
-  }, []);
+    // the cookie lets server components render the chosen language
+    document.cookie = `${COOKIE_NAME}=${l}; path=/; max-age=31536000; SameSite=Lax`;
+    router.refresh();
+  }, [router]);
 
   const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
@@ -68,5 +63,5 @@ export function useLocale(): Ctx {
 }
 
 export function useT(): Messages {
-  return catalogs[useLocale().locale];
+  return messagesFor(useLocale().locale);
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ChatProvider } from "../components/ChatProvider";
 import { LocaleProvider } from "../i18n";
+import { getServerLocale } from "../i18n/server";
 import ServiceWorker from "../components/ServiceWorker";
 
 export const metadata: Metadata = {
@@ -13,10 +14,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#2f5d3a" };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getServerLocale();
   return (
-    <html lang="en">
-      <body className="antialiased"><LocaleProvider><ChatProvider>{children}</ChatProvider></LocaleProvider><ServiceWorker /></body>
+    <html lang={locale}>
+      <body className="antialiased"><LocaleProvider initialLocale={locale}><ChatProvider>{children}</ChatProvider></LocaleProvider><ServiceWorker /></body>
     </html>
   );
 }

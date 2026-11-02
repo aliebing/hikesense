@@ -10,3 +10,9 @@ beforeEach(() => {
     // no storage in this environment
   }
 });
+
+// The provider calls router.refresh(); there is no app router in unit tests.
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {}, push: () => {}, replace: () => {}, back: () => {}, forward: () => {}, prefetch: () => {} }),
+}));

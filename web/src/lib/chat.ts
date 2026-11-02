@@ -1,6 +1,6 @@
 /** Chat protocol: SSE parsing and streaming against POST /chat (backend/src/hikeall/api/chat.py). */
 
-import type { Locale } from "../i18n";
+import type { Locale } from "../i18n/locale";
 
 export type ConstraintKind = "roundtrip" | "length_km" | "ascent_m" | "duration_h" | "radius_km";
 

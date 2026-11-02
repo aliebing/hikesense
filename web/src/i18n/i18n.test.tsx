@@ -66,3 +66,15 @@ it("flags mark the active language with aria-pressed", async () => {
   expect(screen.getByRole("button", { name: "Deutsch" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "false");
 });
+
+it("setLocale writes the cookie", async () => {
+  render(<LocaleProvider><LanguageFlags /></LocaleProvider>);
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  expect(document.cookie).toContain("hikeall.lang=de");
+});
+
+it("initialLocale is used on the first render", () => {
+  window.localStorage.clear();
+  render(<LocaleProvider initialLocale="de"><Probe /></LocaleProvider>);
+  expect(screen.getByText("de:Sprache")).toBeInTheDocument();
+});
