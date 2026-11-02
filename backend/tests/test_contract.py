@@ -31,6 +31,7 @@ from test_events import TODAY as EVENTS_DAY
 from test_events import EventTools, verified
 from test_groups import GroupTools
 
+from hikeall.agent.constraints import Candidate
 from hikeall.agent.events import CalendarLink, EventsResult
 from hikeall.agent.request import RawRequest
 from hikeall.agent.tools import GroupBrief
@@ -78,6 +79,17 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
     fallback = deps(
         structured={RawRequest: [feldberg_raw()]},
         answers=["Der Seebuck-Weg hat 9 km, die Feldberg-Runde 16,2 km."],
+    )
+    near_cands = [
+        Candidate("t-ok", "Alpenrunde", 16.0, 150, 150, True, 1.0),
+        Candidate("t-near", "Jägersteig", 16.0, 230, 230, True, 2.0),
+    ]
+    near = make(
+        vocab,
+        settings,
+        tools=SourcedTools(cands=near_cands),
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Die Alpenrunde passt."],
     )
     area = deps(structured={RawRequest: [raw(start_text="Nordschwarzwald")]}, answers=["Gut."])
     clarify = deps(structured={RawRequest: [raw(start_text="Feldberg", roundtrip=True)]})
@@ -127,6 +139,7 @@ def _streams(vocab, tmp_path) -> dict[str, str]:  # noqa: F811
     )
     return {
         "fallback": _stream(settings, fallback, FELDBERG_MSG),
+        "near_miss": _stream(settings, near, FELDBERG_MSG),
         "area": _stream(settings, area, "Tour im Nordschwarzwald"),
         "clarify": _stream(settings, clarify, "Rundweg am Feldberg"),
         "knowledge": _stream(settings, knowledge, "Darf man am Feldberg querfeldein gehen?"),

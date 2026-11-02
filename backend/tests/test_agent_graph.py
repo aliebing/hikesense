@@ -1550,3 +1550,31 @@ def test_answer_that_was_only_a_false_claim_gets_a_code_sentence(vocab, settings
     assert one(events, "results").cards
     assert text_of(events) == CLAIM_ONLY_TOURS
     assert one(events, "done").unsat_claims_removed == 1
+
+
+def test_near_miss_card_sentence_log_and_model_data(vocab, settings):
+    cands = [
+        Candidate("t-ok", "Alpenrunde", 16.0, 150, 150, True, 1.0),
+        Candidate("t-near", "Jägersteig", 16.0, 230, 230, True, 2.0),  # 230 Hm vs max 200
+        Candidate("t-far", "Gipfelsturm", 16.0, 600, 600, True, 3.0),
+    ]
+    deps = make(
+        vocab,
+        settings,
+        tools=FakeTools(cands=cands),
+        structured={RawRequest: [feldberg_raw()]},
+        answers=["Die Alpenrunde passt."],
+    )
+    events = run(deps, FELDBERG_MSG)
+    cards = one(events, "results").cards
+    assert [c.name for c in cards] == ["Alpenrunde", "Jägersteig"]
+    assert [c.near_miss for c in cards] == [False, True]
+    assert cards[1].deviation_text == "230 Hm statt höchstens 200"
+    text = text_of(events)
+    assert text.endswith("Knapp daneben: Jägersteig (230 Hm statt höchstens 200).")
+    assert text.startswith("Die Alpenrunde passt.")
+    assert "Jägersteig" not in deps.gateway.answer_users[-1]
+    rows = log_lines(settings)[-1]["candidates"]
+    assert [r["status"] for r in rows] == ["shown", "near_miss", "rejected"]
+    assert log_lines(settings)[-1]["fallback_reason"] is None
+    assert log_lines(settings)[-1]["answer"].endswith("(230 Hm statt höchstens 200).")

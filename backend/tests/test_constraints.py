@@ -265,8 +265,9 @@ def test_rejected_holds_the_rest_sorted_and_capped():
     assert len(sel.rejected) == 20
     bads = [_bad(s.results) for s in sel.rejected]
     assert bads == sorted(bads)
-    assert bads[:14] == [1] * 14
-    ids = [s.candidate.trail_id for s in sel.matches + sel.rejected]
+    assert len(sel.near_misses) == 1  # one00: 16 km vs 15 km
+    assert bads[:13] == [1] * 13
+    ids = [s.candidate.trail_id for s in sel.matches + sel.near_misses + sel.rejected]
     assert len(ids) == len(set(ids))
 
 
@@ -283,3 +284,47 @@ def test_rejected_empty_on_contradiction():
     )
     assert sel.contradiction
     assert sel.rejected == []
+
+
+def _near_req():
+    return req(Constraint(kind="length_km", max=10))
+
+
+def test_near_misses_fill_up_to_three():
+    cands = [
+        cand(trail_id="ok", length_km=9.0),
+        cand(trail_id="n20", length_km=12.0),
+        cand(trail_id="n05", length_km=10.5),
+        cand(trail_id="n30", length_km=13.0),
+    ]
+    sel = select(cands, _near_req())
+    assert [s.candidate.trail_id for s in sel.matches] == ["ok"]
+    assert [s.candidate.trail_id for s in sel.near_misses] == ["n05", "n20"]
+    assert "n30" in [s.candidate.trail_id for s in sel.rejected]
+    assert all(s.candidate.trail_id not in ("n05", "n20") for s in sel.rejected)
+    assert sel.near_misses[0].violated.kind == "length_km"
+
+
+def test_near_miss_excludes_roundtrip_and_unknown():
+    cands = [
+        cand(trail_id="ok", length_km=9.0),
+        cand(trail_id="rt", length_km=9.0, roundtrip=False),
+        cand(trail_id="unk", length_km=None),
+    ]
+    sel = select(cands, req(Constraint(kind="length_km", max=10), Constraint(kind="roundtrip", required=True)))
+    assert [s.candidate.trail_id for s in sel.matches] == ["ok"]
+    assert sel.near_misses == []
+
+
+def test_near_miss_needs_exactly_one_miss():
+    cands = [cand(trail_id="ok", length_km=9.0), cand(trail_id="two", length_km=10.5, ascent_m=420)]
+    sel = select(cands, req(Constraint(kind="length_km", max=10), Constraint(kind="ascent_m", max=400)))
+    assert sel.near_misses == []
+
+
+def test_no_near_misses_with_zero_or_three_matches():
+    near = cand(trail_id="n", length_km=10.5)
+    zero = select([near], _near_req())
+    assert zero.matches == [] and zero.near_misses == []
+    three = select([cand(trail_id=f"t{i}", length_km=9.0) for i in range(3)] + [near], _near_req())
+    assert len(three.matches) == 3 and three.near_misses == []

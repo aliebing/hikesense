@@ -182,6 +182,7 @@ class TourCard(BaseModel):
     cover_page_url: str | None = None
     results: list[ConstraintResult]
     deviation_text: str | None = None
+    near_miss: bool = False  # misses one hard condition by a little; deviation_text says which
     preference: PreferenceMatch
 
 
@@ -300,6 +301,7 @@ class State(TypedDict, total=False):
     reply: str | None
     reason: str | None
     prefix: str | None  # code-written lines put before the answer verbatim (multi-day notes)
+    near_sentence: str | None  # code-written "Knapp daneben: ..." sentence, appended after the answer
     plan_request: dict | None  # the request behind `plan` (its start), persists per thread
     rain_days: list[int] | None  # "Regenvariante für Tag 2 und 3" on the stored plan
     data: str | None
@@ -329,6 +331,7 @@ def _turn(message: str) -> State:
         clarify=None,
         reply=None,
         reason=None,
+        near_sentence=None,
         prefix=None,
         rain_days=None,
         data=None,
@@ -359,7 +362,7 @@ def _de(x: float, decimals: int = 1) -> str:
 # --- search: cards, facts for the model, evidence -----------------------------------------
 
 
-def _card(s: Scored, area: bool) -> TourCard:
+def _card(s: Scored, area: bool, near_miss: bool = False) -> TourCard:
     c = s.candidate
     return TourCard(
         trail_id=c.trail_id,
@@ -375,8 +378,16 @@ def _card(s: Scored, area: bool) -> TourCard:
         cover_page_url=c.cover_page_url,
         results=[_as_float(r) for r in s.results],
         deviation_text=format_deviation(s.violated) if s.violated else None,
+        near_miss=near_miss,
         preference=s.preference,
     )
+
+
+def _near_sentence(near: list[TourCard]) -> str | None:
+    """Code-written sentence for the near misses; never given to the model."""
+    if not near:
+        return None
+    return "Knapp daneben: " + "; ".join(f"{c.name} ({c.deviation_text})" for c in near) + "."
 
 
 def _labels(vocab: TagVocabulary, tag_ids: list[str]) -> dict[str, str]:
@@ -921,10 +932,12 @@ def build_graph(deps: AgentDeps) -> Any:
         scored = sel.matches or sel.fallbacks
         area = req.start is not None and req.start.kind == "area"
         cards = [_card(s, area) for s in scored]
+        near_cards = [_card(s, area, near_miss=True) for s in sel.near_misses]
+        shown = cards + near_cards
         reason = None if sel.matches else sel.reason
         _emit(
             ResultsEvent(
-                cards=cards, fallback_reason=reason, labels=_labels(vocab, _card_tags(cards))
+                cards=shown, fallback_reason=reason, labels=_labels(vocab, _card_tags(shown))
             )
         )
         briefs = {s.id: s for s in result.sources}
@@ -936,7 +949,8 @@ def build_graph(deps: AgentDeps) -> Any:
             "tool_calls": 1,
             "reason": reason,
             "sources": _add_sources([], sources),
-            "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in cards],
+            "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in shown],
+            "near_sentence": _near_sentence(near_cards),
             "candidates": candidate_rows(sel),
         }
         if not cards:
@@ -1186,7 +1200,8 @@ def build_graph(deps: AgentDeps) -> Any:
             }
         # the code's honest sentences come first, verbatim, whatever the model wrote
         lead = state.get("prefix") or ""
-        text = "\n\n".join(x for x in (lead, f"{reason}." if reason else "", body) if x)
+        near = state.get("near_sentence") or ""
+        text = "\n\n".join(x for x in (lead, f"{reason}." if reason else "", body, near) if x)
         for chunk in _CHUNK.findall(text):
             _emit(TokenEvent(text=chunk))
         if state.get("sources"):

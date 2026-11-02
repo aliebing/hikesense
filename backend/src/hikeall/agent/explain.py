@@ -12,7 +12,7 @@ def _r1(x: float | None) -> float | None:
 def _note(s: Scored, status: str) -> str | None:
     if status == "shown":
         return None
-    if status == "fallback":
+    if status in ("fallback", "near_miss"):
         return format_deviation(s.violated) if s.violated else None
     bad = [r for r in s.results if r.ok is not True]
     if not bad:
@@ -51,5 +51,6 @@ def _row(s: Scored, status: str) -> dict:
 def candidate_rows(sel: Selection) -> list[dict]:
     rows = [_row(s, "shown") for s in sel.matches]
     rows += [_row(s, "fallback") for s in sel.fallbacks]
+    rows += [_row(s, "near_miss") for s in sel.near_misses]
     rows += [_row(s, "rejected") for s in sel.rejected]
     return rows
