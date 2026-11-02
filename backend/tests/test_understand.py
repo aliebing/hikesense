@@ -1197,3 +1197,19 @@ def test_vocabulary_label_per_language(vocab):
     assert vocab.label("place:todtnau", "en") == "Todtnau"  # a name stays
     assert vocab.label("feature:unbekannt", "en") == "feature:unbekannt"
     assert all(t.label_en for t in vocab.all() if t.category in ("feature", "surface"))
+
+
+def test_english_model_roundtrip_without_a_word_is_dropped(vocab):
+    for message in (
+        "A walk from 8 to 12 km near Titisee",
+        "A walk from Todtnau, up to 400 m ascent",
+    ):
+        gw = gw_of(start_text="Todtnau", roundtrip=True, length_km_min=8, length_km_max=12)
+        req = understand(gw, vocab, message, None, lang="en")
+        assert "roundtrip" not in kinds(req)
+        assert req.discarded_model_numbers >= 1
+    gw = gw_of(start_text="Todtnau", roundtrip=True)
+    assert "roundtrip" in kinds(understand(gw, vocab, "A loop from Todtnau", None, lang="en"))
+    gw = gw_of(start_text="Todtnau", wishes=[RawWish(text="Galloop")])
+    req = understand(gw, vocab, "walk with Galloop", None, lang="en")
+    assert "roundtrip" not in kinds(req) and req.unmatched == ["Galloop"]

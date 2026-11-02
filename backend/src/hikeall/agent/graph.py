@@ -1264,7 +1264,7 @@ def build_graph(deps: AgentDeps) -> Any:
                 plan=plan,
                 weather=weather,
                 rain=rain,
-                labels=_labels(vocab, [t for t in [f"trail:{plan.trail_id}"] if t in vocab]),
+                labels=_labels(vocab, [t for t in [f"trail:{plan.trail_id}"] if t in vocab], lang),
                 start_name=start,
             )
         )

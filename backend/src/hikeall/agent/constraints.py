@@ -227,7 +227,7 @@ def contradiction(constraints: list[Constraint], lang: Lang = "de") -> str | Non
     required = {k.required for k in constraints if k.kind == "roundtrip"}
     if required == {True, False}:
         return t["rt_contra"]
-    for kind in list(_UNIT["de"]):
+    for kind in ("length_km", "ascent_m", "duration_h", "radius_km"):
         ks = [k for k in constraints if k.kind == kind]
         mins = [k.min for k in ks if k.min is not None]
         maxs = [k.max for k in ks if k.max is not None]

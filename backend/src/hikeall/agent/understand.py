@@ -54,14 +54,14 @@ ROUNDTRIP_TAG = "feature:rundweg"
 # wish words that are the fixed roundtrip condition, never a preference (also "Laufrunde")
 _ROUNDTRIP_WORDS = (
     "rundweg", "runde", "rundtour", "rundwanderung", "rundkurs",
-    "round walk", "round trip", "roundtrip", "circular walk", "circular route", "loop",
+    "round walk", "round trip", "roundtrip", "circular walk", "circular route",
 )  # fmt: skip
 # words that state a roundtrip ("Rundweg", "Laufrunde", "Schleife") or a point-to-point tour
 # ("Strecke…", "von A nach B"); the model's roundtrip field counts only with one of them
 _ROUNDTRIP_SAID = re.compile(
     r"rundweg|runde|rundtour|rundwander|rundkurs|rundgang|rundlauf|schleife|strecke"
     r"|\bvon\b.+\bnach\b"
-    r"|round walk|round trip|roundtrip|circular|\bloop\b|point to point|one way|\bfrom\b.+\bto\b"
+    r"|round walk|round trip|roundtrip|circular|\bloop\b|point to point|one way"
 )
 _PAREN = re.compile(r"\s*\([^)]*\)")
 
@@ -671,7 +671,9 @@ def _terms(tag: Tag) -> list[str]:
 
 
 def _is_roundtrip_wish(needle: str, tag: Tag | None) -> bool:
-    return (tag is not None and tag.id == ROUNDTRIP_TAG) or needle.endswith(_ROUNDTRIP_WORDS)
+    return (tag is not None and tag.id == ROUNDTRIP_TAG) or (
+        needle.endswith(_ROUNDTRIP_WORDS) or needle == "loop" or needle.endswith(" loop")
+    )
 
 
 def _resolve_wishes(
