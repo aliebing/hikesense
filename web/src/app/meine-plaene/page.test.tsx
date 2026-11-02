@@ -100,3 +100,9 @@ it("deletes a saved search", async () => {
   await waitFor(() => expect(screen.queryByText("Rundweg mit Einkehr")).toBeNull());
   expect(h.deletePlan).toHaveBeenCalledWith("s1");
 });
+
+it("says 1 Tour in the singular", async () => {
+  h.listPlans.mockResolvedValue({ plans: [{ ...search, payload: { ...search.payload, results: { cards: [{}] } } }], error: null });
+  render(<MeinePlaene />);
+  expect(await screen.findByText("Suche · 31.10.2026 · 1 Tour")).toBeInTheDocument();
+});

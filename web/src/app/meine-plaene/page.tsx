@@ -22,7 +22,10 @@ function hrefFor(p: SavedPlan): string | null {
 
 function detail(p: SavedPlan): string {
   let s = `${KIND[p.kind]} · ${date.format(new Date(p.created_at))}`;
-  if (p.kind === "search" && isSavedSearch(p.payload)) s += ` · ${p.payload.results.cards.length} Touren`;
+  if (p.kind === "search" && isSavedSearch(p.payload)) {
+    const n = p.payload.results.cards.length;
+    s += ` · ${n} ${n === 1 ? "Tour" : "Touren"}`;
+  }
   return s;
 }
 

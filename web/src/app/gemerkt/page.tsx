@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { stripFallback } from "../../components/ChatMessages";
 import ChatText from "../../components/ChatText";
 import PageFrame from "../../components/PageFrame";
 import TourPreview from "../../components/TourPreview";
@@ -65,7 +66,7 @@ function Saved() {
   }, [signedIn, id]);
 
   // the note above the tiles already says it, so the answer text leaves out its first sentence
-  const answer = result && "answer" in result ? (result.fallback && result.answer.startsWith(`${result.fallback}.`) ? result.answer.slice(result.fallback.length + 1).trimStart() : result.answer) : "";
+  const answer = result && "answer" in result ? (result.fallback ? stripFallback(result.answer, result.fallback) : result.answer) : "";
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
@@ -80,14 +81,16 @@ function Saved() {
         </p>
       )}
       {!loading && session && !id && <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Diese gemerkte Suche gibt es nicht (mehr).</p>}
-      {result && "error" in result && (
+      {signedIn && result && "error" in result && (
         <p role="alert" className="max-w-xl rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">
           {result.error}
         </p>
       )}
-      {result && "cards" in result && (
+      {signedIn && result && "cards" in result && (
         <>
-          <p className="schrift-feld text-sm text-papier">Gemerkt am {date.format(new Date(result.createdAt))}</p>
+          {!Number.isNaN(new Date(result.createdAt).getTime()) && (
+            <p className="schrift-feld text-sm text-papier">Gemerkt am {date.format(new Date(result.createdAt))}</p>
+          )}
           {result.messages.length > 0 && (
             <div className="flex max-w-xl flex-col gap-2">
               {result.messages.map((m, i) => (
@@ -107,7 +110,9 @@ function Saved() {
               {result.fallback}
             </p>
           )}
-          {result.cards.length === 1 ? (
+          {result.cards.length === 0 ? (
+            <p className="max-w-xl rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">Diese gemerkte Suche enthält keine Touren.</p>
+          ) : result.cards.length === 1 ? (
             <TourPreview card={result.cards[0]} runWithoutPace={result.runWithoutPace} labels={result.labels} fallback={!!result.fallback} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

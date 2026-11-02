@@ -74,11 +74,16 @@ export function withoutFallback(items: ChatItem[], i: number, text: string): str
     if (it.kind === "user") break;
     if (it.kind !== "results") continue;
     if (!it.fallback) break;
-    const sentence = `${it.fallback}.`;
-    if (text.startsWith(sentence)) return text.slice(sentence.length).trimStart();
-    if (sentence.startsWith(text)) return "";
-    break;
+    return stripFallback(text, it.fallback);
   }
+  return text;
+}
+
+/** The answer text without its leading fallback sentence (also a partial one while streaming). */
+export function stripFallback(text: string, fallback: string): string {
+  const sentence = `${fallback}.`;
+  if (text.startsWith(sentence)) return text.slice(sentence.length).trimStart();
+  if (sentence.startsWith(text)) return "";
   return text;
 }
 
