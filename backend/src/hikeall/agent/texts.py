@@ -65,6 +65,19 @@ class Texts:
     kind_lauftreff: str
     kind_alpenverein: str
     kind_wanderverein: str
+    # weather day finder (code-written sentences, never from the model)
+    wish_fine: str
+    wish_dry: str
+    wish_snow: str
+    weather_unavailable: str
+    weather_found: str
+    weather_none: str
+    weather_day_fits: str
+    weather_day_misses: str
+    weather_day_unknown: str
+    weather_others: str
+    weather_no_others: str
+    weather_data: str
 
 
 DE = Texts(
@@ -154,6 +167,22 @@ DE = Texts(
     kind_lauftreff=" (Lauftreff)",
     kind_alpenverein=" (Alpenverein)",
     kind_wanderverein=" (Wanderverein)",
+    wish_fine="schönes Wetter",
+    wish_dry="trocken",
+    wish_snow="Schnee",
+    weather_unavailable="Wetter gerade nicht abrufbar.",
+    weather_found="Passende Tage für ‚{wish}‘ am {place}: {days}.",
+    weather_none=(
+        "In den nächsten 14 Tagen passt kein Tag zu ‚{wish}‘ am {place}; am ehesten: {days}."
+    ),
+    weather_day_fits="{day} passt zu ‚{wish}‘ am {place}: {detail}.",
+    weather_day_misses="{day} passt nicht zu ‚{wish}‘ am {place}: {detail}.",
+    weather_day_unknown=(
+        "Ob {day} zu ‚{wish}‘ am {place} passt, lässt sich nicht sagen (Werte fehlen): {detail}."
+    ),
+    weather_others=" Weitere passende Tage: {days}.",
+    weather_no_others=" In den nächsten 14 Tagen passt kein weiterer Tag.",
+    weather_data="Wettervorhersage für „{wish}“ am {place}, passende Tage: {days}",
 )
 
 EN = Texts(
@@ -240,6 +269,22 @@ EN = Texts(
     kind_lauftreff=" (running club)",
     kind_alpenverein=" (Alpine Club)",
     kind_wanderverein=" (hiking club)",
+    wish_fine="fine weather",
+    wish_dry="dry",
+    wish_snow="snow",
+    weather_unavailable="Weather currently unavailable.",
+    weather_found="Days that fit ‘{wish}’ near {place}: {days}.",
+    weather_none=(
+        "No day in the next 14 days fits ‘{wish}’ near {place}; closest: {days}."
+    ),
+    weather_day_fits="{day} fits ‘{wish}’ near {place}: {detail}.",
+    weather_day_misses="{day} does not fit ‘{wish}’ near {place}: {detail}.",
+    weather_day_unknown=(
+        "Whether {day} fits ‘{wish}’ near {place} can't be said (values missing): {detail}."
+    ),
+    weather_others=" Other days that fit: {days}.",
+    weather_no_others=" No other day in the next 14 days fits.",
+    weather_data="Weather forecast for “{wish}” near {place}, days that fit: {days}",
 )
 
 TEXTS: dict[str, Texts] = {"de": DE, "en": EN}

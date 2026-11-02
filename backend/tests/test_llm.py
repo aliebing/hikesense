@@ -138,7 +138,7 @@ def test_chatlog_fields(tmp_path):
         "grounding_unsupported_names", "unsat_claims_removed",
         "guard", "discarded_model_numbers", "error",
         "user_id", "message", "previous_messages", "request", "answer", "fallback_reason",
-        "candidates", "plan", "llm_calls", "tools", "duration_ms",
+        "candidates", "plan", "weather_days", "llm_calls", "tools", "duration_ms",
     }  # fmt: skip
     assert not any(k in row for k in ("password", "token", "jwt", "api_key"))
     assert row["request_id"] == "r1"

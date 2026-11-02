@@ -38,6 +38,7 @@ class ChatLogEntry(BaseModel):
     fallback_reason: str | None = None
     candidates: list[dict] = []
     plan: dict | None = None  # multi-day plan, route "multiday" only
+    weather_days: dict | None = None  # weather day finder (day hikes with a weather wish)
     llm_calls: list[dict] = []
     tools: list[dict] = []
     duration_ms: int | None = None

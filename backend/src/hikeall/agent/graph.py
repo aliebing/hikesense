@@ -64,7 +64,14 @@ from hikeall.agent.prompts import (
     plan_system,
     react_system,
 )
-from hikeall.agent.request import MAX_DAYS, Clarify, Constraint, HikeRequest, RawRequest
+from hikeall.agent.request import (
+    MAX_DAYS,
+    Clarify,
+    Constraint,
+    HikeRequest,
+    RawRequest,
+    ResolvedStart,
+)
 from hikeall.agent.texts import Lang, Texts, texts
 from hikeall.agent.tools import (
     DEFAULT_GROUP_RADIUS_KM,
@@ -79,7 +86,16 @@ from hikeall.agent.tools import (
 )
 from hikeall.agent.understand import DAYS_QUESTIONS, echo, parse, resolve, resolve_option
 from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
-from hikeall.agent.weather import NoForecast, is_rain_day, localize, no_forecast
+from hikeall.agent.weather import (
+    NoForecast,
+    WeatherWish,
+    is_rain_day,
+    localize,
+    matches,
+    no_forecast,
+    reason_text,
+    score,
+)
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
 from hikeall.guard import leaks_system_prompt, looks_like_injection, sanitize_text
@@ -337,6 +353,24 @@ class ResultsEvent(ChatEvent):
     labels: dict[str, str] = {}  # tag_id -> vocabulary label, for every tag the cards name
 
 
+class WeatherDay(BaseModel):
+    date: date
+    match: bool | None  # None: a value needed for the decision is missing
+    weather: DayWeather  # words in the reply language
+
+
+class WeatherDaysEvent(ChatEvent):
+    """Days that fit a weather wish at the start place (day hikes). `best_only`: no day fits,
+    `days` are the closest ones. `note`: why the forecast is missing or partial."""
+
+    type: Literal["weather_days"] = "weather_days"
+    wish: WeatherWish
+    place: str
+    days: list[WeatherDay]
+    best_only: bool
+    note: str | None = None
+
+
 class PlanEvent(ChatEvent):
     """A multi-day plan with the forecast per day (only days with a date) and the rain variant
     per day (rain days, or the day asked for; None = no station on the trail). Keys: day number."""
@@ -429,6 +463,8 @@ class State(TypedDict, total=False):
     near_sentence: (
         str | None
     )  # code-written "Knapp daneben: ..." sentence, appended after the answer
+    weather_sentence: str | None  # code-written weather day finder sentence, after the answer
+    weather_days: dict | None  # the finder's result, for the log
     plan_request: dict | None  # the request behind `plan` (its start), persists per thread
     rain_days: list[int] | None  # "Regenvariante für Tag 2 und 3" on the stored plan
     data: str | None
@@ -460,6 +496,8 @@ def _turn(message: str, lang: Lang = "de") -> State:
         reply=None,
         reason=None,
         near_sentence=None,
+        weather_sentence=None,
+        weather_days=None,
         prefix=None,
         rain_days=None,
         data=None,
@@ -619,6 +657,128 @@ def _bound_evidence(ev: Evidence, constraints: list[Constraint]) -> None:
         if unit:
             for value in (c.min, c.max, c.approx):
                 ev.add(value, unit)
+
+
+# --- weather day finder (day hikes) ---------------------------------------------------------
+
+_MONTH_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+MAX_FIT_DAYS = 7  # days listed without a date
+MAX_OTHER_DAYS = 5  # further days listed next to the day asked for
+MAX_BEST_DAYS = 3  # closest days when none fits
+
+
+def _short_date(d: date, lang: Lang = "de") -> str:
+    """ "Mi 5.11." / "Wed 5 Nov"."""
+    wd = _WEEKDAY[lang][d.weekday()]
+    return f"{wd} {d.day}.{d.month}." if lang == "de" else f"{wd} {d.day} {_MONTH_EN[d.month - 1]}"
+
+
+def _wish_point(start: ResolvedStart | None) -> tuple[float, float] | None:
+    """The forecast point: the start place, or the middle of the area's box."""
+    if start is None:
+        return None
+    if start.kind == "area" and start.bbox is not None:
+        b = start.bbox
+        return ((b.south + b.north) / 2, (b.west + b.east) / 2)
+    if start.lat is not None and start.lon is not None:
+        return (start.lat, start.lon)
+    return None
+
+
+def _weather_detail(w: DayWeather, lang: Lang = "de") -> str:
+    """ "Klar, 2–11 °C, 0 mm" (only what is known)."""
+    parts = [w.text] if w.text else []
+    if w.t_min_c is not None and w.t_max_c is not None:
+        parts.append(f"{fmt(w.t_min_c, lang, 0)}–{fmt(w.t_max_c, lang, 0)} °C")
+    if w.precip_mm is not None:
+        parts.append(f"{fmt(w.precip_mm, lang)} mm")
+    return ", ".join(parts) or _D[lang]["weather_unknown"]
+
+
+def _weather_days_text(days: list[WeatherDay], lang: Lang = "de") -> str:
+    return ", ".join(
+        f"{_short_date(d.date, lang)} ({_weather_detail(d.weather, lang)})" for d in days
+    )
+
+
+def _find_weather_days(
+    series: list[DayWeather],
+    wish: WeatherWish,
+    place: str,
+    target: date | None,
+    today: date,
+    lang: Lang = "de",
+) -> tuple[WeatherDaysEvent, str]:
+    """Event and code-written sentence for one point's forecast (today..today+14)."""
+    t = texts(lang)
+    wish_text = {"fine": t.wish_fine, "dry": t.wish_dry, "snow": t.wish_snow}[wish]
+
+    def day(w: DayWeather) -> WeatherDay:
+        loc = localize(w, lang)
+        assert isinstance(loc, DayWeather)
+        return WeatherDay(date=w.date, match=matches(w, wish), weather=loc)
+
+    def event(days: list[WeatherDay], best_only: bool, note: str | None) -> WeatherDaysEvent:
+        return WeatherDaysEvent(
+            wish=wish, place=place, days=days, best_only=best_only, note=note
+        )
+
+    if not series:
+        note = t.weather_unavailable
+        return event([], False, note), note
+    fits = [w for w in series if matches(w, wish) is True]
+    lead: str | None = None
+    asked = next((w for w in series if w.date == target), None) if target else None
+    if target is not None and asked is not None:
+        first = day(asked)
+        others = [day(w) for w in fits if w.date != target][:MAX_OTHER_DAYS]
+        key = {True: t.weather_day_fits, False: t.weather_day_misses, None: t.weather_day_unknown}
+        sentence = key[first.match].format(
+            day=_short_date(target, lang),
+            wish=wish_text,
+            place=place,
+            detail=_weather_detail(first.weather, lang),
+        )
+        sentence += (
+            t.weather_others.format(days=_weather_days_text(others, lang))
+            if others
+            else t.weather_no_others
+        )
+        return event([first, *others], False, None), sentence
+    if target is not None:  # outside the forecast: the usual reason, then the days that fit
+        code = "past" if target < today else "not_yet" if target > today else "missing"
+        lead = _sentence(reason_text(code, lang))
+    if fits:
+        days, best_only = [day(w) for w in fits[:MAX_FIT_DAYS]], False
+        body = t.weather_found
+    else:
+        ranked = sorted(series, key=lambda w: score(w, wish), reverse=True)
+        days, best_only = [day(w) for w in ranked[:MAX_BEST_DAYS]], True
+        body = t.weather_none
+    sentence = body.format(wish=wish_text, place=place, days=_weather_days_text(days, lang))
+    note = lead.rstrip(".") if lead else None
+    return event(days, best_only, note), f"{lead} {sentence}" if lead else sentence
+
+
+def _weather_log(ev: WeatherDaysEvent) -> dict:
+    return {
+        "wish": ev.wish,
+        "place": ev.place,
+        "days": [
+            {
+                "date": d.date.isoformat(),
+                "match": d.match,
+                "code": d.weather.code,
+                "t_min_c": d.weather.t_min_c,
+                "t_max_c": d.weather.t_max_c,
+                "precip_mm": d.weather.precip_mm,
+                "precip_prob_pct": d.weather.precip_prob_pct,
+                "snowfall_cm": d.weather.snowfall_cm,
+            }
+            for d in ev.days
+        ],
+        "best_only": ev.best_only,
+    }
 
 
 # --- multi-day: code sentences, facts for the model, evidence ------------------------------
@@ -1133,6 +1293,37 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"fixed": t.no_tours_hint}
         data = _search_data(req, cards, not sel.matches, vocab, lang)
         _card_evidence(ev, scored, area, lang)
+        point = _wish_point(req.start) if req.weather_wish else None
+        if req.weather_wish and point and req.start:
+            wish, place = req.weather_wish, req.start.label
+            got = tools.forecast_range([point], deps.today())
+            if isinstance(got, NoForecast):
+                found = WeatherDaysEvent(
+                    wish=wish, place=place, days=[], best_only=False, note=t.weather_unavailable
+                )
+                sentence = t.weather_unavailable
+            else:
+                found, sentence = _find_weather_days(
+                    got[0], wish, place, req.start_date, deps.today(), lang
+                )
+            _emit(found)
+            out |= {
+                "tool_calls": 2,
+                "weather_sentence": sentence,
+                "weather_days": _weather_log(found),
+            }
+            fit_days = [d for d in found.days if d.match is True]
+            wish_text = {"fine": t.wish_fine, "dry": t.wish_dry, "snow": t.wish_snow}[wish]
+            if fit_days:  # the model may name them, so their numbers are evidence
+                data += "\n" + t.weather_data.format(
+                    wish=wish_text, place=place, days=_weather_days_text(fit_days, lang)
+                )
+                for d in fit_days:
+                    ev.add(d.weather.t_min_c, "°C")
+                    ev.add(d.weather.t_max_c, "°C")
+                    ev.add(d.weather.precip_mm, "mm")
+                    ev.add(d.weather.precip_prob_pct, "%")
+                    ev.add(d.weather.snowfall_cm, "cm")
         ev.add(result.searched_radius_km, "km")
         ev.numbers.append(reason or "")
         if req.start is not None:
@@ -1405,7 +1596,10 @@ def build_graph(deps: AgentDeps) -> Any:
         # the code's honest sentences come first, verbatim, whatever the model wrote
         lead = state.get("prefix") or ""
         near = state.get("near_sentence") or ""
-        text = "\n\n".join(x for x in (lead, f"{reason}." if reason else "", body, near) if x)
+        wsent = state.get("weather_sentence") or ""
+        text = "\n\n".join(
+            x for x in (lead, f"{reason}." if reason else "", body, near, wsent) if x
+        )
         for chunk in _CHUNK.findall(text):
             _emit(TokenEvent(text=chunk))
         if state.get("sources"):
@@ -1508,6 +1702,7 @@ def _write_log(
             fallback_reason=state.get("reason"),
             candidates=state.get("candidates") or [],
             plan=state.get("plan") if state.get("route") == "multiday" else None,
+            weather_days=state.get("weather_days"),
             llm_calls=tr.llm_calls if tr else [],
             tools=tr.tool_calls if tr else [],
             duration_ms=int((time.monotonic() - tr.started) * 1000) if tr else None,
