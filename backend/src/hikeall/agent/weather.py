@@ -148,17 +148,23 @@ def is_rain_day(w: DayWeather) -> bool | None:
 def matches(w: DayWeather, wish: WeatherWish) -> bool | None:
     """Does the day fit the wish? None if a value needed for the decision is missing."""
     if wish == "fine":
-        if w.code is None or w.precip_mm is None or w.precip_prob_pct is None:
-            return None
-        return (
-            w.code in FINE_CODES
-            and w.precip_mm <= FINE_MAX_MM
-            and w.precip_prob_pct <= FINE_MAX_PROB
-        )
-    if wish == "dry":
-        if w.precip_mm is None or w.precip_prob_pct is None:
-            return None
-        return w.precip_mm <= DRY_MAX_MM and w.precip_prob_pct <= DRY_MAX_PROB
+        checks = [
+            None if w.code is None else w.code in FINE_CODES,
+            None if w.precip_mm is None else w.precip_mm <= FINE_MAX_MM,
+            None if w.precip_prob_pct is None else w.precip_prob_pct <= FINE_MAX_PROB,
+        ]
+    elif wish == "dry":
+        checks = [
+            None if w.precip_mm is None else w.precip_mm <= DRY_MAX_MM,
+            None if w.precip_prob_pct is None else w.precip_prob_pct <= DRY_MAX_PROB,
+        ]
+    else:
+        checks = None
+    if checks is not None:
+        # tri-state over the known values: a known failure decides even if others are missing
+        if False in checks:
+            return False
+        return None if None in checks else True
     # snow: positive evidence from either value is enough; otherwise both must be known
     if (w.snowfall_cm is not None and w.snowfall_cm >= SNOW_MIN_CM) or (
         w.code is not None and w.code in SNOW_CODES
@@ -199,7 +205,7 @@ def forecast_range(
     missing = [i for i, r in enumerate(result) if r is None]
     if missing:
         try:
-            series = client.daily_many([points[i] for i in missing], today, end)
+            series = client.daily_many([locs[i] for i in missing], today, end)
         except WeatherUnavailable:
             return no_forecast("unavailable")
         t = time.monotonic()

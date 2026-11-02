@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import httpx
@@ -10,6 +10,7 @@ from hikeall.adapters.http import make_http_client
 from hikeall.adapters.open_meteo import FORECAST_URL, DayWeather, OpenMeteoClient
 from hikeall.agent import weather
 from hikeall.agent.weather import NoForecast, is_rain_day, weather_for
+from hikeall.errors import WeatherUnavailable
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "open_meteo_daily.json").read_text())
 TODAY = date(2026, 10, 30)
@@ -213,6 +214,9 @@ def test_matches_missing_values_are_none():
     assert weather.matches(DayWeather(D), "fine") is None
     assert weather.matches(DayWeather(D, code=1, precip_mm=0.0), "fine") is None
     assert weather.matches(DayWeather(D, precip_mm=0.0), "dry") is None
+    assert weather.matches(DayWeather(D, code=45, precip_mm=0.0), "fine") is False
+    assert weather.matches(DayWeather(D, precip_mm=2.0), "dry") is False
+    assert weather.matches(DayWeather(D, precip_prob_pct=50), "fine") is False
     assert weather.matches(DayWeather(D, code=1), "snow") is None
     assert weather.matches(DayWeather(D, snowfall_cm=2.0), "snow") is True
 
@@ -230,10 +234,6 @@ class FakeRangeClient:
         self.fail = fail
 
     def daily_many(self, points, start, end):
-        from datetime import timedelta
-
-        from hikeall.errors import WeatherUnavailable
-
         self.calls.append((list(points), start, end))
         if self.fail:
             raise WeatherUnavailable("down")
@@ -251,6 +251,8 @@ def test_forecast_range_one_request_15_days_and_cache():
     assert len(fake.calls) == 1
     weather.forecast_range(fake, [(47.9, 8.1), (50.0, 9.0)], TODAY)  # only the new point
     assert len(fake.calls) == 2 and fake.calls[1][0] == [(50.0, 9.0)]
+    weather.forecast_range(fake, [(51.123456, 9.0)], TODAY)
+    assert fake.calls[2][0] == [(51.12, 9.0)]
 
 
 def test_forecast_range_failure_is_no_forecast_and_not_cached():
