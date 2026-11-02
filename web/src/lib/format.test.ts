@@ -44,3 +44,17 @@ test("format in both languages", () => {
   expect(hmDown(1200, "en")).toBe("↓ 1,200 m");
   expect(duration(5.17, "en")).toBe("5:10 h");
 });
+
+test("num never shows minus zero", async () => {
+  const { num } = await import("./format");
+  expect(num(-0.2, "de", { max: 0 })).toBe("0");
+  expect(num(-0.04, "en", { max: 1 })).toBe("0");
+  expect(num(-1.4, "en", { max: 0 })).toBe("-1");
+});
+
+test("dayLabel: English 'Thu 5 Nov', German with date, bad input unchanged", async () => {
+  const { dayLabel } = await import("./format");
+  expect(dayLabel("2026-11-05", "en")).toBe("Thu 5 Nov");
+  expect(dayLabel("2026-11-05", "de")).toBe("Do., 05.11.2026");
+  expect(dayLabel("soon", "en")).toBe("soon");
+});

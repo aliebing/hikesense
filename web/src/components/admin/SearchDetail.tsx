@@ -2,9 +2,8 @@ import type { Candidate, DetailConstraint, DetailRequest, SearchDetail as Detail
 import { messagesFor, type Locale } from "../../i18n/locale";
 import { useLocale, useT } from "../../i18n";
 import { ms, usd, when } from "../../lib/admin";
-import { MISSING, num } from "../../lib/format";
+import { dateIn, dayLabel, MISSING, num } from "../../lib/format";
 import ChatText from "../ChatText";
-import { dateIn } from "../../lib/format";
 
 const PREVIEW = 300;
 const UNIT: Record<string, string> = { length_km: "km", ascent_m: "m", radius_km: "km", duration_h: "h" };
@@ -37,6 +36,10 @@ function understood(r: DetailRequest, locale: Locale): string[] {
   if (r.days != null) out.push(t.days(r.days));
   if (r.day_km != null) out.push(t.dayLength(one(r.day_km, locale)));
   if (r.start_date) out.push(t.date(r.start_date));
+  if (r.weather_wish) {
+    const w = messagesFor(locale).weather;
+    out.push(`${w.title}: ${(w.wishes as Record<string, string>)[r.weather_wish] ?? r.weather_wish}`);
+  }
   const prefer = (r.preferences ?? []).filter((p) => p.mode !== "avoid").map((p) => p.tag_id);
   if (prefer.length) out.push(t.prefer(prefer.join(", ")));
   for (const p of (r.preferences ?? []).filter((p) => p.mode === "avoid")) out.push(t.without(p.tag_id));
@@ -68,10 +71,11 @@ function WeatherFinder({ w }: { w: NonNullable<Detail["weather_days"]> }) {
   return (
     <>
       <p>{t.adminLine((t.wishes as Record<string, string>)[w.wish] ?? w.wish, w.place, w.best_only)}</p>
+      {w.note && <p className="text-xs">{w.note}</p>}
       <ul className="text-xs">
         {w.days.map((d) => (
           <li key={d.date}>
-            {`${mark(d.match)} ${dateIn(new Date(`${d.date}T00:00:00Z`), locale, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })} · ${n0(d.t_min_c)} / ${n0(d.t_max_c)} °C · ${n0(d.precip_prob_pct)}% / ${n1(d.precip_mm)} mm · ${n1(d.snowfall_cm)} cm`}
+            {`${mark(d.match)} ${dayLabel(d.date, locale)} · ${n0(d.t_min_c)} / ${n0(d.t_max_c)} °C · ${n0(d.precip_prob_pct)}% / ${n1(d.precip_mm)} mm · ${n1(d.snowfall_cm)} cm`}
           </li>
         ))}
       </ul>

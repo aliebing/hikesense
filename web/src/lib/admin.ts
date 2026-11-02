@@ -39,6 +39,7 @@ export type DetailRequest = {
   day_km?: number | null;
   start_date?: string | null;
   start_time?: string | null;
+  weather_wish?: string | null;
 };
 export type CandidateResult = { kind: string; ok: boolean | null; actual: number | boolean | null; bound?: unknown };
 export type Candidate = {
@@ -74,6 +75,7 @@ export type WeatherDaysLog = {
   place: string;
   days: { date: string; match: boolean | null; code: number | null; t_min_c: number | null; t_max_c: number | null; precip_mm: number | null; precip_prob_pct: number | null; snowfall_cm: number | null }[];
   best_only: boolean;
+  note?: string | null;
 };
 
 export type SearchDetail = {

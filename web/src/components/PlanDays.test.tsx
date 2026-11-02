@@ -179,7 +179,7 @@ it("English: day cards, notes and times are English", () => {
   renderWithLocale(<PlanDays data={d} />, "en");
   expect(screen.getByRole("heading", { name: "Westweg (Westvariante) from Hausach, 2 days" })).toBeInTheDocument();
   const cards = screen.getAllByRole("listitem").filter((li) => li.querySelector("h3"));
-  expect(cards[0]).toHaveTextContent("Day 1 · Mon, 02/11/2026");
+  expect(cards[0]).toHaveTextContent("Day 1 · Mon 2 Nov");
   expect(cards[0]).toHaveTextContent("Time 4:25 h, start 09:00, arrival 13:25 (without breaks)");
   expect(cards[0]).toHaveTextContent("Accommodation: Gasthaus 1 · Guesthouse · 300 m from the trail");
   expect(cards[0]).toHaveTextContent("Lücke 8,80 km"); // backend text stays as delivered

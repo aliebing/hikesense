@@ -76,7 +76,7 @@ export function num(n: number, locale: Locale, o: { min?: number; max?: number }
     f = new Intl.NumberFormat(intlLocale(locale), { minimumFractionDigits: o.min ?? 0, maximumFractionDigits: o.max ?? o.min ?? 0 });
     numCache.set(key, f);
   }
-  return f.format(n);
+  return f.format(n).replace(/^[-\u2212](0(?:[.,]0+)?)$/, "$1"); // never "-0"
 }
 
 /** A date or time in the UI language with the given Intl options (cached formatters). */
@@ -88,4 +88,16 @@ export function dateIn(d: Date, locale: Locale, options: Intl.DateTimeFormatOpti
     dateCache.set(key, f);
   }
   return f.format(d);
+}
+
+/**
+ * A calendar day (ISO "2026-11-05") for cards: "Thu 5 Nov" (en) / "Do., 05.11.2026" (de), computed in UTC
+ * so the day never shifts. Not a date: the input comes back unchanged.
+ */
+export function dayLabel(iso: string, locale: Locale): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return locale === "en"
+    ? dateIn(d, locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+    : dateIn(d, locale, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }

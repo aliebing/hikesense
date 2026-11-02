@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { DayPlan, DayWeather, NoForecast, PlanData, RainVariant } from "../lib/chat";
 import { messagesFor, useLocale, useT, type Locale } from "../i18n";
-import { dateIn, duration, hm, hmDown, num } from "../lib/format";
+import { dateIn, dayLabel, duration, hm, hmDown, num } from "../lib/format";
 import { lodgingKind } from "../lib/map";
 import { lodgingLink, numOr } from "../lib/planView";
 import MerkenButton from "./MerkenButton";
@@ -20,8 +20,8 @@ const clock = (t: string | null) => (t ? t.slice(0, 5) : null);
 
 function dateText(iso: string | null, locale: Locale): string | null {
   if (!iso) return null;
-  const d = new Date(`${iso}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) ? null : dateIn(d, locale, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  const label = dayLabel(iso, locale);
+  return label === iso && Number.isNaN(new Date(`${iso}T00:00:00Z`).getTime()) ? null : label;
 }
 
 /** „Westweg ab Hausach, 3 Tage“ — also the title of the saved plan. */

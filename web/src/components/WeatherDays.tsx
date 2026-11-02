@@ -1,14 +1,9 @@
 "use client";
 
 import { useLocale, useT } from "../i18n";
-import { dateIn, num } from "../lib/format";
+import { dayLabel, num } from "../lib/format";
 import { numOr } from "../lib/planView";
 import type { WeatherDaysData } from "../lib/chat";
-
-function dayText(iso: string, locale: "de" | "en"): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) ? iso : dateIn(d, locale, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-}
 
 /**
  * The weather day finder: the days that fit a weather wish at a place (or, with `best_only`, the closest ones),
@@ -36,7 +31,7 @@ export default function WeatherDays({ data }: { data: WeatherDaysData }) {
             const rain = t.rain(numOr(w.precip_prob_pct, pct, locale), numOr(w.precip_mm, (n) => `${num(n, locale, { max: 1 })} mm`, locale));
             return (
               <li key={d.date} className={`flex flex-wrap items-baseline gap-x-2 ${d.match === false ? "opacity-60" : ""}`}>
-                <span className="font-medium">{dayText(d.date, locale)}</span>
+                <span className="font-medium">{dayLabel(d.date, locale)}</span>
                 <span className="text-xs">
                   {w.text ?? t.title} · {temp} · {rain}
                   {snow}

@@ -36,7 +36,7 @@ test("German: weekday and date, values, check mark only on fitting days, source"
 test("English: English date and number format (day first, like the rest of the app)", () => {
   renderWithLocale(<WeatherDays data={data({ wish: "dry" })} />, "en");
   const items = within(screen.getByRole("list", { name: "Weather" })).getAllByRole("listitem");
-  expect(items[0]).toHaveTextContent("Thu, 05/11/2026");
+  expect(items[0]).toHaveTextContent("Thu 5 Nov");
   expect(items[0]).toHaveTextContent("✓ fits");
   expect(items[1]).toHaveTextContent("Rain 90% / 6.3 mm");
   expect(screen.getByText("Days for dry weather near Feldberg")).toBeInTheDocument();

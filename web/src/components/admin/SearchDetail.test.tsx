@@ -104,6 +104,14 @@ it("shows the weather day finder block from weather_days", () => {
   expect(screen.getByText(/^\? .* · – \/ – °C/)).toBeInTheDocument();
 });
 
+it("shows the finder's note and the weather wish under 'understood'", () => {
+  const w = { wish: "fine", place: "Feldberg", best_only: false, note: "Wetter gerade nicht abrufbar.", days: [] };
+  const d = { ...full, request: { ...full.request, weather_wish: "fine" }, weather_days: w };
+  render(<SearchDetail d={d} />);
+  expect(screen.getByText("Wetter gerade nicht abrufbar.")).toBeInTheDocument();
+  expect(screen.getByText(/Wetter: schönes Wetter/)).toBeInTheDocument();
+});
+
 it("shows no weather block without weather_days", () => {
   render(<SearchDetail d={full} />);
   expect(screen.queryByRole("heading", { name: "Wetter-Tagesfinder" })).not.toBeInTheDocument();
