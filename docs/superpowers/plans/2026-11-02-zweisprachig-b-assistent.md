@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-02-zweisprachig-design.md` (Entscheidungen 8–14).
 
-**Branch:** `zweisprachig-b` von `main` nach dem Merge von Teil A.
+**Branch:** `zweisprachig-b` von `main` nach dem Merge von Teil A (Worktree `/home/ali/projects/HikeAllAbout-i18n`).
 
 ## Global Constraints
 
@@ -47,6 +47,7 @@
 ### Task 3: Verstanden, Rückfragen, Abweichungen
 
 **Files:** `agent/understand.py` (`echo(req, vocab, lang)`, Rückfragen, `_KIND_NAMES`, `_join_or`, `DAYS_QUESTION` je Sprache), `agent/constraints.py` (`_LABEL`, `format_deviation(r, lang)`, `_reason(..., lang)`, Bound-Text `_range(k, lang)` – `check(..., lang)` / `select(..., lang)`), `agent/explain.py` (Notiz in der Sprache), `agent/tools.py` (`search_day_hikes(req, lang)` falls nötig), `tags/vocabulary.py` (Label je Sprache für Echo), Tests.
+- Aus Teil A: die Wunsch-Chips zeigen Web-Label + Backend-`bound` (z. B. „Length: mindestens 8,5 und höchstens 11,5 km“); `bound` kommt jetzt in der Sprache der Anfrage („at least 8.5 and at most 11.5 km“).
 - [ ] Tests: `echo` englisch („Understood: round walk near Feldberg-Ort · length 8.5–11.5 km · max. 300 m ascent“); Rückfrage „Did you mean „Feldberg (village)“, …?“ mit Optionen = Ortsnamen; Klick auf Option löst auf; `format_deviation` englisch („11.6 km instead of at most 11.5 km“, „not a round walk“); Ausweich-Satz englisch („No tour meets all your wishes because …“); Knapp-daneben-Satz englisch („Near miss: …“).
 - [ ] Implement; Run – PASS; Commit `feat: Verstanden, Rückfragen und Abweichungen auf Englisch`
 
@@ -59,6 +60,7 @@
 ### Task 5: Mehrtages-, Wetter-, Gruppen- und Event-Texte
 
 **Files:** `agent/multiday.py` (Notizen, `gap`, `RAIN_NOTE`, `_fmt` mit `lang`), `agent/weather.py`, `adapters/open_meteo.py` (`weather_text(code, lang)`), `agent/events.py`, `api/admin.py` nur falls Texte an Nutzer gehen (sonst unverändert, Spec 15), Tests.
+- Aus Teil A: `web/src/components/PlanDays.tsx` erkennt heute den deutschen Backend-Text „Noch keine Vorhersage …“ per `startsWith` – das Backend liefert dafür ab jetzt zusätzlich einen Grund-Code (`NoForecast.code`, z. B. `"not_yet"`), und PlanDays prüft den Code statt des Texts.
 - [ ] Tests: Mehrtagesplan `lang="en"` → Notizen/Lücken/Regenvariante englisch, Zahlen englisch; Wettertext englisch („light rain“); Gruppen- und Event-Antworttexte englisch.
 - [ ] Implement; Run – PASS; Commit `feat: Mehrtages-, Wetter-, Gruppen- und Event-Texte auf Englisch`
 
