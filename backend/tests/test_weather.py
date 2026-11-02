@@ -177,3 +177,95 @@ def test_localize_forecast_and_reasons():
     assert localize(nf, "en").reason == "No forecast yet (more than 14 days ahead)"
     assert localize(nf, "en").code == "not_yet"
     assert no_forecast("no_place", "en").reason == "Place for the forecast unknown"
+
+
+# --- weather wishes (Stufe 4) ---
+
+D = date(2026, 10, 30)
+
+
+def _w(code=1, mm=0.0, prob=0, snow=0.0):
+    return DayWeather(D, code=code, precip_mm=mm, precip_prob_pct=prob, snowfall_cm=snow)
+
+
+def test_fine_thresholds():
+    assert weather.matches(_w(mm=0.5, prob=30), "fine") is True
+    assert weather.matches(_w(mm=0.6), "fine") is False
+    assert weather.matches(_w(prob=31), "fine") is False
+    assert weather.matches(_w(code=3), "fine") is True
+    assert weather.matches(_w(code=45), "fine") is False
+
+
+def test_dry_thresholds():
+    assert weather.matches(_w(code=61, mm=1.0, prob=40), "dry") is True
+    assert weather.matches(_w(mm=1.1), "dry") is False
+    assert weather.matches(_w(prob=41), "dry") is False
+
+
+def test_snow_thresholds():
+    assert weather.matches(_w(snow=1.0), "snow") is True
+    assert weather.matches(_w(snow=0.9), "snow") is False
+    assert weather.matches(_w(code=73, snow=0.0), "snow") is True
+    assert weather.matches(_w(code=61, snow=0.0), "snow") is False
+
+
+def test_matches_missing_values_are_none():
+    assert weather.matches(DayWeather(D), "fine") is None
+    assert weather.matches(DayWeather(D, code=1, precip_mm=0.0), "fine") is None
+    assert weather.matches(DayWeather(D, precip_mm=0.0), "dry") is None
+    assert weather.matches(DayWeather(D, code=1), "snow") is None
+    assert weather.matches(DayWeather(D, snowfall_cm=2.0), "snow") is True
+
+
+def test_score_order():
+    assert weather.score(_w(mm=0.0, prob=10), "fine") > weather.score(_w(mm=0.0, prob=20), "fine")
+    assert weather.score(_w(mm=0.2, prob=0), "dry") > weather.score(_w(mm=0.8, prob=0), "dry")
+    assert weather.score(_w(snow=5.0), "snow") > weather.score(_w(snow=1.0), "snow")
+    assert weather.score(DayWeather(D), "dry") < weather.score(_w(mm=5.0, prob=90), "dry")
+
+
+class FakeRangeClient:
+    def __init__(self, fail=False):
+        self.calls = []
+        self.fail = fail
+
+    def daily_many(self, points, start, end):
+        from datetime import timedelta
+
+        from hikeall.errors import WeatherUnavailable
+
+        self.calls.append((list(points), start, end))
+        if self.fail:
+            raise WeatherUnavailable("down")
+        days = [start + timedelta(days=n) for n in range((end - start).days + 1)]
+        return [[DayWeather(date=d, code=1, precip_mm=0.0) for d in days] for _ in points]
+
+
+def test_forecast_range_one_request_15_days_and_cache():
+    fake = FakeRangeClient()
+    pts = [(47.9, 8.1), (48.2, 8.4)]
+    got = weather.forecast_range(fake, pts, TODAY)
+    assert len(fake.calls) == 1 and fake.calls[0][1:] == (TODAY, date(2026, 11, 13))
+    assert [len(x) for x in got] == [15, 15]
+    assert weather.forecast_range(fake, pts, TODAY) == got
+    assert len(fake.calls) == 1
+    weather.forecast_range(fake, [(47.9, 8.1), (50.0, 9.0)], TODAY)  # only the new point
+    assert len(fake.calls) == 2 and fake.calls[1][0] == [(50.0, 9.0)]
+
+
+def test_forecast_range_failure_is_no_forecast_and_not_cached():
+    got = weather.forecast_range(FakeRangeClient(fail=True), [(47.9, 8.1)], TODAY)
+    assert got == NoForecast("Wetterdienst nicht erreichbar") and got.code == "unavailable"
+    ok = FakeRangeClient()
+    assert isinstance(weather.forecast_range(ok, [(47.9, 8.1)], TODAY), list)
+    assert len(ok.calls) == 1
+
+
+@respx.mock
+def test_parser_reads_snowfall(client):
+    data = json.loads(json.dumps(FIXTURE))
+    data["daily"]["snowfall_sum"] = [0.0, 2.4, None]
+    route = respx.get(FORECAST_URL).mock(return_value=httpx.Response(200, json=data))
+    days = client.daily(47.9, 8.1, TODAY, date(2026, 11, 1))
+    assert [d.snowfall_cm for d in days] == [0.0, 2.4, None]
+    assert "snowfall_sum" in str(route.calls[0].request.url)

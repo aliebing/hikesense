@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import time
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 from hikeall.adapters.open_meteo import DayWeather, OpenMeteoClient, weather_text
@@ -15,9 +15,13 @@ from hikeall.numfmt import Lang
 __all__ = [
     "DayWeather",
     "NoForecast",
+    "WeatherWish",
+    "forecast_range",
     "is_rain_day",
     "localize",
+    "matches",
     "reason_text",
+    "score",
     "weather_for",
     "weather_for_days",
 ]
@@ -26,6 +30,16 @@ HORIZON_DAYS = 14  # days 0..14 ahead of today have a forecast; 15+ do not
 CACHE_TTL_S = 3600.0
 RAIN_PROB_PCT = 60
 RAIN_MM = 5.0
+
+# Thresholds for weather wishes (our decision, documented here; all inclusive limits).
+WeatherWish = Literal["fine", "dry", "snow"]
+FINE_MAX_MM = 0.5  # "fine": at most this much precipitation ...
+FINE_MAX_PROB = 30  # ... at most this probability (%) ...
+FINE_CODES = frozenset({0, 1, 2, 3})  # ... and clear to overcast (no fog, no precipitation)
+DRY_MAX_MM = 1.0  # "dry": at most this much precipitation ...
+DRY_MAX_PROB = 40  # ... and at most this probability (%)
+SNOW_MIN_CM = 1.0  # "snow": at least this much snowfall ...
+SNOW_CODES = frozenset({71, 73, 75, 77, 85, 86})  # ... or a snow weather code
 
 REASON_TOO_FAR = "Noch keine Vorhersage (mehr als 14 Tage)"
 REASON_PAST = "Datum liegt in der Vergangenheit"
@@ -129,3 +143,68 @@ def is_rain_day(w: DayWeather) -> bool | None:
     if w.precip_prob_pct is None and w.precip_mm is None:
         return None
     return (w.precip_prob_pct or 0) >= RAIN_PROB_PCT or (w.precip_mm or 0) >= RAIN_MM
+
+
+def matches(w: DayWeather, wish: WeatherWish) -> bool | None:
+    """Does the day fit the wish? None if a value needed for the decision is missing."""
+    if wish == "fine":
+        if w.code is None or w.precip_mm is None or w.precip_prob_pct is None:
+            return None
+        return (
+            w.code in FINE_CODES
+            and w.precip_mm <= FINE_MAX_MM
+            and w.precip_prob_pct <= FINE_MAX_PROB
+        )
+    if wish == "dry":
+        if w.precip_mm is None or w.precip_prob_pct is None:
+            return None
+        return w.precip_mm <= DRY_MAX_MM and w.precip_prob_pct <= DRY_MAX_PROB
+    # snow: positive evidence from either value is enough; otherwise both must be known
+    if (w.snowfall_cm is not None and w.snowfall_cm >= SNOW_MIN_CM) or (
+        w.code is not None and w.code in SNOW_CODES
+    ):
+        return True
+    if w.snowfall_cm is None or w.code is None:
+        return None
+    return False
+
+
+def score(w: DayWeather, wish: WeatherWish) -> float:
+    """Ranking for "best days", higher is better. Missing values count as worst for the wish."""
+    if wish == "snow":
+        return w.snowfall_cm if w.snowfall_cm is not None else 0.0
+    # fine/dry: less precipitation first, then lower probability (prob is at most 100)
+    mm = w.precip_mm if w.precip_mm is not None else 100.0
+    prob = w.precip_prob_pct if w.precip_prob_pct is not None else 100.0
+    return -(mm + prob / 1000.0)
+
+
+def forecast_range(
+    client: OpenMeteoClient, points: list[tuple[float, float]], today: date
+) -> list[list[DayWeather]] | NoForecast:
+    """Forecast for today..today+14 per point, in ONE request; cached 1 h like `weather_for`.
+    Failures are not cached."""
+    end = today + timedelta(days=HORIZON_DAYS)
+    days = [today + timedelta(days=i) for i in range(HORIZON_DAYS + 1)]
+    locs = [(round(lat, 2), round(lon, 2)) for lat, lon in points]
+    now = time.monotonic()
+
+    def cached(loc: tuple[float, float]) -> list[DayWeather] | None:
+        hits = [_cache.get((*loc, d)) for d in days]
+        if all(h and now - h[0] < CACHE_TTL_S for h in hits):
+            return [h[1] for h in hits if h]
+        return None
+
+    result = [cached(loc) for loc in locs]
+    missing = [i for i, r in enumerate(result) if r is None]
+    if missing:
+        try:
+            series = client.daily_many([points[i] for i in missing], today, end)
+        except WeatherUnavailable:
+            return no_forecast("unavailable")
+        t = time.monotonic()
+        for i, per_loc in zip(missing, series, strict=True):
+            for w in per_loc:
+                _cache[(*locs[i], w.date)] = (t, w)
+            result[i] = per_loc
+    return [r or [] for r in result]

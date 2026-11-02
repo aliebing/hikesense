@@ -33,7 +33,7 @@ from hikeall.agent.request import (
     DayChange,
     HikeRequest,
 )
-from hikeall.agent.weather import REASON_DOWN, NoForecast, weather_for_days
+from hikeall.agent.weather import REASON_DOWN, NoForecast, forecast_range, weather_for_days
 from hikeall.geo import METRIC_SRID
 from hikeall.hiking_time import din33466
 from hikeall.knowledge.models import KnowledgeHit, KnowledgeIndex
@@ -526,6 +526,12 @@ class AgentTools(Protocol):
         """Forecast per (lat, lon, day), all fetched in one request."""
         ...
 
+    def forecast_range(
+        self, points: list[tuple[float, float]], today: date
+    ) -> list[list[DayWeather]] | NoForecast:
+        """Forecast for today..today+14 per point, all fetched in one request."""
+        ...
+
     def rain_variants(
         self, plan: MultidayPlan, days: list[int], lang: Lang = "de"
     ) -> dict[int, RainVariant | None]: ...
@@ -654,6 +660,13 @@ class DbTools:
         if self._weather_client is None:
             return [NoForecast(REASON_DOWN, "unavailable") for _ in points]
         return weather_for_days(self._weather_client, points, today)
+
+    def forecast_range(
+        self, points: list[tuple[float, float]], today: date
+    ) -> list[list[DayWeather]] | NoForecast:
+        if self._weather_client is None:
+            return NoForecast(REASON_DOWN, "unavailable")
+        return forecast_range(self._weather_client, points, today)
 
     def rain_variants(
         self, plan: MultidayPlan, days: list[int], lang: Lang = "de"

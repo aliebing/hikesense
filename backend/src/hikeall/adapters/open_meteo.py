@@ -15,7 +15,7 @@ from hikeall.numfmt import Lang
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 DAILY_FIELDS = (
     "weather_code,temperature_2m_max,temperature_2m_min,"
-    "precipitation_sum,precipitation_probability_max"
+    "precipitation_sum,precipitation_probability_max,snowfall_sum"
 )
 SOURCE_ID = "open-meteo"
 
@@ -106,6 +106,7 @@ class DayWeather:
     t_max_c: float | None = None
     precip_mm: float | None = None
     precip_prob_pct: float | None = None
+    snowfall_cm: float | None = None
     source_id: str = SOURCE_ID
 
 
@@ -161,6 +162,7 @@ def _parse_daily(data: object) -> list[DayWeather]:
                 t_min_c=value("temperature_2m_min", i), t_max_c=value("temperature_2m_max", i),
                 precip_mm=value("precipitation_sum", i),
                 precip_prob_pct=value("precipitation_probability_max", i),
+                snowfall_cm=value("snowfall_sum", i),
             ))
     except (TypeError, ValueError, AttributeError) as exc:
         raise WeatherUnavailable("unexpected forecast format") from exc
