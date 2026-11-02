@@ -34,3 +34,17 @@ def test_creates_then_updates_admin(conn, monkeypatch):
     assert conn.execute(
         "select encrypted_password from auth.users where id = %s", (uid,)
     ).fetchone()[0] == HASH_B
+
+
+@pytest.mark.db
+def test_ensure_admin_sets_admin_role(conn, monkeypatch):
+    from hikeall.roles import role_of
+
+    monkeypatch.setattr(conn, "commit", lambda: None)  # the fixture rolls back
+    conn.execute("delete from auth.users where email = %s", (ADMIN_EMAIL,))
+    assert ensure_admin(conn, HASH_A) == "angelegt"
+    uid = conn.execute("select id from auth.users where email = %s", (ADMIN_EMAIL,)).fetchone()[0]
+    assert role_of(conn, str(uid)) == "admin"
+    conn.execute("update profiles set role = 'user' where user_id = %s", (uid,))
+    assert ensure_admin(conn, HASH_B) == "aktualisiert"
+    assert role_of(conn, str(uid)) == "admin"

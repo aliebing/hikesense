@@ -52,7 +52,8 @@ smoke-user:
 	cd backend && uv run hikeall smoke-user
 
 # Lokaler Admin (Anmeldename „admin“ = admin@hikeall.local). In .env steht nur der bcrypt-Hash
-# des Passworts (HIKEALL_ADMIN_PASSWORD_HASH), nie das Passwort selbst.
+# des Passworts (HIKEALL_ADMIN_PASSWORD_HASH), nie das Passwort selbst. Setzt auch die Rolle admin
+# in profiles.
 admin-user:
 	cd backend && uv run hikeall admin-user
 

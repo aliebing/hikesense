@@ -542,7 +542,7 @@ def admin_user_cmd() -> int:
     except (ValueError, psycopg.Error) as e:
         print(f"Admin – {e}", file=sys.stderr)
         return 2
-    print(f"Admin {admin.ADMIN_EMAIL} {state} (Anmeldename: admin)")
+    print(f"Admin {admin.ADMIN_EMAIL} {state}, Rolle admin (Anmeldename: admin)")
     return 0
 
 

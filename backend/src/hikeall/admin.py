@@ -11,6 +11,8 @@ import re
 
 import psycopg
 
+from hikeall.roles import set_role
+
 ADMIN_EMAIL = "admin@hikeall.local"
 _BCRYPT = re.compile(r"^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$")
 
@@ -20,7 +22,7 @@ def is_bcrypt(value: str) -> bool:
 
 
 def ensure_admin(conn: psycopg.Connection, password_hash: str) -> str:
-    """Creates the admin ("angelegt") or sets its password hash ("aktualisiert")."""
+    """Creates the admin ("angelegt") or sets its password hash ("aktualisiert"); role is admin."""
     if not is_bcrypt(password_hash):
         raise ValueError("HIKEALL_ADMIN_PASSWORD_HASH ist kein bcrypt-Hash")
     row = conn.execute("select id from auth.users where email = %s", (ADMIN_EMAIL,)).fetchone()
@@ -29,6 +31,7 @@ def ensure_admin(conn: psycopg.Connection, password_hash: str) -> str:
             "update auth.users set encrypted_password = %s, updated_at = now() where id = %s",
             (password_hash, row[0]),
         )
+        set_role(conn, str(row[0]), "admin")
         conn.commit()
         return "aktualisiert"
     uid = conn.execute(
@@ -56,5 +59,6 @@ def ensure_admin(conn: psycopg.Connection, password_hash: str) -> str:
         """,
         (uid, uid, uid, ADMIN_EMAIL),
     )
+    set_role(conn, str(uid), "admin")
     conn.commit()
     return "angelegt"
