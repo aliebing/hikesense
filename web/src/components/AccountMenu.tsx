@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useT } from "../i18n";
 import { adminGet } from "../lib/admin";
 import { signOut, useSession } from "../lib/auth";
 import { useResetChat } from "./ChatProvider";
@@ -12,6 +13,7 @@ const shorten = (email: string) => (email.length > 22 ? `${email.slice(0, 20)}‚Ä
 export default function AccountMenu() {
   const { session, loading } = useSession();
   const resetChat = useResetChat();
+  const t = useT().account;
   const [isAdmin, setIsAdmin] = useState(false);
   const userKey = session?.user.id ?? session?.user.email ?? (session ? "user" : null);
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function AccountMenu() {
   if (!session) {
     return (
       <Link href="/anmelden" className="whitespace-nowrap underline-offset-4 hover:underline">
-        Anmelden
+        {t.signIn}
       </Link>
     );
   }
@@ -35,15 +37,15 @@ export default function AccountMenu() {
     <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       {isAdmin && (
         <Link href="/admin" className="whitespace-nowrap underline-offset-4 hover:underline">
-          Backend
+          {t.backend}
         </Link>
       )}
       <Link href="/meine-plaene" className="whitespace-nowrap underline-offset-4 hover:underline">
-        Meine Pl√§ne
+        {t.myPlans}
       </Link>
-      <span title={session.user.email ?? undefined} className="hidden sm:inline">{shorten(session.user.email ?? "Konto")}</span>
+      <span title={session.user.email ?? undefined} className="hidden sm:inline">{shorten(session.user.email ?? t.account)}</span>
       <button type="button" onClick={() => void signOut().finally(() => resetChat?.())} className="whitespace-nowrap underline-offset-4 hover:underline">
-        Abmelden
+        {t.signOut}
       </button>
     </span>
   );

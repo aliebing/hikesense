@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const h = vi.hoisted(() => ({ push: vi.fn(), signIn: vi.fn(), signUp: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push, refresh: () => {} }) }));
 vi.mock("../../lib/auth", async (orig) => ({
   loginEmail: (await orig<typeof import("../../lib/auth")>()).loginEmail,
   signIn: h.signIn,
@@ -26,7 +26,7 @@ it("signs in and goes back to the chat", async () => {
   await fill();
   await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
   await waitFor(() => expect(h.push).toHaveBeenCalledWith("/"));
-  expect(h.signIn).toHaveBeenCalledWith("a@b.de", "geheim12");
+  expect(h.signIn).toHaveBeenCalledWith("a@b.de", "geheim12", "de");
 });
 
 it("shows the German error and stays", async () => {
@@ -53,5 +53,19 @@ it("signs in with a bare user name as <name>@hikeall.local", async () => {
   await userEvent.type(screen.getByLabelText("E-Mail"), "admin");
   await userEvent.type(screen.getByLabelText("Passwort"), "admin");
   await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
-  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikeall.local", "admin"));
+  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikeall.local", "admin", "de"));
+});
+
+it("English: texts, and the language is passed to sign-in", async () => {
+  const { renderWithLocale } = await import("../../test-utils");
+  h.signIn.mockResolvedValue({ error: null });
+  renderWithLocale(<Anmelden />, "en");
+  expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("E-mail or username")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "← Back to chat" })).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("E-mail"), "a@b.de");
+  await userEvent.type(screen.getByLabelText("Password"), "secret12");
+  await userEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
+  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("a@b.de", "secret12", "en"));
 });

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useT } from "../i18n";
 import { useSession } from "../lib/auth";
 import ChatMessages from "./ChatMessages";
 import { useChat } from "./ChatProvider";
@@ -10,6 +11,7 @@ import { useChat } from "./ChatProvider";
 export default function ChatShell({ intro, variant = "stage" }: { intro: string; variant?: "stage" | "drawer" }) {
   const { state, busy, send, abort } = useChat();
   const { session, loading } = useSession();
+  const t = useT().chat;
   const [text, setText] = useState("");
 
   const submit = (m: string) => {
@@ -25,21 +27,21 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
       <ChatMessages items={state.items} onOption={(o) => void send(o)} disabled={busy} />
       {busy && (
         <p role="status" className="flex items-center gap-2 text-sm">
-          denkt nach …
+          {t.thinking}
           <button
             type="button"
             onClick={abort}
             className="rounded-full border border-white/40 px-3 py-0.5 text-xs hover:bg-white/15"
           >
-            Abbrechen
+            {t.cancel}
           </button>
         </p>
       )}
       {loading ? null : !session ? (
         <p className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
-          Zum Planen bitte{" "}
+          {t.signInBefore}
           <Link href="/anmelden" className="underline">
-            anmelden
+            {t.signInLink}
           </Link>
         </p>
       ) : (
@@ -55,8 +57,8 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           value={text}
           onChange={(ev) => setText(ev.target.value)}
           maxLength={1000}
-          placeholder="z. B. 12 km Rundweg ab Hinterzarten"
-          aria-label="Nachricht"
+          placeholder={t.placeholder}
+          aria-label={t.message}
           className="min-w-0 flex-1 rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70"
         />
         <button
@@ -64,7 +66,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           disabled={busy || !text.trim()}
           className="rounded-full bg-wald px-4 py-2 text-sm text-papier disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Senden
+          {t.send}
         </button>
       </form>
       )}
@@ -73,9 +75,9 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
 
   if (variant === "drawer") {
     return (
-      <aside aria-label="Planungs-Chat" className="w-full rounded-2xl bg-wald-flaeche p-3 text-papier ring-1 ring-white/10">
+      <aside aria-label={t.title} className="w-full rounded-2xl bg-wald-flaeche p-3 text-papier ring-1 ring-white/10">
         <details>
-          <summary className="cursor-pointer font-serif text-lg">Chat</summary>
+          <summary className="cursor-pointer font-serif text-lg">{t.drawerTitle}</summary>
           <div className="mt-3 flex flex-col gap-3">{body}</div>
         </details>
       </aside>
@@ -84,10 +86,10 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
 
   return (
     <aside
-      aria-label="Planungs-Chat"
+      aria-label={t.title}
       className="flex w-full flex-col gap-3 rounded-2xl bg-wald-flaeche/60 p-4 text-papier ring-1 ring-white/15 backdrop-blur-md sm:max-w-sm md:max-w-md"
     >
-      <h2 className="font-serif text-lg">Planungs-Chat</h2>
+      <h2 className="font-serif text-lg">{t.title}</h2>
       {body}
     </aside>
   );

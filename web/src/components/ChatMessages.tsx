@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { CalendarLink, Constraint, GroupBrief, HikeRequest, Labels, SourceBrief, TourCard, VerifiedRace } from "../lib/chat";
+import { useLocale, useT } from "../i18n";
+import { intlLocale, messagesFor, type Locale } from "../i18n/locale";
 import ChatText from "./ChatText";
 import EventCards from "./EventCards";
 import GroupList from "./GroupList";
@@ -18,58 +20,66 @@ export type ChatItem =
   | { kind: "error"; text: string }
   | { kind: "auth" };
 
-const num = (n: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(n);
+const formatters = new Map<Locale, Intl.NumberFormat>();
+const num = (n: number, locale: Locale) => {
+  let f = formatters.get(locale);
+  if (!f) formatters.set(locale, (f = new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 })));
+  return f.format(n);
+};
 
 /** null when the constraint has no bound at all: nothing is invented. */
-function range(label: string, unit: string, c: Constraint): string | null {
-  const about = c.approx != null ? ` (≈ ${num(c.approx)} ${unit})` : "";
-  if (c.min !== null && c.max !== null) return `${label} ${num(c.min)}–${num(c.max)} ${unit}${about}`;
-  if (c.min !== null) return `${label} ≥ ${num(c.min)} ${unit}`;
-  if (c.max !== null) return `${label} ≤ ${num(c.max)} ${unit}`;
+function range(label: string, unit: string, c: Constraint, locale: Locale): string | null {
+  const about = c.approx != null ? ` (≈ ${num(c.approx, locale)} ${unit})` : "";
+  if (c.min !== null && c.max !== null) return `${label} ${num(c.min, locale)}–${num(c.max, locale)} ${unit}${about}`;
+  if (c.min !== null) return `${label} ≥ ${num(c.min, locale)} ${unit}`;
+  if (c.max !== null) return `${label} ≤ ${num(c.max, locale)} ${unit}`;
   return null;
 }
 
-function constraintChip(c: Constraint): string | null {
+function constraintChip(c: Constraint, locale: Locale): string | null {
+  const t = messagesFor(locale).chat;
   switch (c.kind) {
     case "roundtrip":
-      return c.required === true ? "Rundweg" : c.required === false ? "kein Rundweg" : null;
+      return c.required === true ? t.roundWalk : c.required === false ? t.notRoundWalk : null;
     case "length_km":
-      return range("Länge", "km", c);
+      return range(t.length, "km", c, locale);
     case "ascent_m":
-      return range("Höhenmeter", "Hm", c);
+      return range(t.ascent, t.unitAscent, c, locale);
     case "duration_h":
-      return range("Dauer", "h", c);
+      return range(t.duration, "h", c, locale);
     case "radius_km":
-      return range("Entfernung", "km", c);
+      return range(t.distance, "km", c, locale);
   }
 }
 
 /** The constraint chips of a request (shared with the saved-search title). */
-export function constraintChips(r: HikeRequest): string[] {
+export function constraintChips(r: HikeRequest, locale: Locale = "de"): string[] {
   return r.constraints.flatMap((c) => {
-    const text = constraintChip(c);
+    const text = constraintChip(c, locale);
     return text ? [text] : [];
   });
 }
 
-export function chipsFor(r: HikeRequest, labels: Labels): { text: string; warn?: boolean }[] {
+export function chipsFor(r: HikeRequest, labels: Labels, locale: Locale = "de"): { text: string; warn?: boolean }[] {
+  const t = messagesFor(locale).chat;
   return [
-    ...constraintChips(r).map((text) => ({ text })),
+    ...constraintChips(r, locale).map((text) => ({ text })),
     ...r.preferences.map((p) => {
       const name = labels[p.tag_id] ?? p.tag_id;
-      return { text: p.mode === "prefer" ? `Vorliebe: ${name} (Gewicht ${p.weight})` : `Vermeiden: ${name}` };
+      return { text: p.mode === "prefer" ? t.preference(name, p.weight) : t.avoid(name) };
     }),
-    ...r.unmatched.map((u) => ({ text: `nicht prüfbar: ${u}`, warn: true })),
+    ...r.unmatched.map((u) => ({ text: t.notCheckable(u), warn: true })),
   ];
 }
 
 /** Real matches are counted as found; near misses are named separately. */
-export function foundText(cards: { near_miss?: boolean }[]): string {
+export function foundText(cards: { near_miss?: boolean }[], locale: Locale = "de"): string {
+  const t = messagesFor(locale).chat;
   const near = cards.filter((c) => c.near_miss).length;
   const n = cards.length - near;
-  if (n === 0 && near === 0) return "Keine passende Tour gefunden.";
-  const found = n === 0 ? "" : n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`;
-  return near === 0 ? found : n === 0 ? `${near} knapp daneben` : `${found}, ${near} knapp daneben`;
+  if (n === 0 && near === 0) return t.noTour;
+  const found = n === 0 ? "" : t.toursFound(n);
+  return near === 0 ? found : n === 0 ? t.nearMisses(near) : `${found}, ${t.nearMisses(near)}`;
 }
 
 const bubble = "rounded-xl px-3 py-2 text-sm leading-relaxed";
@@ -106,8 +116,10 @@ export default function ChatMessages({
   onOption: (text: string) => void;
   disabled: boolean;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   return (
-    <ol aria-label="Verlauf" aria-live="polite" className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+    <ol aria-label={t.chat.history} aria-live="polite" className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
       {items.map((it, i) => (
         <li key={i} className="flex flex-col gap-1">
           {it.kind === "user" && (
@@ -121,8 +133,8 @@ export default function ChatMessages({
           {it.kind === "understood" && (
             <div className="flex flex-col gap-1">
               <p className="text-xs text-papier/90">{it.text}</p>
-              <ul aria-label="Erkannte Wünsche" className="flex flex-wrap gap-1">
-                {chipsFor(it.request, it.labels).map((c, j) => (
+              <ul aria-label={t.chat.understood} className="flex flex-wrap gap-1">
+                {chipsFor(it.request, it.labels, locale).map((c, j) => (
                   <li
                     key={j}
                     className={`rounded-full px-2 py-0.5 text-xs ${c.warn ? "bg-amber-200 text-amber-950" : "bg-papier/85 text-wald-dunkel"}`}
@@ -158,27 +170,27 @@ export default function ChatMessages({
                   {it.fallback}
                 </p>
               )}
-              <p className="text-xs text-papier/90">{foundText(it.cards)}</p>
+              <p className="text-xs text-papier/90">{foundText(it.cards, locale)}</p>
             </div>
           )}
           {it.kind === "plan" && <p className="text-xs text-papier/90">{it.summary}</p>}
           {it.kind === "groups" && <GroupList groups={it.groups} note={it.note} />}
           {it.kind === "events" && <EventCards events={it.events} fallback={it.fallback} note={it.note} />}
           {it.kind === "sources" && (
-            <ul aria-label="Quellen" className="flex flex-col gap-0.5 text-xs text-papier/90">
+            <ul aria-label={t.chat.sources} className="flex flex-col gap-0.5 text-xs text-papier/90">
               {it.sources.map((s) => (
                 <li key={`${s.id}|${s.url ?? ""}`}>
-                  Quelle:{" "}
+                  {t.chat.source}{" "}
                   {s.url ? (
                     <a href={s.url} target="_blank" rel="noreferrer" className="underline">
                       {s.name ?? s.url}
                     </a>
                   ) : (
-                    (s.name ?? `${s.id} (Angaben fehlen)`)
+                    (s.name ?? `${s.id} (${t.chat.detailsMissing})`)
                   )}
-                  {s.license ? ` · Lizenz: ${s.license}` : ""}
+                  {s.license ? ` · ${t.chat.licence} ${s.license}` : ""}
                   {s.status === "entwurf" && (
-                    <span className="ml-1 rounded bg-amber-200 px-1 text-amber-950">Entwurf</span>
+                    <span className="ml-1 rounded bg-amber-200 px-1 text-amber-950">{t.chat.draft}</span>
                   )}
                 </li>
               ))}
@@ -192,9 +204,9 @@ export default function ChatMessages({
           )}
           {it.kind === "auth" && (
             <p role="alert" className={`${bubble} bg-red-100 text-red-900`}>
-              Sitzung abgelaufen – bitte erneut anmelden.{" "}
+              {t.chat.sessionExpired}{" "}
               <Link href="/anmelden" className="underline">
-                Anmelden
+                {t.chat.signIn}
               </Link>
             </p>
           )}

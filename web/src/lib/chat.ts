@@ -1,6 +1,6 @@
 /** Chat protocol: SSE parsing and streaming against POST /chat (backend/src/hikeall/api/chat.py). */
 
-import type { Locale } from "../i18n/locale";
+import { messagesFor, type Locale } from "../i18n/locale";
 
 export type ConstraintKind = "roundtrip" | "length_km" | "ascent_m" | "duration_h" | "radius_km";
 
@@ -201,17 +201,19 @@ export type ChatEvent =
   /** 401 from /chat: no or expired session */
   | { type: "auth"; message: string };
 
-export const ERROR_INTERRUPTED = "Die Antwort wurde unterbrochen. Bitte stelle die Frage noch einmal.";
+type ChatErrorKey = keyof ReturnType<typeof messagesFor>["errors"]["chat"];
 
-export const ERROR_REJECTED =
-  "Die Nachricht konnte nicht verarbeitet werden. Bitte formuliere sie neu oder kürzer.";
+/** The web app's own error texts (not the backend's) in the given language. */
+export const chatError = (key: ChatErrorKey, lang: Locale): string => messagesFor(lang).errors.chat[key];
 
-export const ERROR_AUTH = "Sitzung abgelaufen – bitte erneut anmelden";
+export const ERROR_INTERRUPTED = chatError("interrupted", "de");
+export const ERROR_REJECTED = chatError("rejected", "de");
+export const ERROR_AUTH = chatError("sessionExpired", "de");
+export const ERROR_AUTH_UNAVAILABLE = chatError("authUnavailable", "de");
+export const ERROR_UNREACHABLE = chatError("unreachable", "de");
 
-export const ERROR_AUTH_UNAVAILABLE = "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.";
-
-export const ERROR_UNREACHABLE =
-  "Der Planungs-Dienst ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.";
+/** True for the "sign-in cannot be checked" message in either language. */
+export const isAuthUnavailable = (message: string): boolean => message === chatError("authUnavailable", "de") || message === chatError("authUnavailable", "en");
 
 /**
  * Feeds a received text chunk into the SSE parser. `buffer` is the unfinished rest of the
@@ -264,12 +266,12 @@ export async function streamChat(
       signal,
     });
     // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
-    if (res.status === 401) return onEvent({ type: "auth", message: ERROR_AUTH });
-    if (res.status === 503) return onEvent({ type: "error", message: ERROR_AUTH_UNAVAILABLE });
+    if (res.status === 401) return onEvent({ type: "auth", message: chatError("sessionExpired", lang) });
+    if (res.status === 503) return onEvent({ type: "error", message: chatError("authUnavailable", lang) });
     // a rejected request (e.g. 422, 413) answers with JSON, not with events
-    const rejected = res.status >= 400 && res.status < 500 ? ERROR_REJECTED : ERROR_UNREACHABLE;
+    const rejected = res.status >= 400 && res.status < 500 ? chatError("rejected", lang) : chatError("unreachable", lang);
     if (!res.body) {
-      onEvent({ type: "error", message: res.ok ? ERROR_UNREACHABLE : rejected });
+      onEvent({ type: "error", message: res.ok ? chatError("unreachable", lang) : rejected });
       return;
     }
     const reader = res.body.getReader();
@@ -292,9 +294,9 @@ export async function streamChat(
       emit(parsed.events);
     }
     emit(parseSse("\n\n", rest).events); // an event the server did not terminate
-    if (!finished) onEvent({ type: "error", message: got || res.ok ? ERROR_INTERRUPTED : rejected });
+    if (!finished) onEvent({ type: "error", message: got || res.ok ? chatError("interrupted", lang) : rejected });
   } catch (e) {
     if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
-    onEvent({ type: "error", message: ERROR_UNREACHABLE });
+    onEvent({ type: "error", message: chatError("unreachable", lang) });
   }
 }

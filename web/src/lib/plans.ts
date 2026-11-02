@@ -1,5 +1,6 @@
 import { getBrowserSupabase } from "./auth";
 import { constraintChips } from "../components/ChatMessages";
+import { messagesFor, type Locale } from "../i18n/locale";
 import type { ChatState, LastResults } from "./chatState";
 
 export type PlanKind = "day_hike" | "multiday" | "search";
@@ -43,23 +44,24 @@ export function savedSearchOf(state: ChatState): SavedSearch | null {
 const cut = (t: string) => (t.length > 80 ? t.slice(0, 79) + "…" : t);
 
 /** Title from the understood request (start, constraints, preferences); falls back to the messages. */
-export function searchTitle(s: SavedSearch): string {
+export function searchTitle(s: SavedSearch, locale: Locale = "de"): string {
+  const m = messagesFor(locale).results;
   const req = s.results?.request;
   if (req && s.results.cards.length > 0) {
     const r = req.request;
     const labels = req.labels;
     const parts = [
       r.start?.label ?? r.start_text,
-      ...constraintChips(r),
+      ...constraintChips(r, locale),
       ...r.preferences.map((p) => {
         const name = labels[p.tag_id] ?? p.tag_id;
-        return p.mode === "prefer" ? name : `ohne ${name}`;
+        return p.mode === "prefer" ? name : m.without(name);
       }),
     ].filter((x): x is string => !!x);
     if (parts.length > 0) return cut(parts.join(" · "));
   }
   const t = s.messages.join(" · ");
-  return t ? cut(t) : "Gemerkte Suche";
+  return t ? cut(t) : m.savedSearch;
 }
 
 export function isSavedSearch(payload: unknown): payload is SavedSearch {

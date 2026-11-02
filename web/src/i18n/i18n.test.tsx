@@ -78,3 +78,10 @@ it("initialLocale is used on the first render", () => {
   render(<LocaleProvider initialLocale="de"><Probe /></LocaleProvider>);
   expect(screen.getByText("de:Sprache")).toBeInTheDocument();
 });
+
+it("a stored choice without a matching cookie writes the cookie and refreshes", () => {
+  document.cookie = "hikeall.lang=; path=/; max-age=0";
+  window.localStorage.setItem("hikeall.lang", "de");
+  render(<LocaleProvider><Probe /></LocaleProvider>);
+  expect(document.cookie).toContain("hikeall.lang=de");
+});

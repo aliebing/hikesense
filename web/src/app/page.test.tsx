@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from "../test-utils";
 import type { TrailSummary } from "../lib/data";
 import { ChatProvider } from "../components/ChatProvider";
 
@@ -7,6 +8,10 @@ vi.mock("../lib/data", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/data")>();
   return { ...actual, getTrails: () => mockGetTrails() };
 });
+
+// server components read the language from a cookie; there is no request in unit tests
+const cookie = vi.hoisted(() => ({ lang: "de" }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => ({ value: cookie.lang }) }) }));
 
 import Home from "./page";
 
@@ -38,6 +43,7 @@ const trail = (id: string, kind: TrailSummary["kind"], lat: number): TrailSummar
 });
 
 beforeEach(() => {
+  cookie.lang = "de";
   mockGetTrails.mockReset();
 });
 
@@ -86,4 +92,19 @@ test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
   expect(screen.getByRole("contentinfo")).toHaveTextContent(
     "Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA",
   );
+});
+
+test("English: heading, footer and data error come in English", async () => {
+  cookie.lang = "en";
+  mockGetTrails.mockResolvedValue([trail("w", "long_distance", 48), trail("a", "day_hike", 47.9)]);
+  renderWithLocale(<ChatProvider>{await Home()}</ChatProvider>, "en");
+  expect(screen.getByRole("heading", { name: "Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest" })).toBeInTheDocument();
+  expect(screen.getByText(/Trail data: © OpenStreetMap contributors/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "e.g. 12 km round walk from Hinterzarten");
+
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  mockGetTrails.mockRejectedValue(new Error("no supabase"));
+  renderWithLocale(<ChatProvider>{await Home()}</ChatProvider>, "en");
+  expect(screen.getByText("Data could not be loaded.")).toBeInTheDocument();
+  expect(screen.getByText(/The database cannot be reached/)).toBeInTheDocument();
 });

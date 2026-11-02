@@ -2,6 +2,8 @@ import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import PageFrame from "../components/PageFrame";
 import { getLandscapePool, getTrails, pickSpread, type Photo, type TrailSummary } from "../lib/data";
+import { messagesFor } from "../i18n/locale";
+import { getServerLocale } from "../i18n/server";
 import { MissingConfigError } from "../lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,7 @@ export const dynamic = "force-dynamic";
 const BACKDROP_SIZE = 12;
 
 export default async function Home() {
+  const t = messagesFor(await getServerLocale()).home;
   let trails: TrailSummary[];
   try {
     trails = await getTrails();
@@ -16,12 +19,14 @@ export default async function Home() {
     console.error("getTrails failed:", e);
     return (
       <PageFrame>
-        <Notice title="Daten konnten nicht geladen werden.">
+        <Notice title={t.loadErrorTitle}>
           {e instanceof MissingConfigError ? (
             <p>{e.message}</p>
           ) : (
             <p>
-              Die Datenbank ist nicht erreichbar. Läuft Supabase? Starten mit <code>npx supabase start</code> bzw.{" "}
+              {t.dbDownBefore}
+              <code>npx supabase start</code>
+              {t.dbDownMiddle}
               <code>make up</code>.
             </p>
           )}
@@ -34,9 +39,10 @@ export default async function Home() {
   if (trails.length === 0) {
     return (
       <PageFrame>
-        <Notice title="Noch keine Wege in der Datenbank.">
+        <Notice title={t.emptyTitle}>
           <p>
-            Die Datenbank ist erreichbar, aber leer. Daten importieren mit <code>make import</code>.
+            {t.emptyBefore}
+            <code>make import</code>.
           </p>
         </Notice>
         <HomeStage photos={[]} />
@@ -59,9 +65,7 @@ export default async function Home() {
     <PageFrame wide longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HomeStage photos={backgrounds} landscapes={landscapes.slice(0, 40)} />
       <footer className="schrift-feld text-[11px] text-papier">
-        Wegdaten: © OpenStreetMap-Mitwirkende (ODbL) · Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt
-        von EU/ESA · Gehzeit nach DIN 33466 (Richtwert, ohne Pausen) · Fotos: Wikimedia Commons, Urheber und Lizenz am
-        Bild.
+        {t.footer}
       </footer>
     </PageFrame>
   );

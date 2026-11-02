@@ -99,3 +99,12 @@ it("sends the language in the request body", async () => {
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ thread_id: "t", message: "hi", lang: "en" });
   vi.unstubAllGlobals();
 });
+
+it("web error texts follow the language, with a German default", async () => {
+  const { chatError, isAuthUnavailable } = await import("./chat");
+  expect(chatError("unreachable", "en")).toBe("The planning service is not available right now. Please try again shortly.");
+  expect(chatError("rejected", "de")).toBe(ERROR_REJECTED);
+  expect(isAuthUnavailable(chatError("authUnavailable", "en"))).toBe(true);
+  expect(isAuthUnavailable(chatError("authUnavailable", "de"))).toBe(true);
+  expect(isAuthUnavailable("anything else")).toBe(false);
+});

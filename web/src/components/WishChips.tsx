@@ -2,15 +2,17 @@
 
 import type { ConstraintResult } from "../lib/chat";
 import { useChat } from "./ChatProvider";
-import { LABEL, UNIT } from "./TourResultCard";
+import { useT } from "../i18n";
+import type { Messages } from "../i18n/en";
+import { kindLabel, kindUnit } from "./TourResultCard";
 
-function chip(r: ConstraintResult): { text: string; tone: string } {
-  const label = LABEL[r.kind] ?? r.kind;
-  const raw = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
+function chip(r: ConstraintResult, t: Messages): { text: string; tone: string } {
+  const label = kindLabel(r.kind, t);
+  const raw = kindUnit(r.kind, t) && r.bound ? `${r.bound} ${kindUnit(r.kind, t)}` : r.bound;
   const bound = raw === label ? "" : raw; // „Rundweg: Rundweg“ says it twice
   if (r.ok === true) return { text: `✓ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-wald/15 text-wald-dunkel" };
   if (r.ok === false) return { text: `✗ ${label}${bound ? `: ${bound}` : ""}`, tone: "bg-red-100 text-red-900" };
-  return { text: `? ${label}: unbekannt`, tone: "bg-wald-dunkel/10 text-wald-dunkel" };
+  return { text: `? ${label}: ${t.results.unknown}`, tone: "bg-wald-dunkel/10 text-wald-dunkel" };
 }
 
 /**
@@ -25,11 +27,12 @@ export default function WishChips({ trailId }: { trailId: string }) {
 
 /** ✓/✗/? per wish as chips; nothing without results. */
 export function VerdictChips({ results }: { results: ConstraintResult[] }) {
+  const t = useT();
   if (results.length === 0) return null;
   return (
-    <ul aria-label="Deine Wünsche" className="flex flex-wrap gap-1.5">
+    <ul aria-label={t.results.wishes} className="flex flex-wrap gap-1.5">
       {results.map((r, i) => {
-        const c = chip(r);
+        const c = chip(r, t);
         return (
           <li key={r.kind + i} className={`rounded-full px-2.5 py-0.5 text-xs ${c.tone}`}>
             {c.text}

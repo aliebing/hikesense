@@ -1,30 +1,33 @@
 import Link from "next/link";
 import type { ConstraintResult, Labels, TourCard } from "../lib/chat";
-import { duration } from "../lib/format";
+import { useLocale, useT } from "../i18n";
+import type { Messages } from "../i18n/en";
+import { duration, hm, km } from "../lib/format";
 import { coverOf } from "../lib/chatState";
 import Attribution from "./Attribution";
 import MerkenButton from "./MerkenButton";
 
-const nf1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+const KIND_KEYS = { length_km: "length", ascent_m: "ascent", duration_h: "duration", radius_km: "distance", roundtrip: "roundWalk" } as const;
 
-export const LABEL: Record<string, string> = {
-  length_km: "Länge",
-  ascent_m: "Höhenmeter",
-  duration_h: "Dauer",
-  radius_km: "Entfernung",
-  roundtrip: "Rundweg",
+/** Label of a constraint kind in the active language (unknown kinds show as they are). */
+export const kindLabel = (kind: string, t: Messages): string => {
+  const key = KIND_KEYS[kind as keyof typeof KIND_KEYS];
+  return key ? t.chat[key] : kind;
 };
 
-export const UNIT: Record<string, string> = { length_km: "km", ascent_m: "Hm", duration_h: "h", radius_km: "km" };
+/** Unit shown after the bound ("" for kinds without a unit). */
+export const kindUnit = (kind: string, t: Messages): string =>
+  ({ length_km: "km", ascent_m: t.chat.unitAscent, duration_h: "h", radius_km: "km" })[kind as "length_km"] ?? "";
 
 function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: string | null; near?: boolean }) {
-  const label = LABEL[r.kind] ?? r.kind;
-  const bound = UNIT[r.kind] && r.bound ? `${r.bound} ${UNIT[r.kind]}` : r.bound;
+  const t = useT();
+  const label = kindLabel(r.kind, t);
+  const unit = kindUnit(r.kind, t);
+  const bound = unit && r.bound ? `${r.bound} ${unit}` : r.bound;
   if (r.ok === true) {
     return (
       <li>
-        <span aria-label="erfüllt">✓</span> {label}: {bound}
+        <span aria-label={t.results.met}>✓</span> {label}: {bound}
       </li>
     );
   }
@@ -32,20 +35,20 @@ function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: s
     // the miss is named once, in the yellow reason line above the title
     return (
       <li className="text-amber-900">
-        <span aria-label="knapp verfehlt">~</span> {label}: knapp verfehlt ({bound})
+        <span aria-label={t.results.narrow}>~</span> {label}: {t.results.narrow} ({bound})
       </li>
     );
   }
   if (r.ok === false) {
     return (
       <li className="text-red-800">
-        <span aria-label="verletzt">✗</span> {label}: {deviation ?? `nicht erfüllt (${bound})`}
+        <span aria-label={t.results.violated}>✗</span> {label}: {deviation ?? `${t.results.notMet} (${bound})`}
       </li>
     );
   }
   return (
     <li className="text-wald-dunkel/80">
-      <span aria-label="unbekannt">?</span> {label}: unbekannt, nicht prüfbar ({bound})
+      <span aria-label={t.results.unknown}>?</span> {label}: {t.results.unknown}, {t.results.notCheckable} ({bound})
     </li>
   );
 }
@@ -64,19 +67,21 @@ export default function TourResultCard({
   size?: "compact" | "large";
   from?: "chat";
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const large = size === "large";
   const name = (ids: string[]) => ids.map((t) => labels[t] ?? t).join(", ");
   const photo = coverOf(card);
   const firstViolated = card.results.findIndex((r) => r.ok === false);
   const p = card.preference;
   let time: string | null = null;
-  if (card.duration_h !== null) time = `Zeit: ${duration(card.duration_h)}`;
-  else if (runWithoutPace) time = "Zeit: Tempo angeben";
+  if (card.duration_h !== null) time = t.results.time(duration(card.duration_h, locale));
+  else if (runWithoutPace) time = t.results.timePace;
   const facts = [
-    card.length_km === null ? "Länge: unbekannt" : `${nf1.format(card.length_km)} km`,
-    card.ascent_m === null ? "Höhenmeter: unbekannt" : `↑ ${nf0.format(card.ascent_m)} m`,
+    card.length_km === null ? t.results.unknownLength : km(card.length_km, locale),
+    card.ascent_m === null ? t.results.unknownAscent : hm(card.ascent_m, locale),
     ...(time ? [time] : []),
-    card.distance_km === null ? "im Gebiet" : `Entfernung: ${nf1.format(card.distance_km)} km`,
+    card.distance_km === null ? t.results.inArea : t.results.distanceKm(km(card.distance_km, locale)),
   ];
   return (
     <article
@@ -101,8 +106,8 @@ export default function TourResultCard({
       )}
       {card.near_miss && (
         <div className="flex flex-col gap-0.5">
-          <span className="w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-400">Knapp daneben</span>
-          {card.deviation_text && <p className="text-xs text-amber-900">{card.deviation_text} – sonst passt alles</p>}
+          <span className="w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-400">{t.results.nearMiss}</span>
+          {card.deviation_text && <p className="text-xs text-amber-900">{card.deviation_text}{t.results.nearSuffix}</p>}
         </div>
       )}
       <h4 className={`font-serif leading-snug ${large ? "text-xl" : "text-base"}`}>
@@ -123,14 +128,14 @@ export default function TourResultCard({
       )}
       {(p.met.length > 0 || p.missing.length > 0 || p.avoided_hit.length > 0) && (
         <ul className="flex flex-col gap-0.5 text-xs">
-          {p.met.length > 0 && <li>Erfüllte Vorlieben: {name(p.met)}</li>}
-          {p.missing.length > 0 && <li>Fehlende Vorlieben: {name(p.missing)}</li>}
-          {p.avoided_hit.length > 0 && <li>Vermiedenes vorhanden: {name(p.avoided_hit)}</li>}
+          {p.met.length > 0 && <li>{t.results.metPrefs}: {name(p.met)}</li>}
+          {p.missing.length > 0 && <li>{t.results.missingPrefs}: {name(p.missing)}</li>}
+          {p.avoided_hit.length > 0 && <li>{t.results.avoidedHit}: {name(p.avoided_hit)}</li>}
         </ul>
       )}
       {from && (
         <p aria-hidden="true" className="mt-auto pt-1 text-sm font-medium text-wald">
-          Details und Karte →
+          {t.results.detailsMap}
         </p>
       )}
       {/* above the card-wide link overlay, so it is clickable and does not navigate */}

@@ -1,6 +1,7 @@
 import type { ChatEvent, HikeRequest, Labels, PlanData, TourCard } from "./chat";
 import type { Photo } from "./data";
 import type { ChatItem } from "../components/ChatMessages";
+import { messagesFor, type Locale } from "../i18n/locale";
 
 export type LastResults = {
   cards: TourCard[];
@@ -60,13 +61,18 @@ export function normalizePlan(p: unknown): PlanData | null {
 }
 
 /** One line for the chat: the number of days, or (no day possible) the note that says why. */
-export function planSummary(p: PlanData): string {
+export function planSummary(p: PlanData, locale: Locale = "de"): string {
   const n = p.plan.days.length;
-  if (n === 0) return p.plan.notes.join(" ") || "Kein Plan möglich.";
-  return `Plan mit ${n} ${n === 1 ? "Tag" : "Tagen"} erstellt`;
+  const t = messagesFor(locale).chat;
+  if (n === 0) return p.plan.notes.join(" ") || t.noPlan;
+  return t.planDays(n);
 }
 
-export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
+/** German shorthand (usable as a reducer callback); see `reduceEventIn`. */
+export const reduceEvent = (s: ChatState, e: ChatEvent): ChatState => reduceEventIn(s, e, "de");
+
+/** `locale` only matters for the few texts the web app writes itself (the plan summary). */
+export function reduceEventIn(s: ChatState, e: ChatEvent, locale: Locale): ChatState {
   switch (e.type) {
     case "understood": {
       const labels = { ...labelsOf(s.items), ...e.labels };
@@ -100,7 +106,7 @@ export function reduceEvent(s: ChatState, e: ChatEvent): ChatState {
       // the backend names the plan's start; older payloads without it: the request at that moment
       const start = plan.start_name !== undefined ? plan.start_name : (s.request?.request.start?.label ?? null);
       const data = normalizePlan({ ...plan, start_name: start })!;
-      return { ...add(s, { kind: "plan", summary: planSummary(data) }), plan: data, last: null };
+      return { ...add(s, { kind: "plan", summary: planSummary(data, locale) }), plan: data, last: null };
     }
     case "groups":
       return e.groups.length > 0 ? add(s, { kind: "groups", groups: e.groups, note: e.checked_note }) : s;

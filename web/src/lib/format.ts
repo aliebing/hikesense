@@ -29,7 +29,8 @@ export function hmDown(n: number | null, locale: Locale = "de"): string {
 }
 
 /** 5.17 → "5:10 h" (rounded to whole minutes) */
-export function duration(hours: number, _locale: Locale = "de"): string {
+export function duration(hours: number, locale: Locale = "de"): string {
+  void locale; // "5:10 h" reads the same in both languages
   const minutes = Math.round(hours * 60);
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

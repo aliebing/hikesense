@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, onSignedOut } from "../lib/auth";
-import { ERROR_AUTH_UNAVAILABLE, streamChat } from "../lib/chat";
-import { useLocale } from "../i18n";
-import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, STORAGE_KEY, type ChatState } from "../lib/chatState";
+import { isAuthUnavailable, streamChat } from "../lib/chat";
+import { messagesFor, useLocale } from "../i18n";
+import { addNotice, addUser, initialState, loadState, reduceEventIn, saveState, STORAGE_KEY, type ChatState } from "../lib/chatState";
 
 /** Same origin by default: next.config.ts proxies /api/chat to the backend (one tunnel for the phone). */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
@@ -88,8 +88,8 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
         (e) => {
           if (generation.current !== gen) return;
           if (e.type === "auth") auth = true;
-          if (e.type === "error" && e.message === ERROR_AUTH_UNAVAILABLE) unavailable = true;
-          setState((s) => reduceEvent(s, e));
+          if (e.type === "error" && isAuthUnavailable(e.message)) unavailable = true;
+          setState((s) => reduceEventIn(s, e, localeRef.current));
         },
         c.signal,
         token,
@@ -98,7 +98,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
       if (ctrl.current === c) ctrl.current = null;
       const result = { auth, keepDraft: auth || unavailable };
       if (unmounted.current) return result;
-      if (c.signal.aborted && generation.current === gen) setState((s) => addNotice(s, "Abgebrochen."));
+      if (c.signal.aborted && generation.current === gen) setState((s) => addNotice(s, messagesFor(localeRef.current).chat.cancelled));
       busyRef.current = false;
       setBusy(false);
       return result;
