@@ -251,9 +251,11 @@ Das Protokoll enthält je Anfrage:
 
 - Suchtext (und bis zu 5 frühere Nachrichten des Gesprächs), verstandene Anfrage und Antwort
 - Tourkandidaten mit Begründung und den Mehrtagesplan
-- Prompts und Ausgaben jedes LLM-Aufrufs mit Tokens, Kosten und Dauer
+- Prompts und Ausgaben jedes LLM-Aufrufs mit Tokens, Kosten und Dauer (Prompts und Ausgaben werden wie Tool-Ergebnisse bei 20.000 Zeichen gekürzt)
 - Tool-Aufrufe mit Argumenten und Ergebnissen (bis zu 20.000 Zeichen je Ergebnis)
 - Gesamtdauer und Benutzer-ID
+
+Die Kosten der einzelnen Aufrufe müssen nicht die Gesamtkosten ergeben: Fehlgeschlagene LLM-Aufrufe zählen in der Summe mit, stehen aber nicht in der Liste.
 
 Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. Ältere Zeilen (vor dieser Änderung) haben nur die Kennzahlen und werden über den Hash der Benutzer-ID den Benutzern zugeordnet.
 

@@ -71,3 +71,15 @@ it("plan row shows the days", () => {
   expect(screen.getByText("Tag 1 · 18,2 km · Hütte Eck")).toBeInTheDocument();
   expect(screen.getByText("Tag 2 · 10,0 km · Wegende")).toBeInTheDocument();
 });
+
+it("marks cut prompts and outputs as gekürzt", () => {
+  const calls = [{ step: "answer", model: "m", messages: [{ role: "user", content: "lang", truncated: true }], output: "o", output_truncated: true, input_tokens: 1, output_tokens: 1, cost_usd: null, duration_ms: 1 }];
+  render(<SearchDetail d={{ ...base, message: "x", llm_calls: calls, tools: [] }} />);
+  expect(screen.getAllByText("gekürzt")).toHaveLength(2);
+});
+
+it("error line without answer is detailed, not an old line", () => {
+  render(<SearchDetail d={{ ...base, message: "Hallo", error: "ValueError", llm_calls: [], tools: [] }} />);
+  expect(screen.queryByText("Ältere Suche – nur Kennzahlen gespeichert")).not.toBeInTheDocument();
+  expect(screen.getByText("Hallo")).toBeInTheDocument();
+});

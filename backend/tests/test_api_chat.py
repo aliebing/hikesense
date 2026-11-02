@@ -231,7 +231,10 @@ def test_deps_factory_failure_becomes_error_event(settings, seen):
     client = TestClient(create_app(settings, deps_factory=factory))
     events = parse_sse(post(client).text)
     assert events == [("error", {"type": "error", "message": ERROR_UNAVAILABLE})]
-    assert json.loads(settings.chat_log_path.read_text())["error"] == "ValueError"
+    line = json.loads(settings.chat_log_path.read_text())
+    assert line["error"] == "ValueError"
+    assert line["message"] and "llm_calls" in line  # a new line, not mistaken for an old one
+    assert "no key" not in json.dumps(line)
 
 
 def test_oversized_body_is_rejected_before_parsing(client, seen):

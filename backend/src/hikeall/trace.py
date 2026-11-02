@@ -56,18 +56,42 @@ def record_llm(
     if t is None:
         return
     input_tokens, output_tokens, cost = call_usage(reply)
+    messages, output, output_truncated = _bounded(messages, output)
     t.llm_calls.append(
         {
             "step": step,
             "model": model,
             "messages": messages,
             "output": output,
+            "output_truncated": output_truncated,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cost_usd": cost,
             "duration_ms": duration_ms,
         }
     )
+
+
+def _cut(text: str) -> tuple[str, bool]:
+    return (text[:TOOL_RESULT_MAX_CHARS], True) if len(text) > TOOL_RESULT_MAX_CHARS else (text, False)
+
+
+def _bounded(messages: list[dict], output: Any) -> tuple[list[dict], Any, bool]:
+    """Cut every message content and a text output to TOOL_RESULT_MAX_CHARS (flagged)."""
+    out_messages = []
+    for m in messages:
+        content = m.get("content")
+        if isinstance(content, str):
+            cut, was_cut = _cut(content)
+            m = {**m, "content": cut, **({"truncated": True} if was_cut else {})}
+        out_messages.append(m)
+    truncated = False
+    if isinstance(output, str):
+        output, truncated = _cut(output)
+    elif isinstance(output, dict) and isinstance(output.get("content"), str):
+        cut, truncated = _cut(output["content"])
+        output = {**output, "content": cut}
+    return out_messages, output, truncated
 
 
 _ROLES = {"system": "system", "human": "user", "ai": "assistant", "tool": "tool"}
@@ -107,7 +131,7 @@ def to_jsonable(obj: Any) -> Any:
     if obj is None or isinstance(obj, str | int | float | bool):
         return obj
     if isinstance(obj, BaseModel):
-        return obj.model_dump(mode="json")
+        return obj.model_dump(mode="json", warnings=False)
     if is_dataclass(obj) and not isinstance(obj, type):
         return to_jsonable(asdict(obj))
     if isinstance(obj, dict):

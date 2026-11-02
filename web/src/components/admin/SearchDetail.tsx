@@ -96,9 +96,8 @@ function Candidates({ rows }: { rows: Candidate[] }) {
 }
 
 export default function SearchDetail({ d }: { d: Detail }) {
-  const detailed = d.message !== undefined && d.message !== null;
+  const detailed = d.llm_calls !== undefined; // present in every new log line, even error lines
   const calls = d.llm_calls ?? [];
-  const sum = (f: (c: (typeof calls)[number]) => number | null | undefined) => calls.reduce((a, c) => a + (f(c) ?? 0), 0);
   const cost = d.calls_without_cost && d.cost_usd === 0 ? null : (d.cost_usd ?? null);
   const hasTours = (d.candidates?.length ?? 0) > 0;
   const heard = d.request ? understood(d.request) : [];
@@ -110,7 +109,7 @@ export default function SearchDetail({ d }: { d: Detail }) {
         <p className="text-xs text-wald-dunkel/70">
           {d.email ?? (d.owner === "unknown" ? "Unbekannt" : d.owner)} · {when(d.ts)} · Intent {d.intent ?? "–"} · Aktivität {d.activity ?? "–"}
         </p>
-        {detailed && <p className="font-bold">{d.message}</p>}
+        {detailed && d.message && <p className="font-bold">{d.message}</p>}
         {(d.previous_messages?.length ?? 0) > 0 && (
           <div className="text-xs text-wald-dunkel/80">
             <p>Vorher in dieser Unterhaltung</p>
@@ -231,11 +230,13 @@ export default function SearchDetail({ d }: { d: Detail }) {
                 <div key={j} className="mt-1">
                   <h4 className="text-xs font-bold">{m.role}</h4>
                   <pre className="whitespace-pre-wrap text-xs">{m.content}</pre>
+                  {m.truncated && <span className="text-xs text-amber-800">gekürzt</span>}
                 </div>
               ))}
               <div className="mt-1">
                 <h4 className="text-xs font-bold">Ausgabe</h4>
                 <pre className="whitespace-pre-wrap text-xs">{typeof c.output === "string" ? c.output : JSON.stringify(c.output, null, 2)}</pre>
+                {c.output_truncated && <span className="text-xs text-amber-800">gekürzt</span>}
               </div>
             </details>
           ))}

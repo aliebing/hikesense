@@ -19,7 +19,7 @@ def test_traced_collects_llm_call_with_usage():
     with trace.traced() as t:
         trace.record_llm("answer", "gpt-x", [{"role": "user", "content": "hi"}], "Hallo", reply, 42)
     assert t.llm_calls == [{"step": "answer", "model": "gpt-x", "messages": [{"role": "user", "content": "hi"}],
-                            "output": "Hallo", "input_tokens": 10, "output_tokens": 3, "cost_usd": 0.0012, "duration_ms": 42}]
+                            "output": "Hallo", "output_truncated": False, "input_tokens": 10, "output_tokens": 3, "cost_usd": 0.0012, "duration_ms": 42}]
 
 
 def test_cost_missing_stays_none():
@@ -67,3 +67,43 @@ def test_fake_gateway_records_steps():
     assert [c["step"] for c in t.llm_calls] == ["understand", "answer"]
     assert t.llm_calls[0]["messages"] == [{"role": "system", "content": "SYS"}, {"role": "user", "content": "USER"}]
     assert t.llm_calls[1]["output"] == "A"
+
+
+def test_llm_prompts_and_text_output_are_cut_and_flagged():
+    big = "x" * (trace.TOOL_RESULT_MAX_CHARS + 5)
+    with trace.traced() as t:
+        trace.record_llm("answer", "m", [{"role": "user", "content": big}, {"role": "system", "content": "kurz"}],
+                         big, None, 1)
+    call = t.llm_calls[0]
+    assert len(call["messages"][0]["content"]) == trace.TOOL_RESULT_MAX_CHARS
+    assert call["messages"][0]["truncated"] is True
+    assert "truncated" not in call["messages"][1]
+    assert len(call["output"]) == trace.TOOL_RESULT_MAX_CHARS and call["output_truncated"] is True
+
+
+def test_short_llm_call_is_not_flagged_and_react_content_is_cut():
+    with trace.traced() as t:
+        trace.record_llm("answer", "m", [], "ok", None, 1)
+        trace.record_llm("react", "m", [], {"content": "y" * 30_000, "tool_calls": []}, None, 1)
+    assert t.llm_calls[0]["output_truncated"] is False
+    assert len(t.llm_calls[1]["output"]["content"]) == trace.TOOL_RESULT_MAX_CHARS
+    assert t.llm_calls[1]["output_truncated"] is True
+
+
+def test_traced_tools_no_pydantic_serializer_warning():
+    import warnings
+
+    from pydantic import BaseModel
+
+    class Res(BaseModel):
+        actual: float | bool | None = None
+
+    class T:
+        def go(self):
+            return Res.model_construct(actual=3)  # int in a float | bool field
+
+    with trace.traced() as t, warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        trace.TracedTools(T()).go()
+    assert caught == []
+    assert json.loads(t.tool_calls[0]["result"]) == {"actual": 3}

@@ -66,11 +66,12 @@ def test_old_line_summary_has_dashes():
 
 def test_new_line_summary_hits_and_fallback():
     e = _row(1, message="hi", intent="day_hike", candidates=[
-        {"status": "shown"}, {"status": "fallback"}, {"status": "rejected"}], duration_ms=7)
+        {"status": "shown"}, {"status": "fallback"}, {"status": "rejected"}], duration_ms=7,
+        llm_calls=[], tools=[{"name": "search_day_hikes"}])
     s = summary(e, P1.user_id, P1.email)
     assert s["hits"] == 2 and s["fallback"] is True and s["detailed"] is True
     assert s["duration_ms"] == 7
-    assert summary({**e, "intent": "knowledge"}, "o", None)["hits"] is None
+    assert summary({**e, "intent": "knowledge", "tools": []}, "o", None)["hits"] is None
     assert summary({**e, "candidates": [], "fallback_reason": "x"}, "o", None)["fallback"] is True
 
 
@@ -103,3 +104,27 @@ def test_detail_unknown_id_is_none():
     assert detail([_row(1)], [], "nope") is None
     d = detail([_row(1, user_id=P1.user_id)], [P1], "r1")
     assert d["owner"] == P1.user_id and d["email"] == "a@x.de" and d["request_id"] == "r1"
+
+
+def test_hits_only_when_a_day_hike_search_ran():
+    cands = [{"status": "shown"}, {"status": "fallback"}]
+    ran = _row(1, message="m", intent="day_hike", candidates=cands, tools=[{"name": "search_day_hikes"}])
+    assert summary(ran, "o", None)["hits"] == 2
+    clarify = _row(2, message="m", intent="day_hike", candidates=[], tools=[])
+    assert summary(clarify, "o", None)["hits"] is None
+    trail = _row(3, message="m", intent="day_hike", candidates=cands, tools=[{"name": "get_trail"}])
+    assert summary(trail, "o", None)["hits"] is None
+    none_found = _row(4, message="m", intent="day_hike", candidates=[], tools=[{"name": "search_day_hikes"}])
+    assert summary(none_found, "o", None)["hits"] == 0
+
+
+def test_detailed_follows_llm_calls_key():
+    error_line = _row(1, message="Hallo", error="ValueError", llm_calls=[], tools=[])
+    assert summary(error_line, "o", None)["detailed"] is True
+    assert summary(_row(2), "o", None)["detailed"] is False
+
+
+def test_sum_cost_is_none_when_no_cost_reported():
+    es = [_row(1, cost_usd=0.0, calls_without_cost=1), _row(2, cost_usd=None)]
+    assert searches(es, [], None, 0, 10)["sums"]["cost_usd"] is None
+    assert searches([*es, _row(3, cost_usd=0.0)], [], None, 0, 10)["sums"]["cost_usd"] == 0.0

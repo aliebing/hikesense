@@ -102,13 +102,18 @@ def _event(event: Any) -> dict[str, str]:
 
 
 def _failure_log(
-    settings: Settings, exc: Exception, user_hash: str | None = None, user_id: str | None = None
+    settings: Settings,
+    exc: Exception,
+    user_hash: str | None = None,
+    user_id: str | None = None,
+    message: str | None = None,
 ) -> None:
     try:
         entry = ChatLogEntry(
             request_id=uuid.uuid4().hex,
             user_hash=user_hash,
             user_id=user_id,
+            message=message,
             error=type(exc).__name__,
         )
         chatlog.write(settings.chat_log_path, entry)
@@ -131,7 +136,7 @@ def make_router(
                 yield _event(event)
         except Exception as exc:
             log.exception("chat failed")
-            _failure_log(settings, exc, user_hash, user_id)
+            _failure_log(settings, exc, user_hash, user_id, message)
             yield _event(ErrorEvent(message=ERROR_UNAVAILABLE))
 
     @router.post("/chat")

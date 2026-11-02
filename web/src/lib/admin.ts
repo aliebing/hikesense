@@ -22,7 +22,7 @@ export type SearchSummary = {
 export type SearchPage = {
   items: SearchSummary[];
   total: number;
-  sums: { count: number; cost_usd: number; avg_duration_ms: number | null };
+  sums: { count: number; cost_usd: number | null; avg_duration_ms: number | null };
 };
 
 export type DetailConstraint = { kind: string; min?: number | null; max?: number | null; required?: boolean | null; approx?: number | null };
@@ -57,8 +57,9 @@ export type DetailPlan = {
 export type LlmCall = {
   step: string;
   model: string | null;
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: string; truncated?: boolean }[];
   output: unknown;
+  output_truncated?: boolean;
   input_tokens: number | null;
   output_tokens: number | null;
   cost_usd: number | null;

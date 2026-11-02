@@ -26,7 +26,7 @@ function route(me: Response, extra: Record<string, (u: string) => Response> = {}
     if (u.endsWith("/admin/me")) return me;
     if (u.endsWith("/admin/users")) return json(200, users);
     for (const [k, f] of Object.entries(extra)) if (u.includes(k)) return f(u);
-    if (u.includes("/admin/searches/")) return json(200, { request_id: "x", ts: "2026-11-02T13:02:00Z", owner: "u1", email: "a@x.de", message: "Detailtext" });
+    if (u.includes("/admin/searches/")) return json(200, { request_id: "x", ts: "2026-11-02T13:02:00Z", owner: "u1", email: "a@x.de", message: "Detailtext", llm_calls: [], tools: [] });
     if (u.includes("user=u2")) return json(200, { items: [item("s9", "u2", "Von Ali")], total: 1, sums: { count: 1, cost_usd: 0.002, avg_duration_ms: 1000 } });
     if (u.includes("offset=50")) return json(200, { items: [item("s2", "u1", "Zweite Seite")], total: 4, sums });
     return json(200, { items: [item("s1", "u1", "Rundtour Feldberg")], total: 4, sums });

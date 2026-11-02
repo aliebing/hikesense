@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel
 
 from hikeall.chatlog import ChatLogEntry
@@ -142,3 +142,73 @@ def test_chatlog_fields(tmp_path):
     }  # fmt: skip
     assert not any(k in row for k in ("password", "token", "jwt", "api_key"))
     assert row["request_id"] == "r1"
+
+
+class _Stub:
+    """Stands in for ChatOpenAI: returns one prepared reply, no network."""
+
+    def __init__(self, reply, name="stub-model"):
+        self.model_name = name
+        self._reply = reply
+
+    def with_structured_output(self, schema, include_raw=False):
+        return self
+
+    def bind_tools(self, tools):
+        return self
+
+    def invoke(self, messages):
+        return self._reply
+
+
+def _reply(content, cost):
+    return AIMessage(
+        content=content,
+        usage_metadata={"input_tokens": 11, "output_tokens": 4, "total_tokens": 15},
+        response_metadata={"token_usage": {"cost": cost}},
+    )
+
+
+def test_openrouter_gateway_traces_every_call_kind():
+    from hikeall import trace
+    from hikeall.agent.request import RawRequest
+
+    raw = _reply("", 0.001)
+    structured = _Stub({"raw": raw, "parsed": RawRequest(intent="knowledge")}, "m-struct")
+    structured.root_client = type("RC", (), {})()
+
+    class _Completions:
+        @staticmethod
+        def create(**kw):
+            class R:
+                @staticmethod
+                def model_dump():
+                    return {
+                        "choices": [{"message": {"content": "web text"}}],
+                        "usage": {"prompt_tokens": 7, "completion_tokens": 2, "total_tokens": 9, "cost": 0.005},
+                    }
+
+            return R()
+
+    structured.root_client.chat = type("C", (), {"completions": _Completions()})()
+    # the tool round shares the structured model: give it its own reply via bind_tools
+    tool_reply = _reply("denke", 0.002)
+    structured.bind_tools = lambda tools: _Stub(tool_reply, "m-struct")
+    answer = _Stub(_reply("Antwort", 0.003), "m-answer")
+    gw = OpenRouterGateway(structured_model=structured, answer_model=answer)
+
+    with trace.traced() as t:
+        gw.structured(RawRequest, "sys", "usr")
+        gw.answer("sys", "usr")
+        gw.tool_round([HumanMessage("hi")], [])
+        gw.web_completion("suche", {"id": "web"})
+
+    got = [(c["step"], c["model"], c["input_tokens"], c["output_tokens"], c["cost_usd"]) for c in t.llm_calls]
+    assert got == [
+        ("understand", "m-struct", 11, 4, 0.001),
+        ("answer", "m-answer", 11, 4, 0.003),
+        ("react", "m-struct", 11, 4, 0.002),
+        ("web_search", "m-struct", 7, 2, 0.005),
+    ]
+    assert t.llm_calls[1]["output"] == "Antwort"
+    assert t.llm_calls[0]["messages"][1] == {"role": "user", "content": "usr"}

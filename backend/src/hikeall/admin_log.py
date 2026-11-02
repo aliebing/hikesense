@@ -9,8 +9,6 @@ from hikeall.chatlog import hash_user
 from hikeall.roles import Profile
 
 UNKNOWN = "unknown"
-# Same as graph.TOUR_INTENTS (not imported to keep the agent graph out of here).
-TOUR_INTENTS = ("day_hike", "change")
 
 
 class LogReader:
@@ -70,10 +68,10 @@ def _cost(entry: dict) -> float | None:
 
 
 def summary(entry: dict, owner: str, email: str | None) -> dict:
-    detailed = "message" in entry
+    detailed = "llm_calls" in entry  # present in every new line, even error lines
     candidates = entry.get("candidates") or []
     hits = None
-    if detailed and entry.get("intent") in TOUR_INTENTS:
+    if any(t.get("name") == "search_day_hikes" for t in entry.get("tools") or []):
         hits = sum(1 for c in candidates if c.get("status") in ("shown", "fallback"))
     fallback = bool(entry.get("fallback_reason")) or any(
         c.get("status") == "fallback" for c in candidates
@@ -132,7 +130,7 @@ def searches(
         "total": len(selected),
         "sums": {
             "count": len(selected),
-            "cost_usd": sum(costs),
+            "cost_usd": sum(costs) if costs else None,
             "avg_duration_ms": sum(durations) / len(durations) if durations else None,
         },
     }
