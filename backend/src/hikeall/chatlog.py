@@ -1,4 +1,5 @@
-"""Chat log: one JSON line per request with metrics only, never message text."""
+"""Chat log: one JSON line per request. Holds search text, prompts and tool calls for the admin
+backend; never passwords, tokens or exception texts."""
 
 from __future__ import annotations
 
@@ -28,6 +29,18 @@ class ChatLogEntry(BaseModel):
     # radius, …) and also a roundtrip yes/no — the name is historical, the count covers both
     discarded_model_numbers: int = 0
     error: str | None = None
+    # details for the admin backend (all defaulted: old lines stay readable)
+    user_id: str | None = None
+    message: str | None = None  # the sanitised current message
+    previous_messages: list[str] = []  # up to 5 earlier messages of the thread, oldest first
+    request: dict | None = None  # the understood HikeRequest
+    answer: str | None = None  # the text the user saw: answer, question or fixed reply
+    fallback_reason: str | None = None
+    candidates: list[dict] = []
+    plan: dict | None = None  # multi-day plan, route "multiday" only
+    llm_calls: list[dict] = []
+    tools: list[dict] = []
+    duration_ms: int | None = None
 
 
 def hash_user(user_id: str) -> str:

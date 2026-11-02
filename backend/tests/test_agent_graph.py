@@ -437,7 +437,7 @@ def test_gateway_error_becomes_message(vocab, settings, exc, message, name):
     line = log_lines(settings)[-1]
     assert line["error"] == name
     raw_log = settings.chat_log_path.read_text()
-    assert "Feldberg" not in raw_log and "boom" not in raw_log
+    assert "boom" not in raw_log  # the search text may be logged now, exception texts never
     # the thread keeps working after an error
     assert types(run(deps, FELDBERG_MSG))[-1] == "done"
 
@@ -585,13 +585,55 @@ def test_tool_errors_become_tool_messages(vocab, settings):
     assert text_of(events) == "Dazu habe ich keine Angaben."
 
 
-def test_log_has_no_message_text_and_counts(vocab, settings):
+def test_log_counts(vocab, settings):
     deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
     run(deps, FELDBERG_MSG)
-    raw_log = settings.chat_log_path.read_text()
-    assert "Feldberg" not in raw_log and "Gut." not in raw_log
     line = log_lines(settings)[-1]
     assert line["intent"] == "day_hike" and line["tool_calls"] == 1 and line["error"] is None
+
+
+def test_log_has_search_details(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    events = run(deps, FELDBERG_MSG)
+    line = log_lines(settings)[-1]
+    assert line["message"] == FELDBERG_MSG
+    assert line["request"]["intent"] == "day_hike"
+    assert line["answer"] and line["answer"] in text_of(events)
+    assert line["candidates"][0]["status"] in ("shown", "fallback")
+    assert [c["step"] for c in line["llm_calls"]] == ["understand", "answer"]
+    assert line["tools"][0]["name"] == "search_day_hikes"
+    assert line["duration_ms"] >= 0
+
+
+def test_log_previous_messages(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [feldberg_raw(), feldberg_raw()]},
+        answers=["Gut.", "Kürzer."],
+    )
+    run(deps, FELDBERG_MSG)
+    run(deps, "kürzer")
+    line = log_lines(settings)[-1]
+    assert line["previous_messages"] == [FELDBERG_MSG]
+    assert line["message"] == "kürzer"
+
+
+def test_log_user_id(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    list(run_chat(deps, "t", FELDBERG_MSG, "hash", user_id="u-1"))
+    line = log_lines(settings)[-1]
+    assert line["user_id"] == "u-1" and line["user_hash"] == "hash"
+
+
+def test_error_log_keeps_trace_but_no_exception_text(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [LLMUnavailable("boom secret")]})
+    run(deps, FELDBERG_MSG)
+    line = log_lines(settings)[-1]
+    assert line["error"] == "LLMUnavailable"
+    assert line["message"] == FELDBERG_MSG
+    assert line["duration_ms"] >= 0 and line["tools"] == []  # failed before any call was traced
+    assert "boom" not in settings.chat_log_path.read_text()
 
 
 def test_log_counts_discarded_model_numbers(vocab, settings):
@@ -958,7 +1000,7 @@ def test_unknown_tour_name_is_counted_not_removed(vocab, settings):
     assert "Wutach-Pfad kommt in den Suchergebnissen" in text_of(events)
     last = log_lines(settings)[-1]
     assert last["grounding_unsupported"] == 0 and last["grounding_unsupported_names"] == 1
-    assert "Wutach-Pfad" not in str(last)
+    assert last["answer"] and "Wutach-Pfad" in last["answer"]  # answer text is logged now
 
 
 def test_area_start_shows_no_distance(vocab, settings):
@@ -1068,6 +1110,20 @@ def test_multiday_flow_events_in_order(vocab, settings):
     assert dumped["plan"]["days"][0]["start_time"] == "09:00:00"
     assert dumped["weather"]["1"]["t_max_c"] == 11.4
     assert dumped["weather"]["2"] == {"reason": "Für diesen Tag liegt keine Vorhersage vor"}
+
+
+def test_log_plan_for_multiday(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-02")]},
+        answers=["Tag 1 führt 15 km."],
+        tools=FakeTools(weather={DRY.date: DRY}),
+    )
+    run(deps, "2 Tage Westweg ab Hausach am 2.11.2026")
+    line = log_lines(settings)[-1]
+    assert line["plan"]["trail_id"]
+    assert line["candidates"] == []
 
 
 def test_day_change_keeps_earlier_days_across_turns(vocab, settings):

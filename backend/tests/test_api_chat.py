@@ -36,12 +36,17 @@ def settings(tmp_path):
     )
 
 
+users: list = []  # user_id keyword the fake run_chat got
+
+
 @pytest.fixture
 def seen(monkeypatch):
     calls = []
+    users.clear()
 
-    def fake_run_chat(deps, thread_id, message, user_hash=None):
+    def fake_run_chat(deps, thread_id, message, user_hash=None, user_id=None):
         calls.append((deps, thread_id, message))
+        users.append(user_id)
         yield UnderstoodEvent(text="Tagestour", request=HikeRequest(intent="day_hike"))
         yield TokenEvent(text="Hallo ")
         yield DoneEvent(usage=LLMUsage(), unsupported=0)
@@ -141,8 +146,8 @@ def test_cors_allows_authorization_header(client):
     assert "authorization" in r.headers["access-control-allow-headers"].lower()
 
 
-def test_failure_log_has_user_hash_not_id(settings, monkeypatch):
-    def boom(deps, thread_id, message, user_hash=None):
+def test_failure_log_has_user_hash_and_id(settings, monkeypatch):
+    def boom(deps, thread_id, message, user_hash=None, user_id=None):
         raise RuntimeError("x")
         yield
 
@@ -150,8 +155,26 @@ def test_failure_log_has_user_hash_not_id(settings, monkeypatch):
     client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
     post(client, headers=bearer("user-secret-id"))
     raw = settings.chat_log_path.read_text()
-    assert "user-secret-id" not in raw
-    assert len(json.loads(raw)["user_hash"]) == 12
+    line = json.loads(raw)
+    assert line["user_id"] == "user-secret-id"
+    assert len(line["user_hash"]) == 12
+
+
+def test_chat_passes_user_id_and_logs_no_token(settings, seen):
+    settings = settings.model_copy(update={"openrouter_api_key": "sk-or-test-secret-key"})
+    headers = bearer("user-42")
+    r = post(TestClient(create_app(settings, deps_factory=lambda: "deps")), headers=headers)
+    assert r.status_code == 200 and users == ["user-42"]
+
+    def factory():
+        raise ValueError("no key")
+
+    client = TestClient(create_app(settings, deps_factory=factory))
+    post(client, headers=headers)
+    raw = settings.chat_log_path.read_text()
+    assert json.loads(raw)["user_id"] == "user-42"
+    token = headers["Authorization"].split(" ", 1)[1]
+    assert token not in raw and settings.openrouter_api_key not in raw
 
 
 def test_empty_message_422(client, seen):
@@ -183,7 +206,7 @@ def test_cors_rejects_other_origin(client):
 
 
 def test_unexpected_error_becomes_error_event_and_log(settings, monkeypatch, caplog):
-    def boom(deps, thread_id, message, user_hash=None):
+    def boom(deps, thread_id, message, user_hash=None, user_id=None):
         yield TokenEvent(text="x")
         raise RuntimeError("secret db password")
 

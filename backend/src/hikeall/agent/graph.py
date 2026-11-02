@@ -17,6 +17,7 @@ import contextvars
 import json
 import logging
 import re
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
@@ -42,6 +43,7 @@ from hikeall.agent.constraints import (
     format_deviation,
 )
 from hikeall.agent.events import CalendarLink, EventsResult, VerifiedRace
+from hikeall.agent.explain import candidate_rows
 from hikeall.agent.grounding import Evidence, grounding_check, has_number, strip_unsat_claims
 from hikeall.agent.multiday import (
     ACCESS_STRAIGHT,
@@ -108,8 +110,11 @@ from hikeall.llm.gateway import LLMGateway
 from hikeall.llm.usage import BudgetExceeded, LLMError, LLMUsage, metered
 from hikeall.numfmt import de
 from hikeall.tags.vocabulary import TagVocabulary, fold
+from hikeall.trace import Trace, TracedTools, traced
 
 log = logging.getLogger(__name__)
+
+HISTORY_KEEP = 6  # current message plus up to 5 earlier ones, for the log
 
 __all__ = [
     "AgentDeps",
@@ -309,6 +314,9 @@ class State(TypedDict, total=False):
     unsupported_names: list[str]
     unsat_claims_removed: int
     discarded_numbers: int
+    history: list[str]  # the last messages of the thread (sanitised), persists per thread
+    final_text: str | None  # the text the user saw (not "answer": that is a node name)
+    candidates: list[dict]  # candidate_rows of the search, for the log
 
 
 def _turn(message: str) -> State:
@@ -335,6 +343,8 @@ def _turn(message: str) -> State:
         unsupported_names=[],
         unsat_claims_removed=0,
         discarded_numbers=0,
+        final_text=None,
+        candidates=[],
     )
 
 
@@ -761,18 +771,21 @@ def _events_text(found: EventsResult) -> str:
 
 
 def build_graph(deps: AgentDeps) -> Any:
-    tools, gw, vocab, settings = deps.tools, deps.gateway, deps.vocab, deps.settings
+    tools = TracedTools(deps.tools)
+    gw, vocab, settings = deps.gateway, deps.vocab, deps.settings
 
     def guard(state: State) -> State:
         text = sanitize_text(state["message"])
+        history = [*state.get("history", []), text][-HISTORY_KEEP:]
         if looks_like_injection(text):
             return {
                 "message": text,
+                "history": history,
                 "guard": "injection",
                 "reply": INJECTION_REPLY,
                 "route": "reply",
             }
-        return {"message": text, "route": "understand"}
+        return {"message": text, "history": history, "route": "understand"}
 
     def _resolve(raw: RawRequest, message: str, previous: HikeRequest | None, **kw: Any):
         return resolve(vocab, raw, message, previous, today=deps.today(), trails=tools, **kw)
@@ -885,13 +898,14 @@ def build_graph(deps: AgentDeps) -> Any:
 
     def clarify(state: State) -> State:
         c = state["clarify"] or {}
-        _emit(ClarifyEvent(question=c.get("question", ""), options=c.get("options", [])))
-        return {}
+        question = c.get("question", "")
+        _emit(ClarifyEvent(question=question, options=c.get("options", [])))
+        return {"final_text": question}
 
     def reply(state: State) -> State:
         for chunk in _CHUNK.findall(state["reply"] or ""):
             _emit(TokenEvent(text=chunk))
-        return {}
+        return {"final_text": state["reply"]}
 
     def search(state: State) -> State:
         req = HikeRequest.model_validate(state["current"])
@@ -923,6 +937,7 @@ def build_graph(deps: AgentDeps) -> Any:
             "reason": reason,
             "sources": _add_sources([], sources),
             "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in cards],
+            "candidates": candidate_rows(sel),
         }
         if not cards:
             return out | {"fixed": NO_TOURS_HINT}
@@ -1176,13 +1191,20 @@ def build_graph(deps: AgentDeps) -> Any:
             _emit(TokenEvent(text=chunk))
         if state.get("sources"):
             _emit(SourcesEvent(sources=[SourceBrief(**s) for s in state["sources"]]))
-        return out
+        return out | {"final_text": text}
 
     def log(state: State, config: RunnableConfig) -> State:
         conf = config["configurable"]
         usage: LLMUsage = conf["usage"]
         _write_log(
-            settings, conf["request_id"], state, usage, None, conf.get("user_hash")
+            settings,
+            conf["request_id"],
+            state,
+            usage,
+            None,
+            conf.get("user_hash"),
+            conf.get("user_id"),
+            conf.get("trace"),
         )
         _emit(
             DoneEvent(
@@ -1237,7 +1259,10 @@ def _write_log(
     usage: LLMUsage,
     error: str | None,
     user_hash: str | None = None,
+    user_id: str | None = None,
+    tr: Trace | None = None,
 ) -> None:
+    history = state.get("history") or []
     chatlog.write(
         settings.chat_log_path,
         ChatLogEntry(
@@ -1256,15 +1281,26 @@ def _write_log(
             guard=state.get("guard"),
             discarded_model_numbers=state.get("discarded_numbers", 0),
             error=error,  # exception class name only, never a message text
+            user_id=user_id,
+            message=state.get("message"),
+            previous_messages=history[:-1][-5:],
+            request=state.get("current"),
+            answer=state.get("final_text"),
+            fallback_reason=state.get("reason"),
+            candidates=state.get("candidates") or [],
+            plan=state.get("plan") if state.get("route") == "multiday" else None,
+            llm_calls=tr.llm_calls if tr else [],
+            tools=tr.tool_calls if tr else [],
+            duration_ms=int((time.monotonic() - tr.started) * 1000) if tr else None,
         ),
     )
 
 
 def _run(
-    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None
+    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None, user_id: str | None
 ) -> Iterator[ChatEvent]:
     request_id = uuid.uuid4().hex
-    with metered(max_cost_usd=deps.settings.max_cost_usd) as usage:
+    with metered(max_cost_usd=deps.settings.max_cost_usd) as usage, traced() as tr:
         config: RunnableConfig = {
             "configurable": {
                 # keyed by user as well: a thread id alone never continues another user's chat
@@ -1272,6 +1308,8 @@ def _run(
                 "usage": usage,
                 "request_id": request_id,
                 "user_hash": user_hash,
+                "user_id": user_id,
+                "trace": tr,
             }
         }
         stream = deps.graph.stream(_turn(message), config, stream_mode="custom")
@@ -1283,12 +1321,14 @@ def _run(
         except LLMError as exc:
             logged = True
             state = deps.graph.get_state(config).values
-            _write_log(deps.settings, request_id, state, usage, type(exc).__name__, user_hash)
+            _write_log(
+                deps.settings, request_id, state, usage, type(exc).__name__, user_hash, user_id, tr
+            )
             msg = ERROR_BUDGET if isinstance(exc, BudgetExceeded) else ERROR_UNAVAILABLE
             yield ErrorEvent(message=msg)
         except GeneratorExit:  # client went away: model cost may already be spent (best effort)
             if not logged:
-                _abort_log(deps, config, request_id, usage, user_hash)
+                _abort_log(deps, config, request_id, usage, user_hash, user_id, tr)
             raise
         finally:
             stream.close()
@@ -1300,21 +1340,29 @@ def _abort_log(
     request_id: str,
     usage: LLMUsage,
     user_hash: str | None,
+    user_id: str | None = None,
+    tr: Trace | None = None,
 ) -> None:
     try:
         state = deps.graph.get_state(config).values
-        _write_log(deps.settings, request_id, state, usage, "ClientDisconnected", user_hash)
+        _write_log(
+            deps.settings, request_id, state, usage, "ClientDisconnected", user_hash, user_id, tr
+        )
     except Exception:  # never mask the disconnect with a logging error
         log.exception("chat log after disconnect failed")
 
 
 def run_chat(
-    deps: AgentDeps, thread_id: str, message: str, user_hash: str | None = None
+    deps: AgentDeps,
+    thread_id: str,
+    message: str,
+    user_hash: str | None = None,
+    user_id: str | None = None,
 ) -> Iterator[ChatEvent]:
     """Stream the events of one chat message. Each step runs in one fixed context, so the
     per-message cost metering holds even if the consumer calls next() from different threads."""
     ctx = contextvars.copy_context()
-    inner = _run(deps, thread_id, message, user_hash)
+    inner = _run(deps, thread_id, message, user_hash, user_id)
     try:
         while True:
             try:

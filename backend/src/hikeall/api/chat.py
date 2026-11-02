@@ -127,10 +127,15 @@ def _event(event: Any) -> dict[str, str]:
     return {"event": event.type, "data": event.model_dump_json()}
 
 
-def _failure_log(settings: Settings, exc: Exception, user_hash: str | None = None) -> None:
+def _failure_log(
+    settings: Settings, exc: Exception, user_hash: str | None = None, user_id: str | None = None
+) -> None:
     try:
         entry = ChatLogEntry(
-            request_id=uuid.uuid4().hex, user_hash=user_hash, error=type(exc).__name__
+            request_id=uuid.uuid4().hex,
+            user_hash=user_hash,
+            user_id=user_id,
+            error=type(exc).__name__,
         )
         chatlog.write(settings.chat_log_path, entry)
     except Exception:
@@ -142,14 +147,17 @@ def make_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    async def stream(thread_id: str, message: str, user_hash: str) -> AsyncIterator[dict[str, str]]:
+    async def stream(
+        thread_id: str, message: str, user_hash: str, user_id: str
+    ) -> AsyncIterator[dict[str, str]]:
         try:
             deps = await run_in_threadpool(deps_factory)
-            async for event in iterate_in_threadpool(run_chat(deps, thread_id, message, user_hash)):
+            chat_stream = run_chat(deps, thread_id, message, user_hash, user_id=user_id)
+            async for event in iterate_in_threadpool(chat_stream):
                 yield _event(event)
         except Exception as exc:
             log.exception("chat failed")
-            _failure_log(settings, exc, user_hash)
+            _failure_log(settings, exc, user_hash, user_id)
             yield _event(ErrorEvent(message=ERROR_UNAVAILABLE))
 
     @router.post("/chat")
@@ -191,7 +199,7 @@ def make_router(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
         return EventSourceResponse(
-            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id)),
+            stream(str(body.thread_id), message, chatlog.hash_user(user.user_id), user.user_id),
             headers=STREAM_HEADERS,
         )
 
