@@ -53,15 +53,19 @@ _WORDS_EN = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
     "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
 }  # fmt: skip
-_HALVES_EN = {"half": "0.5", "half an": "0.5", "half a": "0.5", "one and a half": "1.5"}
-_NUM_WORD_EN = r"one\sand\sa\shalf|half\san?|half|one|two|three|four|five|six|seven|eight|nine"
-_NUM_WORD_EN += r"|ten|eleven|twelve"
+_HALVES_EN = {"half": "0.5", "half an": "0.5", "half a": "0.5"}
+_WORD_ALT_EN = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
+_NUM_WORD_EN = rf"half\san?|half|{_WORD_ALT_EN}|an?"  # "a km", "an hour": one
+# "2 and a half", "two and a half"; "1,5" (German decimal comma in an English answer) is read as
+# 1.5 so it is checked, not skipped
 _NUM_EN = (
-    r"[-−]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])|\d+(?:\.\d+)?)"
+    rf"(?:\d+|{_WORD_ALT_EN})\s+and\s+a\s+half(?!\w)"
+    r"|[-−]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])|\d+,\d{1,2}(?!\d)|\d+(?:\.\d+)?)"
     rf"|(?:{_NUM_WORD_EN})(?!\w)"
 )
 _UNIT_EN = r"kilometres?|kilometers?|km|millimetres?|millimeters?|mm|metres?|meters?|m|hm"
 _UNIT_EN += r"|hours?|hrs?|h|minutes?|mins?|min|per\s?cent|percent|%|°\s?C|°|degrees?"
+_UNIT_EN += r"|miles?|mi|feet|foot|ft|yards?|yd"  # imperial: no evidence has them, never supported
 _HOURS_EN = r"(?:hours?|hrs?|h)"
 _MINUTES_EN = r"(?:minutes?|mins?|min)"
 _NUMBER_WITH_UNIT_EN = re.compile(
@@ -69,9 +73,11 @@ _NUMBER_WITH_UNIT_EN = re.compile(
     rf"{_START}(?P<ch>\d+)\s?{_HOURS_EN}\s?(?:and\s)?(?P<cm>\d{{1,2}})\s?{_MINUTES_EN}{_END}"
     # "2:54 h": one duration
     rf"|{_START}(?P<kh>\d+):(?P<km>\d{{2}})\s?{_HOURS_EN}{_END}"
-    # "09:30", "9:30 am": one clock time (not a pace: "5:30 min/km")
-    rf"|{_START}(?P<uh>\d{{1,2}}):(?P<um>\d{{2}})(?:\s?(?P<ap>[ap]m)\b)?"
-    rf"(?![\w:/]|\s?(?:h\b|min|hr|hour|/))"
+    # "09:30", "9:30 am", "4 pm": one clock time (not a pace: "5:30 min/km")
+    rf"|{_START}(?P<uh>\d{{1,2}})(?::(?P<um>\d{{2}}))?(?(um)|(?=\s?[ap]m\b))"
+    rf"(?:\s?(?P<ap>[ap]m)\b)?(?![\w:/]|\s?(?:h\b|min|hr|hour|/))"
+    # "9 o'clock", "nine o'clock"
+    rf"|{_START}(?P<oh>\d{{1,2}}|{_WORD_ALT_EN})\s?o'?clock\b"
     # "10 to 15 km", "10–15 km", "between 10 and 15 km": both numbers carry the unit
     rf"|{_START}(?:(?P<lo>{_NUM_EN})\s?(?:–|—|-|to\s|and\s)\s?)?"
     rf"(?P<num>{_NUM_EN}){_SEP}(?P<unit>{_UNIT_EN}){_END}",
@@ -110,6 +116,8 @@ _UNITS_EN = {
     "kilometers": ("length", Decimal(1000)),
     **{u: ("metre", Decimal(1)) for u in ("m", "metre", "metres", "meter", "meters")},
     "hm": ("ascent", Decimal(1)),
+    **{u: ("imperial", Decimal(1)) for u in ("mi", "mile", "miles", "ft", "feet", "foot")},
+    **{u: ("imperial", Decimal(1)) for u in ("yard", "yards", "yd")},
     **{u: ("time", Decimal(60)) for u in ("h", "hr", "hrs", "hour", "hours")},
     **{u: ("time", Decimal(1)) for u in ("min", "mins", "minute", "minutes")},
     **{u: ("percent", Decimal(1)) for u in ("%", "percent", "per cent", "percentage")},
@@ -199,6 +207,12 @@ def _value(raw: str, lang: Lang = "de") -> tuple[Decimal, int]:
             return Decimal(_HALVES_EN[word]), 1
         if word in _WORDS_EN:
             return Decimal(_WORDS_EN[word]), 0
+        if word in ("a", "an"):
+            return Decimal(1), 0
+        if m := re.fullmatch(r"(\S+) and a half", word):
+            return _value(m.group(1), lang)[0] + Decimal("0.5"), 1
+        if re.fullmatch(r"\d+,\d{1,2}", raw):  # decimal comma
+            raw = raw.replace(",", ".")
         if re.fullmatch(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?", raw):  # English thousands separator
             raw = raw.replace(",", "")
         return Decimal(raw), len(raw.split(".")[1]) if "." in raw else 0
@@ -210,6 +224,9 @@ def _value(raw: str, lang: Lang = "de") -> tuple[Decimal, int]:
         return Decimal(raw.replace(".", "")), 0
     raw = raw.replace(",", ".")
     return Decimal(raw), len(raw.split(".")[1]) if "." in raw else 0
+
+
+_NOT_AFTER_A = frozenset({"m", "h", "hm", "mm", "%", "°", "mi", "ft", "yd"})
 
 
 def _unit_of(text: str, m: re.Match[str], lang: Lang) -> tuple[str, Decimal]:
@@ -228,14 +245,21 @@ def _found(text: str, lang: Lang = "de") -> list[_Found]:
     out: list[_Found] = []
     pattern = _NUMBER_WITH_UNIT_EN if lang == "en" else _NUMBER_WITH_UNIT
     for m in pattern.finditer(text):
+        if lang == "en" and m.group("oh") is not None:  # "9 o'clock"
+            word = m.group("oh").lower()
+            hour = int(word) if word.isdigit() else _WORDS_EN[word]
+            number = _Number(Decimal(hour) * 60, 0, "clock", Decimal(1))
+            out.append(_Found(number, (m.span("oh"),), m.group(0)))
+            continue
         if m.group("uh") is not None:  # clock time, in minutes after midnight
             hour = int(m.group("uh"))
             if lang == "en":
                 ap = (m.group("ap") or "").lower()
                 hour = hour % 12 + (12 if ap == "pm" else 0) if ap else hour
-            total = Decimal(hour) * 60 + Decimal(m.group("um"))
+            total = Decimal(hour) * 60 + Decimal(m.group("um") or 0)
             number = _Number(total, 0, "clock", Decimal(1))
-            out.append(_Found(number, (m.span("uh"), m.span("um")), m.group(0)))
+            spans = (m.span("uh"), m.span("um")) if m.group("um") else (m.span("uh"),)
+            out.append(_Found(number, spans, m.group(0)))
             continue
         if m.group("ch") is not None or m.group("kh") is not None:  # compound duration
             h, mins = ("ch", "cm") if m.group("ch") is not None else ("kh", "km")
@@ -244,8 +268,10 @@ def _found(text: str, lang: Lang = "de") -> list[_Found]:
             out.append(_Found(number, (m.span(h), m.span(mins)), m.group(0)))
             continue
         unit = m.group("unit")
+        if lang == "en" and m.group("num").lower() in ("a", "an") and unit.lower() in _NOT_AFTER_A:
+            continue  # the article before a letter: "a m…", not "1 m"
         dim, factor = _unit_of(text, m, lang)
-        if m.group("lo") is not None:  # range: the first number has the same unit
+        if m.group("lo") is not None and m.group("lo").lower() not in ("a", "an"):
             value, decimals = _value(m.group("lo"), lang)
             number = _Number(value, decimals, dim, factor)
             out.append(_Found(number, (m.span("lo"),), f"{m.group('lo')} {unit}"))
@@ -367,7 +393,12 @@ _UNSAT_CLAIM = re.compile(
 # English: "No tour meets all your wishes", "None of the tours fulfils all of your conditions"
 _EN_NOUNS = r"(?:wishes|conditions|requirements|criteria|requests|preferences)\b"
 _EN_ALL = rf"all\s+(?:of\s+)?(?:(?:your|the|these|those)\s+)?(?:\w+\s+)?{_EN_NOUNS}"
-_EN_SUBJECT = r"(?:no|none)\b(?:\s+of)?(?:\s+(?:the|these|those|them))?(?:\s+\w+){0,2}"
+_EN_THING = r"(?:tours?|walks?|hikes?|routes?|trails?|options?|suggestions?|results?|candidates?)"
+_EN_SUBJECT = (
+    rf"(?:no\s+(?:\w+\s+)?{_EN_THING}(?:\s+(?:that|which))?"
+    rf"|none\s+of\s+(?:the|these|those|my|our)\s+(?:\w+\s+)?{_EN_THING}"
+    r"|none\s+of\s+them|none)"
+)
 _EN_VERB = r"(?:(?:can(?:not)?|could|will)\s+)?(?:fully\s+)?"
 _EN_VERB += r"(?:meets?|fulfil(?:s|ls)?|satisf(?:y|ies)|matches|match|fits?|covers?)"
 _UNSAT_CLAIM_EN = re.compile(rf"\b{_EN_SUBJECT}\s+{_EN_VERB}\s+{_EN_ALL}", re.IGNORECASE)

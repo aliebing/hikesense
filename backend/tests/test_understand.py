@@ -1277,7 +1277,9 @@ def test_en_compound_and_thousands_numbers(vocab):
     assert 1200.0 in _scan("1,200 m of ascent", "en")[0]
     assert 1.5 in _scan("1.5 km", "en")[0]
     assert 1500.0 in _scan("1.500 m", "de")[0]
-    assert 1500.0 not in _scan("1.500 m", "en")[0]
+    # both separators are read in either language
+    assert {1500.0, 1.5} <= _scan("1.500 m", "en")[0]
+    assert {1200.0, 1.2} <= _scan("1,200 m", "de")[0]
 
 
 def test_en_ascent_with_comma_thousands_is_kept(vocab):
@@ -1388,3 +1390,49 @@ def test_german_wish_words_still_resolve(vocab):
     gw = gw_of(start_text="Todtnau", wishes=[RawWish(text="Gasthaus")])
     req = understand(gw, vocab, "Wanderung mit Gasthaus", None)
     assert [p.tag_id for p in req.preferences] == ["feature:einkehr"]
+
+
+@pytest.mark.parametrize(
+    ("message", "lang"),
+    [
+        ("Westweg im April 3 Tage ab Hausach", "de"),
+        ("Westweg im April 3 Tage ab Hausach", "en"),
+        ("Westweg from Hausach in September 3 days", "en"),
+        ("Westweg from Hausach, we may 2 people, 3 days", "en"),
+        ("Westweg from Hausach in March 12 km a day, 3 days", "en"),
+    ],
+)
+def test_month_before_a_count_is_no_date(vocab, message, lang):
+    gw = _multi(trail_text="Westweg", days=3, start_text="Hausach")
+    req = understand(gw, vocab, message, None, today=date(2027, 1, 5), lang=lang)
+    assert isinstance(req, HikeRequest) and req.start_date is None
+
+
+@pytest.mark.parametrize(
+    "message", ["on March 12th", "on March 12, 2027", "on March 12.", "on March 12"]
+)
+def test_month_first_date_forms(vocab, message):
+    gw = _multi(trail_text="Westweg", days=3, start_text="Hausach", start_date="2027-03-12")
+    req = understand(
+        gw, vocab, f"3-day Westweg from Hausach {message}", None, today=date(2027, 1, 5), lang="en"
+    )
+    assert req.start_date == date(2027, 3, 12)
+
+
+def test_german_inputs_are_understood_under_english_reply(vocab):
+    plan = HikeRequest(intent="multiday", days=4, trail_id="westweg-west")
+    gw = gw_of(intent="change", day_change_day=3, day_change_direction="shorter")
+    req = understand(gw, vocab, "Tag 3 kürzer", plan, lang="en")
+    assert req.day_change == DayChange(day=3, change="shorter")
+    gw = _multi(trail_text="Westweg", days=3, start_text="Hausach")
+    req = understand(
+        gw, vocab, "3 Tage Westweg ab Hausach morgen", None, today=date(2027, 1, 5), lang="en"
+    )
+    assert req.start_date == date(2027, 1, 6)
+    gw = gw_of(start_text="Todtnau", ascent_m_max=1200)
+    req = understand(gw, vocab, "höchstens 1.200 Hm ab Todtnau", None, lang="en")
+    assert kinds(req)["ascent_m"].max == 1200
+    # and the English forms under a German reply
+    gw = gw_of(start_text="Todtnau", ascent_m_max=1200)
+    req = understand(gw, vocab, "at most 1,200 m from Todtnau", None, lang="de")
+    assert kinds(req)["ascent_m"].max == 1200

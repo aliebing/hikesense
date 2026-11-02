@@ -521,10 +521,14 @@ def _scan(message: str, lang: Lang = "de") -> tuple[set[float], bool]:
     <Einheit>" -- and whether a number-like word was left unread."""
     text = _plain(message)
     nums: set[float] = set()
-    thousands = _THOUSANDS_EN if lang == "en" else _THOUSANDS
-    for m in thousands.finditer(text):
-        nums.add(float(m.group().replace(".", "").replace(",", "")))
-    text = thousands.sub(" ", text)
+    # both separators are read in either reply language ("1.200" and "1,200" are 1200 or 1.2):
+    # more readings only widen what the R27 guard accepts as written
+    for thousands in (_THOUSANDS, _THOUSANDS_EN):
+        for m in thousands.finditer(text):
+            nums.add(float(m.group().replace(".", "").replace(",", "")))
+            if m.group().count(".") + m.group().count(",") == 1:
+                nums.add(float(m.group().replace(",", ".")))
+        text = thousands.sub(" ", text)
     for m in _CLOCK.finditer(text):
         nums.add(int(m.group(1)) + int(m.group(2)) / 60)
     for m in _HOURS_MINUTES.finditer(text):
@@ -1077,15 +1081,10 @@ def _multiday_echo(req: HikeRequest, lang: Lang = "de") -> list[str]:
 
 # --- multi-day ----------------------------------------------------------------------------
 
+# both languages are understood whatever the reply language is; whole words (not "Mehrtagestour")
 _DIRECTION_WORDS = {
-    "de": {
-        "shorter": re.compile(r"\b(?:kurzer|weniger)\b"),
-        "longer": re.compile(r"\b(?:langer|mehr)\b"),  # whole words: not "Mehrtagestour"
-    },
-    "en": {
-        "shorter": re.compile(r"\b(?:shorter|less|fewer)\b"),
-        "longer": re.compile(r"\b(?:longer|more)\b"),
-    },
+    "shorter": re.compile(r"\b(?:kurzer|weniger|shorter|less|fewer)\b"),
+    "longer": re.compile(r"\b(?:langer|mehr|longer|more)\b"),
 }
 _DAYS_PHRASE = re.compile(
     r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag|days|day)\b"
@@ -1110,10 +1109,13 @@ _MONTH_ALT = "|".join(sorted(_MONTHS, key=len, reverse=True))
 _DATE_NAMED = re.compile(
     rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\.?\s*(?:of\s+)?({_MONTH_ALT})\b(?:,?\s*(\d{{4}}))?"
 )
-# "March 12", "March 12th, 2027" (not "March 12 km")
+# English only: "March 12th", "March 12, 2027", "March 12" at the end. Full month names (not
+# "may"), and the day must end in an ordinal suffix, a comma, a year or the message -- never
+# "April 3 Tage", "September 5 days", "We may 2 people".
+_MONTH_FULL_EN = "|".join([*_FULL_MONTHS_EN, "april", "august", "september", "november"])
 _DATE_MONTH_FIRST = re.compile(
-    rf"\b({_MONTH_ALT})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?!\s*(?:km|hm|h|m|min|kilomet|hours?)\b)"
-    r"(?:,?\s*(\d{4}))?"
+    rf"\b({_MONTH_FULL_EN})\s+(\d{{1,2}})"
+    r"(?:(?:st|nd|rd|th)\b|(?=,)|(?=\s+\d{4}\b)|(?=[\s.!?]*$))(?:,?\s*(\d{4}))?"
 )
 _DATE_SLASH = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")  # UK: day/month/year
 _DATE_NUMERIC = re.compile(r"\b(\d{1,2})\.\s*(\d{1,2})\.(?:\s*(\d{4}|\d{2})\b)?")
@@ -1145,7 +1147,7 @@ def _day_change(
     if day is None or direction is None:
         return None
     text = _plain(message)
-    if not _written(day, nums) or not _DIRECTION_WORDS[lang][direction].search(text):
+    if not _written(day, nums) or not _DIRECTION_WORDS[direction].search(text):
         return None
     if not MIN_DAYS <= day <= plan_days:
         return Clarify(question=_T[lang]["plan_days"].format(n=plan_days))
@@ -1252,7 +1254,7 @@ def _parse_date(text: str, today: date, lang: Lang = "de") -> tuple[date | None,
     day = month = year = None
     if m := _DATE_NAMED.search(text):
         day, month, year = int(m.group(1)), _MONTHS[m.group(2)], m.group(3)
-    elif m := _DATE_MONTH_FIRST.search(text):
+    elif lang == "en" and (m := _DATE_MONTH_FIRST.search(text)):
         day, month, year = int(m.group(2)), _MONTHS[m.group(1)], m.group(3)
     elif (m := _DATE_SLASH.search(text)) or (m := _DATE_NUMERIC.search(text)):
         day, month, year = int(m.group(1)), int(m.group(2)), m.group(3)
@@ -1275,9 +1277,10 @@ def _parse_date(text: str, today: date, lang: Lang = "de") -> tuple[date | None,
         if found < today:
             return None, _T[lang]["past_date"].format(d=found.strftime(_DATE_FMT[lang]))
         return found, None
-    relative = (("ubermorgen", 2), ("morgen", 1), ("heute", 0))
-    if lang == "en":
-        relative = (("the day after tomorrow", 2), ("tomorrow", 1), ("today", 0))
+    relative = (  # both languages, whatever the reply language is
+        ("ubermorgen", 2), ("the day after tomorrow", 2), ("morgen", 1), ("tomorrow", 1),
+        ("heute", 0), ("today", 0),
+    )  # fmt: skip
     for word, offset in relative:
         if re.search(rf"\b{word}\b", text):
             return today + timedelta(days=offset), None

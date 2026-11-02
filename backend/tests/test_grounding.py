@@ -470,3 +470,46 @@ def test_en_unsat_strip_keeps_decimal_sentences_whole():
 
 def test_de_unsat_strip_ignores_english():
     assert strip_unsat_claims("No tour meets all your wishes.")[1] == 0
+
+
+@pytest.mark.parametrize(
+    ("answer", "shown"),
+    [
+        ("It is 1,5 km long.", ["1,5 km"]),
+        ("It is 12,5 km long.", ["12,5 km"]),
+        ("It takes about an hour.", ["an hour"]),
+        ("Only a kilometre away.", ["a kilometre"]),
+        ("Start at 4 pm.", ["4"]),
+        ("Start at 8 am.", ["8"]),
+        ("Start at 9 o'clock.", ["9"]),
+        ("It is 7 miles long.", ["7 miles"]),
+        ("A climb of 500 feet.", ["500 feet"]),
+        ("It takes three and a half hours.", ["three and a half hours"]),
+        ("It takes 3 and a half hours.", ["3 and a half hours"]),
+    ],
+)
+def test_en_invented_forms_are_caught(answer, shown):
+    r = en(answer, ["540 Hm", "2.5 h", "12 km"])
+    assert [x.split()[0] for x in r.unsupported] == [x.split()[0] for x in shown]
+    assert "?" in r.text
+
+
+def test_en_supported_forms_stay():
+    e = ["540 Hm", "2.5 h", "12 km", "16:00", "08:00", "09:00", "1 h", "1 km"]
+    for text in (
+        "Start at 4 pm, 8 am or 9 o'clock.",
+        "It takes two and a half hours.",
+        "About an hour, a kilometre.",
+        "12,0 km",
+        "A 12 km walk",
+        "I am 5 m",
+    ):
+        r = en(text, e + ["5 m"])
+        assert r.unsupported == [], (text, r.unsupported)
+
+
+def test_en_unsat_subject_needs_a_tour_noun():
+    assert strip_unsat_claims("No doubt it meets all your wishes.", "en")[1] == 0
+    assert strip_unsat_claims("No doubt the Seeweg meets all your wishes.", "en")[1] == 0
+    assert strip_unsat_claims("No matching tour meets all your wishes.", "en")[1] == 1
+    assert strip_unsat_claims("None of the three tours meets all your wishes.", "en")[1] == 1

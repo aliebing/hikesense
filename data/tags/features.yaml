@@ -49,7 +49,7 @@
   label_en: Little tarmac
   category: surface
   synonyms: [kaum Asphalt, ohne Asphalt, wenig Teer, abseits von Strassen]
-  synonyms_en: [little asphalt, no asphalt, hardly any tarmac, little asphalt, off road, away from roads]
+  synonyms_en: [little asphalt, no asphalt, hardly any tarmac, off road, away from roads]
   rule: {type: share_at_most, field: surface, keys: [paved], share: 0.2}
 - id: "surface:naturweg"
   label: Naturweg

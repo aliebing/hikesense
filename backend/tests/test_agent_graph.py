@@ -1756,6 +1756,23 @@ def test_english_events_and_plan_texts(vocab, settings):
     assert text_of(events) == "The plan has 4 day(s) – there is no day 5 in it."
 
 
+def test_german_day_change_under_english_reply_is_understood(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={
+            RawRequest: [
+                westweg_raw(days=5),
+                RawRequest(intent="change", day_change_day=5, day_change_direction="shorter"),
+            ]
+        },
+        answers=["Plan."],
+    )
+    list(run_chat(deps, "p-de-en", "Westweg from Hausach, 5 days", lang="en"))
+    events = list(run_chat(deps, "p-de-en", "Tag 5 kürzer", lang="en"))
+    assert text_of(events) == "The plan has 4 day(s) – there is no day 5 in it."
+
+
 def test_english_react_data_and_system(vocab, settings):
     deps = make(
         vocab,
