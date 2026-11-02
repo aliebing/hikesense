@@ -3,7 +3,7 @@
 # Erwartungsarten (je Runde): min_results, all_constraints_ok, clarify_options_include,
 # fallback_single_violation, activity, no_duration_without_pace, no_pace, sources, reply,
 # no_model_calls, plan_days, plan_lodgings_near, plan_band_or_named, days_unchanged, day_shorter,
-# day_longer, plan_weather, plan_rain_variant, plan_no_rain_variant, min_groups, no_groups,
+# day_longer, plan_weather, weather_days, plan_rain_variant, plan_no_rain_variant, min_groups, no_groups,
 # events_quoted, sources_include, reply_contains, reply_not_contains, unsatisfiable_named.
 # `continues: <Fall-ID>` setzt den Gesprächsfaden eines früheren Falls fort (Folgerunde).
 # Der Lauf meldet sich als smoke@hikeall.local an (`make smoke-user`) und prüft das Token wie /chat.
@@ -106,3 +106,29 @@ cases:
       - message: "What does the Schwarzwaldverein do?"
         expect:
           sources: true
+  # Wetter-Tagesfinder: geprüft wird die Form (Ereignis mit Wunsch und Tagen, Satz in der
+  # Sprache der Anfrage), nie bestimmte Tage; die hängen vom echten Wetter ab.
+  - id: 15-wetter-schoen-feldberg
+    turns:
+      - message: "Feldberg-Wanderung bei schönem Wetter"
+        expect:
+          clarify_options_include: ["Gipfel"]
+      - answer_option_containing: "Gipfel"
+        expect:
+          weather_days: fine
+  - id: 16-wetter-schnee-titisee
+    turns:
+      - message: "Rundweg am Titisee wenn es schneit"
+        expect:
+          weather_days: snow
+  - id: 17-en-weather-titisee
+    lang: en
+    turns:
+      - message: "A round walk near Titisee in fine weather"
+        expect:
+          weather_days: fine
+  - id: 18-wetter-trocken-westweg
+    turns:
+      - message: "3 Tage Westweg ab Hausach bei trockenem Wetter"
+        expect:
+          weather_days: dry

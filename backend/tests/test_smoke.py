@@ -90,7 +90,7 @@ def understood(activity="hike", pace=None):
 def test_loader_reads_the_cases():
     cases = sm.load_cases(PROMPTS)
     assert [c.id.split("-")[0] for c in cases] == [
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10", "11", "12", "13", "14",
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "9b", "10", "11", "12", "13", "14", "15", "16", "17", "18",
     ]  # fmt: skip
     assert cases[7].continues == cases[6].id  # "Tag 3 kürzer" in the thread of case 7
     assert len(cases[1].turns) == 2  # Feldberg: clarify, then the answer
@@ -723,8 +723,8 @@ def test_loader_reads_and_checks_the_group(tmp_path):
 
 def test_english_cases_carry_lang_and_german_ones_default():
     cases = sm.load_cases(PROMPTS)
-    assert {c.lang for c in cases if c.id.startswith(("12", "13", "14"))} == {"en"}
-    assert all(c.lang == "de" for c in cases if not c.id.startswith(("12", "13", "14")))
+    assert {c.lang for c in cases if c.id.startswith(("12", "13", "14", "17"))} == {"en"}
+    assert all(c.lang == "de" for c in cases if not c.id.startswith(("12", "13", "14", "17")))
 
 
 def test_run_case_sends_the_case_language(monkeypatch):
@@ -742,3 +742,41 @@ def test_fixed_replies_and_heads_follow_the_language():
     assert sm.check(ev, {"reply": "injection"}, lang="en") == []
     assert sm.check(ev, {"reply": "injection"}, lang="de") != []
     assert sm.UNSAT_HEADS["en"].startswith("No tour")
+
+
+# --- weather day finder (form only; the days depend on the real forecast) -----------------------
+
+
+def _weather_ev(wish="fine", days=1):
+    from hikeall.agent.graph import WeatherDay, WeatherDaysEvent
+
+    w = DayWeather(
+        date=date(2026, 11, 4), code=1, t_min_c=2, t_max_c=9, precip_mm=0, precip_prob_pct=10, snowfall_cm=0, text="klar"
+    )
+    return WeatherDaysEvent(
+        wish=wish,
+        place="Feldberg",
+        days=[WeatherDay(date=date(2026, 11, 4), match=True, weather=w)] * days,
+        best_only=False,
+    )
+
+
+def test_weather_days_expectation():
+    exp = {"weather_days": "fine"}
+    ok = [_weather_ev(), TokenEvent(text="Passende Tage für ‚schönes Wetter‘ bei Feldberg: Mi.")]
+    assert sm.check(ok, exp) == []
+    en = [_weather_ev(), TokenEvent(text="Days that fit ‘fine weather’ near Titisee: Wed.")]
+    assert sm.check(en, exp, lang="en") == []
+    assert sm.check(en, exp)  # English sentence, German case
+    assert sm.check([TokenEvent(text="Passende Tage für ‚schönes Wetter‘")], exp)  # no event
+    assert sm.check(ok, {"weather_days": "snow"})  # other wish
+    assert sm.check([_weather_ev(days=0), ok[1]], exp)  # no days
+
+
+def test_weather_cases_in_prompts():
+    cases = {c.id: c for c in sm.load_cases(PROMPTS)}
+    w = [c for i, c in cases.items() if "wetter" in i or "weather" in i]
+    assert len(w) == 4
+    assert {c.lang for c in w} == {"de", "en"}
+    assert all("weather_days" in c.turns[-1].expect for c in w)
+    assert cases["15-wetter-schoen-feldberg"].turns[1].answer_option_containing == "Gipfel"

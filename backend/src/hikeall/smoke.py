@@ -21,7 +21,7 @@ import yaml
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.open_meteo import DayWeather
 from hikeall.agent.events import FIELDS
-from hikeall.agent.graph import AgentDeps, ChatEvent, run_chat
+from hikeall.agent.graph import AgentDeps, ChatEvent, _wish_text, run_chat
 from hikeall.agent.multiday import _T as PLAN_TEXTS
 from hikeall.agent.multiday import FAR_M, NEAR_M, access_straight
 from hikeall.agent.texts import texts
@@ -49,6 +49,7 @@ EXPECT_KINDS = {
     "day_shorter",
     "day_longer",
     "plan_weather",
+    "weather_days",
     "plan_rain_variant",
     "plan_no_rain_variant",
     "reply_not_contains",
@@ -260,6 +261,23 @@ def _weather_errors(events: list[ChatEvent]) -> list[str]:
     return errors
 
 
+def _weather_days_errors(events: list[ChatEvent], wish: str, lang: Lang) -> list[str]:
+    """Form of the weather day finder (the days depend on the real forecast): the event carries
+    the wish, at least one day, and the reply names the wish in the reply language."""
+    ev = _first(events, "weather_days")
+    if ev is None:
+        return ["kein Wetter-Ereignis"]
+    errors = []
+    if ev.wish != wish:
+        errors.append(f"Wetterwunsch {ev.wish} statt {wish}")
+    if not ev.days:
+        errors.append("Wetter-Ereignis ohne Tage")
+    wish_text = _wish_text(ev.wish, lang)
+    if wish_text.casefold() not in _text(events).casefold():
+        errors.append(f"Antwort ohne Wetter-Satz zu „{wish_text}“")
+    return errors
+
+
 def _rain_errors(events: list[ChatEvent], days: list[int]) -> list[str]:
     """The listed days have a rain variant (a station on the trail to end the day early)."""
     plan = _first(events, "plan")
@@ -399,6 +417,8 @@ def check(
             errors += _change_errors(events, prev, [], want)
         elif kind == "day_longer":
             errors += _change_errors(events, prev, [], want, longer=True)
+        elif kind == "weather_days":
+            errors += _weather_days_errors(events, want, lang)
         elif kind == "plan_weather":
             errors += _weather_errors(events)
         elif kind == "plan_rain_variant":

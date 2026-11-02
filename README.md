@@ -283,6 +283,23 @@ Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. 
 
 Lücken bei Wegenden, Startorten und Etappenlängen stehen unter [Bekannte Lücken](#bekannte-lücken).
 
+## Wetter-Tagesfinder
+
+„Feldberg-Wanderung bei schönem Wetter“, „Rundweg am Titisee, wenn es schneit“ oder „3 Tage Westweg ab Hausach bei trockenem Wetter“ (englisch: „fine weather“, „dry“, „snow“): Nennt die Nachricht einen Wetterwunsch, sucht der Code die passenden Tage in der Vorhersage von Open-Meteo. Das Modell erkennt nur den Wunsch; Tage, Zahlen und Sätze kommen vom Code, in der Sprache der Anfrage und mit der Quelle „Open-Meteo.com (CC BY 4.0)“.
+
+| Wunsch | Schwelle |
+| --- | --- |
+| schön / fine | Wettercode 0–3 (klar bis bedeckt, kein Nebel, kein Niederschlag), Niederschlag ≤ 0,5 mm, Niederschlagswahrscheinlichkeit ≤ 30 % |
+| trocken / dry | Niederschlag ≤ 1,0 mm, Wahrscheinlichkeit ≤ 40 % |
+| Schnee / snow | Schneefall ≥ 1,0 cm oder Schnee-Wettercode (71–77, 85, 86) |
+
+Die Konstanten stehen in `backend/src/hikeall/agent/weather.py`.
+
+- **Horizont:** heute bis heute + 14 Tage, nie darüber. Keine Klimastatistik, keine Wetterwarnungen.
+- **Ein Punkt:** Eine Tagestour wird am Startort bewertet (bei einem Gebiet in der Mitte der Box), eine Mehrtagestour am Tagesziel jeder Etappe. Bei Mehrtagestouren sucht der Code Starttage, an denen alle Tage passen; passt keiner, nennt der Satz, wie viele Tage höchstens passen.
+- **Ehrlichkeit:** Passt kein Tag, steht das so da („In den nächsten 14 Tagen passt kein Tag …“), dazu die am ehesten passenden Tage. Es wird nichts geschätzt und keine Vorhersage erfunden. Fehlen Werte, heißt es „lässt sich nicht sagen“, ist Open-Meteo nicht erreichbar, „Wetter gerade nicht abrufbar“. Alle Zahlen kommen aus Open-Meteo und laufen durch die Zahlenprüfung oder stehen in vom Code geschriebenen Sätzen. Ohne Wetterwunsch ändert sich nichts.
+- **Anzeige:** Die Karte „Tage für …“ steht im Chat über den Touren, im Admin-Detail als Block „Wetter-Tagesfinder“. Der Smoke-Test (Fälle 15–18) prüft nur die Form, nicht bestimmte Tage, weil sie vom echten Wetter abhängen.
+
 ## Auf dem Handy (HTTPS-Tunnel)
 
 Die Ortung („Unterwegs“) und die Installation als App brauchen HTTPS: Browser geben den Standort nur auf sicheren Seiten frei (`localhost` zählt, die Adresse im WLAN wie `http://192.168.…:3000` nicht). Ein Tunnel gibt der lokalen Web-App eine HTTPS-Adresse:
