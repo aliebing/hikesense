@@ -13,10 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from hikeall.adapters.open_meteo import weather_source
+from hikeall.api.admin import make_admin_router
 from hikeall.api.chat import default_deps_factory, make_router
 from hikeall.config import Settings
 from hikeall.db import upsert_source
 from hikeall.rate_limit import RateLimiter
+from hikeall.roles import Role, role_of
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +49,18 @@ def _register_sources(settings: Settings) -> None:
         log.warning("could not register the open-meteo source", exc_info=True)
 
 
+def _default_role_lookup(settings: Settings) -> Callable[[str], Role]:
+    def lookup(user_id: str) -> Role:
+        with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
+            return role_of(conn, user_id)
+
+    return lookup
+
+
 def create_app(
-    settings: Settings | None = None, deps_factory: Callable[[], Any] | None = None
+    settings: Settings | None = None,
+    deps_factory: Callable[[], Any] | None = None,
+    role_lookup: Callable[[str], Role] | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -81,6 +93,7 @@ def create_app(
     if cfg is not None:
         factory = deps_factory or default_deps_factory(cfg)
         app.include_router(make_router(cfg, factory, RateLimiter()))
+        app.include_router(make_admin_router(cfg, role_lookup or _default_role_lookup(cfg)))
 
     return app
 

@@ -25,7 +25,7 @@ from hikeall.agent.events import EventFinder
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikeall.agent.prompts import ERROR_UNAVAILABLE
 from hikeall.agent.tools import DbTools
-from hikeall.auth import AuthError, verify_token
+from hikeall.auth import AuthError, AuthUser, verify_token
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
 from hikeall.db import connect
@@ -52,6 +52,24 @@ AUTH_MESSAGES = {
     "expired": "Sitzung abgelaufen – bitte erneut anmelden.",
     "unavailable": "Anmeldung kann gerade nicht geprüft werden – bitte gleich noch einmal versuchen.",
 }
+
+
+async def authenticate(request: Request, settings: Settings) -> AuthUser | JSONResponse:
+    """The signed-in user from the Bearer token, or the 401/503 response to send instead."""
+    header = request.headers.get("authorization", "")
+    scheme, _, token = header.partition(" ")
+    try:
+        return await run_in_threadpool(
+            verify_token, token.strip() if scheme.lower() == "bearer" else "", settings
+        )
+    except AuthError as exc:
+        if exc.reason == "unavailable":
+            return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
+        return JSONResponse(
+            {"detail": AUTH_MESSAGES.get(exc.reason, AUTH_MESSAGES["invalid"])},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 class ChatRequest(BaseModel):
@@ -136,20 +154,9 @@ def make_router(
 
     @router.post("/chat")
     async def chat(request: Request) -> EventSourceResponse:
-        header = request.headers.get("authorization", "")
-        scheme, _, token = header.partition(" ")
-        try:
-            user = await run_in_threadpool(
-                verify_token, token.strip() if scheme.lower() == "bearer" else "", settings
-            )
-        except AuthError as exc:
-            if exc.reason == "unavailable":
-                return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
-            return JSONResponse(
-                {"detail": AUTH_MESSAGES.get(exc.reason, AUTH_MESSAGES["invalid"])},
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        user = await authenticate(request, settings)
+        if isinstance(user, JSONResponse):
+            return user
         decision = limiter.acquire(user.user_id)  # before the graph, after the token check
         if not decision.allowed:
             message = RATE_LIMIT_REPLY.format(s=decision.retry_after_s)
