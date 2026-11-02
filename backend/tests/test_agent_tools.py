@@ -39,7 +39,7 @@ def add_trail(conn, id, dlat=0.0, kind="day_hike", length=7.4, ascent=100, desce
         conn,
         id=id,
         name=id,
-        kind=kind,
+        kind=kind, region="black_forest",
         roundtrip=False,
         osm_relation_id=None,
         length_km=length,

@@ -58,7 +58,9 @@ def get_region(region_id: str) -> Region:
 
 
 def region_of_line(points: Sequence[tuple[float, float]]) -> Region | None:
-    """First region whose box contains all (lat, lon) points, else None."""
+    """First region whose box contains all (lat, lon) points, else None (also for no points)."""
+    if not points:
+        return None
     for r in REGIONS:
         if all(r.bbox.contains(LatLon(lat=p[0], lon=p[1])) for p in points):
             return r

@@ -93,7 +93,7 @@ def _trail(conn, tid, **kw):
         conn,
         id=tid,
         name=tid,
-        kind="day_hike",
+        kind="day_hike", region="black_forest",
         roundtrip=kw.get("roundtrip"),
         osm_relation_id=None,
         length_km=7.0,

@@ -44,7 +44,7 @@ def upsert_l_trail(conn, trail_id: str, source_id: str) -> None:
     from hikeall.db import upsert_trail
 
     upsert_trail(
-        conn, id=trail_id, name="L", kind="long_distance", roundtrip=False, osm_relation_id=None,
+        conn, id=trail_id, name="L", kind="long_distance", region="black_forest", roundtrip=False, osm_relation_id=None,
         length_km=L_LEN_KM, ascent_m=0, descent_m=0, profile=[(0.0, 500.0)], line=L_LINE,
         source_id=source_id,
     )  # fmt: skip

@@ -90,7 +90,7 @@ def trail(conn):
         conn,
         id=TRAIL,
         name="T",
-        kind="day_hike",
+        kind="day_hike", region="black_forest",
         roundtrip=False,
         osm_relation_id=None,
         length_km=7.4,

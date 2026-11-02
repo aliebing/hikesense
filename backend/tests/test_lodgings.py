@@ -134,7 +134,7 @@ def _trail(conn):
         conn,
         id=TRAIL,
         name="T",
-        kind="day_hike",
+        kind="day_hike", region="black_forest",
         roundtrip=False,
         osm_relation_id=None,
         length_km=7.4,
@@ -228,7 +228,7 @@ def test_stage_count_covers_every_long_distance_trail(conn):
     upsert_source(conn, SRC)
     for tid, kind in (("test-lodg-mittelweg", "long_distance"), ("test-lodg-day", "day_hike")):
         upsert_trail(
-            conn, id=tid, name=tid, kind=kind, roundtrip=False, osm_relation_id=None,
+            conn, id=tid, name=tid, kind=kind, region="black_forest", roundtrip=False, osm_relation_id=None,
             length_km=7.4, ascent_m=0, descent_m=0, profile=[(0.0, 500.0)], line=LINE,
             source_id=SRC.id,
         )

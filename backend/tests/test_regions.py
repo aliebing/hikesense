@@ -26,6 +26,7 @@ def test_region_of_line():
     assert region_of_line([(48.0, 8.0), (48.1, 8.1)]).id == "black_forest"
     assert region_of_line([(47.66, 8.86)]).id == "lake_constance"  # Stein am Rhein
     assert region_of_line([(48.0, 8.0), (49.3, 7.9)]) is None
+    assert region_of_line([]) is None
 
 
 def test_check_in_region():
@@ -34,6 +35,7 @@ def test_check_in_region():
         check_in_region([(48.0, 8.0), (49.3, 7.9)], "x")
 
 
+@pytest.mark.db
 def test_trails_region_column(conn):
     rows = conn.execute("select distinct region from trails").fetchall()
     assert all(r[0] == "black_forest" for r in rows)

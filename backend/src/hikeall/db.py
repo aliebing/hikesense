@@ -40,6 +40,7 @@ def upsert_trail(
     id: str,
     name: str,
     kind: str,
+    region: str,
     roundtrip: bool,
     osm_relation_id: int | None,
     length_km: float,
@@ -50,9 +51,8 @@ def upsert_trail(
     source_id: str,
     surface_shares: dict | None = None,
     way_type_shares: dict | None = None,
-    region: str = "black_forest",
 ) -> None:
-    """Upsert a trail (region defaults to the Black Forest for fixtures; importers pass it). Shares left at None keep whatever is stored."""
+    """Upsert a trail. Shares left at None keep whatever is stored."""
     conn.execute(
         """
         insert into trails (id, name, kind, roundtrip, osm_relation_id, length_km, ascent_m,
