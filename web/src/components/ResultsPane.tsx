@@ -12,7 +12,7 @@ const MAX_TILES = 6;
 
 /** Right of the chat on the home page: the plan, the one tour, or the tiles of the last search. */
 export default function ResultsPane() {
-  const { state } = useChat();
+  const { state, busy } = useChat();
   if (state.plan) return <PlanPreview data={state.plan} />;
   const last = state.last;
   if (!last || last.cards.length === 0) return null;
@@ -21,14 +21,17 @@ export default function ResultsPane() {
   const one = last.cards.length === 1;
   const cards = last.cards.slice(0, MAX_TILES);
   const saved = savedSearchOf(state);
+  // every new search appends a results item, so its index tells searches apart
+  const searchIndex = state.items.map((it) => it.kind).lastIndexOf("results");
   const merken = saved && (
     <MerkenButton
-      key={`${last.cards[0].trail_id}:${last.cards.length}`}
+      key={searchIndex}
       kind="search"
       title={searchTitle(saved)}
       payload={saved}
       label="Ergebnis merken"
       onPhoto
+      disabled={busy}
     />
   );
   return (

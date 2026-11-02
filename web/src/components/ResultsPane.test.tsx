@@ -31,7 +31,11 @@ const seed = (cards: TourCard[], fallback: string | null = null, text = "Hier si
     ],
   });
 
-const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
+const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn(), busy: false, state: null as null | object }));
+vi.mock("./ChatProvider", async (orig) => {
+  const m = await orig<typeof import("./ChatProvider")>();
+  return { ...m, useChat: () => { const c = m.useChat(); return { ...c, busy: h.busy, state: (h.state ?? c.state) as typeof c.state }; } };
+});
 vi.mock("../lib/auth", async (orig) => ({ ...(await orig<typeof import("../lib/auth")>()), useSession: () => ({ session: h.session, loading: false }) }));
 vi.mock("../lib/plans", async (orig) => ({ ...(await orig<typeof import("../lib/plans")>()), savePlan: h.savePlan }));
 vi.mock("./TourPreview", () => ({ default: ({ card, fallback }: { card: TourCard; fallback?: boolean }) => <p>{fallback ? "fallback " : ""}preview {card.name}</p> }));
@@ -47,6 +51,8 @@ const show = () =>
 beforeEach(() => {
   sessionStorage.clear();
   h.session = null;
+  h.busy = false;
+  h.state = null;
   h.savePlan.mockReset().mockResolvedValue({ error: null });
 });
 
@@ -125,6 +131,9 @@ describe("Ergebnis merken", () => {
     expect(kind).toBe("search");
     expect(title).toBe("Rundweg");
     expect(payload.results.cards.map((c: TourCard) => c.trail_id)).toEqual(["t1", "t2", "t3"]);
+    expect(payload.v).toBe(1);
+    expect(payload.messages).toEqual(["Rundweg"]);
+    expect(payload.answer).toBe("Hier sind drei Touren.");
     expect(await screen.findByText("Gemerkt")).toBeInTheDocument();
   });
 
@@ -147,5 +156,31 @@ describe("Ergebnis merken", () => {
     saveState(sessionStorage, { ...initialState("th"), plan });
     show();
     expect(screen.queryByRole("button", { name: "Ergebnis merken" })).toBeNull();
+  });
+
+  it("disables \"Ergebnis merken\" while the answer streams", () => {
+    h.session = { user: { id: "u" } };
+    h.busy = true;
+    seed([mk(1), mk(2)]);
+    show();
+    expect(screen.getByRole("button", { name: "Ergebnis merken" })).toBeDisabled();
+  });
+
+  it("resets \"Ergebnis merken\" after a refinement with the same first tour", async () => {
+    h.session = { user: { id: "u" } };
+    const cards = [mk(1), mk(2)];
+    seed(cards);
+    const view = show();
+    await userEvent.click(screen.getByRole("button", { name: "Ergebnis merken" }));
+    expect(await screen.findByText("Gemerkt")).toBeInTheDocument();
+    const base = { ...initialState("th"), request: { request, labels: {} },
+      last: { cards, fallback: null, runWithoutPace: false, labels: {}, request: { request, labels: {} } } };
+    h.state = { ...base, items: [
+      { kind: "user", text: "Rundweg" }, { kind: "results", cards, fallback: null, runWithoutPace: false, labels: {} }, { kind: "assistant", text: "a" },
+      { kind: "user", text: "kürzer" }, { kind: "results", cards, fallback: null, runWithoutPace: false, labels: {} }, { kind: "assistant", text: "b" },
+    ] };
+    view.rerender(<ChatProvider><ResultsPane /></ChatProvider>);
+    const b = screen.getByRole("button", { name: "Ergebnis merken" });
+    expect(b).toBeEnabled();
   });
 });
