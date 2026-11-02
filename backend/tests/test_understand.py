@@ -1436,3 +1436,91 @@ def test_german_inputs_are_understood_under_english_reply(vocab):
     gw = gw_of(start_text="Todtnau", ascent_m_max=1200)
     req = understand(gw, vocab, "at most 1,200 m from Todtnau", None, lang="de")
     assert kinds(req)["ascent_m"].max == 1200
+
+
+# --- weather wish (stage 4) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("message", "wish"),
+    [
+        ("Feldberg bei schönem Wetter", "fine"),
+        ("Feldberg bei Sonnenschein, sonnig", "fine"),
+        ("Feldberg, trocken bitte", "dry"),
+        ("Feldberg ohne Regen", "dry"),
+        ("when it snows near Feldberg", "snow"),
+        ("Feldberg Schnee", "snow"),
+        ("Feldberg in nice weather", "fine"),
+        ("Feldberg, no rain", "dry"),
+    ],
+)
+def test_weather_wish_understood_in_both_languages(vocab, message, wish):
+    req = understand(
+        gw_of(start_text="Feldberg (Schwarzwald)", weather_wish=wish), vocab, message, None
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.weather_wish == wish
+
+
+def test_model_weather_wish_without_word_is_discarded(vocab):
+    gw = gw_of(start_text="Titisee", weather_wish="fine", roundtrip=True, length_km_approx=10)
+    req = understand(gw, vocab, "Rundweg Titisee 10 km", None)
+    assert isinstance(req, HikeRequest)
+    assert req.weather_wish is None
+    assert req.discarded_model_numbers == 1
+
+
+def test_wish_must_match_its_own_word(vocab):
+    req = understand(
+        gw_of(start_text="Feldberg (Schwarzwald)", weather_wish="snow"),
+        vocab,
+        "Feldberg trocken",
+        None,
+    )
+    assert isinstance(req, HikeRequest)
+    assert req.weather_wish is None
+
+
+def test_refinement_keeps_weather_wish(vocab):
+    first = understand(
+        gw_of(start_text="Feldberg (Schwarzwald)", weather_wish="fine"),
+        vocab,
+        "Feldberg bei schönem Wetter",
+        None,
+    )
+    assert isinstance(first, HikeRequest)
+    second = understand(
+        gw_of(intent="change", length_km_max=10), vocab, "kürzer, unter 10 km", first
+    )
+    assert isinstance(second, HikeRequest)
+    assert second.weather_wish == "fine"
+
+
+@pytest.mark.parametrize("message", ["egal welches Wetter", "any weather is fine"])
+def test_any_weather_clears_wish(vocab, message):
+    first = understand(
+        gw_of(start_text="Feldberg (Schwarzwald)", weather_wish="snow"),
+        vocab,
+        "Feldberg Schnee",
+        None,
+    )
+    assert isinstance(first, HikeRequest)
+    second = understand(gw_of(intent="change"), vocab, message, first)
+    assert isinstance(second, HikeRequest)
+    assert second.weather_wish is None
+
+
+def test_weather_echo_both_languages(vocab):
+    for wish, de, en in [
+        ("fine", "schön", "fine"),
+        ("dry", "trocken", "dry"),
+        ("snow", "Schnee", "snow"),
+    ]:
+        req = HikeRequest(intent="day_hike", weather_wish=wish)
+        assert f"Wetter: {de}" in echo(req, vocab)
+        assert f"weather: {en}" in echo(req, vocab, "en")
+    assert "etter" not in echo(HikeRequest(intent="day_hike"), vocab)
+
+
+def test_old_request_json_without_weather_wish_validates():
+    assert HikeRequest.model_validate({"intent": "day_hike"}).weather_wish is None

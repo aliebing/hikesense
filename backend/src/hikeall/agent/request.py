@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from hikeall.agent.weather import WeatherWish
 from hikeall.models import BBox
 
 ConstraintKind = Literal["roundtrip", "length_km", "ascent_m", "duration_h", "radius_km"]
@@ -79,6 +80,7 @@ class HikeRequest(BaseModel):
     start_date: date | None = None
     start_time: time | None = None
     day_change: DayChange | None = None
+    weather_wish: WeatherWish | None = None  # only when the user wrote a weather word
     # numbers (and a roundtrip yes/no) the model filled in that the user never wrote (discarded, R27);
     # for the log only
     discarded_model_numbers: int = Field(default=0, exclude=True)
@@ -126,5 +128,7 @@ class RawRequest(BaseModel):
     start_time: str | None = None  # "HH:MM", only what the user wrote; checked as well
     day_change_day: int | None = None  # "Tag 3 kürzer" -> 3
     day_change_direction: Literal["shorter", "longer"] | None = None
+    # fine/dry/snow, only when the user wrote a matching weather word; checked against the message
+    weather_wish: WeatherWish | None = None
     wishes: list[RawWish] = Field(default_factory=list)
     question: str | None = None

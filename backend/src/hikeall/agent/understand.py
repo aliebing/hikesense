@@ -25,6 +25,7 @@ from hikeall.agent.request import (
     Understood,
 )
 from hikeall.agent.texts import REGION_NAMES_EN
+from hikeall.agent.weather import WeatherWish
 from hikeall.geo import haversine_km
 from hikeall.llm.gateway import LLMGateway
 from hikeall.numfmt import Lang
@@ -92,6 +93,8 @@ Datum geschrieben steht), start_time (HH:MM, nur wenn eine Uhrzeit geschrieben s
 Unterkunftswünsche ohne Tag (Halbpension, Sauna …) als wishes.
 - "Tag 3 kürzer/länger" (Änderung eines Mehrtagesplans): intent change, day_change_day (3), \
 day_change_direction (shorter oder longer).
+- weather_wish: fine (schönes/gutes Wetter, sonnig), dry (trocken, kein Regen) oder snow \
+(Schnee, wenn es schneit); nur setzen, wenn die Person es geschrieben hat.
 - activity: hike oder run; nur setzen, wenn die Person Laufen/Joggen oder Wandern erwähnt.
 - start_text: Ort oder Gegend genau so, wie die Person ihn nennt (nicht korrigieren, nicht raten).
 - Bedingungen (nur setzen, wenn genannt): roundtrip (true für Rundweg, false für Streckentour), \
@@ -164,6 +167,8 @@ _T = {
         "shorter": "kürzer",
         "longer": "länger",
         "day_change": "Tag {n} {word}",
+        "weather_echo": "Wetter: {w}",
+        "weather": {"fine": "schön", "dry": "trocken", "snow": "Schnee"},
         "min": "mindestens {v} {unit}",
         "max": "höchstens {v} {unit}",
         "kinds": {
@@ -250,6 +255,8 @@ _T = {
         "shorter": "shorter",
         "longer": "longer",
         "day_change": "day {n} {word}",
+        "weather_echo": "weather: {w}",
+        "weather": {"fine": "fine", "dry": "dry", "snow": "snow"},
         "min": "at least {v} {unit}",
         "max": "at most {v} {unit}",
         "kinds": {
@@ -396,6 +403,8 @@ def resolve(
     if pace is not None and pace <= 0:
         unmatched.append(_invalid(t["pace_word"], pace, lang))
         pace = None
+    wish, wish_dropped = _weather_wish(raw, message)
+    discarded += wish_dropped
     unmatched = list(dict.fromkeys(unmatched))
     delta = HikeRequest(
         intent=raw.intent,
@@ -414,6 +423,7 @@ def resolve(
         trail_id=trail[0].rule.trail_id if trail and isinstance(trail[0].rule, LongTrail) else None,
         trail_assumed=bool(trail and trail[1]),
         day_change=day_change,
+        weather_wish=wish,
         discarded_model_numbers=discarded,
         **multi,
     )
@@ -422,6 +432,8 @@ def resolve(
         delta.unmatched += [vocab.label(p.tag_id, lang) for p in overflow]
 
     req = _merge(previous, delta, raw.activity, vocab, lang) if is_change and previous else delta
+    if _ANY_WEATHER.search(_plain(message)):  # "egal welches Wetter" clears the wish
+        req = req.model_copy(update={"weather_wish": None})
     if wants_tour:
         req = _finish(req, vocab)
         if req.activity == "run" and _needs_pace(req):
@@ -658,6 +670,33 @@ def _approx(kind: str, value: float) -> Constraint:
     return Constraint(kind=kind, min=lo, max=hi, approx=value)
 
 
+# weather words of both languages, whatever the reply language is (checked on the plain message)
+_WEATHER_WORDS: dict[str, re.Pattern[str]] = {
+    "fine": re.compile(
+        r"\b(?:schon(?:e[sm]?|er|en)?\s+wetter|gut(?:e[sm]?|er|en)?\s+wetter|sonnig\w*|sonne"
+        r"|(?:nice|fine|good|sunny)\s+weather|sunshine|sunny)\b"
+    ),
+    "dry": re.compile(
+        r"\b(?:trocken\w*|kein(?:en)?\s+regen|ohne\s+regen|dry|no\s+rain|without\s+rain)\b"
+    ),
+    "snow": re.compile(r"\b(?:\w*schnee\w*|schneit|verschneit\w*|snow|snowy|when\s+it\s+snows)\b"),
+}
+_ANY_WEATHER = re.compile(
+    r"\begal\s+(?:welches|wie\s+das)\s+wetter\b|\bwetter\s+(?:ist\s+)?egal\b"
+    r"|\bany\s+weather\b|\bregardless\s+of\s+(?:the\s+)?weather\b"
+    r"|\bweather\s+(?:doesn'?t|does\s+not)\s+matter\b"
+)
+
+
+def _weather_wish(raw: RawRequest, message: str) -> tuple[WeatherWish | None, int]:
+    """The model's weather wish if the message has a matching word; else dropped (counted)."""
+    if raw.weather_wish is None:
+        return None, 0
+    if _WEATHER_WORDS[raw.weather_wish].search(_plain(message)):
+        return raw.weather_wish, 0
+    return None, 1
+
+
 def _merge(
     previous: HikeRequest,
     delta: HikeRequest,
@@ -702,6 +741,7 @@ def _merge(
         start_date=delta.start_date or previous.start_date,
         start_time=delta.start_time or previous.start_time,
         day_change=delta.day_change,
+        weather_wish=delta.weather_wish or previous.weather_wish,
         discarded_model_numbers=delta.discarded_model_numbers,
     )
 
@@ -1031,6 +1071,8 @@ def echo(req: HikeRequest, vocab: TagVocabulary, lang: Lang = "de") -> str:
         else:
             prefix, unit = t["labels"][c.kind]
             parts.append(_range(c, unit, prefix, lang))
+    if req.weather_wish is not None:
+        parts.append(t["weather_echo"].format(w=t["weather"][req.weather_wish]))
     if req.pace_min_per_km is not None:
         parts.append(t["pace_echo"].format(v=_num(req.pace_min_per_km, lang)))
     text = t["understood"] + ", ".join(parts)
