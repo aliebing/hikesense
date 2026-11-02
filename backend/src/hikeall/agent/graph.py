@@ -55,40 +55,17 @@ from hikeall.agent.multiday import (
 )
 from hikeall.agent.prompts import (
     ANSWER_SYSTEM,
-    CLAIM_ONLY_TOURS,
-    CLARIFY_START,
-    CONTRADICTION_HINT,
-    DAY_UNKNOWN,
-    ERROR_BUDGET,
-    ERROR_UNAVAILABLE,
-    EVENTS_FOUND,
-    EVENTS_NONE,
-    EVENTS_NOTE,
-    EVENTS_SEARCH_DOWN,
-    EVENTS_SKIPPED,
-    GROUP_AUTO,
-    GROUP_HAND,
-    GROUPS_CHECK_ALL,
-    GROUPS_CHECK_MIXED,
-    GROUPS_FOUND,
-    GROUPS_NO_COORDS,
-    GROUPS_NONE,
-    GROUPS_STALE,
-    LEAK_REPLY,
-    NO_PLAN_AT_START,
-    NO_PLAN_TO_CHANGE,
-    NO_SOURCE_REPLY,
-    NO_TOURS_HINT,
+    ANSWER_SYSTEM_EN,
     PLAN_SYSTEM,
+    PLAN_SYSTEM_EN,
     REACT_SYSTEM,
-    REACT_TOURS,
-    TOOL_ERROR,
-    TOOL_LIMIT,
-    TOOL_UNKNOWN,
-    TRAIL_NOT_FOUND,
+    REACT_SYSTEM_EN,
+    answer_system,
+    plan_system,
+    react_system,
 )
 from hikeall.agent.request import MAX_DAYS, Clarify, Constraint, HikeRequest, RawRequest
-from hikeall.agent.texts import Lang, texts
+from hikeall.agent.texts import Lang, Texts, texts
 from hikeall.agent.tools import (
     DEFAULT_GROUP_RADIUS_KM,
     TOOL_SPECS,
@@ -105,10 +82,10 @@ from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
 from hikeall.agent.weather import NoForecast, is_rain_day
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
-from hikeall.guard import INJECTION_REPLY, leaks_system_prompt, looks_like_injection, sanitize_text
+from hikeall.guard import leaks_system_prompt, looks_like_injection, sanitize_text
 from hikeall.llm.gateway import LLMGateway
 from hikeall.llm.usage import BudgetExceeded, LLMError, LLMUsage, metered
-from hikeall.numfmt import de
+from hikeall.numfmt import de, fmt
 from hikeall.tags.vocabulary import TagVocabulary, fold
 from hikeall.trace import Trace, TracedTools, traced
 
@@ -135,7 +112,15 @@ __all__ = [
 ]
 
 TOUR_INTENTS = ("day_hike", "change")
-_PROMPTS = (ANSWER_SYSTEM, PLAN_SYSTEM, REACT_SYSTEM, UNDERSTAND_SYSTEM)
+_PROMPTS = (
+    ANSWER_SYSTEM,
+    PLAN_SYSTEM,
+    REACT_SYSTEM,
+    ANSWER_SYSTEM_EN,
+    PLAN_SYSTEM_EN,
+    REACT_SYSTEM_EN,
+    UNDERSTAND_SYSTEM,
+)
 _CHUNK = re.compile(r"\S+\s*|\s+")
 _RAIN_ASK = re.compile(r"regen\s?variante", re.IGNORECASE)
 _RAIN_DAYS = re.compile(
@@ -154,14 +139,153 @@ _GROUP_KINDS = (  # words in the message -> kind filter (first hit wins)
     (re.compile(r"alpenverein|\bdav\b", re.IGNORECASE), "alpenverein"),
     (re.compile(r"schwarzwaldverein|wanderverein|wandergruppe", re.IGNORECASE), "wanderverein"),
 )
-_GROUP_KIND_WORD = {"lauftreff": " (Lauftreff)", "alpenverein": " (Alpenverein)", "wanderverein": " (Wanderverein)"}
-_WEEKDAY = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+_WEEKDAY = {
+    "de": ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"),
+    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+}
+_DATE_FMT = {"de": "%d.%m.%Y", "en": "%d/%m/%Y"}
 _LABEL = {
-    "length_km": "Länge",
-    "ascent_m": "Höhenmeter",
-    "duration_h": "Dauer",
-    "radius_km": "Entfernung",
-    "roundtrip": "Rundweg",
+    "de": {
+        "length_km": "Länge",
+        "ascent_m": "Höhenmeter",
+        "duration_h": "Dauer",
+        "radius_km": "Entfernung",
+        "roundtrip": "Rundweg",
+    },
+    "en": {
+        "length_km": "length",
+        "ascent_m": "ascent",
+        "duration_h": "duration",
+        "radius_km": "distance",
+        "roundtrip": "round walk",
+    },
+}
+# labels of the facts the model gets (_search_data, _plan_data), in the language of the answer
+_D = {
+    "de": {
+        "fallback_head": "Ausweichtouren (je genau eine Bedingung verletzt):",
+        "match_head": "Passende Touren (nach Vorlieben sortiert):",
+        "time_run": "Laufzeit",
+        "time_walk": "Gehzeit",
+        "length": "Länge {v} km",
+        "length_unknown": "Länge unbekannt",
+        "ascent": "Anstieg {v} Hm",
+        "ascent_unknown": "Anstieg unbekannt",
+        "time": "{word} {v} h",
+        "time_none": "Zeit: keine Angabe",
+        "distance": "Entfernung zum Start {v} km",
+        "conditions": "Bedingungen",
+        "met": "Vorlieben erfüllt",
+        "missing": "Vorlieben fehlen",
+        "avoided": "enthält Gemiedenes",
+        "unmatched": "Nicht prüfbar",
+        "ok": "{label} erfüllt",
+        "unknown": "{label} unbekannt (nicht prüfbar)",
+        "fail": "{label} nicht erfüllt: {dev}",
+        "no_coords_place": "diesem Ort",
+        "no_contra": "Keine Tour erfüllt alle Wünsche, weil {contra}",
+        "near": "Knapp daneben",
+        "day": "Tag",
+        "days_one": "Tag {a}",
+        "days_range": "Tag {a}–{b}",
+        "days_list": "Tag {head} und {last}",
+        "weather": "Wetter",
+        "weather_nodate": "ohne Datum keine Vorhersage",
+        "all_times": "Alle Zeiten ohne Pausen (Gehzeit nach DIN 33466)",
+        "no_forecast_asked": "Für {days} keine Vorhersage abgefragt",
+        "no_rain_calc": "Für {days} keine Regenvariante berechnet",
+        "clock": "{t:%H:%M} Uhr",
+        "no_forecast": "keine Vorhersage",
+        "weather_unknown": "Wetterlage unbekannt",
+        "temp": "{a} bis {b} °C",
+        "precip": "Niederschlag {v} mm",
+        "precip_unknown": "Niederschlag unbekannt",
+        "rain_prob": "Regenwahrscheinlichkeit {v} %",
+        "access": " (davon Zuweg {v} km Luftlinie)",
+        "d_ascent": "Anstieg {v} Hm",
+        "d_descent": "Abstieg {v} Hm",
+        "d_time": "Gehzeit {v} h",
+        "d_start": "Start {c}",
+        "d_arrival": "Ankunft {c}",
+        "d_arrival_none": "Ankunft: keine (siehe Hinweis)",
+        "stop": "; Ziel: {name}, {dist} m vom Weg",
+        "stop_noname": "Unterkunft ohne Namen",
+        "stop_end": "; Ziel: Wegende",
+        "gap": "; Lücke (steht schon im Hinweis): {gap}",
+        "rain_variant": (
+            "; Regenvariante: bis {station}, {km} km, {asc} Hm, Gehzeit {h} h – {note}"
+        ),
+        "rain_none": "; Regenvariante: {note}",
+        "plan_head": "Mehrtagesplan {trail}",
+        "plan_from": " ab {start}",
+        "plan_tail": ", {n} Tag(e), Tagesziel {km} km:",
+        "plan_notes": "Hinweise (schreibt das Programm schon davor, nicht wiederholen):",
+        "question": "Frage: {q}\nWerkzeug-Ergebnisse:\n",
+        "as_of": "Stand: {d}",
+        "unit_hm": "Hm",
+    },
+    "en": {
+        "fallback_head": "Fallback tours (each violates exactly one condition):",
+        "match_head": "Matching tours (sorted by preferences):",
+        "time_run": "running time",
+        "time_walk": "walking time",
+        "length": "length {v} km",
+        "length_unknown": "length unknown",
+        "ascent": "ascent {v} m",
+        "ascent_unknown": "ascent unknown",
+        "time": "{word} {v} h",
+        "time_none": "time: not stated",
+        "distance": "distance to the start {v} km",
+        "conditions": "conditions",
+        "met": "preferences met",
+        "missing": "preferences missing",
+        "avoided": "contains avoided features",
+        "unmatched": "Cannot be checked",
+        "ok": "{label} met",
+        "unknown": "{label} unknown (cannot be checked)",
+        "fail": "{label} not met: {dev}",
+        "no_coords_place": "this place",
+        "no_contra": "No tour meets all your wishes, because {contra}",
+        "near": "Near miss",
+        "day": "Day",
+        "days_one": "Day {a}",
+        "days_range": "Day {a}–{b}",
+        "days_list": "Day {head} and {last}",
+        "weather": "Weather",
+        "weather_nodate": "no forecast without a date",
+        "all_times": "All times without breaks (walking time per DIN 33466)",
+        "no_forecast_asked": "No forecast requested for {days}",
+        "no_rain_calc": "No rain variant calculated for {days}",
+        "clock": "{t:%H:%M}",
+        "no_forecast": "no forecast",
+        "weather_unknown": "weather unknown",
+        "temp": "{a} to {b} °C",
+        "precip": "precipitation {v} mm",
+        "precip_unknown": "precipitation unknown",
+        "rain_prob": "chance of rain {v} %",
+        "access": " (of which access path {v} km as the crow flies)",
+        "d_ascent": "ascent {v} m",
+        "d_descent": "descent {v} m",
+        "d_time": "walking time {v} h",
+        "d_start": "start {c}",
+        "d_arrival": "arrival {c}",
+        "d_arrival_none": "arrival: none (see note)",
+        "stop": "; destination: {name}, {dist} m from the trail",
+        "stop_noname": "unnamed accommodation",
+        "stop_end": "; destination: end of the trail",
+        "gap": "; gap (already in the note): {gap}",
+        "rain_variant": (
+            "; rain variant: to {station}, {km} km, {asc} m ascent, walking time {h} h – {note}"
+        ),
+        "rain_none": "; rain variant: {note}",
+        "plan_head": "Multi-day plan {trail}",
+        "plan_from": " from {start}",
+        "plan_tail": ", {n} day(s), daily target {km} km:",
+        "plan_notes": "Notes (the program already writes these before your answer, do not repeat them):",
+        "question": "Question: {q}\nTool results:\n",
+        "as_of": "As of {d}",
+        "unit_hm": "m",
+    },
 }
 
 
@@ -385,11 +509,12 @@ def _card(s: Scored, area: bool, near_miss: bool = False) -> TourCard:
     )
 
 
-def _near_sentence(near: list[TourCard]) -> str | None:
+def _near_sentence(near: list[TourCard], lang: Lang = "de") -> str | None:
     """Code-written sentence for the near misses; never given to the model."""
     if not near:
         return None
-    return "Knapp daneben: " + "; ".join(f"{c.name} ({c.deviation_text})" for c in near) + "."
+    head = _D[lang]["near"]
+    return f"{head}: " + "; ".join(f"{c.name} ({c.deviation_text})" for c in near) + "."
 
 
 def _labels(vocab: TagVocabulary, tag_ids: list[str]) -> dict[str, str]:
@@ -407,51 +532,59 @@ def _as_float(r: ConstraintResult) -> ConstraintResult:
     return r
 
 
-def _result_text(r: ConstraintResult) -> str:
+def _result_text(r: ConstraintResult, lang: Lang = "de") -> str:
+    d = _D[lang]
+    label = _LABEL[lang][r.kind]
     if r.ok is True:
-        return f"{_LABEL[r.kind]} erfüllt"
+        return d["ok"].format(label=label)
     if r.ok is None:
-        return f"{_LABEL[r.kind]} unbekannt (nicht prüfbar)"
-    return f"{_LABEL[r.kind]} nicht erfüllt: {format_deviation(r)}"
+        return d["unknown"].format(label=label)
+    return d["fail"].format(label=label, dev=format_deviation(r))
 
 
 def _search_data(
-    req: HikeRequest, cards: list[TourCard], fallback: bool, vocab: TagVocabulary
+    req: HikeRequest,
+    cards: list[TourCard],
+    fallback: bool,
+    vocab: TagVocabulary,
+    lang: Lang = "de",
 ) -> str:
+    d = _D[lang]
+
     def label(tag_id: str) -> str:
         tag = vocab.get(tag_id)
         return tag.label if tag else tag_id
 
     lines = [echo(req, vocab)]
-    lines.append(
-        "Ausweichtouren (je genau eine Bedingung verletzt):"
-        if fallback
-        else "Passende Touren (nach Vorlieben sortiert):"
-    )
-    time_word = "Laufzeit" if req.activity == "run" else "Gehzeit"
+    lines.append(d["fallback_head"] if fallback else d["match_head"])
+    time_word = d["time_run"] if req.activity == "run" else d["time_walk"]
     for i, card in enumerate(cards, start=1):
         facts = [
-            f"Länge {_de(card.length_km)} km" if card.length_km is not None else "Länge unbekannt",
-            f"Anstieg {card.ascent_m} Hm" if card.ascent_m is not None else "Anstieg unbekannt",
-            f"{time_word} {_de(card.duration_h)} h"
+            d["length"].format(v=fmt(card.length_km, lang))
+            if card.length_km is not None
+            else d["length_unknown"],
+            d["ascent"].format(v=fmt(card.ascent_m, lang, 0))
+            if card.ascent_m is not None
+            else d["ascent_unknown"],
+            d["time"].format(word=time_word, v=fmt(card.duration_h, lang))
             if card.duration_h is not None
-            else "Zeit: keine Angabe",
+            else d["time_none"],
         ]
         if card.distance_km is not None:  # area start: the tour lies in the area
-            facts.append(f"Entfernung zum Start {_de(card.distance_km)} km")
-        line = f"{i}. {card.name} – {', '.join(facts)}; Bedingungen: " + "; ".join(
-            _result_text(r) for r in card.results
+            facts.append(d["distance"].format(v=fmt(card.distance_km, lang)))
+        line = f"{i}. {card.name} – {', '.join(facts)}; {d['conditions']}: " + "; ".join(
+            _result_text(r, lang) for r in card.results
         )
         p = card.preference
         if p.met:
-            line += "; Vorlieben erfüllt: " + ", ".join(label(t) for t in p.met)
+            line += f"; {d['met']}: " + ", ".join(label(t) for t in p.met)
         if p.missing:
-            line += "; Vorlieben fehlen: " + ", ".join(label(t) for t in p.missing)
+            line += f"; {d['missing']}: " + ", ".join(label(t) for t in p.missing)
         if p.avoided_hit:
-            line += "; enthält Gemiedenes: " + ", ".join(label(t) for t in p.avoided_hit)
+            line += f"; {d['avoided']}: " + ", ".join(label(t) for t in p.avoided_hit)
         lines.append(line)
     if req.unmatched:
-        lines.append("Nicht prüfbar: " + ", ".join(req.unmatched))
+        lines.append(f"{d['unmatched']}: " + ", ".join(req.unmatched))
     return "\n".join(lines)
 
 
@@ -495,85 +628,103 @@ def _plan_prefix(
     weather: dict[int, DayWeather | NoForecast],
     rain: dict[int, RainVariant | None],
     lead: list[str] | None = None,
+    lang: Lang = "de",
 ) -> str:
     """What the code says before the model: gaps, access paths, trail end, missing forecasts,
     missing rain variants and that times are without breaks (spec §8)."""
+    d = _D[lang]
     lines = list(lead or [])
-    lines += [f"Tag {d.day}: {d.gap}" for d in plan.days if d.gap]
+    lines += [f"{d['day']} {p.day}: {p.gap}" for p in plan.days if p.gap]
     lines += plan.notes
     if plan.days and plan.days[0].date is None:
-        lines.append("Wetter: ohne Datum keine Vorhersage")
+        lines.append(f"{d['weather']}: {d['weather_nodate']}")
     missing = {n: w.reason for n, w in weather.items() if isinstance(w, NoForecast)}
     if missing and len(missing) == len(weather) and len(set(missing.values())) == 1:
-        lines.append(f"Wetter: {next(iter(missing.values()))}")
+        lines.append(f"{d['weather']}: {next(iter(missing.values()))}")
     else:
-        lines += [f"Tag {n}: {reason}" for n, reason in missing.items()]
-    lines += [f"Tag {n}: {NO_RAIN_VARIANT}" for n, v in rain.items() if v is None]
+        lines += [f"{d['day']} {n}: {reason}" for n, reason in missing.items()]
+    lines += [f"{d['day']} {n}: {NO_RAIN_VARIANT}" for n, v in rain.items() if v is None]
     if plan.days:
-        lines.append("Alle Zeiten ohne Pausen (Gehzeit nach DIN 33466)")
+        lines.append(d["all_times"])
     return "\n".join(dict.fromkeys(_sentence(x) for x in lines))
 
 
-def _days_text(days: list[int]) -> str:
+def _days_text(days: list[int], lang: Lang = "de") -> str:
     """ "Tag 3", "Tag 1–4" (consecutive), "Tag 1, 3 und 5"."""
+    d = _D[lang]
     if len(days) == 1:
-        return f"Tag {days[0]}"
+        return d["days_one"].format(a=days[0])
     if days == list(range(days[0], days[-1] + 1)):
-        return f"Tag {days[0]}–{days[-1]}"
-    return "Tag " + ", ".join(map(str, days[:-1])) + f" und {days[-1]}"
+        return d["days_range"].format(a=days[0], b=days[-1])
+    return d["days_list"].format(head=", ".join(map(str, days[:-1])), last=days[-1])
 
 
-def _clock(t: Any) -> str:
-    return f"{t:%H:%M} Uhr"
+def _clock(t: Any, lang: Lang = "de") -> str:
+    return _D[lang]["clock"].format(t=t)
 
 
-def _weather_text(w: DayWeather | NoForecast | None) -> str | None:
+def _weather_text(w: DayWeather | NoForecast | None, lang: Lang = "de") -> str | None:
+    d = _D[lang]
     if w is None:
         return None
     if isinstance(w, NoForecast):
-        return "keine Vorhersage"
-    parts = [w.text or "Wetterlage unbekannt"]
+        return d["no_forecast"]
+    parts = [w.text or d["weather_unknown"]]
     if w.t_min_c is not None and w.t_max_c is not None:
-        parts.append(f"{_de(w.t_min_c)} bis {_de(w.t_max_c)} °C")
+        parts.append(d["temp"].format(a=fmt(w.t_min_c, lang), b=fmt(w.t_max_c, lang)))
     parts.append(
-        f"Niederschlag {_de(w.precip_mm)} mm" if w.precip_mm is not None else "Niederschlag unbekannt"
+        d["precip"].format(v=fmt(w.precip_mm, lang))
+        if w.precip_mm is not None
+        else d["precip_unknown"]
     )
     if w.precip_prob_pct is not None:
-        parts.append(f"Regenwahrscheinlichkeit {_de(w.precip_prob_pct, 0)} %")
+        parts.append(d["rain_prob"].format(v=fmt(w.precip_prob_pct, lang, 0)))
     return ", ".join(parts)
 
 
 def _day_line(
-    d: DayPlan, w: DayWeather | NoForecast | None, has_rain: bool, v: RainVariant | None
+    day: DayPlan,
+    w: DayWeather | NoForecast | None,
+    has_rain: bool,
+    v: RainVariant | None,
+    lang: Lang = "de",
 ) -> str:
-    when = f" ({_WEEKDAY[d.date.weekday()]}, {d.date:%d.%m.%Y})" if d.date else ""
+    d = _D[lang]
+    when = (
+        f" ({_WEEKDAY[lang][day.date.weekday()]}, {day.date.strftime(_DATE_FMT[lang])})"
+        if day.date
+        else ""
+    )
     facts = [
-        f"{_de(d.length_km)} km"
-        + (f" (davon Zuweg {_de(d.access_km, 2)} km Luftlinie)" if d.access_km else ""),
-        f"Anstieg {d.ascent_m} Hm",
-        f"Abstieg {d.descent_m} Hm",
-        f"Gehzeit {_de(d.duration_h)} h",
-        f"Start {_clock(d.start_time)}",
-        f"Ankunft {_clock(d.arrival)}" if d.arrival else "Ankunft: keine (siehe Hinweis)",
+        f"{fmt(day.length_km, lang)} km"
+        + (d["access"].format(v=fmt(day.access_km, lang, 2)) if day.access_km else ""),
+        d["d_ascent"].format(v=fmt(day.ascent_m, lang, 0)),
+        d["d_descent"].format(v=fmt(day.descent_m, lang, 0)),
+        d["d_time"].format(v=fmt(day.duration_h, lang)),
+        d["d_start"].format(c=_clock(day.start_time, lang)),
+        d["d_arrival"].format(c=_clock(day.arrival, lang)) if day.arrival else d["d_arrival_none"],
     ]
-    line = f"Tag {d.day}{when}: " + ", ".join(facts)
-    if d.stop is not None:
-        line += f"; Ziel: {d.stop.name or 'Unterkunft ohne Namen'}, {d.stop.dist_m} m vom Weg"
-        if d.stop.dist_m > NEAR_M:
+    line = f"{d['day']} {day.day}{when}: " + ", ".join(facts)
+    if day.stop is not None:
+        line += d["stop"].format(name=day.stop.name or d["stop_noname"], dist=day.stop.dist_m)
+        if day.stop.dist_m > NEAR_M:
             line += f" ({ACCESS_STRAIGHT})"
     else:
-        line += "; Ziel: Wegende"
-    if d.gap:
-        line += f"; Lücke (steht schon im Hinweis): {d.gap}"
-    weather = _weather_text(w)
-    line += f"; Wetter: {weather}" if weather else "; Wetter: ohne Datum keine Vorhersage"
+        line += d["stop_end"]
+    if day.gap:
+        line += d["gap"].format(gap=day.gap)
+    weather = _weather_text(w, lang)
+    line += f"; {d['weather']}: {weather}" if weather else f"; {d['weather']}: {d['weather_nodate']}"
     if has_rain and v is not None:
-        line += (
-            f"; Regenvariante: bis {v.station_name}, {_de(v.walk_km)} km, {v.ascent_m} Hm, "
-            f"Gehzeit {_de(v.duration_h)} h – {v.note}"
+        line += d["rain_variant"].format(
+            station=v.station_name,
+            km=fmt(v.walk_km, lang),
+            asc=fmt(v.ascent_m, lang, 0),
+            h=fmt(v.duration_h, lang),
+            note=v.note,
         )
     elif has_rain:
-        line += f"; Regenvariante: {NO_RAIN_VARIANT}"
+        line += d["rain_none"].format(note=NO_RAIN_VARIANT)
     return line
 
 
@@ -583,14 +734,18 @@ def _plan_data(
     weather: dict[int, DayWeather | NoForecast],
     rain: dict[int, RainVariant | None],
     prefix: str,
+    lang: Lang = "de",
 ) -> str:
-    head = f"Mehrtagesplan {plan.trail_name}"
+    d = _D[lang]
+    head = d["plan_head"].format(trail=plan.trail_name)
     if start:
-        head += f" ab {start}"
-    head += f", {len(plan.days)} Tag(e), Tagesziel {_de(plan.target_km)} km:"
+        head += d["plan_from"].format(start=start)
+    head += d["plan_tail"].format(n=len(plan.days), km=fmt(plan.target_km, lang))
     lines = [head]
-    lines += [_day_line(d, weather.get(d.day), d.day in rain, rain.get(d.day)) for d in plan.days]
-    lines.append("Hinweise (schreibt das Programm schon davor, nicht wiederholen):")
+    lines += [
+        _day_line(p, weather.get(p.day), p.day in rain, rain.get(p.day), lang) for p in plan.days
+    ]
+    lines.append(d["plan_notes"])
     lines.append(prefix)
     return "\n".join(lines)
 
@@ -600,6 +755,7 @@ def _plan_evidence(
     plan: MultidayPlan,
     weather: dict[int, DayWeather | NoForecast],
     rain: dict[int, RainVariant | None],
+    lang: Lang = "de",
 ) -> None:
     ev.add_name(plan.trail_name)
     ev.add(plan.target_km, "km")
@@ -609,9 +765,9 @@ def _plan_evidence(
         ev.add(d.ascent_m, "Hm")
         ev.add(d.descent_m, "Hm")
         ev.add(d.duration_h, "h")
-        ev.numbers.append(_clock(d.start_time))
+        ev.numbers.append(_clock(d.start_time, lang))
         if d.arrival is not None:
-            ev.numbers.append(_clock(d.arrival))
+            ev.numbers.append(_clock(d.arrival, lang))
         if d.stop is not None:
             ev.add_name(d.stop.name)
             ev.add(d.stop.dist_m, "m")
@@ -761,22 +917,24 @@ def _text(message: AIMessage) -> str:
     return "".join(parts).strip()
 
 
-def _events_text(found: EventsResult) -> str:
+def _events_text(found: EventsResult, lang: Lang = "de") -> str:
+    t = texts(lang)
+
     def pages(n: int) -> str:
-        return "Seite" if n == 1 else "Seiten"
+        return t.word_page if n == 1 else t.word_pages
 
     n, read = len(found.events), len(found.pages)
     if found.search_failed:
-        text = EVENTS_SEARCH_DOWN
+        text = t.events_search_down
     elif n:
-        noun = "Lauf" if n == 1 else "Läufe"
-        text = EVENTS_FOUND.format(n=n, noun=noun, pages=read, page_noun=pages(read))
+        noun = t.word_run if n == 1 else t.word_runs
+        text = t.events_found.format(n=n, noun=noun, pages=read, page_noun=pages(read))
     else:
-        text = EVENTS_NONE.format(pages=read, page_noun=pages(read))
+        text = t.events_none.format(pages=read, page_noun=pages(read))
     if found.skipped:
         reasons = "; ".join(dict.fromkeys(s.reason for s in found.skipped))
         k = len(found.skipped)
-        text += EVENTS_SKIPPED.format(n=k, page_noun=pages(k), reasons=reasons)
+        text += t.events_skipped.format(n=k, page_noun=pages(k), reasons=reasons)
     return text
 
 
@@ -795,7 +953,7 @@ def build_graph(deps: AgentDeps) -> Any:
                 "message": text,
                 "history": history,
                 "guard": "injection",
-                "reply": INJECTION_REPLY,
+                "reply": texts(state.get("lang", "de")).injection_reply,
                 "route": "reply",
             }
         return {"message": text, "history": history, "route": "understand"}
@@ -851,6 +1009,7 @@ def build_graph(deps: AgentDeps) -> Any:
 
     def understand(state: State) -> State:
         message = state["message"]
+        lang = state.get("lang", "de")
         previous = HikeRequest.model_validate(state["request"]) if state.get("request") else None
         rain_days = None if state.get("pending") else _rain_request(state)
         if rain_days:
@@ -873,7 +1032,7 @@ def build_graph(deps: AgentDeps) -> Any:
             out.update(intent=res.intent, activity=res.activity)
             out["discarded_numbers"] = res.discarded_model_numbers
             if res.intent in (*TOUR_INTENTS, "groups") and res.start is None:
-                res = Clarify(question=CLARIFY_START)
+                res = Clarify(question=texts(lang).clarify_start)
         if isinstance(res, Clarify):
             pending = {
                 "raw": raw.model_dump(mode="json"),
@@ -907,7 +1066,7 @@ def build_graph(deps: AgentDeps) -> Any:
             return out | {"route": "groups"}
         if req.intent == "events":
             return out | {"route": "events"}
-        return out | {"reply": texts(state.get("lang", "de")).other_reply, "route": "reply"}
+        return out | {"reply": texts(lang).other_reply, "route": "reply"}
 
     def clarify(state: State) -> State:
         c = state["clarify"] or {}
@@ -921,14 +1080,16 @@ def build_graph(deps: AgentDeps) -> Any:
         return {"final_text": state["reply"]}
 
     def search(state: State) -> State:
+        lang = state.get("lang", "de")
+        t = texts(lang)
         req = HikeRequest.model_validate(state["current"])
         ev = Evidence()
         _bound_evidence(ev, req.constraints)
         contra = contradiction(req.constraints)
         if contra:  # no search, no fallback tours
-            reason = f"Keine Tour erfüllt alle Wünsche, weil {contra}"
+            reason = _D[lang]["no_contra"].format(contra=contra)
             _emit(ResultsEvent(cards=[], fallback_reason=reason))
-            return {"reason": reason, "fixed": CONTRADICTION_HINT}
+            return {"reason": reason, "fixed": t.contradiction_hint}
         result = tools.search_day_hikes(req)
         sel = result.selection
         scored = sel.matches or sel.fallbacks
@@ -952,12 +1113,12 @@ def build_graph(deps: AgentDeps) -> Any:
             "reason": reason,
             "sources": _add_sources([], sources),
             "last_tours": [{"trail_id": c.trail_id, "name": c.name} for c in shown],
-            "near_sentence": _near_sentence(near_cards),
+            "near_sentence": _near_sentence(near_cards, lang),
             "candidates": candidate_rows(sel),
         }
         if not cards:
-            return out | {"fixed": NO_TOURS_HINT}
-        data = _search_data(req, cards, not sel.matches, vocab)
+            return out | {"fixed": t.no_tours_hint}
+        data = _search_data(req, cards, not sel.matches, vocab, lang)
         _card_evidence(ev, scored, area)
         ev.add(result.searched_radius_km, "km")
         ev.numbers.append(reason or "")
@@ -966,6 +1127,8 @@ def build_graph(deps: AgentDeps) -> Any:
         return out | {"data": data, "evidence": vars(ev)}
 
     def groups(state: State) -> State:
+        lang = state.get("lang", "de")
+        t = texts(lang)
         req = HikeRequest.model_validate(state["current"])
         start = req.start
         if start is not None and start.lat is not None and start.lon is not None:
@@ -973,45 +1136,56 @@ def build_graph(deps: AgentDeps) -> Any:
         elif start is not None and start.bbox is not None:  # an area: its centre
             lat, lon = (start.bbox.south + start.bbox.north) / 2, (start.bbox.west + start.bbox.east) / 2
         else:
-            return {"fixed": GROUPS_NO_COORDS.format(place=start.label if start else "diesem Ort")}
+            place = start.label if start else _D[lang]["no_coords_place"]
+            return {"fixed": t.groups_no_coords.format(place=place)}
         place = start.label
         text = f"{req.question or ''} {state['message']}"
         kind = next((k for rx, k in _GROUP_KINDS if rx.search(text)), None)
         found = tools.find_groups(lat, lon, DEFAULT_GROUP_RADIUS_KM, kind, deps.today())
-        radius = _de(DEFAULT_GROUP_RADIUS_KM)
+        radius = fmt(DEFAULT_GROUP_RADIUS_KM, lang)
         if not found:
-            body = GROUPS_NONE.format(
-                kind=_GROUP_KIND_WORD.get(kind or "", ""), radius=radius, place=place
-            )
+            kind_word = {
+                "lauftreff": t.kind_lauftreff,
+                "alpenverein": t.kind_alpenverein,
+                "wanderverein": t.kind_wanderverein,
+            }.get(kind or "", "")
+            body = t.groups_none.format(kind=kind_word, radius=radius, place=place)
             return {"tool_calls": 1, "fixed": body}
-        note = f"Stand: {min(g.checked_at for g in found):%d.%m.%Y}"
+        note = _D[lang]["as_of"].format(
+            d=min(g.checked_at for g in found).strftime(_DATE_FMT[lang])
+        )
         _emit(GroupsEvent(groups=found, checked_note=note))
         stale = sum(g.stale for g in found)
         hand = sum(g.status == "geprüft" for g in found)
         if hand == len(found):
-            check = GROUPS_CHECK_ALL.format(label=GROUP_HAND)
+            check = t.groups_check_all.format(label=t.group_hand)
         elif hand == 0:
-            check = GROUPS_CHECK_ALL.format(label=GROUP_AUTO)
+            check = t.groups_check_all.format(label=t.group_auto)
         else:
-            check = GROUPS_CHECK_MIXED.format(hand=hand, auto=len(found) - hand)
-        body = GROUPS_FOUND.format(
-            n=len(found), noun="Gruppe" if len(found) == 1 else "Gruppen",
+            check = t.groups_check_mixed.format(hand=hand, auto=len(found) - hand)
+        body = t.groups_found.format(
+            n=len(found), noun=t.word_group if len(found) == 1 else t.word_groups,
             radius=radius, place=place, note=note, check=check,
         )  # fmt: skip
         if stale:
-            body += GROUPS_STALE.format(n=stale, verb="ist" if stale == 1 else "sind")
+            body += t.groups_stale.format(
+                n=stale, verb=t.word_is if stale == 1 else t.word_are
+            )
         return {"tool_calls": 1, "fixed": body}
 
     def events(state: State) -> State:
         """Code-written answer (no model wording): the cards carry every value with its source."""
+        lang = state.get("lang", "de")
         req = HikeRequest.model_validate(state["current"])
         today = deps.today()
         found = tools.find_events(req.question or state["message"], today, settings.max_tool_calls)
-        note = EVENTS_NOTE.format(date=f"{today:%d.%m.%Y}")
+        note = texts(lang).events_note.format(date=today.strftime(_DATE_FMT[lang]))
         _emit(EventsEvent(events=found.events, fallback=found.fallback, note=note))
-        return {"tool_calls": found.calls, "fixed": _events_text(found)}
+        return {"tool_calls": found.calls, "fixed": _events_text(found, lang)}
 
     def multiday(state: State) -> State:
+        lang = state.get("lang", "de")
+        t = texts(lang)
         req = HikeRequest.model_validate(state["current"])
         stored = MultidayPlan.model_validate(state["plan"]) if state.get("plan") else None
         plan_req = state.get("plan_request")
@@ -1028,15 +1202,15 @@ def build_graph(deps: AgentDeps) -> Any:
             plan = stored
             unknown = [n for n in rain_days if not 1 <= n <= len(plan.days)]
             rain_days = [n for n in rain_days if n not in unknown]
-            lead = [DAY_UNKNOWN.format(n=len(plan.days), day=n) for n in unknown]
+            lead = [t.day_unknown.format(n=len(plan.days), day=n) for n in unknown]
             if not rain_days:
                 return {"fixed": " ".join(lead)}
         elif req.day_change is not None:
             if stored is None:
-                return {"fixed": NO_PLAN_TO_CHANGE}
+                return {"fixed": t.no_plan_to_change}
             if not 1 <= req.day_change.day <= len(stored.days):
                 # the plan can be shorter than asked for (trail end, dead end)
-                return {"fixed": DAY_UNKNOWN.format(n=len(stored.days), day=req.day_change.day)}
+                return {"fixed": t.day_unknown.format(n=len(stored.days), day=req.day_change.day)}
             plan, calls = tools.change_day(stored, req.day_change, start_name=start), 1
         else:
             try:
@@ -1044,7 +1218,9 @@ def build_graph(deps: AgentDeps) -> Any:
             except StartNotOnTrail:
                 tag = vocab.get(f"trail:{req.trail_id}")
                 trail = tag.label if tag else str(req.trail_id)
-                text = NO_PLAN_AT_START.format(start=start or "diesem Ort", trail=trail)
+                text = t.no_plan_at_start.format(
+                    start=start or _D[lang]["no_coords_place"], trail=trail
+                )
                 return {"tool_calls": 1, "plan": None, "plan_request": None, "fixed": text}
             out["plan_request"] = state["current"]
         weather: dict[int, DayWeather | NoForecast] = {}
@@ -1058,7 +1234,9 @@ def build_graph(deps: AgentDeps) -> Any:
             weather |= {d.day: w for d, w in zip(located, got, strict=True)}
             calls += 2
         elif dated:
-            lead.append(f"Für {_days_text([d.day for d in dated])} keine Vorhersage abgefragt")
+            lead.append(
+                _D[lang]["no_forecast_asked"].format(days=_days_text([d.day for d in dated], lang))
+            )
         wanted = [n for n, w in weather.items() if isinstance(w, DayWeather) and is_rain_day(w)]
         wanted = sorted({*wanted, *rain_days})
         rain: dict[int, RainVariant | None] = {}
@@ -1066,7 +1244,7 @@ def build_graph(deps: AgentDeps) -> Any:
             rain = tools.rain_variants(plan, wanted)
             calls += 1
         elif wanted:
-            lead.append(f"Für {_days_text(wanted)} keine Regenvariante berechnet")
+            lead.append(_D[lang]["no_rain_calc"].format(days=_days_text(wanted, lang)))
         _emit(
             PlanEvent(
                 plan=plan,
@@ -1082,7 +1260,7 @@ def build_graph(deps: AgentDeps) -> Any:
             sources.append(
                 SourceBrief(id=meteo.id, name=meteo.name, url=meteo.url, license=meteo.license)
             )
-        prefix = _plan_prefix(plan, weather, rain, lead)
+        prefix = _plan_prefix(plan, weather, rain, lead, lang)
         out |= {
             "plan": plan.model_dump(mode="json"),
             "tool_calls": calls,
@@ -1092,35 +1270,37 @@ def build_graph(deps: AgentDeps) -> Any:
         if not plan.days:  # only the dead-end note: nothing for the model to word
             return out
         ev = Evidence()
-        _plan_evidence(ev, plan, weather, rain)
+        _plan_evidence(ev, plan, weather, rain, lang)
         ev.numbers.append(prefix)
         if start:
             ev.add_name(start)
-        data = _plan_data(plan, start, weather, rain, prefix)
-        return out | {"data": data, "system": PLAN_SYSTEM, "evidence": vars(ev)}
+        data = _plan_data(plan, start, weather, rain, prefix, lang)
+        return out | {"data": data, "system": plan_system(lang), "evidence": vars(ev)}
 
     def react(state: State) -> State:
+        lang = state.get("lang", "de")
+        t = texts(lang)
         req = HikeRequest.model_validate(state["current"])
         question = req.question or state["message"]
         last_tours = state.get("last_tours") or []
-        messages: list[BaseMessage] = [SystemMessage(REACT_SYSTEM)]
+        messages: list[BaseMessage] = [SystemMessage(react_system(lang))]
         ev = Evidence()
         if last_tours:  # follow-up questions about suggested tours need their ids (I-8)
-            lines = [f"- {t['trail_id']}: {t['name']}" for t in last_tours]
-            messages.append(SystemMessage(REACT_TOURS + "\n" + "\n".join(lines)))
-            for t in last_tours:
-                ev.add_name(t["name"])
+            lines = [f"- {x['trail_id']}: {x['name']}" for x in last_tours]
+            messages.append(SystemMessage(t.react_tours + "\n" + "\n".join(lines)))
+            for x in last_tours:
+                ev.add_name(x["name"])
         messages.append(HumanMessage(question))
         sources: list[dict] = []
         results: list[str] = []
         # the knowledge index is searched in code first, so an answer can rest on a source (I-3)
         pre = {"name": "search_knowledge", "args": {"query": question, "k": 5}, "id": "vorab"}
-        content = _run_tool(pre, ev, results)
+        content = _run_tool(pre, ev, results, t)
         if content[1] is not None:
             sources = _add_sources(sources, _sources_of(content[1]))
         executed = 1
         if not sources and not last_tours:  # nothing to stand on: no model free-answer
-            return {"tool_calls": executed, "fixed": NO_SOURCE_REPLY}
+            return {"tool_calls": executed, "fixed": t.no_source_reply}
         messages += [
             AIMessage(content="", tool_calls=[pre | {"type": "tool_call"}]),
             ToolMessage(content[0], tool_call_id=pre["id"]),
@@ -1138,22 +1318,22 @@ def build_graph(deps: AgentDeps) -> Any:
             for call in ai.tool_calls:
                 if executed >= settings.max_tool_calls:
                     limit_hit = True
-                    messages.append(ToolMessage(TOOL_LIMIT, tool_call_id=call["id"]))
+                    messages.append(ToolMessage(t.tool_limit, tool_call_id=call["id"]))
                     continue
                 executed += 1
-                content = _run_tool(call, ev, results)
+                content = _run_tool(call, ev, results, t)
                 if content[1] is not None:
                     sources = _add_sources(sources, _sources_of(content[1]))
                 messages.append(ToolMessage(content[0], tool_call_id=call["id"]))
         out: State = {"tool_calls": executed, "evidence": vars(ev), "sources": sources}
         if not sources:  # the model answered without any sourced tool result
-            return {"tool_calls": executed, "fixed": NO_SOURCE_REPLY}
+            return {"tool_calls": executed, "fixed": t.no_source_reply}
         if draft:
             return out | {"draft": draft}
-        data = f"Frage: {question}\nWerkzeug-Ergebnisse:\n" + "\n".join(results)
+        data = _D[lang]["question"].format(q=question) + "\n".join(results)
         return out | {"data": data}
 
-    def _run_tool(call: dict, ev: Evidence, results: list[str]) -> tuple[str, Any]:
+    def _run_tool(call: dict, ev: Evidence, results: list[str], t: Texts) -> tuple[str, Any]:
         name = call["name"]
         args = call.get("args") or {}
         # a walking time counts as evidence only if its inputs are evidence themselves (I-8)
@@ -1163,11 +1343,11 @@ def build_graph(deps: AgentDeps) -> Any:
         except LLMError:
             raise
         except _UnknownTool:
-            return TOOL_UNKNOWN.format(name=name), None
+            return t.tool_unknown.format(name=name), None
         except Exception as exc:  # noqa: BLE001 - tool errors go back to the model, never abort
-            return TOOL_ERROR.format(name=name, kind=type(exc).__name__), None
+            return t.tool_error.format(name=name, kind=type(exc).__name__), None
         if result is None:
-            return TRAIL_NOT_FOUND, None
+            return t.trail_not_found, None
         dumped = _dump(result)
         if trusted:
             _walk(dumped, ev)
@@ -1178,20 +1358,23 @@ def build_graph(deps: AgentDeps) -> Any:
     def answer(state: State) -> State:
         if state.get("draft") or not state.get("data"):
             return {}
-        return {"draft": gw.answer(state.get("system") or ANSWER_SYSTEM, state["data"])}
+        return {"draft": gw.answer(
+                state.get("system") or answer_system(state.get("lang", "de")), state["data"]
+            )}
 
     def ground(state: State) -> State:
+        t = texts(state.get("lang", "de"))
         draft, out = state.get("draft"), {}
         reason = state.get("reason")
         body = state.get("fixed") or ""
         if draft and any(leaks_system_prompt(draft, p) for p in _PROMPTS):
-            body, out = LEAK_REPLY, {"guard": "leak"}
+            body, out = t.leak_reply, {"guard": "leak"}
         elif draft:
             claims = 0
             if not reason:  # the code did not fall back: no claim that no tour meets all wishes
                 draft, claims = strip_unsat_claims(draft)
                 if not draft and state.get("route") == "search":  # the cards are shown
-                    draft = CLAIM_ONLY_TOURS
+                    draft = t.claim_only_tours
             g = grounding_check(draft, Evidence(**state["evidence"]), deps.trail_names)
             # numbers are replaced; unknown tour names stay but get a hint (R21)
             body = g.text
@@ -1347,7 +1530,8 @@ def _run(
             _write_log(
                 deps.settings, request_id, state, usage, type(exc).__name__, user_hash, user_id, tr
             )
-            msg = ERROR_BUDGET if isinstance(exc, BudgetExceeded) else ERROR_UNAVAILABLE
+            t = texts(lang)
+            msg = t.error_budget if isinstance(exc, BudgetExceeded) else t.error_unavailable
             yield ErrorEvent(message=msg)
         except GeneratorExit:  # client went away: model cost may already be spent (best effort)
             if not logged:

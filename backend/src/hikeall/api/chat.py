@@ -23,14 +23,13 @@ from hikeall.adapters.page_fetch import safe_client
 from hikeall.adapters.web_search import OpenRouterWebSearch
 from hikeall.agent.events import EventFinder
 from hikeall.agent.graph import AgentDeps, ErrorEvent, run_chat
-from hikeall.agent.prompts import ERROR_UNAVAILABLE
-from hikeall.agent.texts import Lang
+from hikeall.agent.texts import Lang, texts
 from hikeall.agent.tools import DbTools
 from hikeall.api.auth import authenticate
 from hikeall.chatlog import ChatLogEntry
 from hikeall.config import Settings
 from hikeall.db import connect
-from hikeall.guard import RATE_LIMIT_REPLY, sanitize_text
+from hikeall.guard import sanitize_text
 from hikeall.knowledge.search import try_open
 from hikeall.llm.gateway import OpenRouterGateway
 from hikeall.rate_limit import RateLimiter
@@ -124,6 +123,19 @@ def _failure_log(
         log.exception("chat log write failed")
 
 
+async def _peek_lang(request: Request) -> Lang:
+    """The reply language of a request that is turned away before its body is validated: read
+    leniently (small bodies only); anything unclear means German."""
+    declared = request.headers.get("content-length", "")
+    if not declared.isdigit() or int(declared) > MAX_BODY_BYTES:
+        return "de"
+    try:
+        lang = json.loads(await request.body()).get("lang")
+    except (ValueError, AttributeError):
+        return "de"
+    return "en" if lang == "en" else "de"
+
+
 def make_router(
     settings: Settings, deps_factory: Callable[[], Any], limiter: RateLimiter
 ) -> APIRouter:
@@ -140,7 +152,7 @@ def make_router(
         except Exception as exc:
             log.exception("chat failed")
             _failure_log(settings, exc, user_hash, user_id, message)
-            yield _event(ErrorEvent(message=ERROR_UNAVAILABLE))
+            yield _event(ErrorEvent(message=texts(lang).error_unavailable))
 
     @router.post("/chat")
     async def chat(request: Request) -> EventSourceResponse:
@@ -149,7 +161,8 @@ def make_router(
             return user
         decision = limiter.acquire(user.user_id)  # before the graph, after the token check
         if not decision.allowed:
-            message = RATE_LIMIT_REPLY.format(s=decision.retry_after_s)
+            lang = await _peek_lang(request)
+            message = texts(lang).rate_limit_reply.format(s=decision.retry_after_s)
 
             async def limited() -> AsyncIterator[dict[str, str]]:
                 yield _event(ErrorEvent(message=message))

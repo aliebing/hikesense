@@ -51,6 +51,20 @@ class Texts:
     contradiction_hint: str
     no_source_reply: str
     react_tours: str
+    injection_reply: str
+    rate_limit_reply: str
+    # words the code puts into the placeholders of the events and groups sentences
+    word_run: str
+    word_runs: str
+    word_page: str
+    word_pages: str
+    word_group: str
+    word_groups: str
+    word_is: str
+    word_are: str
+    kind_lauftreff: str
+    kind_alpenverein: str
+    kind_wanderverein: str
 
 
 DE = Texts(
@@ -124,6 +138,22 @@ DE = Texts(
         "Zuletzt vorgeschlagene Touren in diesem Gespräch (trail_id: Name) – nutze die trail_id "
         "für get_trail_details und find_accommodation:"
     ),
+    injection_reply=(
+        "Dabei kann ich nicht helfen. Frag mich gern nach Wanderungen oder Laufrunden "
+        f"({REGION_NAMES})."
+    ),
+    rate_limit_reply="Zu viele Anfragen – bitte in {s} Sekunden noch einmal.",
+    word_run="Lauf",
+    word_runs="Läufe",
+    word_page="Seite",
+    word_pages="Seiten",
+    word_group="Gruppe",
+    word_groups="Gruppen",
+    word_is="ist",
+    word_are="sind",
+    kind_lauftreff=" (Lauftreff)",
+    kind_alpenverein=" (Alpenverein)",
+    kind_wanderverein=" (Wanderverein)",
 )
 
 EN = Texts(
@@ -194,6 +224,22 @@ EN = Texts(
         "Tours suggested most recently in this conversation (trail_id: name) – use the "
         "trail_id for get_trail_details and find_accommodation:"
     ),
+    injection_reply=(
+        "I can't help with that. Feel free to ask me about walks or round runs "
+        f"({REGION_NAMES_EN})."
+    ),
+    rate_limit_reply="Too many requests – please try again in {s} seconds.",
+    word_run="run",
+    word_runs="runs",
+    word_page="page",
+    word_pages="pages",
+    word_group="group",
+    word_groups="groups",
+    word_is="is",
+    word_are="are",
+    kind_lauftreff=" (running club)",
+    kind_alpenverein=" (Alpine Club)",
+    kind_wanderverein=" (hiking club)",
 )
 
 TEXTS: dict[str, Texts] = {"de": DE, "en": EN}

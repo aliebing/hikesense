@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import re
 
-from hikeall.regions import REGION_NAMES
+from hikeall.agent.texts import DE
 
-INJECTION_REPLY = (
-    "Dabei kann ich nicht helfen. Frag mich gern nach Wanderungen oder Laufrunden "
-    f"({REGION_NAMES})."
-)
-RATE_LIMIT_REPLY = "Zu viele Anfragen – bitte in {s} Sekunden noch einmal."
+INJECTION_REPLY = DE.injection_reply
+RATE_LIMIT_REPLY = DE.rate_limit_reply
 
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _INLINE_SPACE = re.compile(r"[ \t]+")
