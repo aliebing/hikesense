@@ -271,3 +271,39 @@ def test_parser_reads_snowfall(client):
     days = client.daily(47.9, 8.1, TODAY, date(2026, 11, 1))
     assert [d.snowfall_cm for d in days] == [0.0, 2.4, None]
     assert "snowfall_sum" in str(route.calls[0].request.url)
+
+
+def _series_fine(fine_offsets, n=15):
+    return [
+        DayWeather(date=TODAY + timedelta(days=i), code=0, precip_mm=0.0, precip_prob_pct=5)
+        if i in fine_offsets
+        else DayWeather(date=TODAY + timedelta(days=i), code=63, precip_mm=6.0, precip_prob_pct=90)
+        for i in range(n)
+    ]
+
+
+def test_best_windows_full_fits_first_then_earlier():
+    series = _series_fine({6, 7, 8, 12})
+    got = weather.best_windows([series, series], 2, "fine")
+    assert [(w.start, w.fits, w.days) for w in got[:3]] == [
+        (TODAY + timedelta(days=6), 2, 2),
+        (TODAY + timedelta(days=7), 2, 2),
+        (TODAY + timedelta(days=5), 1, 2),
+    ]
+    assert len(got) == 14  # starts today .. today+13: the second day stays inside the horizon
+
+
+def test_best_windows_use_the_point_of_each_day():
+    good_first = _series_fine({3})
+    good_second = _series_fine({4})
+    got = weather.best_windows([good_first, good_second], 2, "fine")
+    assert (got[0].start, got[0].fits) == (TODAY + timedelta(days=3), 2)
+
+
+def test_best_windows_unknown_does_not_fit_and_edge_cases():
+    unknown = [DayWeather(date=TODAY + timedelta(days=i)) for i in range(15)]
+    assert weather.best_windows([unknown], 1, "fine")[0].fits == 0
+    assert weather.best_windows([_series_fine({0})], 16, "fine") == []
+    assert weather.best_windows([], 2, "fine") == []
+    one_day = weather.best_windows([_series_fine({14})], 1, "fine")
+    assert len(one_day) == 15 and one_day[0].start == TODAY + timedelta(days=14)

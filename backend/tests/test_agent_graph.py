@@ -2161,3 +2161,109 @@ def test_weather_sentence_without_tours_follows_the_hint(vocab, settings):
     assert one(events, "weather_days").place == "Feldberg (Schwarzwald)"
     assert log_lines(settings)[-1]["weather_days"]["place"] == "Feldberg (Schwarzwald)"
     assert log_lines(settings)[-1]["tool_calls"] == 2
+
+
+# --- weather period for multi-day tours --------------------------------------------------------
+
+
+def _mx(vocab, settings, series, n=2, **raw_kw):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(days=n, **raw_kw)]},
+        answers=["Plan."],
+        tools=FakeTools(series=series, weather={w.date: w for w in series or []}),
+    )
+    return deps
+
+
+WX_MSG = "2 Tage Westweg ab Hausach bei schönem Wetter"
+
+
+def test_window_found_dates_the_plan_and_names_start_days(vocab, settings):
+    # TODAY is Fri 30.10.: offsets 6, 7, 8 are Thu 5.11., Fri 6.11., Sat 7.11.
+    deps = _mx(vocab, settings, _series({6, 7, 8}), weather_wish="fine")
+    events = run(deps, WX_MSG)
+    plan = one(events, "plan")
+    assert [d.date for d in plan.plan.days] == [date(2026, 11, 5), date(2026, 11, 6)]
+    assert sorted(plan.weather) == [1, 2] and all(isinstance(w, DayWeather) for w in plan.weather.values())
+    text = text_of(events)
+    assert ".." not in text
+    assert "(2 Tage): Do 5.11., Fr 6.11.; der Plan beginnt am Do 5.11." in text
+    assert text.rstrip().endswith("der Plan beginnt am Do 5.11.")
+    ev = one(events, "weather_days")
+    assert ev.wish == "fine" and not ev.best_only
+    assert [d.date for d in ev.days] == [date(2026, 11, 5), date(2026, 11, 6)]
+    calls = deps.tools.calls
+    assert calls["forecast_range"] == 1 and calls["day_end_points"] == 1
+    assert calls["weather_days"] == 1 and calls["plan_multiday"] == 1
+    assert len(deps.tools.range_points) == 2  # one point per day
+    assert log_lines(settings)[-1]["weather_days"]["best_only"] is False
+    assert one(events, "done").unsupported == 0
+
+
+def test_window_found_lists_at_most_three_starts(vocab, settings):
+    deps = _mx(vocab, settings, _series({6, 7, 8, 9, 10}), weather_wish="fine")
+    text = text_of(run(deps, WX_MSG))
+    assert "(2 Tage): Do 5.11., Fr 6.11., Sa 7.11." in text and "So 8.11." not in text
+
+
+def test_plan_is_dated_without_changing_anything_else(vocab, settings):
+    series = _series({6, 7})
+    undated = one(run(make(vocab, settings, structured={RawRequest: [westweg_raw(days=2)]},
+                           answers=["Plan."]), "2 Tage Westweg ab Hausach"), "plan").plan
+    dated = one(run(_mx(vocab, settings, series, weather_wish="fine"), WX_MSG), "plan").plan
+    strip = lambda p: [d.model_copy(update={"date": None}) for d in p.days]
+    assert strip(dated) == strip(undated)
+    assert dated.notes == undated.notes and dated.lang == undated.lang
+
+
+def test_no_full_window_is_honest_and_the_plan_stays_undated(vocab, settings):
+    # fine on offsets 6 and 10 only: the best windows fit 1 of 2 days, the earliest starts Wed 4.11.
+    deps = _mx(vocab, settings, _series({6, 10}), weather_wish="fine")
+    events = run(deps, WX_MSG)
+    plan = one(events, "plan")
+    assert all(d.date is None for d in plan.plan.days) and plan.weather == {}
+    text = text_of(events)
+    assert "höchstens 1 von 2 Tagen passen, ab Mi 4.11." in text
+    ev = one(events, "weather_days")
+    assert ev.best_only
+    assert deps.tools.calls["weather_days"] == 0 and deps.tools.calls["plan_multiday"] == 1
+
+
+def test_start_date_gets_a_check_sentence(vocab, settings):
+    deps = _mx(vocab, settings, _series({6, 7}), weather_wish="fine", start_date="2026-11-05")
+    events = run(deps, WX_MSG + " am 5.11.2026")
+    assert "Alle 2 Tage passen zu ‚schönes Wetter‘ bei den Tageszielen." in text_of(events)
+    assert deps.tools.calls["plan_multiday"] == 1 and deps.tools.calls["forecast_range"] == 1
+    deps = _mx(vocab, settings, _series({6}), weather_wish="fine", start_date="2026-11-05")
+    events = run(deps, WX_MSG + " am 5.11.2026")
+    assert "1 von 2 Tagen passen zu ‚schönes Wetter‘ bei den Tageszielen; nicht bestätigt: Tag 2." in text_of(events)
+    ev = one(events, "weather_days")
+    assert [d.match for d in ev.days] == [True, False]
+
+
+def test_window_forecast_unavailable_keeps_the_plan_undated(vocab, settings):
+    deps = _mx(vocab, settings, None, weather_wish="fine")
+    events = run(deps, WX_MSG)
+    assert all(d.date is None for d in one(events, "plan").plan.days)
+    assert "Wetter gerade nicht abrufbar." in text_of(events)
+
+
+def test_no_wish_leaves_multiday_as_before(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [westweg_raw(days=2)]}, answers=["Plan."],
+                tools=FakeTools(series=_series({6})))
+    events = run(deps, "2 Tage Westweg ab Hausach")
+    assert deps.tools.calls["forecast_range"] == 0 and "weather_days" not in types(events)
+    assert log_lines(settings)[-1]["weather_days"] is None
+
+
+def test_window_english(vocab, settings):
+    deps = _mx(vocab, settings, _series({6, 7, 8}), weather_wish="fine")
+    events = run_en(deps, "2 days Westweg from Hausach in fine weather")
+    text = text_of(events)
+    assert "Start dates that fit ‘fine weather’ at the day destinations (2 days): Thu 5 Nov, Fri 6 Nov; the plan starts on Thu 5 Nov." in text
+    assert one(events, "plan").plan.lang == "en"
+    deps = _mx(vocab, settings, _series({6, 10}), weather_wish="fine")
+    text = text_of(run_en(deps, "2 days Westweg from Hausach in fine weather"))
+    assert "at most 1 of 2 days fit, starting Wed 4 Nov." in text

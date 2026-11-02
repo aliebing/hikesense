@@ -16,6 +16,8 @@ __all__ = [
     "DayWeather",
     "NoForecast",
     "WeatherWish",
+    "Window",
+    "best_windows",
     "forecast_range",
     "is_rain_day",
     "localize",
@@ -214,3 +216,33 @@ def forecast_range(
                 _cache[(*locs[i], w.date)] = (t, w)
             result[i] = per_loc
     return [r or [] for r in result]
+
+
+@dataclass(frozen=True)
+class Window:
+    """A start date for a multi-day tour: `fits` of its `days` days fit the wish."""
+
+    start: date
+    fits: int
+    days: int
+
+
+def best_windows(per_day: list[list[DayWeather]], days: int, wish: WeatherWish) -> list[Window]:
+    """Start dates (today .. the last day the whole tour still lies inside the forecast horizon)
+    ranked by how many days fit: `per_day[i]` is the forecast series at the end point of day i,
+    day i is walked on start + i. Unknown values do not count as fitting. Most fits first, then
+    the earlier start."""
+    dates = [w.date for series in per_day for w in series]
+    if days < 1 or len(per_day) != days or not dates:
+        return []
+    first = min(dates)
+    by_date = [{w.date: w for w in series} for series in per_day]
+    windows: list[Window] = []
+    for offset in range(HORIZON_DAYS + 2 - days):
+        start = first + timedelta(days=offset)
+        fits = 0
+        for i, known in enumerate(by_date):
+            w = known.get(start + timedelta(days=i))
+            fits += w is not None and matches(w, wish) is True
+        windows.append(Window(start, fits, days))
+    return sorted(windows, key=lambda x: (-x.fits, x.start))

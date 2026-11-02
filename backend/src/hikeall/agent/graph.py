@@ -21,7 +21,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
-from datetime import date
+from datetime import date, timedelta
 from functools import cached_property
 from typing import Any, Literal, TypedDict
 
@@ -89,6 +89,8 @@ from hikeall.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
 from hikeall.agent.weather import (
     NoForecast,
     WeatherWish,
+    Window,
+    best_windows,
     is_rain_day,
     localize,
     matches,
@@ -766,6 +768,70 @@ def _find_weather_days(
     return event(days, best_only, note), f"{lead} {sentence}" if lead else sentence
 
 
+MAX_START_DAYS = 3  # start dates named when the whole tour fits
+
+
+def _weather_period(
+    plan: MultidayPlan,
+    per_day: list[list[DayWeather]],
+    wish: WeatherWish,
+    start_date: date | None,
+    lang: Lang = "de",
+) -> tuple[WeatherDaysEvent, str, date | None] | None:
+    """Weather period for a multi-day plan from the forecast at each day's destination
+    (`per_day[i]`: today..today+14). Without a start date: event and sentence, and the start date
+    to give the plan if one window fits all days. With one: does it fit? None: nothing to say."""
+    t = texts(lang)
+    wish_text, n = _wish_text(wish, lang), len(plan.days)
+    by_date = [{w.date: w for w in series} for series in per_day]
+
+    def window_days(start: date) -> list[WeatherDay]:
+        out = []
+        for i, known in enumerate(by_date):
+            w = known.get(start + timedelta(days=i))
+            if w is not None:
+                loc = localize(w, lang)
+                assert isinstance(loc, DayWeather)
+                out.append(WeatherDay(date=w.date, match=matches(w, wish), weather=loc))
+        return out
+
+    def event(days: list[WeatherDay], best_only: bool) -> WeatherDaysEvent:
+        return WeatherDaysEvent(
+            wish=wish, place=plan.trail_name, days=days, best_only=best_only
+        )
+
+    if start_date is not None:
+        days = window_days(start_date)
+        if not days:  # the plan's own prefix says there is no forecast
+            return None
+        fits = sum(d.match is True for d in days)
+        if fits == n:
+            return event(days, False), t.weather_window_all.format(n=n, wish=wish_text), None
+        known = {d.date for d in days if d.match is True}
+        misses = [
+            i + 1 for i in range(n) if start_date + timedelta(days=i) not in known
+        ]
+        sentence = t.weather_window_part.format(
+            fits=fits, n=n, wish=wish_text, days=_days_text(misses, lang)
+        )
+        return event(days, False), sentence, None
+    windows: list[Window] = best_windows(per_day, n, wish)
+    if not windows:
+        return None
+    full = [w for w in windows if w.fits == n]
+    if full:
+        starts = ", ".join(_short_date(w.start, lang) for w in full[:MAX_START_DAYS])
+        body = t.weather_window_found.format(
+            n=n, wish=wish_text, starts=starts, first=_short_date(full[0].start, lang)
+        )
+        return event(window_days(full[0].start), False), _sentence(body), full[0].start
+    best = windows[0]
+    body = t.weather_window_none.format(
+        n=n, wish=wish_text, fits=best.fits, start=_short_date(best.start, lang)
+    )
+    return event(window_days(best.start), True), _sentence(body), None
+
+
 def _weather_log(ev: WeatherDaysEvent) -> dict:
     return {
         "wish": ev.wish,
@@ -1412,6 +1478,8 @@ def build_graph(deps: AgentDeps) -> Any:
         calls = 0
         lead: list[str] = []
         out: State = {}
+        period: tuple[WeatherDaysEvent, str, date | None] | None = None
+        points: dict[int, tuple[float, float] | None] = {}
         if rain_days and stored is not None:
             plan = stored
             unknown = [n for n in rain_days if not 1 <= n <= len(plan.days)]
@@ -1437,16 +1505,50 @@ def build_graph(deps: AgentDeps) -> Any:
                 )
                 return {"tool_calls": 1, "plan": None, "plan_request": None, "fixed": text}
             out["plan_request"] = state["current"]
+            if req.weather_wish and plan.days and calls + 2 <= budget:
+                # the forecast at every day's destination decides the period; the lookup of
+                # the destinations is reused for the per-day weather below
+                points = tools.day_end_points(plan.trail_id, plan.days)
+                calls += 1
+                if all(points.get(d.day) for d in plan.days):
+                    got = tools.forecast_range([points[d.day] for d in plan.days], deps.today())
+                    calls += 1
+                    if isinstance(got, NoForecast):
+                        period = (
+                            WeatherDaysEvent(
+                                wish=req.weather_wish,
+                                place=plan.trail_name,
+                                days=[],
+                                best_only=False,
+                                note=t.weather_unavailable,
+                            ),
+                            t.weather_unavailable,
+                            None,
+                        )
+                    else:
+                        period = _weather_period(plan, got, req.weather_wish, req.start_date, lang)
+                if period is not None and period[2] is not None:
+                    # dates only: every other value of the plan is independent of the date
+                    first = period[2]
+                    plan = plan.model_copy(
+                        update={
+                            "days": [
+                                d.model_copy(update={"date": first + timedelta(days=i)})
+                                for i, d in enumerate(plan.days)
+                            ]
+                        }
+                    )
+        known_points = bool(points)
         weather: dict[int, DayWeather | NoForecast] = {}
         dated = [d for d in plan.days if d.date is not None]  # no date: said once in the prefix
-        if dated and calls + 2 <= budget:  # one DB lookup, one forecast request
-            points = tools.day_end_points(plan.trail_id, dated)
+        if dated and calls + (1 if known_points else 2) <= budget:  # destinations, one forecast request
+            points = points or tools.day_end_points(plan.trail_id, dated)
             located = [d for d in dated if points.get(d.day)]
             wanted_points = [(*points[d.day], d.date) for d in located]
             got = tools.weather_days(wanted_points, deps.today())
             weather = {d.day: no_forecast("no_place", lang) for d in dated}
             weather |= {d.day: localize(w, lang) for d, w in zip(located, got, strict=True)}
-            calls += 2
+            calls += 1 if known_points else 2
         elif dated:
             lead.append(
                 _D[lang]["no_forecast_asked"].format(days=_days_text([d.day for d in dated], lang))
@@ -1468,6 +1570,9 @@ def build_graph(deps: AgentDeps) -> Any:
                 start_name=start,
             )
         )
+        if period is not None:
+            _emit(period[0])
+            out |= {"weather_sentence": period[1], "weather_days": _weather_log(period[0])}
         sources = tools.sources([i for i in plan.source_ids if i != SOURCE_WEATHER])
         if any(isinstance(w, DayWeather) for w in weather.values()):
             meteo = weather_source()

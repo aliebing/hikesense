@@ -78,6 +78,11 @@ class Texts:
     weather_others: str
     weather_no_others: str
     weather_data: str
+    # multi-day weather window (code-written; {starts} are dates, {days} the plan's day numbers)
+    weather_window_found: str
+    weather_window_none: str
+    weather_window_all: str
+    weather_window_part: str
 
 
 DE = Texts(
@@ -183,6 +188,18 @@ DE = Texts(
     weather_others=" Weitere passende Tage: {days}.",
     weather_no_others=" In den nächsten 14 Tagen passt kein weiterer Tag.",
     weather_data="Wettervorhersage für „{wish}“ bei {place}, passende Tage: {days}",
+    weather_window_found=(
+        "Passende Starttage für ‚{wish}‘ bei den Tageszielen ({n} Tage): {starts}; "
+        "der Plan beginnt am {first}"
+    ),
+    weather_window_none=(
+        "In den nächsten 14 Tagen passt kein Starttag für alle {n} Tage zu ‚{wish}‘ bei den "
+        "Tageszielen; höchstens {fits} von {n} Tagen passen, ab {start}"
+    ),
+    weather_window_all="Alle {n} Tage passen zu ‚{wish}‘ bei den Tageszielen.",
+    weather_window_part=(
+        "{fits} von {n} Tagen passen zu ‚{wish}‘ bei den Tageszielen; nicht bestätigt: {days}."
+    ),
 )
 
 EN = Texts(
@@ -285,6 +302,18 @@ EN = Texts(
     weather_others=" Other days that fit: {days}.",
     weather_no_others=" No other day in the next 14 days fits.",
     weather_data="Weather forecast for “{wish}” near {place}, days that fit: {days}",
+    weather_window_found=(
+        "Start dates that fit ‘{wish}’ at the day destinations ({n} days): {starts}; "
+        "the plan starts on {first}"
+    ),
+    weather_window_none=(
+        "No start date in the next 14 days fits ‘{wish}’ at the day destinations on all {n} "
+        "days; at most {fits} of {n} days fit, starting {start}"
+    ),
+    weather_window_all="All {n} days fit ‘{wish}’ at the day destinations.",
+    weather_window_part=(
+        "{fits} of {n} days fit ‘{wish}’ at the day destinations; not confirmed: {days}."
+    ),
 )
 
 TEXTS: dict[str, Texts] = {"de": DE, "en": EN}
