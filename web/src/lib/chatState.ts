@@ -68,9 +68,6 @@ export function planSummary(p: PlanData, locale: Locale): string {
   return t.planDays(n);
 }
 
-/** German shorthand (usable as a reducer callback); see `reduceEventIn`. */
-export const reduceEvent = (s: ChatState, e: ChatEvent): ChatState => reduceEventIn(s, e, "de");
-
 /** `locale` only matters for the few texts the web app writes itself (the plan summary). */
 export function reduceEventIn(s: ChatState, e: ChatEvent, locale: Locale): ChatState {
   switch (e.type) {

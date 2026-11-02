@@ -121,7 +121,7 @@ Die Arbeit ist so aufgeteilt:
 
 ## Sprache
 
-Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen oben rechts (🇬🇧 / 🇩🇪) schalten um, ohne die Seite neu zu laden. Die Wahl steht im Cookie `hikeall.lang` und bleibt erhalten; ohne Wahl gilt Englisch. Server und Browser lesen dasselbe Cookie, damit die erste Anzeige schon in der richtigen Sprache kommt. Datum und Zahlen folgen der Sprache (`11.4 km` / `11,4 km`). Die Texte stehen in `web/src/i18n/en.ts` und `de.ts`; ein Test stellt sicher, dass beide Kataloge dieselben Schlüssel haben und kein Rahmentext fest im Code steht.
+Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen oben rechts (🇬🇧 / 🇩🇪) schalten um, ohne die Seite neu zu laden: Die Serverteile der Seite werden neu gerendert (Daten werden noch einmal geholt), die Karte behält ihren Ausschnitt. Die Wahl steht im Cookie `hikeall.lang` und bleibt erhalten; ohne Wahl gilt Englisch. Server und Browser lesen dasselbe Cookie, damit die erste Anzeige schon in der richtigen Sprache kommt. Datum und Zahlen folgen der Sprache (`11.4 km` / `11,4 km`). Die Texte stehen in `web/src/i18n/en.ts` und `de.ts`; ein Test stellt sicher, dass beide Kataloge dieselben Schlüssel haben und kein Rahmentext fest im Code steht (auch keine deutschen Umlaute in Zeichenketten außerhalb von `i18n/`).
 
 **Teil A (fertig):** alles, was die Web-App selbst schreibt: Menüs, Beschriftungen, Tourseite, Plan, Meine Pläne, Admin, Fehler- und Leerzustände.
 

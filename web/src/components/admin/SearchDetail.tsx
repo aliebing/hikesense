@@ -15,12 +15,12 @@ const json = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v, null
 function constraintText(c: DetailConstraint, locale: Locale): string {
   if (c.kind === "roundtrip") return messagesFor(locale).admin.roundWalk(!!c.required);
   const name = kindName(c.kind, locale);
-  const de1 = { format: (n: number) => one(n, locale) };
+  const fmt1 = { format: (n: number) => one(n, locale) };
   const u = UNIT[c.kind] ? ` ${UNIT[c.kind]}` : "";
   const parts: string[] = [];
-  if (c.min != null && c.max != null) parts.push(`${name} ${de1.format(c.min)}–${de1.format(c.max)}${u}`);
-  else if (c.max != null) parts.push(`${name} ≤ ${de1.format(c.max)}${u}`);
-  else if (c.min != null) parts.push(`${name} ≥ ${de1.format(c.min)}${u}`);
+  if (c.min != null && c.max != null) parts.push(`${name} ${fmt1.format(c.min)}–${fmt1.format(c.max)}${u}`);
+  else if (c.max != null) parts.push(`${name} ≤ ${fmt1.format(c.max)}${u}`);
+  else if (c.min != null) parts.push(`${name} ≥ ${fmt1.format(c.min)}${u}`);
   return parts.join("");
 }
 

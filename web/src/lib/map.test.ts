@@ -19,13 +19,13 @@ function detailWithStages(n: number): TrailDetail {
 }
 
 test("trailToFeatures makes one line per stage and boundary points", () => {
-  const fc = trailToFeatures(detailWithStages(3));
+  const fc = trailToFeatures(detailWithStages(3), "de");
   expect(fc.features.filter((f) => f.geometry.type === "LineString")).toHaveLength(3);
   expect(fc.features.filter((f) => f.geometry.type === "Point")).toHaveLength(4);
 });
 
 test("stage lines carry their seq, boundary points the place names in order", () => {
-  const fc = trailToFeatures(detailWithStages(3));
+  const fc = trailToFeatures(detailWithStages(3), "de");
   const lines = fc.features.filter((f) => f.geometry.type === "LineString");
   expect(lines.map((f) => f.properties?.seq)).toEqual([1, 2, 3]);
   const points = fc.features.filter((f) => f.geometry.type === "Point");
@@ -37,7 +37,7 @@ test("stage lines carry their seq, boundary points the place names in order", ()
 
 test("day hike without stages: the trail line plus start and end point", () => {
   const hike = { ...detailWithStages(0), kind: "day_hike" as const, geom: line([8, 48], [8.1, 48.1], [8.2, 48]) };
-  const fc = trailToFeatures(hike);
+  const fc = trailToFeatures(hike, "de");
   const lines = fc.features.filter((f) => f.geometry.type === "LineString");
   expect(lines).toHaveLength(1);
   expect(lines[0].geometry).toEqual(hike.geom);
@@ -47,7 +47,7 @@ test("day hike without stages: the trail line plus start and end point", () => {
 });
 
 test("no geometry at all gives an empty collection", () => {
-  expect(trailToFeatures({ ...detailWithStages(0), geom: null }).features).toEqual([]);
+  expect(trailToFeatures({ ...detailWithStages(0), geom: null }, "de").features).toEqual([]);
 });
 
 test("bboxOf", () => {
@@ -55,7 +55,7 @@ test("bboxOf", () => {
 });
 
 test("bboxOf a feature collection spans all features; empty is null", () => {
-  expect(bboxOf(trailToFeatures(detailWithStages(2)))).toEqual([8, 47.8, 8.05, 48]);
+  expect(bboxOf(trailToFeatures(detailWithStages(2), "de"))).toEqual([8, 47.8, 8.05, 48]);
   expect(bboxOf({ type: "FeatureCollection", features: [] })).toBeNull();
 });
 
@@ -121,8 +121,20 @@ describe("daySections", () => {
     const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
     const secs = daySections(line, days([{ id: 1, km: 25 }, { id: 2, km: 40 }]), 40, (id) => (id === 1 ? [8.05, 48.21] : null));
     expect(secs.map((s) => s.lodging_missing)).toEqual([false, true]);
-    const ends = dayFeatures(secs).features.filter((f) => f.properties?.kind === "boundary");
+    const ends = dayFeatures(secs, "de").features.filter((f) => f.properties?.kind === "boundary");
     expect((ends[0].geometry as { coordinates: number[] }).coordinates).toEqual([8.05, 48.21]);
+  });
+
+  it("labels day ends and start/finish in the requested language", () => {
+    const line: [number, number][] = [[8, 48], [8, 48.2], [8.2, 48.2]];
+    const secs = daySections(line, days([{ id: 1, km: 25 }, { id: 2, km: 40 }]), 40);
+    const named = secs.map((x, i) => ({ ...x, end_name: i === 0 ? "Hut" : null }));
+    const names = (l: "de" | "en") => dayFeatures(named, l).features.filter((f) => f.properties?.kind === "boundary").map((f) => f.properties?.name);
+    expect(names("en")).toEqual(["Day 1: Hut", "End of day 2"]);
+    expect(names("de")).toEqual(["Tag 1: Hut", "Ende Tag 2"]);
+    const hike = { ...detailWithStages(0), geom: line as never };
+    const hikeLine = { type: "LineString" as const, coordinates: line };
+    expect(trailToFeatures({ ...hike, geom: hikeLine }, "en").features.filter((f) => f.geometry.type === "Point").map((f) => f.properties?.name)).toEqual(["Start", "Finish"]);
   });
 
   it("draws nothing without a line or the trail length", () => {

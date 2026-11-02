@@ -85,3 +85,22 @@ it("a stored choice without a matching cookie writes the cookie and refreshes", 
   render(<LocaleProvider><Probe /></LocaleProvider>);
   expect(document.cookie).toContain("hikeall.lang=de");
 });
+
+it("flags carry their own lang and are at least 40 px touch targets", () => {
+  render(<LocaleProvider><LanguageFlags /></LocaleProvider>);
+  const en = screen.getByRole("button", { name: "English" });
+  const de = screen.getByRole("button", { name: "Deutsch" });
+  expect(en).toHaveAttribute("lang", "en");
+  expect(de).toHaveAttribute("lang", "de");
+  for (const b of [en, de]) {
+    expect(b.className).toContain("min-h-10");
+    expect(b.className).toContain("min-w-10");
+  }
+});
+
+it("English polish: criteria wording, progress and total lines", () => {
+  expect(en.results.wishes).toBe("Your criteria");
+  expect(en.chat.understood).toBe("Understood criteria");
+  expect(en.plan.uwProgress("2", "10")).toBe("(2 of 10 km done)");
+  expect(en.admin.sum("3", "$0.0100", "1.0 s")).toBe("Total: 3 searches · $0.0100 · avg 1.0 s");
+});

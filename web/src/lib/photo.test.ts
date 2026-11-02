@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
-import { hasMetadata, MSG_HEIC, MSG_REENCODE, MSG_TOO_BIG, MSG_TYPE, MAX_BYTES, prepareUpload } from "./photo";
+import { hasMetadata, MAX_BYTES, prepareUpload } from "./photo";
 
 const gpsBytes = new Uint8Array(readFileSync(join(__dirname, "fixtures", "gps.jpg")));
 const fileOf = (parts: BlobPart[], name: string, type: string) => new File(parts, name, { type });
@@ -35,17 +35,17 @@ it("strips exif before upload", async () => {
 
 it("never uploads the original when re-encoding leaves metadata or fails", async () => {
   const input = fileOf([gpsBytes], "wald.jpg", "image/jpeg");
-  await expect(prepareUpload(input, async () => new Blob([gpsBytes]))).rejects.toThrow(MSG_REENCODE);
-  await expect(prepareUpload(input, async () => Promise.reject(new Error("decode")))).rejects.toThrow(MSG_REENCODE);
+  await expect(prepareUpload(input, async () => new Blob([gpsBytes]))).rejects.toMatchObject({ code: "reencode" });
+  await expect(prepareUpload(input, async () => Promise.reject(new Error("decode")))).rejects.toMatchObject({ code: "reencode" });
 });
 
 it("rejects heic and oversized", async () => {
   const reencode = vi.fn();
-  await expect(prepareUpload(fileOf(["x"], "IMG_1.HEIC", "image/heic"), reencode)).rejects.toThrow(MSG_HEIC);
-  await expect(prepareUpload(fileOf(["x"], "IMG_1.heic", ""), reencode)).rejects.toThrow(MSG_HEIC);
-  await expect(prepareUpload(fileOf(["x"], "a.gif", "image/gif"), reencode)).rejects.toThrow(MSG_TYPE);
+  await expect(prepareUpload(fileOf(["x"], "IMG_1.HEIC", "image/heic"), reencode)).rejects.toMatchObject({ code: "heic" });
+  await expect(prepareUpload(fileOf(["x"], "IMG_1.heic", ""), reencode)).rejects.toMatchObject({ code: "heic" });
+  await expect(prepareUpload(fileOf(["x"], "a.gif", "image/gif"), reencode)).rejects.toMatchObject({ code: "type" });
   const big = fileOf([new Uint8Array(MAX_BYTES + 1)], "big.jpg", "image/jpeg");
-  await expect(prepareUpload(big, reencode)).rejects.toThrow(MSG_TOO_BIG);
+  await expect(prepareUpload(big, reencode)).rejects.toMatchObject({ code: "tooBig" });
   expect(reencode).not.toHaveBeenCalled();
 });
 

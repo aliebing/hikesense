@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { messagesFor } from "../i18n/locale";
 import type { Photo } from "./data";
 
 /** Own photos (Spec §11): private, EXIF/GPS removed in the browser before anything is uploaded. */
@@ -12,18 +11,13 @@ export const SIGNED_URL_SECONDS = 3600;
 /** Why an upload or delete failed; the UI shows `messagesFor(locale).tour.photoErrors[code]`. */
 export type PhotoErrorCode = "heic" | "tooBig" | "type" | "reencode" | "upload" | "remove";
 
-/** Carries a code for the UI; `message` is the German text (tests, logs). */
+/** Carries a code for the UI; the text comes from the catalog, `message` is just the code. */
 export class PhotoError extends Error {
   constructor(readonly code: PhotoErrorCode) {
-    super(messagesFor("de").tour.photoErrors[code]);
+    super(code);
     this.name = "PhotoError";
   }
 }
-
-export const MSG_HEIC = messagesFor("de").tour.photoErrors.heic;
-export const MSG_TOO_BIG = messagesFor("de").tour.photoErrors.tooBig;
-export const MSG_TYPE = messagesFor("de").tour.photoErrors.type;
-export const MSG_REENCODE = messagesFor("de").tour.photoErrors.reencode;
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 

@@ -18,9 +18,10 @@ export default function LanguageFlags() {
           key={f.locale}
           type="button"
           aria-label={f.label}
+          lang={f.locale}
           aria-pressed={locale === f.locale}
           onClick={() => setLocale(f.locale)}
-          className={`rounded px-1 text-lg leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-papier ${
+          className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded px-1 text-lg leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-papier ${
             locale === f.locale ? "opacity-100 ring-1 ring-papier/70" : "opacity-50 hover:opacity-100"
           }`}
         >

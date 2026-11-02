@@ -36,7 +36,7 @@ export default function HomeStage({ photos, landscapes = [] }: { photos: Photo[]
           <ResultsPane />
           {backdrop && (
             <div className="flex flex-wrap items-baseline gap-1 text-[11px] text-papier schrift-feld">
-              {t.backdropCredit} <Attribution photo={backdrop} />
+              <Attribution photo={backdrop} label={t.backdropCredit} />
             </div>
           )}
         </div>

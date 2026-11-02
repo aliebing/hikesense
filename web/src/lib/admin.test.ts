@@ -15,7 +15,7 @@ it("formats costs and durations", () => {
   expect(usd(0.0021, "de")).toBe("0,0021 $");
   expect(ms(4200, "de")).toBe("4,2 s");
   expect(ms(null, "de")).toBe("–");
-  expect(usd(0.0021, "en")).toBe("0.0021 $");
+  expect(usd(0.0021, "en")).toBe("$0.0021");
   expect(ms(4200, "en")).toBe("4.2 s");
 });
 

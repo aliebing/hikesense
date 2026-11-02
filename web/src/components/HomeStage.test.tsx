@@ -66,7 +66,7 @@ it("after results the first tour's photo lies behind the middle, with its credit
   const { container } = show();
   await screen.findByText("results pane");
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/k.jpg']")).not.toBeNull();
-  expect(screen.getByText(/Hintergrundbild:/)).toHaveTextContent("Foto: Karl");
+  expect(screen.getByText(/Hintergrundbild:/)).toHaveTextContent("Hintergrundbild: Karl");
 });
 
 it("a tile photo that is no landscape is not used as background; a pool landscape is", async () => {

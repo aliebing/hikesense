@@ -3,7 +3,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FeatureCollection } from "geojson";
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LodgingOnTrail, TrailPoi } from "../lib/data";
 import { messagesFor, useLocale, useT, type Locale } from "../i18n";
 import { num } from "../lib/format";
@@ -155,7 +155,12 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
   const posRef = useRef(position);
   posRef.current = position;
   const [status, setStatus] = useState<Status>("loading");
-  const features = useMemo(() => (days && days.length > 0 ? dayFeatures(days) : trailToFeatures(trail)), [trail, days]);
+  // built with the language of the first render; a switch re-sets the source data (see relabel)
+  const featuresFor = useCallback(
+    (l: Locale) => (days && days.length > 0 ? dayFeatures(days, l) : trailToFeatures(trail, l)),
+    [trail, days],
+  );
+  const features = useMemo(() => featuresFor(localeRef.current), [featuresFor]);
   const nearby = useNearby(lodgings, days);
   const poiList = useMemo(() => pois ?? [], [pois]);
 
@@ -196,7 +201,7 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
         let fellBack = false;
         map.on("style.load", () => {
           styleLoaded = true;
-          addTrailLayers(map!, features);
+          addTrailLayers(map!, featuresFor(localeRef.current));
           setStatus("ready");
         });
         map.on("error", (e) => {
@@ -227,7 +232,10 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
         map.on("mouseenter", "trail-boundaries", () => (map!.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", "trail-boundaries", () => (map!.getCanvas().style.cursor = ""));
 
-        relabel.current = [];
+        relabel.current = [
+          // day-end and start/finish labels live in the GeoJSON source
+          (x) => (map!.getSource("trail") as GeoJSONSource | undefined)?.setData(featuresFor(x)),
+        ];
         const loc = localeRef.current;
         for (const l of nearby) {
           const el = document.createElement("button");
@@ -267,7 +275,7 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
       markers.forEach((m) => m.remove());
       map?.remove();
     };
-  }, [features, nearby, poiList, cooperative]);
+  }, [features, featuresFor, nearby, poiList, cooperative]);
 
   // a language switch only relabels markers and popups; the map instance (viewport, open popups) stays
   useEffect(() => {

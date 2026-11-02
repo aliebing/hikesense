@@ -1,5 +1,5 @@
 import type { ChatEvent, TourCard } from "./chat";
-import { addNotice, addUser, initialState, loadState, reduceEvent, saveState, STORAGE_KEY, type ChatState } from "./chatState";
+import { addNotice, addUser, initialState, loadState, reduceEventIn, saveState, STORAGE_KEY, type ChatState } from "./chatState";
 
 const card = (id: string): TourCard =>
   ({
@@ -13,6 +13,7 @@ const request = (over: object = {}) =>
     intent: "day_hike", activity: "hike", start_text: null, start: null, constraints: [], preferences: [],
     pace_min_per_km: null, unmatched: [], question: null, ...over,
   }) as never;
+const reduceEvent = (s: ChatState, e: ChatEvent): ChatState => reduceEventIn(s, e, "de");
 const run = (events: ChatEvent[], s: ChatState = initialState("t")) => events.reduce(reduceEvent, s);
 
 function fakeStorage(over: Partial<Storage> = {}): Storage {

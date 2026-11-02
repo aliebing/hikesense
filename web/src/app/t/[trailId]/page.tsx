@@ -219,7 +219,7 @@ export default async function TrailPage({
         {pois && pois.length > 0 && ` · ${t.footerOsm}`}
         {backdrop && (
           <div className="mt-1 flex flex-wrap items-baseline gap-1">
-            {t.backdrop} <Attribution photo={backdrop} />
+            <Attribution photo={backdrop} label={t.backdrop} />
           </div>
         )}
       </footer>

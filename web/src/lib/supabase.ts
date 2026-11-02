@@ -25,7 +25,7 @@ export function getSupabase(): SupabaseClient {
   const key = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
     throw new MissingConfigError(
-      "SUPABASE_URL und SUPABASE_ANON_KEY fehlen (siehe .env.example; Schlüssel aus `npx supabase status`).",
+      "SUPABASE_URL and SUPABASE_ANON_KEY are missing (see .env.example; keys from `npx supabase status`).",
     );
   }
   return createClient(url, key, {

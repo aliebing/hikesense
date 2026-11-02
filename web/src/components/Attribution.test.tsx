@@ -11,3 +11,10 @@ it("own photos: the stored German values are shown through the catalog", () => {
   renderWithLocale(<Attribution photo={own} />, "de");
   expect(screen.getByText(/Foto: Eigenes Foto · privat/)).toBeInTheDocument();
 });
+
+it("a label replaces the default prefix instead of adding a second one", () => {
+  const photo = { url: "u", thumb_url: "u", author: "Anna", license: "CC0", license_url: null, page_url: null };
+  renderWithLocale(<Attribution photo={photo} label="Background photo:" />, "en");
+  expect(screen.getByText(/Background photo: Anna/)).toBeInTheDocument();
+  expect(screen.queryByText(/Photo: Background/)).toBeNull();
+});

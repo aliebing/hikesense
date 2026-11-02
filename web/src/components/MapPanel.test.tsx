@@ -10,6 +10,8 @@ const stub = vi.hoisted(() => ({
   throwOnCreate: null as Error | null,
   handlers: {} as Record<string, ((e?: unknown) => void)[]>,
   setStyle: vi.fn(),
+  setData: vi.fn(),
+  source: null as null | { setData: (d: unknown) => void },
   markers: [] as HTMLElement[],
   options: [] as Record<string, unknown>[],
   fire(name: string, e?: unknown) {
@@ -38,7 +40,7 @@ vi.mock("maplibre-gl", () => {
     once() { return this; }
     addControl() { return this; }
     setStyle(s: unknown) { stub.setStyle(s); }
-    getSource() { return undefined; }
+    getSource() { return stub.source; }
     addSource() {}
     addLayer() {}
     remove() {}
@@ -70,6 +72,8 @@ beforeEach(() => {
   stub.throwOnCreate = null;
   stub.handlers = {};
   stub.setStyle.mockReset();
+  stub.setData.mockReset();
+  stub.source = null;
   stub.markers = [];
   stub.options = [];
 });
@@ -155,7 +159,7 @@ test("basemap.de failing falls back to OSM once; if that fails too, it is an err
 
 test("legend counts lodgings near the trail", async () => {
   const dialog = await openMap([lodging]);
-  expect(dialog).toHaveTextContent("1 Unterkünfte ≤ 1.000 m vom Weg");
+  expect(dialog).toHaveTextContent("1 Unterkunft ≤ 1.000 m vom Weg");
 });
 
 test("legend says lodgings could not be loaded instead of showing 0", async () => {
@@ -195,6 +199,11 @@ test("pois become markers and only present groups are in the legend", async () =
   expect(legend).not.toHaveTextContent("Wasserfall");
 });
 
+test("legend uses the plural for several lodgings", async () => {
+  const dialog = await openMap([lodging, { ...lodging, id: 2 }]);
+  expect(dialog).toHaveTextContent("2 Unterkünfte ≤");
+});
+
 test("no lodgings near the trail: the legend names none instead of „0 Unterkünfte“", () => {
   render(<MapPanel trail={trail} lodgings={[]} embedded />);
   expect(screen.getByTestId("map-legend")).not.toHaveTextContent("Unterkünfte");
@@ -214,7 +223,7 @@ test("embedded map lets one finger scroll the page (cooperative gestures); full 
 test("English: legend, buttons and POI labels are English", async () => {
   renderWithLocale(<MapPanel trail={trail} lodgings={[lodging]} embedded pois={[poi(1, "food", "Café Adler", 3.2)]} />, "en");
   const legend = screen.getByTestId("map-legend");
-  expect(legend).toHaveTextContent("1 places to stay ≤ 1,000 m from the trail");
+  expect(legend).toHaveTextContent("1 place to stay ≤ 1,000 m from the trail");
   expect(legend).toHaveTextContent("Refreshments");
   expect(legend).toHaveTextContent("OpenStreetMap contributors");
   await vi.waitFor(() => expect(stub.markers.filter((m) => m.classList.contains("map-poi"))).toHaveLength(1));
@@ -234,4 +243,16 @@ test("a language switch relabels the markers but keeps the same map", async () =
   await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
   await vi.waitFor(() => expect(marker.getAttribute("aria-label")).toBe("Café Adler, Einkehr, km 3,2"));
   expect(stub.options).toHaveLength(1); // not recreated
+});
+
+test("a language switch re-labels the day-end points through the source, same map", async () => {
+  const days = [{ day: 1, geom: { type: "LineString" as const, coordinates: [[8, 48], [8.1, 48.1]] }, end_name: "Hut", end: null, lodging_missing: false }];
+  renderWithLocale(<><LanguageFlags /><MapPanel trail={trail} lodgings={[]} days={days} embedded /></>, "en");
+  await vi.waitFor(() => expect(stub.handlers["style.load"]).toBeDefined());
+  stub.source = { setData: stub.setData };
+  await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+  await vi.waitFor(() => expect(stub.setData).toHaveBeenCalled());
+  const names = (stub.setData.mock.calls.at(-1)![0] as { features: { properties: { name?: string } }[] }).features.map((f) => f.properties.name);
+  expect(names).toContain("Tag 1: Hut");
+  expect(stub.options).toHaveLength(1);
 });

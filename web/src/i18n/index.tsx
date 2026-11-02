@@ -36,7 +36,10 @@ function fallbackLocale(): Locale {
   return isLocale(g) ? g : "en";
 }
 
-/** Server and first client render are English; the stored choice is applied right after mount. */
+/**
+ * `initialLocale` comes from the cookie the server read, so server and first client render agree.
+ * A stored choice without a matching cookie (older visit) is applied right after mount.
+ */
 export function LocaleProvider({ children, initialLocale = "en" }: { children: React.ReactNode; initialLocale?: Locale }) {
   const router = useRouter();
   const routerRef = useRef(router);

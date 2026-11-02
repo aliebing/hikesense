@@ -83,7 +83,7 @@ it("results pane: Save result, English found text and hint", () => {
   renderWithLocale(<ChatProvider><ResultsPane /></ChatProvider>, "en");
   expect(screen.getByRole("button", { name: "Save result" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "1 tour found, 1 near miss" })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Understood wishes" })).toHaveTextContent("Round walk");
+  expect(screen.getByRole("list", { name: "Understood criteria" })).toHaveTextContent("Round walk");
   expect(screen.getByText(/Too many\?/)).toBeInTheDocument();
 });
 

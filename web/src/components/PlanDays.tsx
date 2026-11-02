@@ -48,7 +48,7 @@ function Weather({ w, dated, asOf }: { w: DayWeather | NoForecast | undefined; d
   }
   const n0 = (n: number) => num(n, locale, { max: 0 });
   const temp = `${numOr(w.t_min_c, n0, locale)} / ${numOr(w.t_max_c, n0, locale)} °C`;
-  const rain = t.rain(numOr(w.precip_prob_pct, (n) => `${n0(n)} %`, locale), numOr(w.precip_mm, (n) => `${num(n, locale, { max: 1 })} mm`, locale));
+  const rain = t.rain(numOr(w.precip_prob_pct, (n) => `${n0(n)}${locale === "en" ? "%" : " %"}`, locale), numOr(w.precip_mm, (n) => `${num(n, locale, { max: 1 })} mm`, locale));
   return (
     <p className="text-xs">
       {asOf && t.forecastFrom(asOf)}

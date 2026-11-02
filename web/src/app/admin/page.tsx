@@ -105,7 +105,7 @@ function Admin() {
       )}
       <div className="grid grid-cols-[16rem_22rem_1fr] items-start gap-4">
         <section className={card}>
-          <h2 className="schrift-feld mb-2 font-serif text-lg">{t.users}</h2>
+          <h2 className="mb-2 font-serif text-lg">{t.users}</h2>
           <button type="button" className={row(owner === ALL)} onClick={() => setOwner(ALL)}>{`${t.all} (${total})`}</button>
           {users.map((u) => (
             <button key={u.user_id} type="button" className={row(owner === u.user_id)} onClick={() => setOwner(u.user_id)}>
@@ -114,7 +114,7 @@ function Admin() {
           ))}
         </section>
         <section className={card}>
-          <h2 className="schrift-feld mb-2 font-serif text-lg">{t.recent(label)}</h2>
+          <h2 className="mb-2 font-serif text-lg">{t.recent(label)}</h2>
           {list.length === 0 && <p className="text-sm">{t.noSearches}</p>}
           {list.map((s) => (
             <button key={s.request_id} type="button" className={row(selected === s.request_id)} onClick={() => setSelected(s.request_id)}>
@@ -124,7 +124,7 @@ function Admin() {
           ))}
         </section>
         <section className={card}>
-          <h2 className="schrift-feld mb-2 font-serif text-lg">{t.details}</h2>
+          <h2 className="mb-2 font-serif text-lg">{t.details}</h2>
           {detail && "status" in detail ? <p className="text-sm text-red-900">{adminErrorText(detail.status, locale)}</p> : detail ? <SearchDetail d={detail} /> : selected ? <p className="text-sm">{t.loading}</p> : <p className="text-sm">{t.noneSelected}</p>}
         </section>
       </div>

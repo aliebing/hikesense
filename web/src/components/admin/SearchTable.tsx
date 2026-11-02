@@ -22,7 +22,7 @@ export default function SearchTable({
   const cols = [t.cols.time, t.cols.user, t.cols.search, t.cols.intent, t.cols.hits, t.cols.tools, t.cols.tokens, t.cols.cost, t.cols.duration, t.cols.error];
   return (
     <div className="overflow-x-auto rounded-xl bg-papier/95 p-4 text-wald-dunkel">
-      <h2 className="schrift-feld mb-2 font-serif text-lg">{t.allSearches}</h2>
+      <h2 className="mb-2 font-serif text-lg">{t.allSearches}</h2>
       <table className="w-full border-collapse text-left text-xs">
         <thead>
           <tr className="border-b border-wald-dunkel/20">

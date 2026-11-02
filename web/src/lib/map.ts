@@ -8,7 +8,7 @@ export const BASEMAP_STYLE = "https://sgx.geodatenzentrum.de/gdz_basemapde_vekto
 
 /** Map credits in the UI language. */
 export function attribution(locale: Locale): string[] {
-  return ["© BKG (basemap.de) CC BY 4.0", locale === "de" ? "© OpenStreetMap-Mitwirkende, ODbL" : "© OpenStreetMap contributors, ODbL"];
+  return ["© BKG (basemap.de) CC BY 4.0", messagesFor(locale).map.attribution];
 }
 
 /** Fallback when the basemap.de style cannot be loaded: OSM raster tiles. */
@@ -56,7 +56,8 @@ const point = (coordinates: Position, name: string): Feature<Geometry, TrailFeat
  * stage boundaries (start of every stage plus the end of the last). Without
  * stage geometries (day hikes) the trail line is used, with start and end.
  */
-export function trailToFeatures(trail: Pick<MapTrail, "geom" | "stages">): FeatureCollection<Geometry, TrailFeatureProps> {
+export function trailToFeatures(trail: Pick<MapTrail, "geom" | "stages">, locale: Locale): FeatureCollection<Geometry, TrailFeatureProps> {
+  const m = messagesFor(locale).map;
   const stages = [...trail.stages].filter((s) => s.geom && s.geom.coordinates.length > 0).sort((a, b) => a.seq - b.seq);
   const features: Feature<Geometry, TrailFeatureProps>[] = [];
   if (stages.length > 0) {
@@ -67,7 +68,7 @@ export function trailToFeatures(trail: Pick<MapTrail, "geom" | "stages">): Featu
   } else if (trail.geom && trail.geom.coordinates.length > 0) {
     const c = trail.geom.coordinates;
     features.push({ type: "Feature", geometry: trail.geom, properties: { kind: "stage", seq: 1 } });
-    features.push(point(c[0], "Start"), point(c[c.length - 1], "Ziel"));
+    features.push(point(c[0], m.start), point(c[c.length - 1], m.finish));
   }
   return { type: "FeatureCollection", features };
 }
@@ -188,12 +189,13 @@ export function daySections(
 }
 
 /** Day sections as map features: lines (`seq` = day, for alternating colours) and a point at every day end. */
-export function dayFeatures(days: DaySection[]): FeatureCollection<Geometry, TrailFeatureProps> {
+export function dayFeatures(days: DaySection[], locale: Locale): FeatureCollection<Geometry, TrailFeatureProps> {
+  const m = messagesFor(locale).map;
   const features: Feature<Geometry, TrailFeatureProps>[] = [];
   for (const d of days) features.push({ type: "Feature", geometry: d.geom, properties: { kind: "stage", seq: d.day } });
   for (const d of days) {
     const c = d.geom.coordinates;
-    features.push(point(d.end ?? c[c.length - 1], d.end_name ? `Tag ${d.day}: ${d.end_name}` : `Ende Tag ${d.day}`));
+    features.push(point(d.end ?? c[c.length - 1], d.end_name ? m.dayEnd(d.day, d.end_name) : m.endOfDay(d.day)));
   }
   return { type: "FeatureCollection", features };
 }

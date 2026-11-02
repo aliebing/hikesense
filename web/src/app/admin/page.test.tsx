@@ -98,7 +98,7 @@ describe("in English", () => {
     route(json(200, { user_id: "u1", role: "admin" }));
     renderWithLocale(<AdminPage />, "en");
     expect(await screen.findByText("All (4)")).toBeInTheDocument();
-    expect(await screen.findByText("Total: 4 searches · 0.4100 $ · Ø 3.6 s")).toBeInTheDocument();
+    expect(await screen.findByText("Total: 4 searches · $0.4100 · avg 3.6 s")).toBeInTheDocument();
     for (const h of ["Time", "User", "Search", "Hits"]) expect(screen.getByRole("columnheader", { name: h })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
     expect(screen.getByText("Recent searches · all")).toBeInTheDocument();

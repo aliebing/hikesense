@@ -175,7 +175,7 @@ test("a landscape photo of the tour lies behind the middle, credited in the foot
   mockGetLodgings.mockResolvedValue([]);
   const { container } = render(<ChatProvider>{await page()}</ChatProvider>);
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/c.jpg']")).not.toBeNull();
-  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Foto: Clara");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Clara");
 });
 
 test("a tour without a landscape photo gets one from the pool, never e.g. a bank card", async () => {
@@ -187,7 +187,7 @@ test("a tour without a landscape photo gets one from the pool, never e.g. a bank
   const { container } = render(<ChatProvider>{await page()}</ChatProvider>);
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/n26.jpg']")).toBeNull();
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/see.jpg']")).not.toBeNull();
-  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Foto: Sina");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Hintergrundbild: Sina");
 });
 
 test("no chat on the tour page, a clear back button instead", async () => {

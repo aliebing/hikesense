@@ -166,7 +166,7 @@ it("English: day cards, notes and times are English", () => {
   expect(cards[0]).toHaveTextContent("Time 4:25 h, start 09:00, arrival 13:25 (without breaks)");
   expect(cards[0]).toHaveTextContent("Accommodation: Gasthaus 1 · Guesthouse · 300 m from the trail");
   expect(cards[0]).toHaveTextContent("Lücke 8,80 km"); // backend text stays as delivered
-  expect(cards[0]).toHaveTextContent("Rain 20 % / 0.5 mm");
+  expect(cards[0]).toHaveTextContent("Rain 20% / 0.5 mm");
   expect(within(cards[0]).getByRole("link", { name: "Search" })).toBeInTheDocument();
   expect(cards[1]).toHaveTextContent("Trail end");
   expect(cards[1]).toHaveTextContent("No forecast yet");

@@ -129,7 +129,7 @@ export function adminErrorText(status: number, locale: Locale): string {
   return a.error(status);
 }
 
-export const usd = (v: number | null | undefined, locale: Locale): string => (v == null ? MISSING : `${num(v, locale, { min: 4 })} $`);
+export const usd = (v: number | null | undefined, locale: Locale): string => (v == null ? MISSING : locale === "en" ? `$${num(v, locale, { min: 4 })}` : `${num(v, locale, { min: 4 })} $`);
 export const ms = (v: number | null | undefined, locale: Locale): string => (v == null ? MISSING : `${num(v / 1000, locale, { min: 1 })} s`);
 
 const dayFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }); // YYYY-MM-DD
