@@ -714,7 +714,7 @@ TOOL_SPECS: list[dict] = [
     ),
     _spec(
         "search_knowledge",
-        "Sucht Hintergrundwissen zum Schwarzwald (Regeln, Natur, Wetter, Ausrüstung) im "
+        "Sucht Hintergrundwissen zu Schwarzwald, Bodensee und Pfälzerwald (Regeln, Natur, Wetter, Ausrüstung) im "
         "Wissensindex und liefert Textstellen mit Quelle.",
         {
             "query": {"type": "string", "description": "Suchfrage auf Deutsch"},

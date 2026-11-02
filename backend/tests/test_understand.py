@@ -1082,3 +1082,19 @@ def test_model_roundtrip_without_a_word_in_the_message_is_dropped(vocab):
     # "rund 20 km" is an approximate value, not a roundtrip
     gw = gw_of(start_text="Todtnau", roundtrip=True, length_km_approx=20)
     assert "roundtrip" not in kinds(understand(gw, vocab, "rund 20 km ab Todtnau", None))
+
+
+def test_bodensee_is_area_without_clarify(vocab):
+    from hikeall.regions import get_region
+    v = vocab
+    req = understand(gw_of(start_text="Bodensee"), v, "Wandern am Bodensee", None)
+    assert isinstance(req, HikeRequest)
+    assert req.start.kind == "area" and req.start.tag_id == "area:bodensee"
+    assert req.start.bbox == get_region("lake_constance").bbox
+
+
+def test_swiss_place_resolves(vocab):
+    v = TagVocabulary(vocab.all() + [_place("place:stein-am-rhein", "Stein am Rhein", 47.66, 8.86, 7)])
+    req = understand(gw_of(start_text="Stein am Rhein"), v, "Start in Stein am Rhein", None)
+    assert isinstance(req, HikeRequest)
+    assert req.start.kind == "place" and req.start.tag_id == "place:stein-am-rhein"

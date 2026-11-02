@@ -9,7 +9,7 @@ import httpx
 
 from hikeall.errors import HikeAllError
 
-USER_AGENT = "HikeAll/0.1 (Black Forest hiking planner)"
+USER_AGENT = "HikeAll/0.1 (hiking planner)"
 _TRANSIENT_STATUS = {429, 500, 502, 503, 504}
 MAX_RETRY_AFTER_S = 30.0
 

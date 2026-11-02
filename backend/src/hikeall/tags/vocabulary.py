@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from hikeall.config import data_root
 from hikeall.models import BBox
+from hikeall.regions import REGIONS
 
 FEATURES_YAML = data_root() / "tags" / "features.yaml"
 
@@ -174,8 +175,27 @@ class TagVocabulary:
         return (exact + prefix + inner)[:limit]
 
 
+# Region-wide area tags: id, extra synonyms (the label is searched anyway)
+_REGION_AREAS = {
+    "black_forest": ("area:schwarzwald", []),
+    "palatinate": ("area:pfaelzerwald", ["Pfälzer Wald", "Pfalz"]),
+    "lake_constance": ("area:bodensee", ["am Bodensee", "Schwäbisches Meer"]),
+}
+REGION_LABELS = frozenset(fold(r.name) for r in REGIONS)
+
+
 def _area_tags() -> list[Tag]:
-    return [
+    regions = [
+        Tag(
+            id=_REGION_AREAS[r.id][0],
+            label=r.name,
+            category="area",
+            synonyms=_REGION_AREAS[r.id][1],
+            rule=Area(bbox=r.bbox),
+        )
+        for r in REGIONS
+    ]
+    return regions + [
         Tag(
             id=tid,
             label=label,
@@ -250,7 +270,7 @@ def _place_tags(conn: psycopg.Connection) -> list[Tag]:
     used: set[str] = set()
     for pid, name, kind, lat, lon in rows:
         slug = slugify(name)
-        if not slug:
+        if not slug or fold(name) in REGION_LABELS:  # the area wins over a place of that name
             continue
         tid = f"place:{slug}"
         if tid in used:  # same name twice (e.g. Feldberg peak and town): keep both, id-suffixed

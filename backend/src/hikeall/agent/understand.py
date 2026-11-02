@@ -26,6 +26,7 @@ from hikeall.agent.request import (
 )
 from hikeall.geo import haversine_km
 from hikeall.llm.gateway import LLMGateway
+from hikeall.regions import REGION_NAMES, REGION_PHRASE
 from hikeall.tags.vocabulary import Area, LongTrail, NearPlace, Tag, TagVocabulary, fold
 
 __all__ = [
@@ -54,13 +55,13 @@ _ROUNDTRIP_SAID = re.compile(
 )
 _PAREN = re.compile(r"\s*\([^)]*\)")
 
-SYSTEM_PROMPT = """\
-Du liest die Nachricht einer Person, die im Schwarzwald wandern oder laufen möchte, \
+SYSTEM_PROMPT = f"""\
+Du liest die Nachricht einer Person, die {REGION_PHRASE} wandern oder laufen möchte, \
 und füllst daraus ein strukturiertes Formular. Erfinde nichts und lass nichts weg.
 
 Felder:
 - intent: day_hike (Tagestour suchen), multiday (mehrtägige Tour), knowledge (Wissensfrage \
-zum Schwarzwald), change (Änderung einer vorherigen Suche, z. B. "kürzer bitte"), other.
+zu {REGION_NAMES}), change (Änderung einer vorherigen Suche, z. B. "kürzer bitte"), other.
 - intent events: Frage nach Läufen/Wanderveranstaltungen (z. B. "Halbmarathon im Juni bei \
 Freiburg"); intent groups: Frage nach Lauf- oder Wandergruppen (z. B. "Lauftreff in Freiburg"). \
 Bei beiden die Frage mit Ort, Monat und Distanzen in question, genau wie geschrieben.
@@ -648,7 +649,7 @@ def _resolve_start(vocab: TagVocabulary, text: str) -> ResolvedStart | Clarify:
     if close:
         msg += f" Meinst du {_join_or(close)}?"
     else:
-        msg += " Nenne bitte einen Ort oder eine Gegend im Schwarzwald."
+        msg += f" Nenne bitte einen Ort oder eine Gegend ({REGION_NAMES})."
     return Clarify(question=msg, options=close)
 
 

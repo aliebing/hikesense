@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import re
 
+from hikeall.regions import REGION_NAMES
+
 INJECTION_REPLY = (
-    "Dabei kann ich nicht helfen. Frag mich gern nach Wanderungen oder Laufrunden im Schwarzwald."
+    "Dabei kann ich nicht helfen. Frag mich gern nach Wanderungen oder Laufrunden "
+    f"({REGION_NAMES})."
 )
 RATE_LIMIT_REPLY = "Zu viele Anfragen – bitte in {s} Sekunden noch einmal."
 

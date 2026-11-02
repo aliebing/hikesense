@@ -266,3 +266,34 @@ def test_trail_tags_cover_all_long_distance_trails(vocab):
 )
 def test_new_trail_tags_resolve_by_synonym(vocab, query, tag):
     assert vocab.search(query)[0].id == tag
+
+
+@pytest.mark.parametrize(
+    "query, tag, region_id",
+    [
+        ("Bodensee", "area:bodensee", "lake_constance"),
+        ("Schwäbisches Meer", "area:bodensee", "lake_constance"),
+        ("Pfälzer Wald", "area:pfaelzerwald", "palatinate"),
+        ("Pfalz", "area:pfaelzerwald", "palatinate"),
+        ("Schwarzwald", "area:schwarzwald", "black_forest"),
+    ],
+)
+def test_region_area_tags(vocab, query, tag, region_id):
+    from hikeall.regions import get_region
+
+    found = vocab.search(query)[0]
+    assert found.id == tag and found.category == "area"
+    assert found.rule.bbox == get_region(region_id).bbox
+
+
+@pytest.mark.db
+def test_place_named_like_region_is_skipped(conn):
+    upsert_source(conn, SRC)
+    conn.execute(
+        "insert into places (id, name, kind, geom, source_id) "
+        "values (-9000041, 'Bodensee', 'lake', st_setsrid(st_makepoint(9.3, 47.6), 4326), %s)",
+        (SRC.id,),
+    )
+    v = TagVocabulary.load(conn, FEATURES_YAML)
+    assert v.get("place:bodensee") is None
+    assert v.search("Bodensee")[0].id == "area:bodensee"
