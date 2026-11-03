@@ -17,13 +17,11 @@ down:
 	npx supabase stop
 
 # Long-running (public APIs). Scanning + curation of day hikes is manual: see `make scan`.
+# Places, POIs and lodgings come from the local extracts: `make places` after this.
 import:
 	cd backend && uv run hikeall import-trails
 	cd backend && uv run hikeall import-day-hikes
 	cd backend && uv run hikeall import-shares
-	cd backend && uv run hikeall import-lodgings
-	cd backend && uv run hikeall import-places
-	cd backend && uv run hikeall build-tags
 	cd backend && uv run hikeall import-photos
 
 scan:
