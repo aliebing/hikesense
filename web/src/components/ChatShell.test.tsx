@@ -342,3 +342,15 @@ it("the chat box lets the background photo show through", () => {
   expect(box.className).toContain("backdrop-blur");
   expect(box.className).toMatch(/bg-wald-flaeche\/\d+/);
 });
+
+it("on the start page the example is plain light text and the input field stands out in white", () => {
+  const { container } = render(
+    <ChatProvider apiUrl="http://api">
+      <ChatShell intro="Hi" variant="hero" />
+    </ChatProvider>,
+  );
+  const intro = container.querySelector("[data-chat-intro]");
+  expect(intro).toHaveClass("text-papier");
+  expect(intro?.className).not.toMatch(/bg-/);
+  expect(screen.getByRole("textbox")).toHaveClass("bg-white", "text-wald-dunkel");
+});

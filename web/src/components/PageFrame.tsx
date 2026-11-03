@@ -23,7 +23,8 @@ export default function PageFrame({
     <div className="relative isolate flex min-h-dvh flex-col bg-gradient-to-b from-[#0e2214] to-[#040a05] text-papier">
       <div className={`mx-auto flex w-full flex-1 flex-col gap-5 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <Link href="/" className="schrift-feld flex items-center gap-2 whitespace-nowrap py-1.5 text-xl text-papier sm:text-2xl">
+          {/* data-frame-logo: hidden on the start view, where the big logo stands in the middle */}
+          <Link href="/" data-frame-logo className="schrift-feld flex items-center gap-2 whitespace-nowrap py-1.5 text-xl text-papier sm:text-2xl">
             <LogoMark trail={false} className="h-7 w-auto sm:h-8" />
             <Wordmark />
           </Link>

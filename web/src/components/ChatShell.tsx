@@ -21,9 +21,20 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
     void send(m).then((r) => r.keepDraft && setText((t) => t || m));
   };
 
+  const hero = variant === "hero";
   const body = (
     <>
-      <p className="rounded-xl rounded-tl-sm bg-papier/90 px-3 py-2 text-sm leading-relaxed text-wald-dunkel">{intro}</p>
+      {/* start page: the example is a light hint on the green, the input field is what stands out */}
+      <p
+        data-chat-intro
+        className={
+          hero
+            ? "text-sm leading-relaxed text-papier sm:text-base"
+            : "rounded-xl rounded-tl-sm bg-papier/90 px-3 py-2 text-sm leading-relaxed text-wald-dunkel"
+        }
+      >
+        {intro}
+      </p>
       <ChatMessages items={state.items} onOption={(o) => void send(o)} disabled={busy} />
       {busy && (
         <p role="status" className="flex items-center gap-2 text-sm">
@@ -59,12 +70,18 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           maxLength={1000}
           placeholder={t.placeholder}
           aria-label={t.message}
-          className="min-w-0 flex-1 rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70"
+          className={
+            hero
+              ? "min-w-0 flex-1 rounded-full border-2 border-sense bg-white px-5 py-3 text-base text-wald-dunkel shadow-lg placeholder:text-wald-dunkel/60 focus:outline-none focus:ring-4 focus:ring-sense/40"
+              : "min-w-0 flex-1 rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70"
+          }
         />
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          className="rounded-full bg-wald px-4 py-2 text-sm text-papier disabled:cursor-not-allowed disabled:opacity-60"
+          className={`rounded-full bg-wald text-papier disabled:cursor-not-allowed disabled:opacity-60 ${
+            hero ? "px-6 py-3 text-base font-medium shadow-lg" : "px-4 py-2 text-sm"
+          }`}
         >
           {t.send}
         </button>
