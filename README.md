@@ -65,9 +65,9 @@ Unlike HikeAI2, which picked about 2,000 OSM routes by a tag-based "popularity s
 
 | Data | Source (licence) | Amount |
 |---|---|---|
-| Long-distance trails | OSM relations (ODbL); stage split as facts from the trail operators | {{LONG}} |
-| Day hikes | OSM hiking relations (ODbL), filtered by quality rules, curated in `data/curated/day_hikes.csv` | {{DAY}} |
-| Places to stay, places, POIs | OSM (ODbL); Black Forest from the Geofabrik extract, the other regions via Overpass | {{LODG}} |
+| Long-distance trails | OSM relations (ODbL); stage split as facts from the trail operators | 8 (Westweg in two variants, Mittelweg, Ostweg, SeeGang, Jubiläumsweg Bodenseekreis, Pfälzer Weinsteig, Pfälzer Waldpfad), 75 stages |
+| Day hikes | OSM hiking relations (ODbL), filtered by quality rules, curated in `data/curated/day_hikes.csv` | 577 (Black Forest 122, Lake Constance 95, Palatinate 360) |
+| Places to stay, places, POIs | OSM (ODbL), read from Geofabrik extracts (Baden-Württemberg, Rhineland-Palatinate, Swabia, Switzerland, Austria) | 3,514 places to stay, 10,308 places, 4,487 POIs on the trails |
 | Elevation | Copernicus DEM GLO-30 | all lines |
 | Photos | Wikimedia Commons, author and licence per photo | {{PHOTOS}} |
 | Knowledge index | Wikipedia, Wikivoyage (CC BY-SA 4.0) and own texts | {{KNOW}} |
@@ -86,7 +86,7 @@ A fixed test set (`data/eval/cases.yaml`) runs against the real agent with `make
 Requirements: Docker, Node.js 20+, [uv](https://docs.astral.sh/uv/), an [OpenRouter](https://openrouter.ai) API key.
 
 ```sh
-git clone <repo> && cd HikeSense
+git clone https://github.com/TuringCollegeSubmissions/alliebi-AE.CAP.AFA.1.1.git HikeSense && cd HikeSense
 cp .env.example .env
 npx supabase start            # local Supabase (Postgres + PostGIS, Auth, Storage)
 npx supabase status           # copy the anon key into SUPABASE_ANON_KEY in .env

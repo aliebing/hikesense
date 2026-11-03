@@ -104,10 +104,10 @@ sources:
     license: Fakten, keine Texte übernommen
     retrieved_at: 2026-11-02
   - id: osm
-    name: OpenStreetMap contributors (Overpass API)
+    name: OpenStreetMap contributors (Overpass API; Geofabrik extracts for places, POIs and lodgings)
     url: https://www.openstreetmap.org/relation/62900
     license: ODbL
-    retrieved_at: 2026-10-28
+    retrieved_at: 2026-11-03
 trails:
   - id: westweg-west
     name: Westweg (Westvariante)
