@@ -576,6 +576,8 @@ def test_cli_import_reports_failed_relation_and_exits_1(conn, monkeypatch, capsy
 
     monkeypatch.setenv("SUPABASE_DB_URL", conn.info.dsn + " password=postgres")
     monkeypatch.setattr(cli, "import_day_hikes", fake)
+    # the command commits on the real database: the renaming step must not touch real trails
+    monkeypatch.setattr(cli, "name_numbered_trails", lambda _c: 0)
     assert cli.main(["import-day-hikes", "--csv", str(csv)]) == 1
     err = capsys.readouterr().err
     assert "2001" in err and "GapError" in err

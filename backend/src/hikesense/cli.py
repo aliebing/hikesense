@@ -27,6 +27,7 @@ from hikesense.ingest.day_hikes import (
 )
 from hikesense.ingest.groups import import_groups, read_groups
 from hikesense.ingest.lodgings import collect_lodgings, import_lodgings
+from hikesense.ingest.names import name_numbered_trails
 from hikesense.ingest.photos import import_photos, load_targets
 from hikesense.ingest.places import collect_places, import_places
 from hikesense.ingest.shares import import_shares
@@ -160,6 +161,8 @@ def import_day_hikes_cmd(csv_path: Path) -> int:
         dem = CopernicusDem(dem_http, _repo_path(settings.dem_cache_dir), max_tiles=4)
         try:
             rep = import_day_hikes(conn, candidates, overpass, dem, source=source)
+            # the import writes OSM names; numbered ones get their village again (needs places)
+            name_numbered_trails(conn)
         except BaseException:
             conn.rollback()
             raise
@@ -335,6 +338,7 @@ def import_places_cmd(pbf_dir: Path | None = None) -> int:
                 lambda r, n, m: print(f"{r.name}: {n} Orte, {m} POIs in OSM"),
             )
             links = import_places(conn, places, pois, source)
+            named = name_numbered_trails(conn)  # needs the places
         except BaseException as e:
             conn.rollback()
             if isinstance(e, (HikeSenseError, ValueError)):
@@ -352,6 +356,7 @@ def import_places_cmd(pbf_dir: Path | None = None) -> int:
     print("Orte: " + ", ".join(f"{k} {n}" for k, n in place_rows))
     print("POIs (<= 300 m von einem Weg): " + ", ".join(f"{k} {n}" for k, n in poi_rows))
     print(f"{len(pois)} POIs in OSM, {linked} mit Weg verknüpft, {links} Weg-Verknüpfungen")
+    print(f"{named} Nummern-Touren mit Ortsnamen versehen (z. B. „Rundweg A1 (Ahausen)“)")
     return 0
 
 
