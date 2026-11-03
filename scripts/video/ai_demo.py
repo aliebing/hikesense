@@ -10,8 +10,8 @@ recording time (code_snippets.py); the JSON panels below are shortened copies of
 Keys and values are real; "…" marks what is left out.
 
 Usage:
-    python scripts/video/ai_demo.py --lang en   # out/hikeallabout-ai-en.mp4, voice en-GB-RyanNeural
-    python scripts/video/ai_demo.py --lang de   # out/hikeallabout-ai-de.mp4, voice de-DE-ConradNeural
+    python scripts/video/ai_demo.py --lang en   # out/hikesense-ai-en.mp4, voice en-GB-RyanNeural
+    python scripts/video/ai_demo.py --lang de   # out/hikesense-ai-de.mp4, voice de-DE-ConradNeural
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ VOICES = {"en": (VOICE, RATE), "de": ("de-DE-ConradNeural", "+5%")}
 
 TEXT = {
     "en": {
-        "a01": "Hike all about: how the AI works. This video follows one chat message through the system: how the "
+        "a01": "HikeSense: how the AI works. This video follows one chat message through the system: how the "
         "browser talks to the API, how the LangGraph graph routes the message, why the model returns JSON instead "
         "of free text, how tools are called, and how the code checks every number before you see it.",
         "a02": "Here is the whole journey. The browser sends the message as JSON to the API. The API checks the "
@@ -107,7 +107,7 @@ TEXT = {
         "numbers and the honest sentences. Thanks for watching.",
     },
     "de": {
-        "a01": "Hike all about: So arbeitet die KI. Dieses Video verfolgt eine einzige Chatnachricht durch das "
+        "a01": "HikeSense: So arbeitet die KI. Dieses Video verfolgt eine einzige Chatnachricht durch das "
         "System: wie der Browser mit der API spricht, wie der LangGraph-Graph die Nachricht weiterleitet, warum "
         "das Modell JSON statt freiem Text liefert, wie Tools aufgerufen werden, und wie der Code jede Zahl prüft, "
         "bevor sie auf dem Bildschirm erscheint.",
@@ -187,12 +187,12 @@ TEXT = {
 
 # --- code panels (read from the repository at recording time) ----------------------------------------------------
 
-A = "backend/src/hikeall/agent/"
+A = "backend/src/hikesense/agent/"
 CODE = {
-    "a03c": [Snippet("backend/src/hikeall/api/chat.py", "_event", mark=["model_dump_json"])],
+    "a03c": [Snippet("backend/src/hikesense/api/chat.py", "_event", mark=["model_dump_json"])],
     "a05c": [Snippet(A + "request.py", start="class RawRequest(BaseModel):", end="length_km_max: float")],
     "a06": [
-        Snippet("backend/src/hikeall/llm/gateway.py", start="        messages = [SystemMessage(system), HumanMessage(user)]",
+        Snippet("backend/src/hikesense/llm/gateway.py", start="        messages = [SystemMessage(system), HumanMessage(user)]",
                 end='raise LLMBadOutput("', mark=["with_structured_output", "LLMBadOutput", "parsed = "]),
         Snippet(A + "understand.py", "parse", mark=["gw.structured("]),
     ],
@@ -446,7 +446,7 @@ async def main(lang: str, out: Path) -> None:
             await narrate(rec, s, pad=pad)
         await rec.stop(tail=1.5)
         await browser.close()
-    target = out / f"hikeallabout-ai-{lang}.mp4"
+    target = out / f"hikesense-ai-{lang}.mp4"
     render(rec, segments, target)
     print("wrote", target, f"{rec.shift(rec.end):.1f}s")
 

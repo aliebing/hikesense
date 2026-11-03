@@ -22,12 +22,12 @@ from pathlib import Path
 if "CHAT_LOG_PATH" not in os.environ:
     sys.exit("set CHAT_LOG_PATH to a scratch file, not the checkout's data/logs/chat.jsonl")
 
-from hikeall.agent.graph import _turn
-from hikeall.api.chat import default_deps_factory
-from hikeall.config import Settings
-from hikeall.llm import gateway as gwmod
-from hikeall.llm.usage import metered
-from hikeall.trace import to_jsonable, traced
+from hikesense.agent.graph import _turn
+from hikesense.api.chat import default_deps_factory
+from hikesense.config import Settings
+from hikesense.llm import gateway as gwmod
+from hikesense.llm.usage import metered
+from hikesense.trace import to_jsonable, traced
 
 OUT = Path(__file__).with_name("graph_runs.json")
 
@@ -71,7 +71,7 @@ gwmod.OpenRouterGateway.tool_round = _recording_tool_round
 
 def main() -> None:
     settings = Settings()
-    print("chat log:", settings.chat_log_path, "model:", settings.hikeall_model)
+    print("chat log:", settings.chat_log_path, "model:", settings.hikesense_model)
     deps = default_deps_factory(settings)()
     graph = deps.graph
     runs = []
@@ -140,7 +140,7 @@ def main() -> None:
         )
     OUT.write_text(
         json.dumps(
-            {"model": settings.hikeall_model, "total_cost_usd": total, "runs": runs},
+            {"model": settings.hikesense_model, "total_cost_usd": total, "runs": runs},
             ensure_ascii=False,
             indent=1,
         )

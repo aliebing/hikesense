@@ -12,8 +12,8 @@ Panels are shortened ("…" marks what is left out); keys and values are real. T
 runs, so the narration describes what it did in this recorded run.
 
 Usage:
-    python scripts/video/graph_demo.py --lang en   # out/hikeallabout-graph-en.mp4, voice en-GB-RyanNeural
-    python scripts/video/graph_demo.py --lang de   # out/hikeallabout-graph-de.mp4, voice de-DE-ConradNeural
+    python scripts/video/graph_demo.py --lang en   # out/hikesense-graph-en.mp4, voice en-GB-RyanNeural
+    python scripts/video/graph_demo.py --lang de   # out/hikesense-graph-de.mp4, voice de-DE-ConradNeural
 """
 
 from __future__ import annotations
@@ -259,7 +259,7 @@ TEXT = {
 
 # --- code panels (read from the repository at recording time) ----------------------------------------------------
 
-G = "backend/src/hikeall/agent/graph.py"
+G = "backend/src/hikesense/agent/graph.py"
 CODE = {
     "g05L": [Snippet(G, start="class State(TypedDict, total=False):", end="candidates: list[dict]",
                      mark=["route: str", "current:", "evidence:", "draft:", "final_text:", "persists per thread"])],
@@ -583,7 +583,7 @@ async def main(lang: str, out: Path) -> None:
             await narrate(rec, s, pad=pad)
         await rec.stop(tail=1.5)
         await browser.close()
-    target = out / f"hikeallabout-graph-{lang}.mp4"
+    target = out / f"hikesense-graph-{lang}.mp4"
     render(rec, segments, target)
     print("wrote", target, f"{rec.shift(rec.end):.1f}s")
 

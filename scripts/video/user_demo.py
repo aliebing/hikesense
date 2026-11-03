@@ -1,4 +1,4 @@
-"""Video 1: how a hiker works with Hike all about (British English voice-over, real screen recording).
+"""Video 1: how a hiker works with HikeSense (British English voice-over, real screen recording).
 
 Needs the API and the web app running (see README.md). Signs in as the local admin, makes six real chat turns (about
 $0.0005 each with openai/gpt-4o-mini) and saves one search and one plan, which it deletes again after the recording.
@@ -41,7 +41,7 @@ Q_MULTIDAY = "3 days on the Westweg from Hausach"
 SEGMENTS = [
     Segment(
         "01_intro",
-        "Welcome to Hike all about, a hiking planner that you use through a chat. It plans day hikes and "
+        "Welcome to HikeSense, a hiking planner that you use through a chat. It plans day hikes and "
         "multi-day tours with places to stay, walking times and weather, in the Black Forest, at Lake Constance "
         "and in the Palatinate Forest. The interface is in English by default; the flags switch it to German.",
     ),
@@ -117,7 +117,7 @@ SEGMENTS = [
     ),
     Segment(
         "19_outro",
-        "That is Hike all about: the code finds and checks real routes, and the model puts them into words. The "
+        "That is HikeSense: the code finds and checks real routes, and the model puts them into words. The "
         "second video shows how it works inside.",
     ),
 ]
@@ -461,7 +461,7 @@ async def main(base: str, api: str, out: Path) -> None:
         await narrate(rec, seg["18_admin_why"], why)
 
         async def outro():
-            await click(page, page.get_by_role("link", name="Hike all about").first, 900)
+            await click(page, page.get_by_role("link", name="HikeSense").first, 900)
             await page.wait_for_timeout(1500)
             await glide(page, 760, 420, 1800)
 
@@ -471,8 +471,8 @@ async def main(base: str, api: str, out: Path) -> None:
         await cleanup(page, base, before)
         await browser.close()
 
-    render(rec, SEGMENTS, out / "hikeallabout-user.mp4")
-    print("wrote", out / "hikeallabout-user.mp4", f"{rec.shift(rec.end):.1f}s")
+    render(rec, SEGMENTS, out / "hikesense-user.mp4")
+    print("wrote", out / "hikesense-user.mp4", f"{rec.shift(rec.end):.1f}s")
 
 
 if __name__ == "__main__":

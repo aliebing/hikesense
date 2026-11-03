@@ -1,4 +1,4 @@
-"""Video 2: how Hike all about works inside (British English voice-over over animated slides).
+"""Video 2: how HikeSense works inside (British English voice-over over animated slides).
 
 Uses the screenshots that user_demo.py saves to out/shots/, so run that first. With a running app (--base) it takes
 fresh screenshots of the admin backend /admin (no agent turn, no cost); without one it keeps the user video's.
@@ -28,7 +28,7 @@ COUNTS = {
 SEGMENTS = [
     Segment(
         "t01",
-        "Hike all about, under the hood. This video shows how the planner works inside: the data and its "
+        "HikeSense, under the hood. This video shows how the planner works inside: the data and its "
         "licences, the quality rules for day hikes, the LangGraph agent, the grounding check, near misses, the "
         "weather day finder, the admin backend, the bilingual design, and the evaluation.",
     ),
@@ -168,9 +168,9 @@ SEGMENTS = [
 ]
 
 
-A = "backend/src/hikeall/agent/"
+A = "backend/src/hikesense/agent/"
 CODE = {  # code slide -> its panels, read from the repository at recording time
-    "c06": [Snippet("backend/src/hikeall/ingest/day_hikes.py", "auto_decision",
+    "c06": [Snippet("backend/src/hikesense/ingest/day_hikes.py", "auto_decision",
                     mark=["gap_error", "MIN_KM", "LONG_DISTANCE_NETWORKS"])],
     "c07": [Snippet(A + "graph.py", start='    g.add_edge(START, "guard")', end="return g.compile(",
                     mark=["add_conditional_edges", "checkpointer"])],
@@ -259,8 +259,8 @@ async def main(out: Path, base: str, api: str) -> None:
         await rec.stop(tail=1.5)
         await browser.close()
 
-    render(rec, SEGMENTS, out / "hikeallabout-tech.mp4")
-    print("wrote", out / "hikeallabout-tech.mp4", f"{rec.shift(rec.end):.1f}s")
+    render(rec, SEGMENTS, out / "hikesense-tech.mp4")
+    print("wrote", out / "hikesense-tech.mp4", f"{rec.shift(rec.end):.1f}s")
 
 
 if __name__ == "__main__":
