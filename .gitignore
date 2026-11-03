@@ -9,3 +9,9 @@ data/chroma/
 data/osm/
 data/logs/
 data/backups/
+# internal working material, not part of the submission
+docs/superpowers/
+docs/examples/
+docs/NOCH_AUSZUFUELLEN.md
+.claude/
+/*.png
