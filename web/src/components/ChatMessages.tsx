@@ -121,7 +121,7 @@ export default function ChatMessages({
   const t = useT();
   const { locale } = useLocale();
   return (
-    <ol aria-label={t.chat.history} aria-live="polite" className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+    <ol aria-label={t.chat.history} aria-live="polite" className="flex flex-col gap-2">
       {items.map((it, i) => (
         <li key={i} className="flex flex-col gap-1">
           {it.kind === "user" && (

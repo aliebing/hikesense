@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { useSession } from "../lib/auth";
 import ChatMessages from "./ChatMessages";
@@ -22,8 +22,26 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
   };
 
   const hero = variant === "hero";
+  // intro, history and status scroll together inside the box (thin light-green bar at its right
+  // edge); the input stays below. Keep the newest message in view.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [state.items.length, busy]);
   const body = (
     <>
+      <div
+        ref={scroller}
+        data-chat-scroll
+        className={`scrollbar-sense flex min-h-0 flex-col gap-3 overflow-y-auto ${
+          variant === "stage"
+            ? "-mr-4 max-h-[50vh] pr-3 md:max-h-none md:flex-1"
+            : variant === "hero"
+              ? "-mr-4 max-h-[35vh] pr-3 sm:-mr-5 sm:pr-4 md:max-h-[max(10rem,calc(100dvh-57.5rem))]"
+              : "-mr-3 max-h-[50vh] pr-2"
+        }`}
+      >
       {/* start page: the example is a light hint on the green, the input field is what stands out */}
       <p
         data-chat-intro
@@ -48,6 +66,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           </button>
         </p>
       )}
+      </div>
       {loading ? null : !session ? (
         <p className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
           {t.signInBefore}
@@ -107,7 +126,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
       className={`flex w-full flex-col gap-3 rounded-2xl p-4 text-left text-papier ring-1 backdrop-blur-md ${
         variant === "hero"
           ? "max-w-2xl bg-wald-dunkel/70 shadow-[0_12px_40px_rgb(0_0_0/0.45)] ring-sense/25 sm:p-5"
-          : "bg-wald-flaeche/60 ring-white/15 sm:max-w-sm md:max-w-md"
+          : "bg-wald-flaeche/60 ring-white/15 sm:max-w-sm md:min-h-0 md:max-w-md md:flex-1"
       }`}
     >
       <div className="flex items-center justify-between gap-2">

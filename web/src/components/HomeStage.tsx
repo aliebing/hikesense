@@ -29,7 +29,9 @@ export default function HomeStage({ landscapes = [] }: { /** background pool for
     return (
       <div className="grid flex-1 items-start gap-6 md:grid-cols-[24rem_1fr]">
         <Backdrop photo={backdrop} />
-        <div className="flex flex-col gap-3 md:sticky md:top-4">
+        {/* from md on the chat column fits the window between header and footer; its history
+            scrolls inside the box, so the page itself does not need a scrollbar */}
+        <div className="flex flex-col gap-3 md:sticky md:top-4 md:max-h-[calc(100dvh-10rem)]">
           <h1 className="schrift-feld font-serif text-2xl">{t.title}</h1>
           <ChatShell intro={t.intro} />
         </div>

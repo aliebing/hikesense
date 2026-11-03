@@ -43,6 +43,12 @@ body {
   }
 }
 
+/* Chat box: an unobtrusive thin light-green bar (sense) at the box's right edge. */
+.scrollbar-sense {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(147 211 107 / 0.45) transparent;
+}
+
 .scrollbar-schmal {
   scrollbar-width: thin;
   scrollbar-color: rgb(244 241 234 / 0.4) transparent;
