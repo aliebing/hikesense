@@ -688,10 +688,16 @@ STAGES = ["Pforzheim", "Forbach", "Hausach", "Hinterzarten", "Basel"]
 
 
 class FakeTrails:
-    """TrailLookup without a database: Hausach is on the trail, Todtnau is not."""
+    """TrailLookup without a database: Hausach and Hinterzarten are on the trail, Todtnau is not."""
+
+    off = ()
 
     def start_km(self, trail_id, lat, lon):
-        return 61.0 if abs(lat - 48.2836) < 0.01 else None
+        if abs(lat - 48.2836) < 0.01:
+            return 61.0
+        if abs(lat - 47.9) < 0.01 and "Hinterzarten" not in self.off:
+            return 140.0
+        return None
 
     def stage_places(self, trail_id):
         return STAGES
@@ -758,6 +764,23 @@ def test_start_off_trail_asks(vocab):
     assert isinstance(res, Clarify)
     assert res.question == "Todtnau liegt nicht am Westweg. Ab welchem Etappenort?"
     assert res.options == ["Hausach", "Hinterzarten"]  # only stage places that resolve
+
+
+def test_stage_place_off_the_line_is_not_offered(vocab):
+    """A stage place whose village centre lies > 2 km from the line would fail when clicked."""
+
+    class Trails(FakeTrails):
+        off = ("Hinterzarten",)
+
+    res = understand(
+        gw_of(intent="multiday", trail_text="Westweg", start_text="Todtnau", days=3),
+        vocab,
+        "Westweg 3 Tage ab Todtnau",
+        None,
+        today=TODAY,
+        trails=Trails(),
+    )
+    assert isinstance(res, Clarify) and res.options == ["Hausach"]
 
 
 def test_missing_start_and_days_ask(vocab):
@@ -1573,3 +1596,12 @@ def test_word_merely_ending_in_negator_does_not_block(vocab):
             gw_of(start_text="Feldberg (Schwarzwald)", weather_wish=wish), vocab, msg, None
         )
         assert isinstance(req, HikeRequest) and req.weather_wish == wish
+
+
+def test_trail_name_keeps_multi_word_names():
+    from types import SimpleNamespace
+
+    from hikesense.agent.understand import _trail_name
+
+    assert _trail_name(SimpleNamespace(label="Westweg (Westvariante)")) == "Westweg"
+    assert _trail_name(SimpleNamespace(label="Pfälzer Waldpfad")) == "Pfälzer Waldpfad"

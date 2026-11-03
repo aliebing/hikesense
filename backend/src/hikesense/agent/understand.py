@@ -1239,7 +1239,8 @@ def _resolve_trail(
 
 
 def _trail_name(tag: Tag) -> str:
-    return tag.label.split()[0]
+    """Trail name without a variant in brackets: "Westweg (Westvariante)" -> "Westweg"."""
+    return re.sub(r"\s*\(.*\)\s*$", "", tag.label)
 
 
 def _check_multiday_start(
@@ -1251,10 +1252,17 @@ def _check_multiday_start(
 ) -> Clarify | None:
     """The start must be a place on the trail (<= 2 km from the line); otherwise ask for a
     stage place of that trail (names from the stages table). Only stage places that resolve to
-    one known place are offered: an option must work when the user clicks it."""
+    one known place within 2 km of the line are offered: an option must work when the user
+    clicks it (a village centre can lie further from the line than its stage end)."""
     trail_id = trail.rule.trail_id if isinstance(trail.rule, LongTrail) else ""
     places = trails.stage_places(trail_id) if trails is not None else []
-    options = [p for p in places if _is_point(_resolve_start(vocab, p, lang))]
+    options = []
+    for p in places:
+        res = _resolve_start(vocab, p, lang)
+        if not _is_point(res) or res.lat is None or res.lon is None:
+            continue
+        if trails is None or trails.start_km(trail_id, res.lat, res.lon) is not None:
+            options.append(p)
     if start is None or start.lat is None or start.lon is None:
         return Clarify(question=_T[lang]["start_question"], options=options)
     if trails is not None and trails.start_km(trail_id, start.lat, start.lon) is None:
