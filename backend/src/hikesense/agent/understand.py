@@ -139,6 +139,7 @@ _T = {
         "unknown_trail": "Welchen Fernweg meinst du? „{text}“ kenne ich nicht.",
         "which_trail": "Auf welchem Fernweg?",
         "off_trail": "{label} liegt nicht am {trail}. Ab welchem Etappenort?",
+        "multiday_round": "Rundwanderung über mehrere Tage: HikeSense plant Mehrtagestouren als Etappen auf einem Fernweg, nicht als Rundweg.",
         "days_invalid": "Tage: {n} ist kein gültiger Wert ({lo}–{hi})",
         "no_such_date": "Datum: {label} gibt es nicht",
         "past_date": "Datum: {d} liegt in der Vergangenheit",
@@ -227,6 +228,7 @@ _T = {
         "unknown_trail": "Which long-distance trail do you mean? I don't know “{text}”.",
         "which_trail": "On which long-distance trail?",
         "off_trail": "{label} is not on the {trail}. From which stage town?",
+        "multiday_round": "Multi-day round walk: HikeSense plans multi-day tours as stages along a long-distance trail, not as a round walk.",
         "days_invalid": "Days: {n} is not a valid value ({lo}–{hi})",
         "no_such_date": "Date: {label} does not exist",
         "past_date": "Date: {d} is in the past",
@@ -374,6 +376,8 @@ def resolve(
         if isinstance(resolved, Clarify):
             return resolved
         start = resolved
+    if trail is not None and trail[1]:  # bare name ("Westweg"): the variant the start lies on
+        trail = (_variant_with_start(vocab, trail[0], start, trails), True)
     if trail is not None:
         clarify = _check_multiday_start(vocab, trail[0], start, trails, lang)
         if clarify is not None:
@@ -389,6 +393,9 @@ def resolve(
     discarded += dropped
     if is_multiday and multi["days"] is None:
         return Clarify(question=t["days_question"])
+    if is_multiday and (raw.roundtrip or any(roundtrips)):
+        # never drop the wish silently: multi-day plans are stages along a long-distance trail
+        unmatched.append(t["multiday_round"])
     for required in roundtrips:  # a contradicting pair stays and is reported as contradiction
         if not any(c.kind == "roundtrip" and c.required == required for c in constraints):
             constraints.append(Constraint(kind="roundtrip", required=required))
@@ -964,17 +971,19 @@ def _resolve_start(vocab: TagVocabulary, text: str, lang: Lang = "de") -> Resolv
     return Clarify(question=msg, options=close)
 
 
+def start_of(vocab: TagVocabulary, text: str, lang: Lang = "de") -> ResolvedStart | None:
+    """The one start a free-text answer names, else None (unknown or ambiguous)."""
+    res = _resolve_start(vocab, text, lang)
+    return res if isinstance(res, ResolvedStart) else None
+
+
 def resolve_option(vocab: TagVocabulary, option: str) -> ResolvedStart | None:
     """The start behind one clarify option (exact display name or label, in either language),
     if unique."""
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     needle = fold(option)
-    hits = [
-        t
-        for lang in LANGS
-        for t, name in ((t, _display_names(cands, lang)[t.id]) for t in cands)
-        if fold(name) == needle
-    ]
+    names = {lang: _display_names(cands, lang) for lang in LANGS}  # once per language
+    hits = [t for lang in LANGS for t in cands if fold(names[lang][t.id]) == needle]
     hits = list({t.id: t for t in hits}.values())
     if not hits:
         hits = list(
@@ -1145,7 +1154,7 @@ _DIRECTION_WORDS = {
     "longer": re.compile(r"\b(?:langer|mehr|longer|more)\b"),
 }
 _DAYS_PHRASE = re.compile(
-    r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig|tagestour|tag|days|day)\b"
+    r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig(?:e[nrs]?)?|tagestour|tag|days|day)\b"
 )
 _PACE_UNIT = re.compile(r"\s*min\b")
 _MONTHS_DE = {
@@ -1241,6 +1250,29 @@ def _resolve_trail(
 def _trail_name(tag: Tag) -> str:
     """Trail name without a variant in brackets: "Westweg (Westvariante)" -> "Westweg"."""
     return re.sub(r"\s*\(.*\)\s*$", "", tag.label)
+
+
+def _variant_with_start(
+    vocab: TagVocabulary, trail: Tag, start: ResolvedStart | None, trails: TrailLookup | None
+) -> Tag:
+    """For a bare trail name: keep the default variant if the start lies on it, else take the
+    sibling variant the start lies on (Feldberg is on the Westweg's east variant only)."""
+    if trails is None or start is None or start.lat is None or start.lon is None:
+        return trail
+
+    def on(t: Tag) -> bool:
+        tid = t.rule.trail_id if isinstance(t.rule, LongTrail) else ""
+        return trails.start_km(tid, start.lat, start.lon) is not None
+
+    if on(trail):
+        return trail
+    base = fold(trail.label)  # "westweg" -> "westweg ostvariante" (as in _resolve_trail)
+    siblings = [
+        t
+        for t in vocab.all()
+        if t.category == "trail" and t is not trail and fold(t.label).startswith(base + " ")
+    ]
+    return next((t for t in siblings if on(t)), trail)
 
 
 def _check_multiday_start(

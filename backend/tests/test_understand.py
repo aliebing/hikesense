@@ -757,6 +757,53 @@ def test_bare_westweg_is_west_variant_and_echo_says_so(vocab):
     assert "Ostvariante" in echo(east, vocab) and "möglich" not in echo(east, vocab)
 
 
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "2 tägige Tour Westweg ab Hausach",
+        "2-tägige Tour Westweg ab Hausach",
+        "zweitägigen Westweg ab Hausach",
+    ],
+)
+def test_inflected_day_words_count(vocab, msg):
+    req = multi(vocab, msg, trail_text="Westweg", start_text="Hausach", days=2)
+    assert isinstance(req, HikeRequest) and req.days == 2
+
+
+def test_bare_westweg_takes_the_variant_the_start_lies_on(vocab):
+    """Feldberg lies on the east variant only: bare "Westweg" must not send it off-trail."""
+
+    class Trails(FakeTrails):
+        def start_km(self, trail_id, lat, lon):
+            if abs(lat - 47.86) < 0.01:
+                return 180.0 if trail_id == "westweg-ost" else None
+            return super().start_km(trail_id, lat, lon)
+
+    req = understand(
+        gw_of(intent="multiday", trail_text="Westweg", start_text="Feldberg (Schwarzwald)", days=2),
+        vocab,
+        "2 Tage Westweg ab Feldberg (Schwarzwald)",
+        None,
+        today=TODAY,
+        trails=Trails(),
+    )
+    assert isinstance(req, HikeRequest) and req.trail_id == "westweg-ost"
+    assert req.trail_assumed  # still only the bare name: the echo names the variant
+
+
+def test_multiday_round_walk_says_it_becomes_stages(vocab):
+    req = multi(
+        vocab,
+        "2 Tage Rundwanderung Westweg ab Hausach",
+        trail_text="Westweg",
+        start_text="Hausach",
+        days=2,
+        roundtrip=True,
+    )
+    assert isinstance(req, HikeRequest)
+    assert any("Etappen" in u and "Rundweg" in u for u in req.unmatched)
+
+
 def test_start_off_trail_asks(vocab):
     res = multi(
         vocab, "Westweg 3 Tage ab Todtnau", trail_text="Westweg", start_text="Todtnau", days=3
@@ -1605,3 +1652,17 @@ def test_trail_name_keeps_multi_word_names():
 
     assert _trail_name(SimpleNamespace(label="Westweg (Westvariante)")) == "Westweg"
     assert _trail_name(SimpleNamespace(label="Pfälzer Waldpfad")) == "Pfälzer Waldpfad"
+
+
+def test_resolve_option_builds_the_display_names_once_per_language(vocab, monkeypatch):
+    """It ran once per place (O(n²)): ~47 s per clarify answer with ~10,000 places."""
+    from hikesense.agent import understand as u
+
+    calls = []
+    real = u._display_names
+    monkeypatch.setattr(
+        u, "_display_names", lambda tags, lang="de": calls.append(lang) or real(tags, lang)
+    )
+    start = u.resolve_option(vocab, "Hausach")
+    assert start is not None and start.tag_id == "place:hausach"
+    assert len(calls) <= len(u.LANGS)

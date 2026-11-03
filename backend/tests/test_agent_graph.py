@@ -1351,6 +1351,25 @@ def test_day_change_beyond_the_shortened_plan_is_honest(vocab, settings):
     assert text_of(events) == "Der Plan hat 4 Tag(e) – einen Tag 5 gibt es darin nicht."
 
 
+def test_a_stage_answer_is_kept_when_another_question_follows(vocab, settings):
+    """Off-trail start, days missing: the stage place answer must stick and the next question
+    is the days one -- not the off-trail question again (loop seen 2026-11-03)."""
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [westweg_raw(start_text="Todtnau"), westweg_raw(days=2)]},
+        answers=["Plan."],
+    )
+    first = one(run(deps, "Westweg ab Todtnau"), "clarify")
+    assert "Todtnau" in first.question
+    second = one(run(deps, "Hausach"), "clarify")
+    assert second.question == "Wie viele Tage?"
+    assert deps.gateway.calls["structured"] == 1  # the place answer needed no model call
+    events = run(deps, "2")
+    plan = one(events, "plan").plan
+    assert len(plan.days) == 2 and plan.days[0].start_km == 0.0  # from Hausach
+
+
 def test_bare_number_answers_the_days_question(vocab, settings):
     deps = make(
         vocab,
@@ -1360,7 +1379,7 @@ def test_bare_number_answers_the_days_question(vocab, settings):
     )
     assert one(run(deps, "Westweg ab Hausach"), "clarify").question == "Wie viele Tage?"
     events = run(deps, "2")
-    assert "Antwort: 2 Tage" in deps.gateway.structured_users[-1]
+    assert deps.gateway.calls["structured"] == 1  # the count goes into the partial request
     assert len(one(events, "plan").plan.days) == 2
 
 

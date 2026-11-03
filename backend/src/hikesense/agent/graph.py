@@ -98,6 +98,7 @@ from hikesense.agent.understand import (
     parse,
     resolve,
     resolve_option,
+    start_of,
 )
 from hikesense.agent.understand import SYSTEM_PROMPT as UNDERSTAND_SYSTEM
 from hikesense.agent.weather import (
@@ -1268,19 +1269,34 @@ def build_graph(deps: AgentDeps) -> Any:
     def _continue_pending(pending: dict, message: str, previous: HikeRequest | None, lang: Lang):
         """Answer to an open clarify question: a place answer continues the partial request
         without a model call; anything else goes to the model with the earlier message."""
+        days_answer = pending["question"] in DAYS_QUESTIONS and re.fullmatch(
+            r"\s*\d{1,2}\s*", message
+        )
+        if days_answer:
+            message = f"{message.strip()} Tage"  # "3" answers "Wie viele Tage?"
         if pending.get("raw"):
             raw = RawRequest.model_validate(pending["raw"])
-            if raw.intent in (*TOUR_INTENTS, "multiday"):
+            if days_answer and raw.intent == "multiday":
+                # the count goes into the partial request, its place answers stay
+                base = f"{pending['message']}\n{message}"
+                probe = raw.model_copy(update={"days": int(message.split()[0])})
+                res = _resolve(probe, base, previous, lang)
+                if isinstance(res, HikeRequest):
+                    return probe, res, base
+            elif raw.intent in (*TOUR_INTENTS, "multiday"):
                 start = resolve_option(vocab, message)
+                probe = raw.model_copy(update={"start_text": message})
                 if start is not None:
                     res = _resolve(raw, pending["message"], previous, lang, start=start)
                 else:
-                    probe = raw.model_copy(update={"start_text": message})
                     res = _resolve(probe, pending["message"], previous, lang)
                 if isinstance(res, HikeRequest) and res.start is not None:
                     return raw, res, pending["message"]
-        if pending["question"] in DAYS_QUESTIONS and re.fullmatch(r"\s*\d{1,2}\s*", message):
-            message = f"{message.strip()} Tage"  # "3" answers "Wie viele Tage?"
+                accepted = start is not None or start_of(vocab, message, lang) is not None
+                if accepted and isinstance(res, Clarify) and res.question != pending["question"]:
+                    # the answer worked and the next question follows (e.g. the days): keep it
+                    # in the partial request -- the model would re-read the first message's place
+                    return probe, res, pending["message"]
         combined = f"{pending['message']}\nRückfrage: {pending['question']}\nAntwort: {message}"
         return None, None, combined
 
