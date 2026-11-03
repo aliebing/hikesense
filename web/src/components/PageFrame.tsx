@@ -6,7 +6,7 @@ import LanguageFlags from "./LanguageFlags";
 import AccountMenu from "./AccountMenu";
 import { LogoMark, Wordmark } from "./Logo";
 
-/** Page frame: dark green ground very dark green running towards black, header with logo, optional „Fernwege“ menu and back link. No photo backdrop. */
+/** Page frame: dark blue ground running towards matt black, header with logo, optional „Fernwege“ menu and back link. No photo backdrop. */
 export default function PageFrame({
   children,
   back,
@@ -20,7 +20,7 @@ export default function PageFrame({
 }) {
   const t = useT().frame;
   return (
-    <div className="relative isolate flex min-h-dvh flex-col bg-gradient-to-b from-[#0e2214] to-[#040a05] text-papier">
+    <div className="relative isolate flex min-h-dvh flex-col bg-gradient-to-b from-[#13233a] to-[#0b0c0e] text-papier">
       <div className={`mx-auto flex w-full flex-1 flex-col gap-5 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           {/* data-frame-logo: hidden on the start view, where the big logo stands in the middle */}

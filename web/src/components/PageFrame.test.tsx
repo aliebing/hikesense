@@ -20,13 +20,13 @@ it("lets the header wrap on narrow screens instead of cutting the last link", ()
   expect(screen.getByText("Fernwege")).toHaveClass("whitespace-nowrap");
 });
 
-it("is dark green without photo backdrop or text shadows", () => {
+it("is dark blue to matt black without photo backdrop or text shadows", () => {
   const { container } = render(
     <PageFrame>
       <p>Inhalt</p>
     </PageFrame>,
   );
-  expect(container.firstElementChild).toHaveClass("from-[#0e2214]"); // very dark green towards black
+  expect(container.firstElementChild).toHaveClass("from-[#13233a]", "to-[#0b0c0e]"); // dark blue towards matt black
   expect(container.firstElementChild!.className).toMatch(/\bto-(black|\[#0)/);
   expect(container.querySelector("[class*='drop-shadow']")).toBeNull();
   expect(container.querySelector(".fixed")).toBeNull();

@@ -6,8 +6,8 @@
   --color-papier: #f4f1ea;
   --color-wald-flaeche: #284a32;
   --color-sense: #93d36b;
-  /* panels over photos (chat box, text fields): one place to change their colour */
-  --color-panel: #1f3f27;
+  /* panels over photos (chat box, text fields): dark blue fits summer and winter photos */
+  --color-panel: #16263a;
   --color-sonne: #f0a040;
   --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
@@ -16,7 +16,7 @@
 
 html,
 body {
-  background: #0e2214;
+  background: #13233a;
   color: var(--color-papier);
 }
 
@@ -121,10 +121,10 @@ body {
 /* Start page hero: the landscape photo darkened towards the header, the brand text and the dark green below. */
 .hero-shade {
   background:
-    linear-gradient(to bottom, rgb(6 16 9 / 0.6) 0%, rgb(6 16 9 / 0.15) 16%, transparent 28%),
-    radial-gradient(ellipse 58% 48% at 50% 34%, rgb(6 16 9 / 0.6), transparent 78%),
-    linear-gradient(to bottom, rgb(6 16 9 / 0.18), rgb(6 16 9 / 0.18)),
-    linear-gradient(to bottom, transparent 48%, rgb(14 34 20 / 0.82) 80%, #0e2214 100%);
+    linear-gradient(to bottom, rgb(8 13 22 / 0.6) 0%, rgb(8 13 22 / 0.15) 16%, transparent 28%),
+    radial-gradient(ellipse 58% 48% at 50% 34%, rgb(8 13 22 / 0.6), transparent 78%),
+    linear-gradient(to bottom, rgb(8 13 22 / 0.18), rgb(8 13 22 / 0.18)),
+    linear-gradient(to bottom, transparent 48%, rgb(19 35 58 / 0.82) 80%, #13233a 100%);
 }
 .hero-text {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 18px rgb(0 0 0 / 0.5);
