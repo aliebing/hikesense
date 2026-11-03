@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from hikeall.adapters.commons import CommonsClient
 from hikeall.adapters.dem import CopernicusDem
 from hikeall.adapters.http import make_http_client
-from hikeall.adapters.osm_pbf import pbf_timestamp
+from hikeall.adapters.osm_pbf import extract_paths, pbf_timestamp
 from hikeall.adapters.overpass import OverpassClient
 from hikeall.config import Settings, export_langsmith_env
 from hikeall.db import connect
@@ -258,10 +258,26 @@ STAGE_COUNT_SQL = """
 """
 
 
-def import_lodgings_cmd() -> int:
+def _pbf_dir(pbf_dir: Path | None) -> Path | None:
+    """Repo-relative extract directory; prints which regions come from which files."""
+    if pbf_dir is None:
+        return None
+    pbf_dir = _repo_path(pbf_dir)
+    for region in REGIONS:
+        paths = extract_paths(pbf_dir, region)
+        if paths is None:
+            print(f"{region.name}: Extrakte fehlen in {pbf_dir}, Overpass")
+        else:
+            stamps = ", ".join(f"{p.name} ({pbf_timestamp(p) or 'Stand unbekannt'})" for p in paths)
+            print(f"{region.name}: aus {stamps}")
+    return pbf_dir
+
+
+def import_lodgings_cmd(pbf_dir: Path | None = None) -> int:
     settings = _settings()
     if settings is None:
         return 2
+    pbf_dir = _pbf_dir(pbf_dir)
     source = load_trail_sources(TRAILS_YAML)[OSM_SOURCE_ID]
     with (
         make_http_client(240) as http,
@@ -273,6 +289,7 @@ def import_lodgings_cmd() -> int:
                 overpass,
                 REGIONS,
                 lambda r, n: print(f"{r.name}: {n} Unterkünfte in OSM"),
+                pbf_dir=pbf_dir,
             )
             links = import_lodgings(conn, lodgings, source)
         except BaseException as e:
@@ -299,10 +316,11 @@ def import_lodgings_cmd() -> int:
     return 0
 
 
-def import_places_cmd(pbf: Path | None = None) -> int:
+def import_places_cmd(pbf_dir: Path | None = None) -> int:
     settings = _settings()
     if settings is None:
         return 2
+    pbf_dir = _pbf_dir(pbf_dir)
     source = load_trail_sources(TRAILS_YAML)[OSM_SOURCE_ID]
     with (
         make_http_client(240) as http,
@@ -310,16 +328,10 @@ def import_places_cmd(pbf: Path | None = None) -> int:
     ):
         overpass = OverpassClient(http, url=settings.overpass_url)
         try:
-            if pbf is not None:
-                pbf = _repo_path(pbf)
-                if not pbf.is_file():
-                    print(f"Fehler: OSM-Extrakt nicht gefunden: {pbf}", file=sys.stderr)
-                    return 2
-                print(f"OSM-Extrakt {pbf.name}, Stand {pbf_timestamp(pbf) or 'unbekannt'}")
             places, pois = collect_places(
                 overpass,
                 REGIONS,
-                pbf,
+                pbf_dir,
                 lambda r, n, m: print(f"{r.name}: {n} Orte, {m} POIs in OSM"),
             )
             links = import_places(conn, places, pois, source)
@@ -582,13 +594,18 @@ def main(argv: list[str] | None = None) -> int:
         "import-shares", help="Belag- und Wegtyp-Anteile der vorhandenen Touren berechnen"
     )
     p.add_argument("--only", metavar="ID", help="nur diese Tour")
-    sub.add_parser(
+    pbf_help = (
+        "Ordner mit Geofabrik-Extrakten (<name>-latest.osm.pbf); Regionen, deren Extrakte "
+        "alle da sind, kommen daraus, die übrigen über Overpass"
+    )
+    p = sub.add_parser(
         "import-lodgings", help="Unterkünfte aus OSM importieren und mit Wegen verknüpfen"
     )
+    p.add_argument("--pbf-dir", type=Path, help=pbf_help)
     p = sub.add_parser(
         "import-places", help="Orte und POIs aus OSM importieren, POIs mit Wegen verknüpfen"
     )
-    p.add_argument("--pbf", type=Path, help="lokaler Geofabrik-Extrakt statt Overpass")
+    p.add_argument("--pbf-dir", type=Path, help=pbf_help)
     sub.add_parser(
         "build-knowledge", help="Wissensindex (ChromaDB + BM25) aus Wikipedia und eigenen Texten"
     )
@@ -619,9 +636,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-shares":
         return import_shares_cmd(args.only)
     if args.command == "import-lodgings":
-        return import_lodgings_cmd()
+        return import_lodgings_cmd(args.pbf_dir)
     if args.command == "import-places":
-        return import_places_cmd(args.pbf)
+        return import_places_cmd(args.pbf_dir)
     if args.command == "build-knowledge":
         return build_knowledge_cmd()
     if args.command == "smoke":

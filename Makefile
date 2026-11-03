@@ -57,15 +57,21 @@ smoke-user:
 admin-user:
 	cd backend && uv run hikeall admin-user
 
-# Geofabrik-Extrakt Baden-Württemberg (ODbL, ~700 MB); FORCE=1 lädt neu.
-OSM_PBF = data/osm/baden-wuerttemberg-latest.osm.pbf
+# Geofabrik-Extrakte für alle Regionen (ODbL, zusammen ~2 GB): Baden-Württemberg (Schwarzwald,
+# Bodensee DE, Rand der Pfalz-Box), Rheinland-Pfalz, Schwaben (Lindau), Schweiz, Österreich.
+# FORCE=1 lädt neu. Welche Region welche Extrakte braucht: `extracts` in backend/src/hikeall/regions.py.
+OSM_DIR = data/osm
+OSM_EXTRACTS = germany/baden-wuerttemberg germany/rheinland-pfalz germany/bayern/schwaben switzerland austria
 osm-extract:
-	mkdir -p data/osm
-	[ -f $(OSM_PBF) ] && [ -z "$(FORCE)" ] || { curl -L -f -o $(OSM_PBF).part https://download.geofabrik.de/europe/germany/baden-wuerttemberg-latest.osm.pbf && mv $(OSM_PBF).part $(OSM_PBF); }
+	mkdir -p $(OSM_DIR)
+	for e in $(OSM_EXTRACTS); do f=$(OSM_DIR)/$$(basename $$e)-latest.osm.pbf; \
+	  [ -f $$f ] && [ -z "$(FORCE)" ] || { curl -L -f -o $$f.part https://download.geofabrik.de/europe/$$e-latest.osm.pbf && mv $$f.part $$f; } || exit 1; \
+	done
 
-# Orte und POIs aus dem lokalen Extrakt (statt Overpass), danach Tags neu berechnen.
+# Orte, POIs und Unterkünfte aus den lokalen Extrakten (statt Overpass), danach Tags neu berechnen.
 places: osm-extract
-	cd backend && uv run hikeall import-places --pbf $(OSM_PBF)
+	cd backend && uv run hikeall import-places --pbf-dir $(OSM_DIR)
+	cd backend && uv run hikeall import-lodgings --pbf-dir $(OSM_DIR)
 	cd backend && uv run hikeall build-tags
 
 # Kuratierte Gruppenliste (data/curated/groups.csv) in die DB.

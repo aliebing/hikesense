@@ -73,3 +73,41 @@ def test_municipality_from_admin_level_8_relation():
     assert m.lat == pytest.approx(47.85, abs=1e-4)
     assert m.lon == pytest.approx(8.05, abs=1e-4)
     assert "Landkreis" not in places  # admin_level=6 is not a municipality
+
+
+def test_read_lodgings_named_tourism_kinds_only():
+    from hikeall.ingest.lodgings import parse_lodgings
+
+    data = read_elements(FIXTURE, BLACK_FOREST_BBOX, what="lodgings")
+    assert [x["id"] for x in data["elements"]] == [40, 101]  # hotel node, alpine hut way
+    assert sorted(x.name for x in parse_lodgings(data)) == ["Hotel Adler", "Huette"]
+
+
+def test_read_regions_reads_each_file_once_and_splits_by_region(tmp_path, monkeypatch):
+    from hikeall.adapters import osm_pbf
+    from hikeall.regions import REGIONS, get_region
+
+    for name in ("baden-wuerttemberg", "rheinland-pfalz"):
+        (tmp_path / f"{name}-latest.osm.pbf").write_bytes(b"")
+    reads = []
+
+    def fake_read(path, bbox, what="places"):
+        reads.append((path.name, what))
+        return {
+            "elements": [
+                {"type": "node", "id": 1, "lat": 48.0, "lon": 8.0, "tags": {}},  # Black Forest
+                {"type": "node", "id": 2, "lat": 49.3, "lon": 7.9, "tags": {}},  # Palatinate
+            ]
+        }
+
+    monkeypatch.setattr(osm_pbf, "read_elements", fake_read)
+    out = osm_pbf.read_regions(tmp_path, REGIONS, "lodgings")
+    # Lake Constance needs schwaben/switzerland/austria too: not complete -> not read from PBF
+    assert set(out) == {"black_forest", "palatinate"}
+    assert sorted(reads) == [
+        ("baden-wuerttemberg-latest.osm.pbf", "lodgings"),
+        ("rheinland-pfalz-latest.osm.pbf", "lodgings"),
+    ]
+    assert [e["id"] for e in out["black_forest"]["elements"]] == [1]
+    assert {e["id"] for e in out["palatinate"]["elements"]} == {2}
+    assert get_region("lake_constance").extracts[-1] == "austria"

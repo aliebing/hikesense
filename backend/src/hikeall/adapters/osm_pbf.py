@@ -4,14 +4,21 @@ Overpass `out center` response, so ingest.places.parse_places/parse_pois work un
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import osmium
 import osmium.filter
 
+from hikeall.ingest.lodgings import TOURISM_KINDS
 from hikeall.ingest.places import MUNICIPALITY_ADMIN_LEVEL, PLACE_KINDS, POI_RULES
 from hikeall.models import BBox
+
+if TYPE_CHECKING:
+    from hikeall.regions import Region
+
+What = Literal["places", "lodgings"]
 
 _POI_TAGS = {(t, v) for t, v, _n, _k in POI_RULES}
 
@@ -45,6 +52,11 @@ def _matches_poi(tags) -> bool:
     if any(tags.get(t) == v for t, v in _POI_TAGS):
         return True
     return tags.get("amenity") == "shelter" and tags.get("shelter_type") == "basic_hut"
+
+
+def _matches_lodging(tags) -> bool:
+    """Same filter as ingest.lodgings.lodgings_query (nodes and ways)."""
+    return tags.get("tourism") in TOURISM_KINDS and _named(tags)
 
 
 def _matches_way(tags) -> bool:
@@ -105,9 +117,11 @@ def pbf_timestamp(path: Path) -> str | None:
         return reader.header().get("osmosis_replication_timestamp") or None
 
 
-def read_elements(pbf_path: Path, bbox: BBox) -> dict[str, Any]:
+def read_elements(pbf_path: Path, bbox: BBox, what: What = "places") -> dict[str, Any]:
     """One pass over the file; Overpass-shaped elements inside the bbox for the same tag
-    filters as places_query/pois_query. Ways/relations carry `center` = geometry centroid."""
+    filters as places_query/pois_query (`what="places"`) or lodgings_query (`"lodgings"`).
+    Ways/relations carry `center` = geometry centroid."""
+    lodgings = what == "lodgings"
     elements: list[dict[str, Any]] = []
 
     def add(kind: str, oid: int, tags, lat: float, lon: float) -> None:
@@ -123,15 +137,19 @@ def read_elements(pbf_path: Path, bbox: BBox) -> dict[str, Any]:
     with tempfile.TemporaryDirectory() as tmp:
         # disk-backed node index: a flex_mem cache of all nodes of a state is several GB
         index = f"sparse_file_array,{Path(tmp) / 'nodes.idx'}"
-        fp = (
-            osmium.FileProcessor(str(pbf_path))
-            .with_locations(index)
-            .with_areas(
+        fp = osmium.FileProcessor(str(pbf_path)).with_locations(index)
+        if not lodgings:
+            fp = fp.with_areas(
                 osmium.filter.TagFilter(("natural", "water"), ("boundary", "administrative"))
             )
-        )
         for o in fp:
             if not o.tags:
+                continue
+            if lodgings:
+                if o.is_node() and o.location.valid() and _matches_lodging(o.tags):
+                    add("node", o.id, o.tags, o.location.lat, o.location.lon)
+                elif o.is_way() and _matches_lodging(o.tags) and (c := _way_center(o.nodes)):
+                    add("way", o.id, o.tags, *c)
                 continue
             if o.is_node():
                 if o.location.valid() and _matches_node(o.tags):
@@ -146,3 +164,38 @@ def read_elements(pbf_path: Path, bbox: BBox) -> dict[str, Any]:
             ):
                 add("way" if o.from_way() else "relation", o.orig_id(), o.tags, *c)
     return {"elements": elements}
+
+
+def extract_paths(pbf_dir: Path, region: Region) -> list[Path] | None:
+    """The region's Geofabrik extracts in `pbf_dir`, or None if one is missing (or none set)."""
+    paths = [pbf_dir / f"{name}-latest.osm.pbf" for name in region.extracts]
+    return paths if paths and all(p.is_file() for p in paths) else None
+
+
+def read_regions(pbf_dir: Path, regions: Sequence[Region], what: What) -> dict[str, dict]:
+    """Elements per region id for every region whose extracts are all in `pbf_dir`.
+
+    Each file is read once, with the union of the boxes of the regions that use it; the
+    elements are then split by region box (a file can serve several regions)."""
+    users: dict[Path, list[Region]] = {}
+    out: dict[str, dict] = {}
+    for region in regions:
+        paths = extract_paths(pbf_dir, region)
+        if paths is None:
+            continue
+        out[region.id] = {"elements": []}
+        for path in paths:
+            users.setdefault(path, []).append(region)
+    for path, rs in users.items():
+        union = BBox(
+            south=min(r.bbox.south for r in rs),
+            west=min(r.bbox.west for r in rs),
+            north=max(r.bbox.north for r in rs),
+            east=max(r.bbox.east for r in rs),
+        )
+        for el in read_elements(path, union, what)["elements"]:
+            pos = el if el["type"] == "node" else el["center"]
+            for r in rs:
+                if _inside(r.bbox, pos["lat"], pos["lon"]):
+                    out[r.id]["elements"].append(el)
+    return out

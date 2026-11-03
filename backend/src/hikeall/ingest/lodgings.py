@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -87,11 +88,21 @@ def collect_lodgings(
     overpass: OverpassClient,
     regions: Sequence[Region],
     report: Callable[[Region, int], None] | None = None,
+    pbf_dir: Path | None = None,
 ) -> list[Lodging]:
-    """Union of lodgings over all regions, deduplicated by OSM id."""
+    """Union of lodgings over all regions, deduplicated by OSM id. With `pbf_dir`, regions
+    whose Geofabrik extracts are all there are read from them, the rest from Overpass."""
     found: dict[int, Lodging] = {}
+    from_pbf: dict[str, dict] = {}
+    if pbf_dir is not None:
+        from hikeall.adapters import osm_pbf  # lazy: osm_pbf imports this module
+
+        from_pbf = osm_pbf.read_regions(pbf_dir, regions, "lodgings")
     for region in regions:
-        region_lodgings = fetch_lodgings(overpass, region.bbox)
+        if region.id in from_pbf:
+            region_lodgings = parse_lodgings(from_pbf[region.id])
+        else:
+            region_lodgings = fetch_lodgings(overpass, region.bbox)
         for lodging in region_lodgings:
             found.setdefault(lodging.id, lodging)
         if report:

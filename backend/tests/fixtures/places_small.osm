@@ -32,6 +32,8 @@
   <node id="30" lat="47.5600" lon="7.7000"/>
   <node id="31" lat="47.5700" lon="7.7000"/>
   <node id="32" lat="47.5700" lon="7.6000"/>
+  <node id="40" lat="47.9060" lon="8.1060"><tag k="tourism" v="hotel"/><tag k="name" v="Hotel Adler"/></node>
+  <node id="41" lat="47.9061" lon="8.1061"><tag k="tourism" v="hotel"/></node>
   <way id="100">
     <nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="9"/>
     <tag k="natural" v="water"/><tag k="water" v="lake"/><tag k="name" v="Titisee"/>

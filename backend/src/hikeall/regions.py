@@ -25,6 +25,9 @@ class Region:
     # Areas a day trip of this region must not enter: (OSM area key, value, reason), e.g.
     # ("ISO3166-1", "FR", "führt nach Frankreich"); one Overpass query per area.
     exclude: tuple[tuple[str, str, str], ...]
+    # Geofabrik extracts (`<name>-latest.osm.pbf` in data/osm) that together cover the box;
+    # places and lodgings come from them when all are present, else from Overpass.
+    extracts: tuple[str, ...] = ()
 
 
 REGIONS: tuple[Region, ...] = (
@@ -34,6 +37,7 @@ REGIONS: tuple[Region, ...] = (
         BLACK_FOREST_BBOX,
         ("DE",),
         (),
+        ("baden-wuerttemberg",),
     ),
     Region(
         "palatinate",
@@ -45,6 +49,7 @@ REGIONS: tuple[Region, ...] = (
             ("ISO3166-2", "DE-BW", "liegt in Baden-Württemberg, nicht im Pfälzerwald"),
             ("ISO3166-2", "DE-HE", "liegt in Hessen, nicht im Pfälzerwald"),
         ),
+        ("rheinland-pfalz", "baden-wuerttemberg"),
     ),
     Region(
         "lake_constance",
@@ -52,6 +57,7 @@ REGIONS: tuple[Region, ...] = (
         BBox(south=47.40, west=8.80, north=47.95, east=9.95),
         ("DE", "CH", "AT"),
         (),
+        ("baden-wuerttemberg", "schwaben", "switzerland", "austria"),
     ),
 )
 

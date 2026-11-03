@@ -164,20 +164,24 @@ def fetch_pois(
 def collect_places(
     overpass: OverpassClient,
     regions: Sequence[Region],
-    pbf: Path | None,
+    pbf_dir: Path | None,
     report: Callable[[Region, int, int], None] | None = None,
 ) -> tuple[list[Place], list[Poi]]:
     """Union of places and POIs over all regions, deduplicated by OSM id.
 
-    The Black Forest is read from the PBF when given; every other region comes from Overpass.
+    With `pbf_dir`, every region whose Geofabrik extracts are all there is read from them
+    (`osm_pbf.read_regions`); the other regions come from Overpass.
     `report(region, n_places, n_pois)` is called per region (before deduplication)."""
     places: dict[int, Place] = {}
     pois: dict[int, Poi] = {}
-    for region in regions:
-        if pbf is not None and region.id == "black_forest":
-            from hikeall.adapters import osm_pbf  # lazy: osm_pbf imports this module
+    from_pbf: dict[str, dict] = {}
+    if pbf_dir is not None:
+        from hikeall.adapters import osm_pbf  # lazy: osm_pbf imports this module
 
-            data = osm_pbf.read_elements(pbf, region.bbox)
+        from_pbf = osm_pbf.read_regions(pbf_dir, regions, "places")
+    for region in regions:
+        if region.id in from_pbf:
+            data = from_pbf[region.id]
             region_places, region_pois = parse_places(data), parse_pois(data)
         else:
             region_places = fetch_places(overpass, region.bbox)
