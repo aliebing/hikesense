@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.admin import ADMIN_EMAIL, ensure_admin, is_bcrypt
+from hikesense.admin import ADMIN_EMAIL, ensure_admin, is_bcrypt
 
 HASH_A = "$2a$10$" + "a" * 53
 HASH_B = "$2b$10$" + "b" * 53
@@ -38,7 +38,7 @@ def test_creates_then_updates_admin(conn, monkeypatch):
 
 @pytest.mark.db
 def test_ensure_admin_sets_admin_role(conn, monkeypatch):
-    from hikeall.roles import role_of
+    from hikesense.roles import role_of
 
     monkeypatch.setattr(conn, "commit", lambda: None)  # the fixture rolls back
     conn.execute("delete from auth.users where email = %s", (ADMIN_EMAIL,))

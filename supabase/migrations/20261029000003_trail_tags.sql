@@ -1,4 +1,4 @@
--- Feature and surface tags per trail (controlled vocabulary, see backend/src/hikeall/tags).
+-- Feature and surface tags per trail (controlled vocabulary, see backend/src/hikesense/tags).
 -- Place and area tags are checked spatially at query time and are not stored here.
 create table trail_tags (
   trail_id text not null references trails (id) on delete cascade,

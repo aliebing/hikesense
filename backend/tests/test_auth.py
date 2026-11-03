@@ -8,8 +8,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientConnectionError
 
-from hikeall.auth import AuthError, verify_token
-from hikeall.config import Settings
+from hikesense.auth import AuthError, verify_token
+from hikesense.config import Settings
 
 SECRET = "test-secret-with-at-least-32-characters!!"
 

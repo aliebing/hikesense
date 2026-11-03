@@ -47,13 +47,13 @@ it("sign-up with confirmation shows the hint instead of redirecting", async () =
   expect(h.push).not.toHaveBeenCalled();
 });
 
-it("signs in with a bare user name as <name>@hikeall.local", async () => {
+it("signs in with a bare user name as <name>@hikesense.local", async () => {
   h.signIn.mockResolvedValue({ error: null });
   render(<Anmelden />);
   await userEvent.type(screen.getByLabelText("E-Mail"), "admin");
   await userEvent.type(screen.getByLabelText("Passwort"), "admin");
   await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
-  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikeall.local", "admin", "de"));
+  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikesense.local", "admin", "de"));
 });
 
 it("English: texts, and the language is passed to sign-in", async () => {

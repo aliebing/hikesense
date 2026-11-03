@@ -39,7 +39,7 @@ export function duration(hours: number, locale: Locale): string {
 
 /**
  * DIN 33466 hiking time in hours (guidance, no breaks) — same formula as
- * backend/src/hikeall/hiking_time.py: max(h, v) + min(h, v) / 2 with
+ * backend/src/hikesense/hiking_time.py: max(h, v) + min(h, v) / 2 with
  * h = km / 4 and v = ascent / 300 + descent / 500, rounded to 2 decimals.
  */
 export function din33466Hours(distanceKm: number, ascentM: number, descentM: number): number {

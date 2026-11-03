@@ -7,17 +7,17 @@ import pytest
 import respx
 from conftest import Ramp
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.errors import GapError
-from hikeall.ingest.trails import (
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.errors import GapError
+from hikesense.ingest.trails import (
     chain_lines,
     import_trail,
     relation_segments,
     trail_line,
     trail_query,
 )
-from hikeall.models import Source, StageSpec, TrailSpec
+from hikesense.models import Source, StageSpec, TrailSpec
 
 FIXTURE = Path(__file__).parent / "fixtures" / "overpass_relation_small.json"
 
@@ -198,7 +198,7 @@ def test_import_records_the_elevation_source(conn, small_spec, overpass_fixture)
 
 @pytest.mark.db
 def test_cli_reports_gap_with_trail_and_relation_and_exits_1(conn, monkeypatch, capsys):
-    from hikeall import cli
+    from hikesense import cli
 
     def boom(*_args):
         raise GapError(11700, (48.88, 8.70), "westweg-west: relation 48073")
@@ -239,8 +239,8 @@ def test_dropped_leftovers_become_warnings(small_spec):
     ],
 )
 def test_curated_trail_chains_its_stages(tid, start, end):
-    from hikeall.cli import TRAILS_YAML
-    from hikeall.ingest.stages import load_trail_specs
+    from hikesense.cli import TRAILS_YAML
+    from hikesense.ingest.stages import load_trail_specs
 
     spec = {t.id: t for t in load_trail_specs(TRAILS_YAML)}[tid]
     assert spec.kind == "long_distance"
@@ -260,8 +260,8 @@ def test_curated_trail_chains_its_stages(tid, start, end):
     ],
 )
 def test_curated_stage1_trails_have_official_km(tid, stages, first, last):
-    from hikeall.cli import TRAILS_YAML
-    from hikeall.ingest.stages import load_trail_specs
+    from hikesense.cli import TRAILS_YAML
+    from hikesense.ingest.stages import load_trail_specs
 
     spec = {t.id: t for t in load_trail_specs(TRAILS_YAML)}[tid]
     assert len(spec.stages) == stages
@@ -272,7 +272,7 @@ def test_curated_stage1_trails_have_official_km(tid, stages, first, last):
 
 
 def test_trim_to_stages_drops_line_before_first_and_after_last_stage():
-    from hikeall.ingest.stages import trim_to_stages
+    from hikesense.ingest.stages import trim_to_stages
 
     line = [(48.0 + i * 0.01, 8.0) for i in range(10)]
     specs = [
@@ -283,15 +283,15 @@ def test_trim_to_stages_drops_line_before_first_and_after_last_stage():
 
 
 def test_trim_to_stages_without_stages_returns_the_line_unchanged():
-    from hikeall.ingest.stages import trim_to_stages
+    from hikesense.ingest.stages import trim_to_stages
 
     line = [(48.0, 8.0), (48.0, 8.01)]
     assert trim_to_stages(line, []) == line
 
 
 def test_curated_graph_trails_are_flagged():
-    from hikeall.cli import TRAILS_YAML
-    from hikeall.ingest.stages import load_trail_specs
+    from hikesense.cli import TRAILS_YAML
+    from hikesense.ingest.stages import load_trail_specs
 
     flags = {t.id: t.assemble for t in load_trail_specs(TRAILS_YAML)}
     assert flags["pfaelzer-waldpfad"] == flags["pfaelzer-weinsteig"] == "graph"
@@ -313,8 +313,8 @@ def test_import_trail_trims_only_when_spec_asks(conn, small_spec, overpass_fixtu
 
 
 def test_curated_trim_flag_only_on_new_trails():
-    from hikeall.cli import TRAILS_YAML
-    from hikeall.ingest.stages import load_trail_specs
+    from hikesense.cli import TRAILS_YAML
+    from hikesense.ingest.stages import load_trail_specs
 
     trimmed = {t.id for t in load_trail_specs(TRAILS_YAML) if t.trim}
     assert trimmed == {

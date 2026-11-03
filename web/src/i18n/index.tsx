@@ -32,7 +32,7 @@ const LocaleContext = createContext<Ctx | null>(null);
 
 /** Without a provider (isolated component tests) the language comes from a test hook, else English. */
 function fallbackLocale(): Locale {
-  const g = (globalThis as { __HIKEALL_DEFAULT_LOCALE__?: unknown }).__HIKEALL_DEFAULT_LOCALE__;
+  const g = (globalThis as { __HIKESENSE_DEFAULT_LOCALE__?: unknown }).__HIKESENSE_DEFAULT_LOCALE__;
   return isLocale(g) ? g : "en";
 }
 

@@ -1,7 +1,7 @@
 """Backend -> web event contract: real graph events, serialised by the real SSE API, are the
 fixture the web tests parse and render (web/src/lib/__fixtures__/chat-streams.json).
 
-Regenerate after an intended protocol change: HIKEALL_UPDATE_FIXTURES=1 uv run pytest tests/test_contract.py
+Regenerate after an intended protocol change: HIKESENSE_UPDATE_FIXTURES=1 uv run pytest tests/test_contract.py
 """
 
 import json
@@ -33,13 +33,13 @@ from test_events import TODAY as EVENTS_DAY
 from test_events import EventTools, verified
 from test_groups import GroupTools
 
-from hikeall.agent.constraints import Candidate
-from hikeall.agent.events import CalendarLink, EventsResult
-from hikeall.agent.request import RawRequest
-from hikeall.agent.tools import GroupBrief
-from hikeall.api.app import create_app
-from hikeall.config import Settings
-from hikeall.llm.gateway import LLMUnavailable
+from hikesense.agent.constraints import Candidate
+from hikesense.agent.events import CalendarLink, EventsResult
+from hikesense.agent.request import RawRequest
+from hikesense.agent.tools import GroupBrief
+from hikesense.api.app import create_app
+from hikesense.config import Settings
+from hikesense.llm.gateway import LLMUnavailable
 
 SECRET = "test-secret-with-at-least-32-characters!!"
 
@@ -166,11 +166,11 @@ def test_web_fixture_matches_the_backend_stream(vocab, tmp_path):  # noqa: F811
     for name, text in streams.items():  # every stream ends with done or error
         assert '"type":"done"' in text or '"type":"error"' in text, name
     rendered = json.dumps(streams, ensure_ascii=False, indent=2) + "\n"
-    if os.environ.get("HIKEALL_UPDATE_FIXTURES"):
+    if os.environ.get("HIKESENSE_UPDATE_FIXTURES"):
         FIXTURE.parent.mkdir(parents=True, exist_ok=True)
         FIXTURE.write_text(rendered, encoding="utf-8")
-    assert FIXTURE.exists(), "Fixture fehlt: HIKEALL_UPDATE_FIXTURES=1 setzen"
+    assert FIXTURE.exists(), "Fixture fehlt: HIKESENSE_UPDATE_FIXTURES=1 setzen"
     assert FIXTURE.read_text(encoding="utf-8") == rendered, (
-        "Backend-Ereignisse weichen vom Web-Fixture ab: HIKEALL_UPDATE_FIXTURES=1 setzen und "
+        "Backend-Ereignisse weichen vom Web-Fixture ab: HIKESENSE_UPDATE_FIXTURES=1 setzen und "
         "die Web-Tests laufen lassen"
     )

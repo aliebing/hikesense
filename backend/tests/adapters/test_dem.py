@@ -4,9 +4,9 @@ import pytest
 import respx
 import tifffile
 
-from hikeall.adapters.dem import TILE_BASE_URL, CopernicusDem, tile_name
-from hikeall.errors import ElevationUnavailable
-from hikeall.models import LatLon
+from hikesense.adapters.dem import TILE_BASE_URL, CopernicusDem, tile_name
+from hikesense.errors import ElevationUnavailable
+from hikesense.models import LatLon
 
 # 3 × 3 pixels, 0.5° apart: pixel centres at lat 48.0/47.5/47.0 and lon 8.0/8.5/9.0.
 VALUES = [[0, 10, 20], [100, 110, 120], [200, 210, 220]]

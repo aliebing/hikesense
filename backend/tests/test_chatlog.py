@@ -1,7 +1,7 @@
 import json
 
-from hikeall import chatlog
-from hikeall.chatlog import ChatLogEntry
+from hikesense import chatlog
+from hikesense.chatlog import ChatLogEntry
 
 
 def test_log_has_user_hash_not_id(tmp_path):

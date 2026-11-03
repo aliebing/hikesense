@@ -4,10 +4,10 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel
 
-from hikeall.chatlog import ChatLogEntry
-from hikeall.chatlog import write as write_chatlog
-from hikeall.config import Settings
-from hikeall.llm.gateway import (
+from hikesense.chatlog import ChatLogEntry
+from hikesense.chatlog import write as write_chatlog
+from hikesense.config import Settings
+from hikesense.llm.gateway import (
     BudgetExceeded,
     FakeGateway,
     LLMBadOutput,
@@ -15,7 +15,7 @@ from hikeall.llm.gateway import (
     LLMUnavailable,
     OpenRouterGateway,
 )
-from hikeall.llm.usage import metered, record_usage
+from hikesense.llm.usage import metered, record_usage
 
 
 def test_usage_sums_openrouter_cost():
@@ -66,7 +66,7 @@ def test_missing_key_raises_unavailable():
 
 def test_settings_defaults():
     s = Settings(supabase_db_url="x", _env_file=None)
-    assert s.hikeall_model == "openai/gpt-4o-mini"
+    assert s.hikesense_model == "openai/gpt-4o-mini"
     assert s.max_tool_calls == 8 and s.max_cost_usd == 0.05
     assert s.chat_log_path.name == "chat.jsonl" and s.chat_log_path.parent.name == "logs"
 
@@ -79,11 +79,11 @@ def test_gateway_from_settings_configures_openrouter():
 
 def test_temperature_is_sent_when_set():
     base = Settings(supabase_db_url="x", openrouter_api_key="k-test", _env_file=None)
-    assert base.hikeall_temperature is None
+    assert base.hikesense_temperature is None
     default = OpenRouterGateway.from_settings(base)
     assert (default._structured_model.temperature, default._answer_model.temperature) == (0.0, 0.3)
     s = Settings(
-        supabase_db_url="x", openrouter_api_key="k-test", hikeall_temperature=0.7, _env_file=None
+        supabase_db_url="x", openrouter_api_key="k-test", hikesense_temperature=0.7, _env_file=None
     )
     gw = OpenRouterGateway.from_settings(s)
     assert gw._structured_model.temperature == 0.7 and gw._answer_model.temperature == 0.7
@@ -170,8 +170,8 @@ def _reply(content, cost):
 
 
 def test_openrouter_gateway_traces_every_call_kind():
-    from hikeall import trace
-    from hikeall.agent.request import RawRequest
+    from hikesense import trace
+    from hikesense.agent.request import RawRequest
 
     raw = _reply("", 0.001)
     structured = _Stub({"raw": raw, "parsed": RawRequest(intent="knowledge")}, "m-struct")

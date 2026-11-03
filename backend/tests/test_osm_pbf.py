@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from hikeall.adapters.osm_pbf import pbf_timestamp, read_elements
-from hikeall.ingest.places import RELATION_ID_OFFSET, parse_places, parse_pois
-from hikeall.models import BLACK_FOREST_BBOX
+from hikesense.adapters.osm_pbf import pbf_timestamp, read_elements
+from hikesense.ingest.places import RELATION_ID_OFFSET, parse_places, parse_pois
+from hikesense.models import BLACK_FOREST_BBOX
 
 FIXTURE = Path(__file__).parent / "fixtures" / "places_small.osm"
 
@@ -76,7 +76,7 @@ def test_municipality_from_admin_level_8_relation():
 
 
 def test_read_lodgings_named_tourism_kinds_only():
-    from hikeall.ingest.lodgings import parse_lodgings
+    from hikesense.ingest.lodgings import parse_lodgings
 
     data = read_elements(FIXTURE, BLACK_FOREST_BBOX, what="lodgings")
     assert [x["id"] for x in data["elements"]] == [40, 101]  # hotel node, alpine hut way
@@ -84,8 +84,8 @@ def test_read_lodgings_named_tourism_kinds_only():
 
 
 def test_read_regions_reads_each_file_once_and_splits_by_region(tmp_path, monkeypatch):
-    from hikeall.adapters import osm_pbf
-    from hikeall.regions import REGIONS, get_region
+    from hikesense.adapters import osm_pbf
+    from hikesense.regions import REGIONS, get_region
 
     for name in ("baden-wuerttemberg", "rheinland-pfalz"):
         (tmp_path / f"{name}-latest.osm.pbf").write_bytes(b"")

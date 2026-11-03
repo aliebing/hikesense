@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from hikeall import config
-from hikeall.config import Settings
+from hikesense import config
+from hikesense.config import Settings
 
 
 def make(**kw) -> Settings:
@@ -12,11 +12,11 @@ def make(**kw) -> Settings:
 
 @pytest.fixture(autouse=True)
 def _no_data_dir_env(monkeypatch):
-    monkeypatch.delenv("HIKEALL_DATA_DIR", raising=False)
+    monkeypatch.delenv("HIKESENSE_DATA_DIR", raising=False)
 
 
 def test_env_data_dir_wins(monkeypatch, tmp_path):
-    monkeypatch.setenv("HIKEALL_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("HIKESENSE_DATA_DIR", str(tmp_path))
     s = make()
     assert s.chroma_dir == tmp_path / "chroma"
     assert s.chat_log_path == tmp_path / "logs" / "chat.jsonl"
@@ -40,7 +40,7 @@ def test_falls_back_to_cwd_data_without_repo_data(monkeypatch, tmp_path):
 
 
 def test_absolute_paths_are_kept(monkeypatch, tmp_path):
-    monkeypatch.setenv("HIKEALL_DATA_DIR", str(tmp_path / "d"))
+    monkeypatch.setenv("HIKESENSE_DATA_DIR", str(tmp_path / "d"))
     s = make(chroma_dir=tmp_path / "c", chat_log_path=tmp_path / "l.jsonl")
     assert s.chroma_dir == tmp_path / "c" and s.chat_log_path == tmp_path / "l.jsonl"
 

@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from hikeall.roles import role_of, set_role
+from hikesense.roles import role_of, set_role
 
 pytestmark = pytest.mark.db
 
@@ -45,7 +45,7 @@ def test_default_role_lookup_reads_the_real_database(conn):
     import os
     from types import SimpleNamespace
 
-    from hikeall.api.app import _default_role_lookup
+    from hikesense.api.app import _default_role_lookup
 
     url = os.environ.get("SUPABASE_DB_URL", "postgresql://postgres:postgres@127.0.0.1:54322/postgres")
     lookup = _default_role_lookup(SimpleNamespace(supabase_db_url=url))  # type: ignore[arg-type]
@@ -69,9 +69,9 @@ def test_backfill_migration_promotes_admin_email(conn):
     import pathlib
 
     sql = (pathlib.Path(__file__).parents[2] / "supabase/migrations/20261102000002_admin_role_backfill.sql").read_text()
-    conn.execute("delete from auth.users where email = 'admin@hikeall.local'")
+    conn.execute("delete from auth.users where email = 'admin@hikesense.local'")
     uid = uuid.uuid4()
-    conn.execute("insert into auth.users (id, email) values (%s, 'admin@hikeall.local')", (uid,))
+    conn.execute("insert into auth.users (id, email) values (%s, 'admin@hikesense.local')", (uid,))
     assert role_of(conn, str(uid)) == "user"
     conn.execute(sql)
     conn.execute(sql)  # idempotent
@@ -79,7 +79,7 @@ def test_backfill_migration_promotes_admin_email(conn):
 
 
 def test_list_profiles_uses_current_auth_email(conn):
-    from hikeall.roles import list_profiles
+    from hikesense.roles import list_profiles
 
     uid = _user(conn)
     try:

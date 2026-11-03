@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 from conftest import LINE
 
-from hikeall.db import upsert_source, upsert_trail
-from hikeall.models import Source
-from hikeall.tags.vocabulary import (
+from hikesense.db import upsert_source, upsert_trail
+from hikesense.models import Source
+from hikesense.tags.vocabulary import (
     FEATURES_YAML,
     Area,
     NearPlace,
@@ -279,7 +279,7 @@ def test_new_trail_tags_resolve_by_synonym(vocab, query, tag):
     ],
 )
 def test_region_area_tags(vocab, query, tag, region_id):
-    from hikeall.regions import get_region
+    from hikesense.regions import get_region
 
     found = vocab.search(query)[0]
     assert found.id == tag and found.category == "area"

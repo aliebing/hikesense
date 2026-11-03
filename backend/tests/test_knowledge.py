@@ -5,12 +5,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from hikeall.adapters.http import make_http_client
-from hikeall.agent.tools import DbTools
-from hikeall.agent.tools import KnowledgeHit as ToolsHit
-from hikeall.errors import KnowledgeError
-from hikeall.knowledge.bm25 import BM25Index, tokenize
-from hikeall.knowledge.corpus import (
+from hikesense.adapters.http import make_http_client
+from hikesense.agent.tools import DbTools
+from hikesense.agent.tools import KnowledgeHit as ToolsHit
+from hikesense.errors import KnowledgeError
+from hikesense.knowledge.bm25 import BM25Index, tokenize
+from hikesense.knowledge.corpus import (
     Article,
     Chunk,
     Source,
@@ -19,9 +19,9 @@ from hikeall.knowledge.corpus import (
     fetch_articles,
     load_own_texts,
 )
-from hikeall.knowledge.fusion import rrf
-from hikeall.knowledge.models import KnowledgeHit
-from hikeall.knowledge.search import KnowledgeIndex, try_open
+from hikesense.knowledge.fusion import rrf
+from hikesense.knowledge.models import KnowledgeHit
+from hikesense.knowledge.search import KnowledgeIndex, try_open
 
 WORDS = ["westweg", "raute", "wasser", "hütte", "feldberg"]
 

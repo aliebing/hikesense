@@ -5,11 +5,11 @@ import pytest
 import respx
 from conftest import Ramp
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.errors import OverpassError
-from hikeall.ingest.assemble import orient_by_members
-from hikeall.ingest.day_hikes import (
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.errors import OverpassError
+from hikesense.ingest.assemble import orient_by_members
+from hikesense.ingest.day_hikes import (
     Candidate,
     auto_decision,
     final_decision,
@@ -21,8 +21,8 @@ from hikeall.ingest.day_hikes import (
     tiles,
     write_candidates,
 )
-from hikeall.models import BBox, Source
-from hikeall.regions import REGIONS, Region, get_region
+from hikesense.models import BBox, Source
+from hikesense.regions import REGIONS, Region, get_region
 
 OSM = Source(
     id="test-osm-day",
@@ -295,7 +295,7 @@ def test_palatinate_route_in_baden_rejected_hesse_and_rlp():
 
 
 def test_scan_rejects_stage_relation_of_curated_long_distance_trail():
-    from hikeall.ingest.day_hikes import curated_relation_ids
+    from hikesense.ingest.day_hikes import curated_relation_ids
 
     stage = next(iter(curated_relation_ids() - {1}))
     assert 8124459 in curated_relation_ids() and 56369 in curated_relation_ids()  # incl. groups
@@ -361,8 +361,8 @@ def test_gap_and_no_way_relations_keep_the_region_they_were_seen_in():
 
 
 def test_cli_region_scan_summary_ignores_other_regions(monkeypatch, capsys, tmp_path):
-    from hikeall import cli
-    from hikeall.config import Settings
+    from hikesense import cli
+    from hikesense.config import Settings
 
     csv = tmp_path / "d.csv"
     write_candidates(
@@ -546,7 +546,7 @@ def test_failed_overpass_batch_is_reported_per_relation_and_rest_continues(conn)
 
 @pytest.mark.db
 def test_one_bad_relation_does_not_abort_the_batch(conn, overpass, monkeypatch):
-    from hikeall.ingest import day_hikes
+    from hikesense.ingest import day_hikes
 
     real = day_hikes.upsert_trail
 
@@ -565,8 +565,8 @@ def test_one_bad_relation_does_not_abort_the_batch(conn, overpass, monkeypatch):
 
 @pytest.mark.db
 def test_cli_import_reports_failed_relation_and_exits_1(conn, monkeypatch, capsys, tmp_path):
-    from hikeall import cli
-    from hikeall.ingest.day_hikes import DayHikeImport
+    from hikesense import cli
+    from hikesense.ingest.day_hikes import DayHikeImport
 
     csv = tmp_path / "d.csv"
     write_candidates(csv, _cands())

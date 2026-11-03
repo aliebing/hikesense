@@ -25,12 +25,12 @@ it("setLocale stores the choice and renders German", async () => {
   render(<LocaleProvider><Probe /><LanguageFlags /></LocaleProvider>);
   await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
   expect(screen.getByText("de:Sprache")).toBeInTheDocument();
-  expect(window.localStorage.getItem("hikeall.lang")).toBe("de");
+  expect(window.localStorage.getItem("hikesense.lang")).toBe("de");
   expect(document.documentElement.lang).toBe("de");
 });
 
 it("applies the stored choice after mount", () => {
-  window.localStorage.setItem("hikeall.lang", "de");
+  window.localStorage.setItem("hikesense.lang", "de");
   render(<LocaleProvider><Probe /></LocaleProvider>);
   expect(screen.getByText("de:Sprache")).toBeInTheDocument();
 });
@@ -70,7 +70,7 @@ it("flags mark the active language with aria-pressed", async () => {
 it("setLocale writes the cookie", async () => {
   render(<LocaleProvider><LanguageFlags /></LocaleProvider>);
   await userEvent.click(screen.getByRole("button", { name: "Deutsch" }));
-  expect(document.cookie).toContain("hikeall.lang=de");
+  expect(document.cookie).toContain("hikesense.lang=de");
 });
 
 it("initialLocale is used on the first render", () => {
@@ -80,10 +80,10 @@ it("initialLocale is used on the first render", () => {
 });
 
 it("a stored choice without a matching cookie writes the cookie and refreshes", () => {
-  document.cookie = "hikeall.lang=; path=/; max-age=0";
-  window.localStorage.setItem("hikeall.lang", "de");
+  document.cookie = "hikesense.lang=; path=/; max-age=0";
+  window.localStorage.setItem("hikesense.lang", "de");
   render(<LocaleProvider><Probe /></LocaleProvider>);
-  expect(document.cookie).toContain("hikeall.lang=de");
+  expect(document.cookie).toContain("hikesense.lang=de");
 });
 
 it("flags carry their own lang and are at least 40 px touch targets", () => {

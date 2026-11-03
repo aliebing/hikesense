@@ -20,7 +20,7 @@ from datetime import date
 
 import psycopg
 
-UA = os.environ.get("HIKEALL_USER_AGENT") or "HikeAllAbout/0.1 (student project)"
+UA = os.environ.get("HIKESENSE_USER_AGENT") or "HikeSense/0.1 (student project)"
 # (id, name as written on the page, kind, place as named in `places`, own page)
 CANDIDATES = [
     ("swv-freiburg", "Schwarzwaldverein Freiburg", "wanderverein", "Freiburg im Breisgau", "https://schwarzwaldverein-freiburg.de/"),

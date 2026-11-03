@@ -2,9 +2,9 @@ import httpx
 import pytest
 import respx
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.errors import OverpassError
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.errors import OverpassError
 
 
 @respx.mock

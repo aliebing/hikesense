@@ -6,11 +6,11 @@ import httpx
 import pytest
 import respx
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.open_meteo import FORECAST_URL, DayWeather, OpenMeteoClient
-from hikeall.agent import weather
-from hikeall.agent.weather import NoForecast, is_rain_day, weather_for
-from hikeall.errors import WeatherUnavailable
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.open_meteo import FORECAST_URL, DayWeather, OpenMeteoClient
+from hikesense.agent import weather
+from hikesense.agent.weather import NoForecast, is_rain_day, weather_for
+from hikesense.errors import WeatherUnavailable
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "open_meteo_daily.json").read_text())
 TODAY = date(2026, 10, 30)
@@ -113,7 +113,7 @@ def _entry(days, prob):
 def test_many_days_and_places_in_one_request_then_cached(client):
     from datetime import timedelta
 
-    from hikeall.agent.weather import weather_for_days
+    from hikesense.agent.weather import weather_for_days
 
     days = [TODAY + timedelta(days=n) for n in range(15)]  # 0..14: all in the horizon
     points = [(47.9 + n / 10, 8.1, d) for n, d in enumerate(days)]
@@ -134,7 +134,7 @@ def test_many_days_and_places_in_one_request_then_cached(client):
 
 @respx.mock
 def test_many_days_failure_is_no_forecast_for_each(client):
-    from hikeall.agent.weather import weather_for_days
+    from hikesense.agent.weather import weather_for_days
 
     respx.get(FORECAST_URL).mock(side_effect=httpx.ConnectError("down"))
     got = weather_for_days(client, [(47.9, 8.1, TODAY), (48.0, 8.2, TODAY)], TODAY)
@@ -145,7 +145,7 @@ def test_many_days_failure_is_no_forecast_for_each(client):
 
 
 def test_weather_text_english():
-    from hikeall.adapters.open_meteo import weather_text
+    from hikesense.adapters.open_meteo import weather_text
 
     assert weather_text(61, "en") == "Light rain"
     assert weather_text(63, "en") == "Rain" and weather_text(65, "en") == "Heavy rain"
@@ -167,7 +167,7 @@ def test_reason_codes(client):
 
 
 def test_localize_forecast_and_reasons():
-    from hikeall.agent.weather import localize, no_forecast
+    from hikesense.agent.weather import localize, no_forecast
 
     d = date(2026, 11, 3)
     w = DayWeather(d, code=61, text="Regen")

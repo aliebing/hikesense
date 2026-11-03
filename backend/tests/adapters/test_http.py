@@ -2,8 +2,8 @@ import httpx
 import pytest
 import respx
 
-from hikeall.adapters.http import USER_AGENT, make_http_client, request_json
-from hikeall.errors import OverpassError
+from hikesense.adapters.http import USER_AGENT, make_http_client, request_json
+from hikesense.errors import OverpassError
 
 URL = "https://api.example.test/data"
 
@@ -44,7 +44,7 @@ def test_invalid_json_raises_typed_error():
 @respx.mock
 def test_429_honours_retry_after(monkeypatch):
     slept = []
-    monkeypatch.setattr("hikeall.adapters.http.time.sleep", slept.append)
+    monkeypatch.setattr("hikesense.adapters.http.time.sleep", slept.append)
     respx.get(URL).mock(side_effect=[httpx.Response(429, headers={"Retry-After": "3"}),
                                      httpx.Response(200, json={"ok": True})])
     with make_http_client(5) as client:
@@ -55,7 +55,7 @@ def test_429_honours_retry_after(monkeypatch):
 @respx.mock
 def test_retry_after_is_capped(monkeypatch):
     slept = []
-    monkeypatch.setattr("hikeall.adapters.http.time.sleep", slept.append)
+    monkeypatch.setattr("hikesense.adapters.http.time.sleep", slept.append)
     respx.get(URL).mock(side_effect=[httpx.Response(429, headers={"Retry-After": "600"}),
                                      httpx.Response(200, json={"ok": True})])
     with make_http_client(5) as client:
@@ -66,7 +66,7 @@ def test_retry_after_is_capped(monkeypatch):
 @respx.mock
 def test_429_without_retry_after_waits_rate_limit_wait(monkeypatch):
     slept = []
-    monkeypatch.setattr("hikeall.adapters.http.time.sleep", slept.append)
+    monkeypatch.setattr("hikesense.adapters.http.time.sleep", slept.append)
     respx.get(URL).mock(side_effect=[httpx.Response(429), httpx.Response(200, json={"ok": True})])
     with make_http_client(5) as client:
         request_json(client, "GET", URL, error_cls=OverpassError,

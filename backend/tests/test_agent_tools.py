@@ -3,9 +3,9 @@ from datetime import date, time
 import pytest
 from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
-from hikeall.agent.multiday import DayPlan, start_km_for
-from hikeall.agent.request import Constraint, HikeRequest, ResolvedStart
-from hikeall.agent.tools import (
+from hikesense.agent.multiday import DayPlan, start_km_for
+from hikesense.agent.request import Constraint, HikeRequest, ResolvedStart
+from hikesense.agent.tools import (
     TOOL_SPECS,
     DbTools,
     KnowledgeHit,
@@ -15,8 +15,8 @@ from hikeall.agent.tools import (
     hiking_time,
     search_day_hikes,
 )
-from hikeall.db import upsert_lodging, upsert_photo, upsert_source, upsert_trail
-from hikeall.models import BBox, Lodging, Source
+from hikesense.db import upsert_lodging, upsert_photo, upsert_source, upsert_trail
+from hikesense.models import BBox, Lodging, Source
 
 SRC = Source(
     id="test-p2-src",
@@ -340,7 +340,7 @@ class _FixedWeather:
     def daily_many(self, points, start, end):
         from datetime import timedelta
 
-        from hikeall.adapters.open_meteo import DayWeather
+        from hikesense.adapters.open_meteo import DayWeather
 
         self.requests += 1
         days = [start + timedelta(days=n) for n in range((end - start).days + 1)]
@@ -348,7 +348,7 @@ class _FixedWeather:
 
 
 def test_dbtools_weather_without_client_is_no_forecast():
-    from hikeall.agent.weather import REASON_DOWN, NoForecast
+    from hikesense.agent.weather import REASON_DOWN, NoForecast
 
     got = DbTools(lambda: None).weather_days([(48.0, 8.0, date.today())], date.today())
     assert got == [NoForecast(REASON_DOWN)]
@@ -356,9 +356,9 @@ def test_dbtools_weather_without_client_is_no_forecast():
 
 @pytest.mark.db
 def test_dbtools_multiday_on_the_real_westweg(db):
-    from hikeall.agent import weather as weather_module
-    from hikeall.agent.request import DayChange
-    from hikeall.agent.tools import StartNotOnTrail
+    from hikesense.agent import weather as weather_module
+    from hikesense.agent.request import DayChange
+    from hikesense.agent.tools import StartNotOnTrail
 
     weather_module._cache.clear()
     client = _FixedWeather()

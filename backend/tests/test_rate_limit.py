@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.rate_limit import RateLimiter
+from hikesense.rate_limit import RateLimiter
 
 
 class FakeClock:

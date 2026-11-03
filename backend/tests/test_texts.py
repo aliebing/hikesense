@@ -4,8 +4,8 @@ import dataclasses
 
 import pytest
 
-from hikeall.agent import prompts
-from hikeall.agent.texts import DE, EN, TEXTS, texts
+from hikesense.agent import prompts
+from hikesense.agent.texts import DE, EN, TEXTS, texts
 
 # fields whose English and German wording is legitimately identical
 SAME_IN_BOTH: set[str] = set()

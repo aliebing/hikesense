@@ -1,4 +1,4 @@
-# Hike all about
+# HikeSense
 
 A hiking planner for the **Black Forest, Lake Constance (with the Swiss and Austrian shore) and the Palatinate Forest** that you use through an AI chat. It plans day hikes and multi-day tours on eight long-distance trails, with places to stay, walking times and weather. Every route comes from the database, not from the language model, and the code checks every number in the answer against the tool results.
 
@@ -14,7 +14,7 @@ A real trip was the starting point: three days in the Black Forest, about 15 km 
 
 The predecessor HikeAI (Sprint 2) was criticised for three things, and this project answers each of them:
 
-| HikeAI | Hike all about |
+| HikeAI | HikeSense |
 |---|---|
 | Silently dropped wishes ("round walk, under 200 m ascent, over 15 km" returned a route that was not a round walk) | Every condition is checked in code and shown as ✓/✗. If nothing fits, the app says why and shows tours that miss exactly one condition |
 | Only a list of results, no planning | Multi-day plans with a room ≤ 1 km from the trail each night, arrival times, weather, rain variant; changes in the chat ("make day 3 shorter") |
@@ -44,7 +44,7 @@ flowchart LR
     api -->|"Server-Sent Events (JSON)"| web
 ```
 
-One chat message runs through a LangGraph graph (`backend/src/hikeall/agent/graph.py`):
+One chat message runs through a LangGraph graph (`backend/src/hikesense/agent/graph.py`):
 
 1. **guard** – input protection (prompt injection, off-topic) without the model.
 2. **understand** – one *structured-output* call: the model turns the message into JSON that matches the Pydantic schema `RawRequest`. The code then resolves places and features and keeps only numbers the user actually wrote.
@@ -80,13 +80,13 @@ A fixed test set (`data/eval/cases.yaml`) runs against the real agent with `make
 Requirements: Docker, Node.js 20+, [uv](https://docs.astral.sh/uv/), an [OpenRouter](https://openrouter.ai) API key.
 
 ```sh
-git clone <repo> && cd HikeAllAbout
+git clone <repo> && cd HikeSense
 cp .env.example .env
 npx supabase start            # local Supabase (Postgres + PostGIS, Auth, Storage)
 npx supabase status           # copy the anon key into SUPABASE_ANON_KEY in .env
 ```
 
-In `.env` also set `OPENROUTER_API_KEY`, a random `HIKEALL_SMOKE_PASSWORD` and `HIKEALL_ADMIN_PASSWORD_HASH` (bcrypt hash, the command is in `.env.example`).
+In `.env` also set `OPENROUTER_API_KEY`, a random `HIKESENSE_SMOKE_PASSWORD` and `HIKESENSE_ADMIN_PASSWORD_HASH` (bcrypt hash, the command is in `.env.example`).
 
 Import the data (takes a few hours; trails come from the public Overpass API, places and lodgings from local Geofabrik extracts):
 

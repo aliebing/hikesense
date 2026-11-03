@@ -14,8 +14,8 @@ from pathlib import Path
 
 import yaml
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.open_meteo import OpenMeteoClient
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.open_meteo import OpenMeteoClient
 
 REPO = Path(__file__).resolve().parents[2]
 # Open-Meteo forecasts at most 16 days incl. today: fetched on 2026-10-31, 2026-11-15 is the

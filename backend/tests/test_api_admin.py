@@ -6,9 +6,9 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-from hikeall.api.app import create_app
-from hikeall.config import Settings
-from hikeall.roles import Profile
+from hikesense.api.app import create_app
+from hikesense.config import Settings
+from hikesense.roles import Profile
 
 SECRET = "test-secret-with-at-least-32-characters!!"
 

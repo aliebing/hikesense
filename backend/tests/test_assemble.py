@@ -1,8 +1,8 @@
 import pytest
 
-from hikeall.errors import GapError, HikeAllError
-from hikeall.geo import path_length_km
-from hikeall.ingest.assemble import assemble, assemble_with_report
+from hikesense.errors import GapError, HikeSenseError
+from hikesense.geo import path_length_km
+from hikesense.ingest.assemble import assemble, assemble_with_report
 
 
 def test_reversed_and_shuffled_segments_become_one_line():
@@ -20,7 +20,7 @@ def test_gap_over_limit_raises():
     with pytest.raises(GapError) as e:
         assemble([[(48.0, 8.00), (48.0, 8.01)], [(48.0, 8.02), (48.0, 8.03)]])  # ~740 m gap
     assert e.value.gap_m > 700
-    assert isinstance(e.value, HikeAllError)
+    assert isinstance(e.value, HikeSenseError)
     assert e.value.at == (48.0, 8.01)
 
 

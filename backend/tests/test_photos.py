@@ -5,11 +5,11 @@ import pytest
 import respx
 from conftest import LINE
 
-from hikeall.adapters.commons import COMMONS_API, CommonsClient, ImageInfo
-from hikeall.adapters.http import make_http_client
-from hikeall.db import upsert_source, upsert_trail
-from hikeall.errors import ImageFetchError
-from hikeall.ingest.photos import (
+from hikesense.adapters.commons import COMMONS_API, CommonsClient, ImageInfo
+from hikesense.adapters.http import make_http_client
+from hikesense.db import upsert_source, upsert_trail
+from hikesense.errors import ImageFetchError
+from hikesense.ingest.photos import (
     Target,
     fetch_photos,
     import_photos,
@@ -18,7 +18,7 @@ from hikeall.ingest.photos import (
     select_photos,
     title_score,
 )
-from hikeall.models import Source
+from hikesense.models import Source
 
 SRC = Source(id="osm-t8", name="t", url="u", license="l", retrieved_at="2026-10-28")
 
@@ -207,7 +207,7 @@ def test_api_error_in_200_body_is_retried_then_raises():
 @pytest.mark.db
 @respx.mock
 def test_rerun_of_one_stage_keeps_other_stages_photos(conn):
-    from hikeall.db import upsert_stage
+    from hikesense.db import upsert_stage
 
     _trail(conn)
     for seq in (1, 2):
@@ -238,7 +238,7 @@ def test_rerun_of_one_stage_keeps_other_stages_photos(conn):
 
 
 def test_photo_summary_counts_every_long_distance_trail():
-    from hikeall.cli import photo_summary
+    from hikesense.cli import photo_summary
 
     counts = {"westweg-west": 5, "mittelweg": 3, "feldberg": 2}
     lines = photo_summary(counts, long_distance={"westweg-west", "mittelweg"})

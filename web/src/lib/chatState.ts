@@ -25,7 +25,7 @@ export type ChatState = {
   runWithoutPace: boolean;
 };
 
-export const STORAGE_KEY = "hikeall.chat.v1";
+export const STORAGE_KEY = "hikesense.chat.v1";
 
 /** The cover of a tour as a Photo; null unless author and licence are known (never shown unattributed). */
 export function coverOf(card: TourCard | undefined): Photo | null {

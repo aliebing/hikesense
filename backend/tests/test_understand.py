@@ -2,7 +2,7 @@ from datetime import date, time
 
 import pytest
 
-from hikeall.agent.request import (
+from hikesense.agent.request import (
     Clarify,
     Constraint,
     DayChange,
@@ -12,9 +12,9 @@ from hikeall.agent.request import (
     RawWish,
     ResolvedStart,
 )
-from hikeall.agent.understand import echo, understand
-from hikeall.llm.gateway import FakeGateway
-from hikeall.tags.vocabulary import FEATURES_YAML, Attribute, NearPlace, Tag, TagVocabulary
+from hikesense.agent.understand import echo, understand
+from hikesense.llm.gateway import FakeGateway
+from hikesense.tags.vocabulary import FEATURES_YAML, Attribute, NearPlace, Tag, TagVocabulary
 
 
 def _place(tid: str, label: str, lat: float, lon: float, pid: int) -> Tag:
@@ -377,7 +377,7 @@ def test_same_base_name_options_name_their_kind(vocab):
     ],
 )
 def test_decorated_and_plain_option_both_resolve(vocab, answer, tag_id):
-    from hikeall.agent.understand import resolve_option
+    from hikesense.agent.understand import resolve_option
 
     v = _kind_vocab(vocab)
     assert resolve_option(v, answer).tag_id == tag_id
@@ -414,7 +414,7 @@ def test_single_ascent_value_is_a_maximum(vocab, kw):
 
 
 def test_prompt_defines_single_values():
-    from hikeall.agent.understand import SYSTEM_PROMPT
+    from hikesense.agent.understand import SYSTEM_PROMPT
 
     assert "length_km_approx" in SYSTEM_PROMPT and "ascent_m_approx" in SYSTEM_PROMPT
 
@@ -673,7 +673,7 @@ def test_pace_written_by_user_is_kept(vocab):
 
 
 def test_minute_forms_of_part_hours_are_read():
-    from hikeall.agent.understand import _user_numbers
+    from hikesense.agent.understand import _user_numbers
 
     assert {15, 0.25} <= _user_numbers("eine viertel Stunde")
     assert {45, 0.75} <= _user_numbers("dreiviertel Stunde")
@@ -1089,7 +1089,7 @@ def test_model_roundtrip_without_a_word_in_the_message_is_dropped(vocab):
 
 
 def test_bodensee_is_area_without_clarify(vocab):
-    from hikeall.regions import get_region
+    from hikesense.regions import get_region
 
     v = vocab
     req = understand(gw_of(start_text="Bodensee"), v, "Wandern am Bodensee", None)
@@ -1160,7 +1160,7 @@ def test_english_clarify_question_keeps_place_names_as_options(vocab):
 
 
 def test_english_kind_options_resolve_in_both_languages(vocab):
-    from hikeall.agent.understand import resolve_option
+    from hikesense.agent.understand import resolve_option
 
     v = _kind_vocab(vocab)
     res = understand(gw_of(start_text="Feldberg"), v, "A walk at Feldberg", None, lang="en")
@@ -1271,7 +1271,7 @@ def test_en_invented_number_is_still_dropped(vocab):
 
 
 def test_en_compound_and_thousands_numbers(vocab):
-    from hikeall.agent.understand import _scan
+    from hikesense.agent.understand import _scan
 
     assert 25.0 in _scan("twenty-five kilometres", "en")[0]
     assert 1200.0 in _scan("1,200 m of ascent", "en")[0]

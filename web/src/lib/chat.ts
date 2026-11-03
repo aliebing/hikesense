@@ -1,4 +1,4 @@
-/** Chat protocol: SSE parsing and streaming against POST /chat (backend/src/hikeall/api/chat.py). */
+/** Chat protocol: SSE parsing and streaming against POST /chat (backend/src/hikesense/api/chat.py). */
 
 import { messagesFor, type Locale } from "../i18n/locale";
 

@@ -6,7 +6,7 @@
 # day_longer, plan_weather, weather_days, plan_rain_variant, plan_no_rain_variant, min_groups, no_groups,
 # events_quoted, sources_include, reply_contains, reply_not_contains, unsatisfiable_named.
 # `continues: <Fall-ID>` setzt den Gesprächsfaden eines früheren Falls fort (Folgerunde).
-# Der Lauf meldet sich als smoke@hikeall.local an (`make smoke-user`) und prüft das Token wie /chat.
+# Der Lauf meldet sich als smoke@hikesense.local an (`make smoke-user`) und prüft das Token wie /chat.
 cases:
   - id: 1-rundweg-hinterzarten
     turns:

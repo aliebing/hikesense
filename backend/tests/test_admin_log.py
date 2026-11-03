@@ -1,8 +1,8 @@
 import json
 
-from hikeall.admin_log import UNKNOWN, LogReader, detail, owner_of, searches, summary, users
-from hikeall.chatlog import hash_user
-from hikeall.roles import Profile
+from hikesense.admin_log import UNKNOWN, LogReader, detail, owner_of, searches, summary, users
+from hikesense.chatlog import hash_user
+from hikesense.roles import Profile
 
 P1 = Profile(user_id="11111111-1111-1111-1111-111111111111", email="a@x.de", role="admin")
 P2 = Profile(user_id="22222222-2222-2222-2222-222222222222", email="b@x.de", role="user")

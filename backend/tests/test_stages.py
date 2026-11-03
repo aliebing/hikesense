@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 from conftest import LINE
 
-from hikeall.errors import HikeAllError, StageOffsetError, StageOrderError
-from hikeall.ingest.stages import cut_stages, load_trail_specs
-from hikeall.models import StageSpec
+from hikesense.errors import HikeSenseError, StageOffsetError, StageOrderError
+from hikesense.ingest.stages import cut_stages, load_trail_specs
+from hikesense.models import StageSpec
 
 TRAILS_YAML = Path(__file__).resolve().parents[2] / "data" / "curated" / "trails.yaml"
 
@@ -29,8 +29,8 @@ def test_stage_endpoint_far_from_line_raises():
         cut_stages(LINE, specs)
 
 
-def test_stage_offset_error_is_hikeall_error():
-    assert issubclass(StageOffsetError, HikeAllError)
+def test_stage_offset_error_is_hikesense_error():
+    assert issubclass(StageOffsetError, HikeSenseError)
 
 
 def test_trails_yaml_is_complete():

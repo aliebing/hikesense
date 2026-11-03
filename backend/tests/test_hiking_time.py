@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.hiking_time import din33466
+from hikesense.hiking_time import din33466
 
 
 def test_din_vertical_dominates():

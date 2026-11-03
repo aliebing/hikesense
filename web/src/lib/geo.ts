@@ -75,7 +75,7 @@ function elevationAt(profile: Profile, km: number): number {
 
 /**
  * Ascent/descent between km a and b, profile linearly interpolated at the cut points
- * (port of _up_down in backend/src/hikeall/agent/multiday.py). null without a usable profile.
+ * (port of _up_down in backend/src/hikesense/agent/multiday.py). null without a usable profile.
  */
 export function upDown(profile: Profile | null | undefined, a: number, b: number): { up: number; down: number } | null {
   if (!profile || profile.length < 2) return null;

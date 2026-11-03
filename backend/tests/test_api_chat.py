@@ -7,15 +7,15 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from hikeall.agent.graph import DoneEvent, TokenEvent, UnderstoodEvent
-from hikeall.agent.prompts import ERROR_UNAVAILABLE
-from hikeall.agent.request import HikeRequest
-from hikeall.api import auth as auth_api
-from hikeall.api import chat as chat_api
-from hikeall.api.app import create_app
-from hikeall.config import Settings
-from hikeall.guard import RATE_LIMIT_REPLY
-from hikeall.llm.usage import LLMUsage
+from hikesense.agent.graph import DoneEvent, TokenEvent, UnderstoodEvent
+from hikesense.agent.prompts import ERROR_UNAVAILABLE
+from hikesense.agent.request import HikeRequest
+from hikesense.api import auth as auth_api
+from hikesense.api import chat as chat_api
+from hikesense.api.app import create_app
+from hikesense.config import Settings
+from hikesense.guard import RATE_LIMIT_REPLY
+from hikesense.llm.usage import LLMUsage
 
 ORIGIN = "http://localhost:3000"
 SECRET = "test-secret-with-at-least-32-characters!!"
@@ -107,7 +107,7 @@ def test_rate_limit_returns_429(client, seen):
 
 
 def test_rate_limit_text_follows_the_request_language(client, seen):
-    from hikeall.agent.texts import texts
+    from hikesense.agent.texts import texts
 
     for _ in range(10):
         assert post(client).status_code == 200
@@ -289,7 +289,7 @@ def test_oversized_body_is_rejected_before_parsing(client, seen):
 
 
 def test_jwks_outage_is_503_not_401(settings, monkeypatch):
-    from hikeall.auth import AuthError
+    from hikesense.auth import AuthError
 
     def down(token, settings):
         raise AuthError("unavailable")

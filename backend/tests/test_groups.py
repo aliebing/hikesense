@@ -17,9 +17,9 @@ from test_agent_graph import (  # noqa: F401 (vocab, settings are fixtures)
     vocab,
 )
 
-from hikeall.agent.request import RawRequest
-from hikeall.agent.tools import STALE_DAYS, GroupBrief, find_groups, is_stale
-from hikeall.ingest.groups import GroupRow, GroupsError, import_groups, parse_row, read_groups
+from hikesense.agent.request import RawRequest
+from hikesense.agent.tools import STALE_DAYS, GroupBrief, find_groups, is_stale
+from hikesense.ingest.groups import GroupRow, GroupsError, import_groups, parse_row, read_groups
 
 CSV_DIR = Path(__file__).resolve().parents[2] / "data" / "curated"
 GOOD = {

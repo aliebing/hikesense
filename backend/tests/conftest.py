@@ -46,7 +46,7 @@ class Ramp:
 
 def upsert_l_trail(conn, trail_id: str, source_id: str) -> None:
     """The L_LINE as a long-distance trail (the source must exist)."""
-    from hikeall.db import upsert_trail
+    from hikesense.db import upsert_trail
 
     upsert_trail(
         conn, id=trail_id, name="L", kind="long_distance", region="black_forest", roundtrip=False, osm_relation_id=None,

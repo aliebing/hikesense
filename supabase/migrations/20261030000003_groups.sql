@@ -1,5 +1,5 @@
 -- Hand-curated list of hiking and running groups (spec §3 exception): name, kind, place, link, source, check date.
--- No persons, no dates or events. Public read; written only by `hikeall import-groups`.
+-- No persons, no dates or events. Public read; written only by `hikesense import-groups`.
 create table groups (
   id text primary key,
   name text not null,

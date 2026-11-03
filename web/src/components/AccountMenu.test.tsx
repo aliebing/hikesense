@@ -42,22 +42,22 @@ it("Abmelden also resets the conversation", async () => {
 });
 
 it("keeps the header narrow on phones: e-mail only from sm up, links never break inside", () => {
-  h.session = { user: { email: "smoke@hikeall.local" } };
+  h.session = { user: { email: "smoke@hikesense.local" } };
   render(<AccountMenu />);
-  expect(screen.getByText("smoke@hikeall.local")).toHaveClass("hidden", "sm:inline");
+  expect(screen.getByText("smoke@hikesense.local")).toHaveClass("hidden", "sm:inline");
   expect(screen.getByRole("link", { name: "Meine Pläne" })).toHaveClass("whitespace-nowrap");
   expect(screen.getByRole("button", { name: "Abmelden" })).toHaveClass("whitespace-nowrap");
 });
 
 it("shows Backend link only for admins", async () => {
-  h.session = { user: { email: "admin@hikeall.local" } };
+  h.session = { user: { email: "admin@hikesense.local" } };
   adm.get.mockResolvedValue({ ok: true, data: { role: "admin" } });
   const { unmount } = render(<AccountMenu />);
   expect(await screen.findByRole("link", { name: "Backend" })).toHaveAttribute("href", "/admin");
   expect(adm.get).toHaveBeenCalledWith("/me");
   unmount();
 
-  h.session = { user: { email: "smoke@hikeall.local" } };
+  h.session = { user: { email: "smoke@hikesense.local" } };
   adm.get.mockResolvedValue({ ok: false, status: 403, message: "Kein Zugriff" });
   render(<AccountMenu />);
   await waitFor(() => expect(adm.get).toHaveBeenCalledTimes(2));

@@ -4,9 +4,9 @@ from datetime import date
 import pytest
 from langchain_core.messages import AIMessage
 
-from hikeall import trace
-from hikeall.agent.request import RawRequest
-from hikeall.llm.gateway import FakeGateway
+from hikesense import trace
+from hikesense.agent.request import RawRequest
+from hikesense.llm.gateway import FakeGateway
 
 
 def test_record_llm_without_trace_is_noop():

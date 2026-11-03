@@ -7,11 +7,11 @@ import pytest
 import respx
 from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.db import upsert_source, upsert_trail
-from hikeall.errors import OverpassError
-from hikeall.ingest.places import (
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.db import upsert_source, upsert_trail
+from hikesense.errors import OverpassError
+from hikesense.ingest.places import (
     collect_places,
     fetch_places,
     import_places,
@@ -21,7 +21,7 @@ from hikeall.ingest.places import (
     places_query,
     pois_query,
 )
-from hikeall.models import BLACK_FOREST_BBOX, Place, Poi, Source
+from hikesense.models import BLACK_FOREST_BBOX, Place, Poi, Source
 
 SRC = Source(
     id="test-osm-places",
@@ -199,9 +199,9 @@ _REGION_IDS = {"black_forest": 10, "palatinate": 11, "lake_constance": 12}
 
 
 def test_collect_places_reads_pbf_regions_and_asks_overpass_for_the_rest(monkeypatch):
-    from hikeall import regions as R
-    from hikeall.adapters import osm_pbf
-    from hikeall.ingest import places as mod
+    from hikesense import regions as R
+    from hikesense.adapters import osm_pbf
+    from hikesense.ingest import places as mod
 
     by_south = {
         R.get_region(i).bbox.south: i for i in ("black_forest", "palatinate", "lake_constance")
@@ -237,8 +237,8 @@ def test_collect_places_reads_pbf_regions_and_asks_overpass_for_the_rest(monkeyp
 
 
 def test_collect_places_without_pbf_asks_overpass_for_all(monkeypatch):
-    from hikeall import regions as R
-    from hikeall.ingest import places as mod
+    from hikesense import regions as R
+    from hikesense.ingest import places as mod
 
     calls = []
     monkeypatch.setattr(mod, "fetch_places", lambda o, b, *a, **k: calls.append(b) or [])

@@ -1,10 +1,10 @@
 import psycopg
 import pytest
 
-from hikeall.errors import OutsideRegionError
-from hikeall.ingest.trails import check_in_region
-from hikeall.models import BLACK_FOREST_BBOX
-from hikeall.regions import REGIONS, get_region, region_of_line
+from hikesense.errors import OutsideRegionError
+from hikesense.ingest.trails import check_in_region
+from hikesense.models import BLACK_FOREST_BBOX
+from hikesense.regions import REGIONS, get_region, region_of_line
 
 
 def test_palatinate_bbox():

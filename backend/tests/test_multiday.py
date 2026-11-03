@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
-from hikeall.agent.multiday import (
+from hikesense.agent.multiday import (
     NO_RAIN_VARIANT,
     RAIN_NOTE,
     StationOnTrail,
@@ -14,7 +14,7 @@ from hikeall.agent.multiday import (
     rain_variant,
     start_km_for,
 )
-from hikeall.hiking_time import din33466
+from hikesense.hiking_time import din33466
 
 FLAT = [[0.0, 500.0], [300.0, 500.0]]
 
@@ -62,7 +62,7 @@ def test_uses_2km_lodging_only_if_none_in_band_and_adds_access_twice():
 
 
 def test_day_line_names_the_access_walk_as_straight_line():
-    from hikeall.agent.graph import _day_line
+    from hikesense.agent.graph import _day_line
 
     stops = [stop(1, 5.0), stop(2, 15.0, 1400), stop(3, 29.0), stop(4, 40.0)]
     d1 = plan_multiday(stops, FLAT, trail_len_km=100, start_km=0, days=2).days[0]
@@ -292,7 +292,7 @@ def test_english_change_day_unchanged_message_uses_the_plans_language():
     # a plan stored before `lang` existed has none: it is German
     old = json.loads(de.model_dump_json())
     old.pop("lang")
-    from hikeall.agent.multiday import MultidayPlan
+    from hikesense.agent.multiday import MultidayPlan
 
     assert MultidayPlan.model_validate(old).lang == "de"
 

@@ -19,45 +19,45 @@ down:
 # Long-running (public APIs). Scanning + curation of day hikes is manual: see `make scan`.
 # Places, POIs and lodgings come from the local extracts: `make places` after this.
 import:
-	cd backend && uv run hikeall import-trails
-	cd backend && uv run hikeall import-day-hikes
-	cd backend && uv run hikeall import-shares
-	cd backend && uv run hikeall import-photos
+	cd backend && uv run hikesense import-trails
+	cd backend && uv run hikesense import-day-hikes
+	cd backend && uv run hikesense import-shares
+	cd backend && uv run hikesense import-photos
 
 scan:
-	cd backend && uv run hikeall scan-day-hikes
+	cd backend && uv run hikesense scan-day-hikes
 
 # Wissensindex (Wikipedia/Wikivoyage + eigene Texte); lädt beim ersten Lauf das Embedding-Modell.
 knowledge:
-	cd backend && uv run hikeall build-knowledge
+	cd backend && uv run hikesense build-knowledge
 
 # Merkmal- und Belag-Tags je Tour neu berechnen.
 tags:
-	cd backend && uv run hikeall build-tags
+	cd backend && uv run hikesense build-tags
 
 # Durchstich gegen das echte Modell (OPENROUTER_API_KEY in .env; kostet wenige Cent).
-# Meldet sich als smoke@hikeall.local an (vorher einmal `make smoke-user`).
+# Meldet sich als smoke@hikesense.local an (vorher einmal `make smoke-user`).
 smoke:
-	cd backend && uv run hikeall smoke
+	cd backend && uv run hikesense smoke
 
 # Eval-Testsatz (data/eval/cases.yaml) gegen das echte Modell; Wetter aus data/eval/weather.json,
 # festes „heute“ 2026-11-02. Ergebnisse und Bericht unter docs/evaluation/. Braucht `make smoke-user`.
 eval:
-	cd backend && uv run hikeall eval
+	cd backend && uv run hikesense eval
 
-# Testkonto smoke@hikeall.local in der lokalen Supabase-Auth (Passwort: HIKEALL_SMOKE_PASSWORD).
+# Testkonto smoke@hikesense.local in der lokalen Supabase-Auth (Passwort: HIKESENSE_SMOKE_PASSWORD).
 smoke-user:
-	cd backend && uv run hikeall smoke-user
+	cd backend && uv run hikesense smoke-user
 
-# Lokaler Admin (Anmeldename „admin“ = admin@hikeall.local). In .env steht nur der bcrypt-Hash
-# des Passworts (HIKEALL_ADMIN_PASSWORD_HASH), nie das Passwort selbst. Setzt auch die Rolle admin
+# Lokaler Admin (Anmeldename „admin“ = admin@hikesense.local). In .env steht nur der bcrypt-Hash
+# des Passworts (HIKESENSE_ADMIN_PASSWORD_HASH), nie das Passwort selbst. Setzt auch die Rolle admin
 # in profiles.
 admin-user:
-	cd backend && uv run hikeall admin-user
+	cd backend && uv run hikesense admin-user
 
 # Geofabrik-Extrakte für alle Regionen (ODbL, zusammen ~2 GB): Baden-Württemberg (Schwarzwald,
 # Bodensee DE, Rand der Pfalz-Box), Rheinland-Pfalz, Schwaben (Lindau), Schweiz, Österreich.
-# FORCE=1 lädt neu. Welche Region welche Extrakte braucht: `extracts` in backend/src/hikeall/regions.py.
+# FORCE=1 lädt neu. Welche Region welche Extrakte braucht: `extracts` in backend/src/hikesense/regions.py.
 OSM_DIR = data/osm
 OSM_EXTRACTS = germany/baden-wuerttemberg germany/rheinland-pfalz germany/bayern/schwaben switzerland austria
 osm-extract:
@@ -68,10 +68,10 @@ osm-extract:
 
 # Orte, POIs und Unterkünfte aus den lokalen Extrakten (statt Overpass), danach Tags neu berechnen.
 places: osm-extract
-	cd backend && uv run hikeall import-places --pbf-dir $(OSM_DIR)
-	cd backend && uv run hikeall import-lodgings --pbf-dir $(OSM_DIR)
-	cd backend && uv run hikeall build-tags
+	cd backend && uv run hikesense import-places --pbf-dir $(OSM_DIR)
+	cd backend && uv run hikesense import-lodgings --pbf-dir $(OSM_DIR)
+	cd backend && uv run hikesense build-tags
 
 # Kuratierte Gruppenliste (data/curated/groups.csv) in die DB.
 groups:
-	cd backend && uv run hikeall import-groups
+	cd backend && uv run hikesense import-groups

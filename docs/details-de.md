@@ -42,7 +42,7 @@ Der Vorgänger HikeAI (Sprint 2) wurde im Review vor allem für drei Dinge kriti
 - **Mit den Ergebnissen ließ sich nichts anfangen.** Es gab keine Route und keine Planung, nur eine Liste.
 - **Die Herkunft der Daten war nicht nachvollziehbar.** Sie kamen fast nur aus OSM.
 
-Hike all about ist deshalb neu gebaut. Im Vordergrund steht das Planen, der Chat ist die Hauptbedienung, und die Regeln für Ehrlichkeit stehen im Code statt im Prompt.
+HikeSense ist deshalb neu gebaut. Im Vordergrund steht das Planen, der Chat ist die Hauptbedienung, und die Regeln für Ehrlichkeit stehen im Code statt im Prompt.
 
 ## Was die App kann
 
@@ -59,7 +59,7 @@ Dazu kommen eine kuratierte Liste von Wandervereinen und eine Suche nach Laufver
 
 ## Wie es funktioniert
 
-Die Web-App (Next.js, als PWA installierbar) spricht mit Supabase für Anmeldung, gemerkte Pläne und Fotos. Für den Chat spricht sie mit der Python-API (FastAPI). Die API prüft das Supabase-Token und das Rate-Limit und führt dann einen LangGraph-Graphen aus. Die Knoten unten heißen so wie in `backend/src/hikeall/agent/graph.py` (`build_graph`).
+Die Web-App (Next.js, als PWA installierbar) spricht mit Supabase für Anmeldung, gemerkte Pläne und Fotos. Für den Chat spricht sie mit der Python-API (FastAPI). Die API prüft das Supabase-Token und das Rate-Limit und führt dann einen LangGraph-Graphen aus. Die Knoten unten heißen so wie in `backend/src/hikesense/agent/graph.py` (`build_graph`).
 
 ```mermaid
 flowchart TD
@@ -121,7 +121,7 @@ Die Arbeit ist so aufgeteilt:
 
 ## Sprache
 
-Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen oben rechts (🇬🇧 / 🇩🇪) schalten um, ohne die Seite neu zu laden: Die Serverteile der Seite werden neu gerendert (Daten werden noch einmal geholt), die Karte behält ihren Ausschnitt. Die Wahl steht im Cookie `hikeall.lang` und bleibt erhalten; ohne Wahl gilt Englisch. Server und Browser lesen dasselbe Cookie, damit die erste Anzeige schon in der richtigen Sprache kommt. Datum und Zahlen folgen der Sprache (`11.4 km` / `11,4 km`). Die Texte stehen in `web/src/i18n/en.ts` und `de.ts`; ein Test stellt sicher, dass beide Kataloge dieselben Schlüssel haben und kein Rahmentext fest im Code steht (auch keine deutschen Umlaute in Zeichenketten außerhalb von `i18n/`).
+Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen oben rechts (🇬🇧 / 🇩🇪) schalten um, ohne die Seite neu zu laden: Die Serverteile der Seite werden neu gerendert (Daten werden noch einmal geholt), die Karte behält ihren Ausschnitt. Die Wahl steht im Cookie `hikesense.lang` und bleibt erhalten; ohne Wahl gilt Englisch. Server und Browser lesen dasselbe Cookie, damit die erste Anzeige schon in der richtigen Sprache kommt. Datum und Zahlen folgen der Sprache (`11.4 km` / `11,4 km`). Die Texte stehen in `web/src/i18n/en.ts` und `de.ts`; ein Test stellt sicher, dass beide Kataloge dieselben Schlüssel haben und kein Rahmentext fest im Code steht (auch keine deutschen Umlaute in Zeichenketten außerhalb von `i18n/`).
 
 **Teil A (fertig):** alles, was die Web-App selbst schreibt: Menüs, Beschriftungen, Tourseite, Plan, Meine Pläne, Admin, Fehler- und Leerzustände.
 
@@ -129,7 +129,7 @@ Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen
 
 ## Daten und Lizenzen
 
-Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikeall import-*`, siehe `Makefile`) erzeugen einen festen Stand, die App fragt OSM zur Laufzeit nicht ab. Wege, Etappen, Unterkünfte, Orte und Punkte verweisen je Zeile auf eine Quelle mit Lizenz (Tabelle `sources`), Bilder tragen Urheber und Lizenz selbst. Die Karte zeigt die Attribution für OSM und BKG, jedes Bild seinen Urheber und seine Lizenz. Die Mengen unten wurden am 2026-10-31 aus der Datenbank abgefragt, die Abfrage steht als Kommentar daneben.
+Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikesense import-*`, siehe `Makefile`) erzeugen einen festen Stand, die App fragt OSM zur Laufzeit nicht ab. Wege, Etappen, Unterkünfte, Orte und Punkte verweisen je Zeile auf eine Quelle mit Lizenz (Tabelle `sources`), Bilder tragen Urheber und Lizenz selbst. Die Karte zeigt die Attribution für OSM und BKG, jedes Bild seinen Urheber und seine Lizenz. Die Mengen unten wurden am 2026-10-31 aus der Datenbank abgefragt, die Abfrage steht als Kommentar daneben.
 
 | Datenart | Quelle und Lizenz | Menge |
 |---|---|---|
@@ -230,11 +230,11 @@ Beispiel-Fragen:
 
 Erfüllt keine Tour alle Wünsche, beginnt die Antwort mit „Keine Tour erfüllt alle Wünsche, weil …“ und zeigt Touren mit genau einer verletzten Bedingung. Touren, Bedingungen und Abweichungen berechnet der Code, nicht das Modell. Den Antworttext formuliert das Modell; jede Zahl mit Einheit darin (auch „15-km-Runde“ oder „zwei Stunden“) prüft der Code gegen die Werkzeugergebnisse der Runde, ersetzt nicht belegte Zahlen durch „?“ und sagt das dazu. Tournamen aus der Datenbank, die in den Ergebnissen der Runde nicht vorkommen, bleiben im Text stehen; der Code hängt den Hinweis „… kommt in den Suchergebnissen dieser Antwort nicht vor – bitte nicht als Vorschlag verstehen“ an und meldet sie im Done-Ereignis (`unsupported_names`, getrennt von den gezählten Zahlen in `unsupported`). Wissensfragen beantwortet der Chat nur, wenn er eine Quelle gefunden hat.
 
-`make smoke` spielt zwölf Fälle gegen das echte Modell durch (`data/smoke/prompts.yaml`): die Beispiel-Fragen, einen Prompt-Injection-Versuch („Ignoriere alle vorherigen Anweisungen“), „3 Tage Westweg ab Hausach“ ohne Tagesziel, die Folgerunde „Tag 3 kürzer“ im selben Gesprächsfaden, „3 Tage Ostweg ab Freudenstadt“ und „Lauftreff in Freiburg“ (erwartet wird die ehrliche Antwort „keine Gruppe“, siehe „Gruppen und Läufe“). Der Lauf meldet sich als Testkonto `smoke@hikeall.local` an und prüft dessen Token wie `/chat`; das Konto legt einmalig
+`make smoke` spielt zwölf Fälle gegen das echte Modell durch (`data/smoke/prompts.yaml`): die Beispiel-Fragen, einen Prompt-Injection-Versuch („Ignoriere alle vorherigen Anweisungen“), „3 Tage Westweg ab Hausach“ ohne Tagesziel, die Folgerunde „Tag 3 kürzer“ im selben Gesprächsfaden, „3 Tage Ostweg ab Freudenstadt“ und „Lauftreff in Freiburg“ (erwartet wird die ehrliche Antwort „keine Gruppe“, siehe „Gruppen und Läufe“). Der Lauf meldet sich als Testkonto `smoke@hikesense.local` an und prüft dessen Token wie `/chat`; das Konto legt einmalig
 
 ```sh
-make smoke-user   # Passwort aus HIKEALL_SMOKE_PASSWORD in .env (zufällig wählen, nie einchecken)
-make admin-user   # lokaler Admin: Anmeldename „admin“, in .env nur der bcrypt-Hash (HIKEALL_ADMIN_PASSWORD_HASH)
+make smoke-user   # Passwort aus HIKESENSE_SMOKE_PASSWORD in .env (zufällig wählen, nie einchecken)
+make admin-user   # lokaler Admin: Anmeldename „admin“, in .env nur der bcrypt-Hash (HIKESENSE_ADMIN_PASSWORD_HASH)
 ```
 
 in der lokalen Supabase-Auth an. Ergebnis: `data/smoke/result-<Datum>.csv` (je Fall ok, unbelegte Zahlen, Kosten) und die Gesamtkosten (zuletzt etwa 0,01 USD); Exit-Code 1, wenn eine Erwartung nicht erfüllt ist. Erwartungen werden nie gelockert, um einen Fall grün zu machen.
@@ -247,13 +247,13 @@ Planen im Chat, Pläne merken und eigene Fotos brauchen ein Konto. Auf http://lo
 - Das Backend prüft das Token über die JWKS der lokalen Supabase (`SUPABASE_URL`); ältere Projekte mit HS256 brauchen `SUPABASE_JWT_SECRET` in `.env`.
 - An das Modell gehen weder E-Mail noch Nutzer-ID. Das Protokoll (`data/logs/chat.jsonl`) enthält die Nutzer-ID für das Backend (siehe „Backend (Admin)“); ältere Zeilen haben nur einen gekürzten SHA-256 der ID (12 Zeichen).
 - Gemerkte Pläne und hochgeladene Fotos sieht nur ihr Eigentümer (Row Level Security). Fotos werden vor dem Hochladen im Browser neu als JPEG kodiert, dabei fallen EXIF- und GPS-Daten weg; erlaubt sind JPEG, PNG und WebP bis 10 MB.
-- **Rollen:** Jedes Konto hat eine Zeile in `profiles` mit Rolle `user` (Standard) oder `admin`; sie entsteht per Trigger bei der Registrierung, Clients können sie nur lesen. `make admin-user` setzt für `admin@hikeall.local` auch die Rolle `admin`. `GET /admin/me` (mit Bearer-Token, über Next als `/api/admin/me`) antwortet für Admins mit 200 und `{user_id, role}`, für normale Konten mit 403 „Kein Zugriff“, ohne gültiges Token mit 401 und bei ausgefallener Datenbank mit 503.
-- **Vor dem Freigeben (Tunnel):** `make admin-user` muss gelaufen sein, bevor die App von außen erreichbar ist: Die Registrierung braucht keine E-Mail-Bestätigung, sonst könnte jemand zuerst `admin@hikeall.local` anlegen und wäre Admin.
+- **Rollen:** Jedes Konto hat eine Zeile in `profiles` mit Rolle `user` (Standard) oder `admin`; sie entsteht per Trigger bei der Registrierung, Clients können sie nur lesen. `make admin-user` setzt für `admin@hikesense.local` auch die Rolle `admin`. `GET /admin/me` (mit Bearer-Token, über Next als `/api/admin/me`) antwortet für Admins mit 200 und `{user_id, role}`, für normale Konten mit 403 „Kein Zugriff“, ohne gültiges Token mit 401 und bei ausgefallener Datenbank mit 503.
+- **Vor dem Freigeben (Tunnel):** `make admin-user` muss gelaufen sein, bevor die App von außen erreichbar ist: Die Registrierung braucht keine E-Mail-Bestätigung, sonst könnte jemand zuerst `admin@hikesense.local` anlegen und wäre Admin.
 - **Ergebnis merken:** Auf der Startseite speichert „Ergebnis merken“ (erst nach Ende der Antwort aktiv) eine Suche als Momentaufnahme: Nachrichten, Antwort, Hinweis und Kacheln. Sie steht unter „Meine Pläne“ im Abschnitt „Gemerkte Suchen“; `/gemerkt?id=…` zeigt sie so, wie sie war, ohne die Suche neu zu starten.
 
 ### Backend (Admin)
 
-`/admin` zeigt Benutzer und ihre Suchen mit Details und Summen. Der Zugang gilt nur für Konten mit Rolle `admin` (z. B. `admin@hikeall.local` nach `make admin-user`); alle anderen sehen „Kein Zugriff“. Admins haben im Kopf zusätzlich den Link „Backend“.
+`/admin` zeigt Benutzer und ihre Suchen mit Details und Summen. Der Zugang gilt nur für Konten mit Rolle `admin` (z. B. `admin@hikesense.local` nach `make admin-user`); alle anderen sehen „Kein Zugriff“. Admins haben im Kopf zusätzlich den Link „Backend“.
 
 Das Protokoll enthält je Anfrage:
 
@@ -308,7 +308,7 @@ Lücken bei Wegenden, Startorten und Etappenlängen stehen unter [Bekannte Lück
 | trocken / dry | Niederschlag ≤ 1,0 mm, Wahrscheinlichkeit ≤ 40 % |
 | Schnee / snow | Schneefall ≥ 1,0 cm oder Schnee-Wettercode (71–77, 85, 86) |
 
-Die Konstanten stehen in `backend/src/hikeall/agent/weather.py`.
+Die Konstanten stehen in `backend/src/hikesense/agent/weather.py`.
 
 - **Horizont:** heute bis heute + 14 Tage, nie darüber. Keine Klimastatistik, keine Wetterwarnungen.
 - **Ein Punkt:** Eine Tagestour wird am Startort bewertet (bei einem Gebiet in der Mitte der Box), eine Mehrtagestour am Tagesziel jeder Etappe. Bei Mehrtagestouren sucht der Code Starttage, an denen alle Tage passen; passt keiner, nennt der Satz, wie viele Tage höchstens passen.
@@ -336,7 +336,7 @@ Ein Tunnel reicht: Der Browser spricht nur mit der Web-App (Port 3000). Next lei
 
 Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Was dort fehlt, steht unter [Bekannte Lücken](#bekannte-lücken).
 
-**Läufe** („Halbmarathon im Frühjahr bei Freiburg“): Der Chat sucht live im Web (OpenRouter-Websuche, etwa 0,007 USD je Suche, zählt ins Budget der Nachricht) und liest höchstens 3 Seiten von Veranstaltern (eigener User-Agent `HIKEALL_USER_AGENT`, `robots.txt` wird beachtet, 10 s Zeitlimit, höchstens 1 MB je Seite).
+**Läufe** („Halbmarathon im Frühjahr bei Freiburg“): Der Chat sucht live im Web (OpenRouter-Websuche, etwa 0,007 USD je Suche, zählt ins Budget der Nachricht) und liest höchstens 3 Seiten von Veranstaltern (eigener User-Agent `HIKESENSE_USER_AGENT`, `robots.txt` wird beachtet, 10 s Zeitlimit, höchstens 1 MB je Seite).
 
 - **Quellenpflicht:** Jedes Feld (Name, Datum, Ort, Distanzen, Anmeldelink, Anmeldeschluss, Startgebühr) erscheint nur mit wörtlichem Zitat von der Seite des Laufs, sonst steht „nicht angegeben“. Läufe mit Datum in der Vergangenheit werden nicht gezeigt. Lässt sich kein Lauf belegen, zeigt der Chat Links zu Laufkalendern (`data/events/calendars.yaml`) statt einer Liste. Dazu der Hinweis „Angaben ohne Gewähr – bitte beim Veranstalter prüfen“.
 - **Keine Speicherung:** Ergebnisse landen weder in der Datenbank noch in einem Datei-Cache; jede Frage sucht neu.
@@ -347,7 +347,7 @@ Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Wa
 **Daten**
 
 - **Basel und Schaffhausen liegen außerhalb des OSM-Extrakts Baden-Württemberg.** Die Wegenden von Westweg (Basel) und Ostweg (Schaffhausen) heißen zwar so, aber auf Schweizer Seite fehlen Unterkünfte und Haltestellen. „Ab Basel“ lässt sich als Startort nicht auflösen, der Name ist nur eine Beschriftung.
-- **Nicht jeder Etappenort lässt sich als Startort auflösen.** Beim Westweg sind es 7 von 17 Etappenorten, beim Mittelweg 8 von 10 (es fehlen Zwieselberg und Kalte Herberge), beim Ostweg 11 von 13 (es fehlen Schramberg und Villingen). Bei den übrigen hilft ein Ort in der Nähe als Startangabe. Nach einem Ort, der nicht am Weg liegt, fragt der Chat und bietet nur Etappenorte an, die sich auflösen. <!-- Prüfung 2026-10-31: für jede trail_id stage_places(conn, id) aus hikeall.agent.tools, je Name _is_point(_resolve_start(vocab, name)) aus hikeall.agent.understand; Westweg = Vereinigung von westweg-west und westweg-ost (17 verschiedene Namen) -->
+- **Nicht jeder Etappenort lässt sich als Startort auflösen.** Beim Westweg sind es 7 von 17 Etappenorten, beim Mittelweg 8 von 10 (es fehlen Zwieselberg und Kalte Herberge), beim Ostweg 11 von 13 (es fehlen Schramberg und Villingen). Bei den übrigen hilft ein Ort in der Nähe als Startangabe. Nach einem Ort, der nicht am Weg liegt, fragt der Chat und bietet nur Etappenorte an, die sich auflösen. <!-- Prüfung 2026-10-31: für jede trail_id stage_places(conn, id) aus hikesense.agent.tools, je Name _is_point(_resolve_start(vocab, name)) aus hikesense.agent.understand; Westweg = Vereinigung von westweg-west und westweg-ost (17 verschiedene Namen) -->
 - **Ostweg: 7 von 12 Etappen weichen um mehr als 5 % von den offiziellen km ab.** Am stärksten betroffen ist Etappe 5, Freudenstadt – Alpirsbach, mit 16,7 statt 22,5 km. Der Grund liegt darin, wo die Etappenenden auf der Linie gesetzt sind. Die Etappen 5 bis 7 zusammen weichen nur um 2,7 % ab (66,2 statt 68 km), die ganze Linie hat 244,4 km Etappensumme gegenüber 245,5 km offiziell. Der Wegverlauf selbst ist also nicht kürzer. <!-- select seq, length_km from stages where trail_id='ostweg' order by seq; offizielle km: data/curated/trails.yaml (km je Etappe) -->
 - **Mittelweg: 4 von 9 Etappen weichen um mehr als 5 % ab** (Etappen 4, 5, 7 und 9; die OSM-Linie ist dort kürzer als die offiziellen Angaben). Die Quelle ist selbst nicht einheitlich: Sie nennt 249 km Gesamtlänge, ihre Etappen ergeben 233 km. <!-- select seq, length_km from stages where trail_id='mittelweg' order by seq -->
 - **Nur eine Variante je Weg, außer beim Westweg.** Angeboten werden der Mittelweg über Häusern (westliche Variante) und der Ostweg ohne die Variante über Loßburg. Beim Westweg gibt es West- und Ostvariante.

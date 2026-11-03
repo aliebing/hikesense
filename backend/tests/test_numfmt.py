@@ -4,11 +4,11 @@ grounding check, which rounds the evidence 4,35 half-up to 4,4."""
 
 import pytest
 
-from hikeall.agent import multiday as md
-from hikeall.agent.constraints import _num
-from hikeall.agent.graph import _de
-from hikeall.agent.grounding import Evidence, grounding_check
-from hikeall.numfmt import de, round_half_up
+from hikesense.agent import multiday as md
+from hikesense.agent.constraints import _num
+from hikesense.agent.graph import _de
+from hikesense.agent.grounding import Evidence, grounding_check
+from hikesense.numfmt import de, round_half_up
 
 HALVES = [(4.35, "4,4"), (2.25, "2,3"), (15.05, "15,1"), (-4.35, "-4,4"), (0.05, "0,1"), (3.0, "3")]
 
@@ -59,7 +59,7 @@ def test_trail_end_note_rounds_days_half_up():
 
 
 def test_fmt_english_and_german():
-    from hikeall.numfmt import fmt
+    from hikesense.numfmt import fmt
 
     assert fmt(11.6, "en") == "11.6"
     assert fmt(1200, "en", 0) == "1,200"
@@ -69,7 +69,7 @@ def test_fmt_english_and_german():
 
 
 def test_small_negative_values_never_show_minus_zero():
-    from hikeall.numfmt import de, fmt
+    from hikesense.numfmt import de, fmt
 
     assert de(-0.2, 0) == "0" and fmt(-0.2, "de", 0) == "0" and fmt(-0.04, "en", 1) == "0"
     assert fmt(-1.4, "en", 0) == "-1"

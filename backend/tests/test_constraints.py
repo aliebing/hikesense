@@ -1,4 +1,4 @@
-from hikeall.agent.constraints import (
+from hikesense.agent.constraints import (
     Candidate,
     check,
     contradiction,
@@ -7,7 +7,7 @@ from hikeall.agent.constraints import (
     preference_score,
     select,
 )
-from hikeall.agent.request import Constraint, HikeRequest, Preference, ResolvedStart
+from hikesense.agent.request import Constraint, HikeRequest, Preference, ResolvedStart
 
 
 def cand(**kw) -> Candidate:
@@ -336,7 +336,7 @@ def test_no_near_misses_with_zero_or_three_matches():
 
 
 def test_shown_trail_ids_include_near_misses():
-    from hikeall.agent.tools import shown_trail_ids
+    from hikesense.agent.tools import shown_trail_ids
 
     sel = select(
         [cand(trail_id="ok", length_km=9.0), cand(trail_id="n", length_km=10.5)], _near_req()

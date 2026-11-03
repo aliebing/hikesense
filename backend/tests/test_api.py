@@ -3,15 +3,15 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from hikeall.api.app import create_app
-from hikeall.config import Settings
+from hikesense.api.app import create_app
+from hikesense.config import Settings
 
 DEFAULT_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 
 
 @pytest.fixture(autouse=True)
 def _empty_data_dir(monkeypatch, tmp_path):
-    monkeypatch.setenv("HIKEALL_DATA_DIR", str(tmp_path))  # no knowledge index here
+    monkeypatch.setenv("HIKESENSE_DATA_DIR", str(tmp_path))  # no knowledge index here
 
 
 def test_health_reports_db_false_without_db():

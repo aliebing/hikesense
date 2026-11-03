@@ -24,11 +24,11 @@ Plan-Tagen um mehr als 2 % ab.
 ## Lauf
 
 ```sh
-make smoke-user   # einmal: legt das Testkonto smoke@hikeall.local an
-make eval         # = cd backend && uv run hikeall eval [--cases PFAD]
+make smoke-user   # einmal: legt das Testkonto smoke@hikesense.local an
+make eval         # = cd backend && uv run hikesense eval [--cases PFAD]
 ```
 
-Der Lauf braucht `OPENROUTER_API_KEY`, `HIKEALL_MODEL`, `HIKEALL_SMOKE_PASSWORD` und die
+Der Lauf braucht `OPENROUTER_API_KEY`, `HIKESENSE_MODEL`, `HIKESENSE_SMOKE_PASSWORD` und die
 Supabase-Werte in `.env`. Außerdem müssen die lokale Datenbank und der Wissensindex (`make knowledge`) bereitstehen.
 
 - **Anmeldung:** Wie `make smoke` meldet sich der Lauf als Testkonto an und prüft das Token wie
@@ -66,7 +66,7 @@ der vorab berechnete Plan, bei den Wissensfällen die Fundstelle im Index.
 
 ## Kennzahlen
 
-Die Definitionen stehen im Modulkopf von `backend/src/hikeall/evaluation.py`. Ein Ziel, dessen
+Die Definitionen stehen im Modulkopf von `backend/src/hikesense/evaluation.py`. Ein Ziel, dessen
 Nenner 0 ist, gilt als „nicht erreicht“: Was nicht gemessen wurde, gilt nicht als erreicht.
 
 - **Nicht belegte Zahlen (Ziel ≤ 2 %).** Gezählt wird über jede Runde jedes Falls.
@@ -154,7 +154,7 @@ Was sie nicht zeigen:
     Abweichung liegt unter 0,5 %, Tests mit einer L-förmigen Linie sichern das ab.
     `trail_lodgings` und `trail_pois` wurden neu verknüpft.
   - Eine bestehende Datenbank bekommt die korrigierten `along_km` mit `cd backend && uv run
-    hikeall import-lodgings` und `uv run hikeall import-places` (beide verknüpfen am Ende neu)
+    hikesense import-lodgings` und `uv run hikesense import-places` (beide verknüpfen am Ende neu)
     oder mit einem vollständigen `make import`. Ohne das bleiben die alten Gradanteile stehen,
     und Pläne und OSM-Abgleich passen nicht zueinander.
 - **Fall korrigiert: w01.**

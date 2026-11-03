@@ -15,12 +15,12 @@ from test_agent_graph import (  # noqa: F401 (fixture)
     westweg_raw,
 )
 
-from hikeall import smoke as sm
-from hikeall.adapters.open_meteo import DayWeather
-from hikeall.agent import multiday as md
-from hikeall.agent.constraints import ConstraintResult, PreferenceMatch
-from hikeall.agent.events import CalendarLink, Field, RaceInfo, VerifiedRace
-from hikeall.agent.graph import (
+from hikesense import smoke as sm
+from hikesense.adapters.open_meteo import DayWeather
+from hikesense.agent import multiday as md
+from hikesense.agent.constraints import ConstraintResult, PreferenceMatch
+from hikesense.agent.events import CalendarLink, Field, RaceInfo, VerifiedRace
+from hikesense.agent.graph import (
     AgentDeps,
     ClarifyEvent,
     DoneEvent,
@@ -34,16 +34,16 @@ from hikeall.agent.graph import (
     TourCard,
     UnderstoodEvent,
 )
-from hikeall.agent.prompts import OTHER_REPLY
-from hikeall.agent.request import HikeRequest, RawRequest
-from hikeall.agent.tools import GroupBrief, SourceBrief
-from hikeall.agent.weather import NoForecast
-from hikeall.chatlog import hash_user
-from hikeall.config import Settings
-from hikeall.guard import INJECTION_REPLY
-from hikeall.llm.gateway import FakeGateway
-from hikeall.llm.usage import LLMUsage
-from hikeall.tags.vocabulary import FEATURES_YAML, NearPlace, Tag, TagVocabulary
+from hikesense.agent.prompts import OTHER_REPLY
+from hikesense.agent.request import HikeRequest, RawRequest
+from hikesense.agent.tools import GroupBrief, SourceBrief
+from hikesense.agent.weather import NoForecast
+from hikesense.chatlog import hash_user
+from hikesense.config import Settings
+from hikesense.guard import INJECTION_REPLY
+from hikesense.llm.gateway import FakeGateway
+from hikesense.llm.usage import LLMUsage
+from hikesense.tags.vocabulary import FEATURES_YAML, NearPlace, Tag, TagVocabulary
 
 PROMPTS = sm.Path(__file__).resolve().parents[2] / "data" / "smoke" / "prompts.yaml"
 
@@ -357,7 +357,7 @@ def test_summary_line_keeps_the_end_of_an_error(monkeypatch, tmp_path, capsys):
 def test_smoke_cmd_reports_db_errors_without_traceback(monkeypatch, capsys):
     import psycopg
 
-    from hikeall import cli
+    from hikesense import cli
 
     def broken(*a, **kw):
         raise psycopg.OperationalError("connection refused")
@@ -580,7 +580,7 @@ def auth_settings(**kw):
         "supabase_db_url": "postgresql://x",
         "supabase_url": "http://127.0.0.1:54321",
         "supabase_anon_key": "anon",
-        "hikeall_smoke_password": "geheim-123",
+        "hikesense_smoke_password": "geheim-123",
         **kw,
     }
     return Settings(**kw)
@@ -601,7 +601,7 @@ def test_sign_in_uses_the_password_grant(respx_mock):
 @pytest.mark.parametrize(
     ("kw", "status", "match"),
     [
-        ({"hikeall_smoke_password": None}, 200, "HIKEALL_SMOKE_PASSWORD"),
+        ({"hikesense_smoke_password": None}, 200, "HIKESENSE_SMOKE_PASSWORD"),
         ({"supabase_anon_key": None}, 200, "SUPABASE_ANON_KEY"),
         ({}, 400, "make smoke-user"),
     ],
@@ -633,7 +633,7 @@ def test_create_user_signs_up_or_finds_the_existing_user(respx_mock):
 
 
 def test_smoke_cmd_checks_the_token_like_chat(monkeypatch, capsys):
-    from hikeall import cli
+    from hikesense import cli
 
     monkeypatch.setattr(cli, "_settings", lambda: auth_settings(supabase_jwt_secret="s" * 32))
     monkeypatch.setattr(sm, "sign_in", lambda http, settings: "kein-jwt")
@@ -736,7 +736,7 @@ def test_run_case_sends_the_case_language(monkeypatch):
 
 
 def test_fixed_replies_and_heads_follow_the_language():
-    from hikeall.agent.texts import texts
+    from hikesense.agent.texts import texts
 
     ev = [TokenEvent(text=texts("en").injection_reply)]
     assert sm.check(ev, {"reply": "injection"}, lang="en") == []
@@ -748,7 +748,7 @@ def test_fixed_replies_and_heads_follow_the_language():
 
 
 def _weather_ev(wish="fine", days=1):
-    from hikeall.agent.graph import WeatherDay, WeatherDaysEvent
+    from hikesense.agent.graph import WeatherDay, WeatherDaysEvent
 
     w = DayWeather(
         date=date(2026, 11, 4), code=1, t_min_c=2, t_max_c=9, precip_mm=0, precip_prob_pct=10, snowfall_cm=0, text="klar"

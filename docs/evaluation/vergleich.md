@@ -8,7 +8,7 @@ Unerfüllbarkeits-Behauptung (Commit `023ba23`, siehe [README.md](README.md#befu
 alten Antwort-Prompt und ohne die Erwartung `no_unsat_claim`. Die Spalte „Standard“ ist der
 Basislauf *nach* dem Fix. Die Vergleichsläufe wurden nicht wiederholt; ihre Zeile „falsche
 Unerfüllbarkeits-Behauptungen“ ist daher nicht gemessen („–“). Nichts wurde für ein Modell angepasst. Die
-Kennzahlen sind wie in [README.md](README.md) definiert. Aufruf: `hikeall eval --model M
+Kennzahlen sind wie in [README.md](README.md) definiert. Aufruf: `hikesense eval --model M
 --temperature T`; ohne `--temperature` bleibt es bei den festen Werten des Gateways (0,0 für
 Verständnis und Werkzeug-Runden, 0,3 für Antworttexte).
 

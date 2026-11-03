@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from hikeall import db
-from hikeall.models import Source
+from hikesense import db
+from hikesense.models import Source
 
 
 @pytest.mark.db

@@ -3,8 +3,8 @@ import { en, type Messages } from "./en";
 
 /** Plain module (no "use client"): usable from server and client components alike. */
 export type Locale = "en" | "de";
-export const STORAGE_KEY = "hikeall.lang";
-export const COOKIE_NAME = "hikeall.lang";
+export const STORAGE_KEY = "hikesense.lang";
+export const COOKIE_NAME = "hikesense.lang";
 
 const catalogs: Record<Locale, Messages> = { en, de };
 

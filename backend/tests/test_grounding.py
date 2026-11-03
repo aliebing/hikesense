@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.agent.grounding import (
+from hikesense.agent.grounding import (
     NAME_HINT,
     Evidence,
     grounding_check,
@@ -251,7 +251,7 @@ def test_ranges_and_compounds_keep_working_with_signs():
 def test_numbers_formatted_for_the_model_are_supported(value, unit):
     """Smoke case 8: the plan line said "Gehzeit 4,3 h" (float rounding of 4.35) while the
     evidence 4,35 h rounds half-up to 4,4 – the model's faithful copy was replaced by "?"."""
-    from hikeall.agent.graph import _de
+    from hikesense.agent.graph import _de
 
     ev = Evidence()
     ev.add(value, unit)

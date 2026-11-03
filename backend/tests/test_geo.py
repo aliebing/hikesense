@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.geo import (
+from hikesense.geo import (
     bbox_of,
     distance_point_to_path_km,
     elevation_stats,
@@ -83,7 +83,7 @@ def test_segments_are_simplified_independently_and_short_ones_kept():
 
 
 def test_locate_returns_nearest_vertex_and_distance_m():
-    from hikeall.geo import locate
+    from hikesense.geo import locate
 
     line = [(48.0, 8.0), (48.0, 8.01), (48.0, 8.02)]
     idx, dist_m = locate(line, (48.0005, 8.0101))
@@ -92,7 +92,7 @@ def test_locate_returns_nearest_vertex_and_distance_m():
 
 
 def test_locate_start_index_searches_only_forward():
-    from hikeall.geo import locate
+    from hikesense.geo import locate
 
     line = [(48.0, 8.0), (48.0, 8.01), (48.0, 8.02), (48.0, 8.01), (48.0, 8.0)]
     assert locate(line, (48.0, 8.01))[0] == 1

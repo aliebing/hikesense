@@ -6,18 +6,18 @@ import pytest
 import respx
 from conftest import L_CORNER_KM, LINE, upsert_l_trail
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.db import upsert_lodging, upsert_source, upsert_trail
-from hikeall.errors import OverpassError
-from hikeall.ingest.lodgings import (
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.db import upsert_lodging, upsert_source, upsert_trail
+from hikesense.errors import OverpassError
+from hikesense.ingest.lodgings import (
     fetch_lodgings,
     import_lodgings,
     link_trail_lodgings,
     lodgings_query,
     parse_lodgings,
 )
-from hikeall.models import BLACK_FOREST_BBOX, Lodging, Source
+from hikesense.models import BLACK_FOREST_BBOX, Lodging, Source
 
 SRC = Source(
     id="test-osm-lodg",
@@ -223,8 +223,8 @@ def test_import_is_idempotent(conn, trail_on_line_48_8):
 
 @pytest.mark.db
 def test_stage_count_covers_every_long_distance_trail(conn):
-    from hikeall.cli import STAGE_COUNT_SQL
-    from hikeall.db import upsert_stage
+    from hikesense.cli import STAGE_COUNT_SQL
+    from hikesense.db import upsert_stage
 
     upsert_source(conn, SRC)
     for tid, kind in (("test-lodg-mittelweg", "long_distance"), ("test-lodg-day", "day_hike")):
@@ -245,8 +245,8 @@ def test_stage_count_covers_every_long_distance_trail(conn):
 
 
 def test_collect_lodgings_unions_regions(monkeypatch):
-    from hikeall import regions as R
-    from hikeall.ingest import lodgings as mod
+    from hikesense import regions as R
+    from hikesense.ingest import lodgings as mod
 
     def fake(overpass, bbox, *a, **k):
         shared = Lodging(id=1, name="Grenzhotel", kind="hotel", lat=48.9, lon=8.0)
@@ -261,9 +261,9 @@ def test_collect_lodgings_unions_regions(monkeypatch):
 
 
 def test_collect_lodgings_from_pbf_where_complete(monkeypatch):
-    from hikeall import regions as R
-    from hikeall.adapters import osm_pbf
-    from hikeall.ingest import lodgings as mod
+    from hikesense import regions as R
+    from hikesense.adapters import osm_pbf
+    from hikesense.ingest import lodgings as mod
 
     asked = []
     monkeypatch.setattr(mod, "fetch_lodgings", lambda o, bbox, *a, **k: asked.append(bbox) or [])

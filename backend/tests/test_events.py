@@ -20,7 +20,7 @@ from test_agent_graph import (  # noqa: F401 (vocab, settings are fixtures)
     vocab,
 )
 
-from hikeall.adapters.page_fetch import (
+from hikesense.adapters.page_fetch import (
     PageSkipped,
     PageText,
     PinnedBackend,
@@ -28,8 +28,13 @@ from hikeall.adapters.page_fetch import (
     safe_client,
     vetted_ips,
 )
-from hikeall.adapters.web_search import BLOCKED_DOMAINS, OpenRouterWebSearch, SearchHit, is_blocked
-from hikeall.agent.events import (
+from hikesense.adapters.web_search import (
+    BLOCKED_DOMAINS,
+    OpenRouterWebSearch,
+    SearchHit,
+    is_blocked,
+)
+from hikesense.agent.events import (
     CalendarLink,
     EventFinder,
     EventsResult,
@@ -39,9 +44,9 @@ from hikeall.agent.events import (
     load_calendars,
     verify,
 )
-from hikeall.agent.request import RawRequest
-from hikeall.llm.gateway import FakeGateway
-from hikeall.llm.usage import BudgetExceeded, metered, record_usage
+from hikesense.agent.request import RawRequest
+from hikesense.llm.gateway import FakeGateway
+from hikesense.llm.usage import BudgetExceeded, metered, record_usage
 
 FIXTURES = Path(__file__).parent / "fixtures"
 HALB = (FIXTURES / "race_page_halbmarathon.html").read_text(encoding="utf-8")
@@ -164,7 +169,7 @@ def test_value_must_be_a_whole_token_of_the_quote():
 
 
 def test_contains_rejects_a_decimal_point_continuation():
-    from hikeall.agent.events import _contains
+    from hikesense.agent.events import _contains
 
     assert not _contains("Startgebühr 25.50 €", "25")  # „25“ is not „25.50“
     assert not _contains("Startgebühr 25,50 €", "25")
@@ -391,7 +396,7 @@ def test_page_text_without_scripts_and_styles(respx_mock):
     assert "Start und Ziel: Sportplatz Kirchzarten" in got.text  # whitespace normalised
     assert "99 €" not in got.text and "font-family" not in got.text
     ua = route.calls[0].request.headers["user-agent"]
-    assert ua.startswith("HikeAll") and "@" not in ua
+    assert ua.startswith("HikeSense") and "@" not in ua
 
 
 # --- find_events ---------------------------------------------------------------------------
@@ -560,8 +565,8 @@ def test_gateway_web_completion_sends_plugin_and_records_cost(monkeypatch):
     # the OpenAI client does not use httpx (respx cannot see it): its create() is replaced
     from openai.types.chat import ChatCompletion
 
-    from hikeall.config import Settings
-    from hikeall.llm.gateway import OpenRouterGateway
+    from hikesense.config import Settings
+    from hikesense.llm.gateway import OpenRouterGateway
 
     body = {
         "id": "x", "object": "chat.completion", "created": 1, "model": "openai/gpt-4o-mini",
@@ -597,7 +602,7 @@ def test_gateway_web_completion_sends_plugin_and_records_cost(monkeypatch):
 
 def test_configured_user_agent_is_sent_and_used_for_robots(respx_mock):
     respx_mock.get("https://lauf.example.org/robots.txt").respond(
-        200, text="User-agent: HikeAllTest\nDisallow: /\n"
+        200, text="User-agent: HikeSenseTest\nDisallow: /\n"
     )
     route = respx_mock.get("https://lauf.example.org/").respond(200, html=HALB)
     other = respx_mock.get("https://anders.example.org/").respond(200, html=HALB)
@@ -607,10 +612,10 @@ def test_configured_user_agent_is_sent_and_used_for_robots(respx_mock):
         SearchHit(url="https://anders.example.org/", title="b"),
     ]
     with httpx.Client() as http:
-        f, _ = finder(hits, [good_race()], http, ua="HikeAllTest/1.0 (+https://example.org)")
+        f, _ = finder(hits, [good_race()], http, ua="HikeSenseTest/1.0 (+https://example.org)")
         result = f.find_events("Halbmarathon", TODAY)
     assert not route.called  # robots.txt disallows this agent
-    assert other.calls[0].request.headers["user-agent"] == "HikeAllTest/1.0 (+https://example.org)"
+    assert other.calls[0].request.headers["user-agent"] == "HikeSenseTest/1.0 (+https://example.org)"
     assert [r.source_url for r in result.events] == ["https://anders.example.org/"]
 
 
@@ -667,7 +672,7 @@ def test_nat64_and_ipv4_compatible_addresses_are_checked_by_their_ipv4():
 def test_dns_resolution_counts_against_the_deadline(monkeypatch):
     import time
 
-    import hikeall.adapters.page_fetch as pf
+    import hikesense.adapters.page_fetch as pf
 
     monkeypatch.setattr(pf, "TIMEOUT_S", 0.2)
 
@@ -703,7 +708,7 @@ def test_gzip_body_is_capped_after_decompression(respx_mock):
 
 
 def test_dates_in_reads_english_month_names():
-    from hikeall.agent.events import dates_in
+    from hikesense.agent.events import dates_in
 
     want = {date(2027, 3, 12)}
     for text in (
@@ -718,7 +723,7 @@ def test_dates_in_reads_english_month_names():
 
 
 def test_skip_reasons_in_english():
-    from hikeall.agent.events import skip_reason
+    from hikesense.agent.events import skip_reason
 
     assert skip_reason("robots.txt verbietet den Abruf", "en") == "robots.txt forbids fetching"
     assert skip_reason("Zeitlimit 10 s überschritten", "en") == "time limit of 10 s exceeded"

@@ -1,6 +1,6 @@
 import pytest
 
-from hikeall.guard import (
+from hikesense.guard import (
     INJECTION_REPLY,
     RATE_LIMIT_REPLY,
     leaks_system_prompt,
@@ -44,13 +44,13 @@ def test_normal_request_passes(text):
 
 
 def test_leak_detected():
-    sp = "Du bist der Planungsassistent von Hike all about. " * 3
+    sp = "Du bist der Planungsassistent von HikeSense. " * 3
     assert leaks_system_prompt("Klar: " + sp[:80], sp)
     assert not leaks_system_prompt("Hier sind drei Touren.", sp)
 
 
 def test_leak_ignores_whitespace_differences():
-    sp = "Du bist der Planungsassistent von Hike all about und nennst nie erfundene Zahlen."
+    sp = "Du bist der Planungsassistent von HikeSense und nennst nie erfundene Zahlen."
     assert leaks_system_prompt(sp.replace(" ", "\n  "), sp)
 
 
@@ -71,8 +71,8 @@ def test_sanitize_strips_zero_width():
 
 
 def test_reply_texts_name_all_regions():
-    from hikeall.agent.prompts import CLARIFY_START, OTHER_REPLY
-    from hikeall.regions import REGION_NAMES
+    from hikesense.agent.prompts import CLARIFY_START, OTHER_REPLY
+    from hikesense.regions import REGION_NAMES
 
     assert REGION_NAMES in INJECTION_REPLY
     assert OTHER_REPLY == (

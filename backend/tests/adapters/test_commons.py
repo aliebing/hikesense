@@ -2,9 +2,9 @@ import httpx
 import pytest
 import respx
 
-from hikeall.adapters.commons import COMMONS_API, WIKIDATA_API, CommonsClient
-from hikeall.adapters.http import make_http_client
-from hikeall.errors import ImageFetchError
+from hikesense.adapters.commons import COMMONS_API, WIKIDATA_API, CommonsClient
+from hikesense.adapters.http import make_http_client
+from hikesense.errors import ImageFetchError
 
 
 @respx.mock

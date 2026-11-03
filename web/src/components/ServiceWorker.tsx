@@ -13,7 +13,7 @@ export default function ServiceWorker() {
       navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("service worker not registered:", e));
     } else {
       navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => void r.unregister())).catch(() => {});
-      if ("caches" in window) caches.keys().then((ks) => ks.filter((k) => k.startsWith("hikeall-")).forEach((k) => void caches.delete(k))).catch(() => {});
+      if ("caches" in window) caches.keys().then((ks) => ks.filter((k) => k.startsWith("hikesense-")).forEach((k) => void caches.delete(k))).catch(() => {});
     }
   }, []);
   return null;

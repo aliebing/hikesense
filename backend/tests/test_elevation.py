@@ -1,7 +1,7 @@
 import pytest
 from conftest import LINE, Ramp
 
-from hikeall.ingest.elevation import elevation_stats
+from hikesense.ingest.elevation import elevation_stats
 
 
 def test_elevation_stats_on_ramp():

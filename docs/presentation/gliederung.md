@@ -1,9 +1,9 @@
-# Präsentation „Hike all about“: Gliederung und Sprechnotizen
+# Präsentation „HikeSense“: Gliederung und Sprechnotizen
 
 10 Minuten, sechs Punkte. Zahlen stammen aus dem [README](../../README.md), dem
 [Evaluationsbericht vom 2026-10-31](../evaluation/bericht-2026-10-31-openai-gpt-4o-mini.md),
 dem [Modellvergleich](../evaluation/vergleich.md) und der
-[Spec](../superpowers/specs/2026-10-28-hike-all-about-design.md). Bilder liegen in
+Spec (intern). Bilder liegen in
 `docs/showcase/`.
 
 | Nr. | Punkt | Minuten |

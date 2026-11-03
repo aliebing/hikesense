@@ -1,8 +1,8 @@
 from test_constraints import cand, req
 
-from hikeall.agent.constraints import MAX_MATCHES, format_deviation, select
-from hikeall.agent.explain import candidate_rows
-from hikeall.agent.request import Constraint
+from hikesense.agent.constraints import MAX_MATCHES, format_deviation, select
+from hikesense.agent.explain import candidate_rows
+from hikesense.agent.request import Constraint
 
 
 def test_rows_status_and_notes():
@@ -46,9 +46,9 @@ def test_rows_near_miss_status_and_note():
 
 
 def test_english_notes():
-    from hikeall.agent.constraints import Candidate, select
-    from hikeall.agent.explain import candidate_rows
-    from hikeall.agent.request import Constraint, HikeRequest
+    from hikesense.agent.constraints import Candidate, select
+    from hikesense.agent.explain import candidate_rows
+    from hikesense.agent.request import Constraint, HikeRequest
 
     c = Candidate("t", "Tour", 11.6, 300, 300, True, 1.0)
     r = HikeRequest(intent="day_hike", constraints=[Constraint(kind="length_km", max=11.5)])

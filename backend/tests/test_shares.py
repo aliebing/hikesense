@@ -4,10 +4,10 @@ import respx
 from conftest import Ramp
 from test_day_hikes import OSM, RELATIONS
 
-from hikeall.adapters.http import make_http_client
-from hikeall.adapters.overpass import OVERPASS_URL, OverpassClient
-from hikeall.ingest.day_hikes import Candidate, import_day_hikes
-from hikeall.ingest.shares import (
+from hikesense.adapters.http import make_http_client
+from hikesense.adapters.overpass import OVERPASS_URL, OverpassClient
+from hikesense.ingest.day_hikes import Candidate, import_day_hikes
+from hikesense.ingest.shares import (
     classify_surface,
     classify_way_type,
     compute_shares,
@@ -138,7 +138,7 @@ def test_import_shares_writes_only_share_columns_and_reports_failures(conn):
 @pytest.mark.db
 @respx.mock
 def test_cli_import_shares_only_unknown_trail_exits_2(conn, monkeypatch, capsys):
-    from hikeall import cli
+    from hikesense import cli
 
     monkeypatch.setenv("SUPABASE_DB_URL", conn.info.dsn + " password=postgres")
     assert cli.main(["import-shares", "--only", "no-such-trail-zz"]) == 2

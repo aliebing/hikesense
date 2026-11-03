@@ -6,14 +6,14 @@ import pytest
 from test_agent_graph import TODAY, FakeTools, vocab  # noqa: F401 (fixture)
 from test_smoke import card, done, res, results_ev, src
 
-from hikeall import evaluation as ev
-from hikeall import smoke as sm
-from hikeall.agent.graph import AgentDeps, PlanEvent, SourcesEvent, TokenEvent
-from hikeall.agent.texts import texts
-from hikeall.agent.weather import DayWeather, is_rain_day, weather_for_days
-from hikeall.config import Settings
-from hikeall.errors import HikeAllError
-from hikeall.llm.gateway import FakeGateway
+from hikesense import evaluation as ev
+from hikesense import smoke as sm
+from hikesense.agent.graph import AgentDeps, PlanEvent, SourcesEvent, TokenEvent
+from hikesense.agent.texts import texts
+from hikesense.agent.weather import DayWeather, is_rain_day, weather_for_days
+from hikesense.config import Settings
+from hikesense.errors import HikeSenseError
+from hikesense.llm.gateway import FakeGateway
 
 REPO = ev.REPO_ROOT
 
@@ -146,9 +146,9 @@ def test_fixture_weather_returns_the_nearest_place(tmp_path):
 
 def test_fixture_weather_never_goes_live(tmp_path, monkeypatch):
     fw = ev.FixtureWeather(write_fixture(tmp_path / "w.json"))
-    with pytest.raises(HikeAllError, match="keine Wetterdaten für 2026-11-04"):
+    with pytest.raises(HikeSenseError, match="keine Wetterdaten für 2026-11-04"):
         fw.daily(48.28, 8.17, date(2026, 11, 2), date(2026, 11, 4))
-    with pytest.raises(HikeAllError, match="keine Wetterdaten für"):
+    with pytest.raises(HikeSenseError, match="keine Wetterdaten für"):
         fw.daily(49.5, 9.5, date(2026, 11, 2), date(2026, 11, 2))  # no stored place within 25 km
 
     def fake_run_chat(deps, thread, message, user_hash=None, **kw):
@@ -283,8 +283,8 @@ def test_evaluate_needs_a_group_per_case(deps, tmp_path):
 
 
 def test_eval_cmd_wires_fixture_weather_and_sign_in(monkeypatch, tmp_path):
-    from hikeall import cli
-    from hikeall.api import chat
+    from hikesense import cli
+    from hikesense.api import chat
 
     monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
     monkeypatch.setattr(sm, "authorize", lambda settings: "h123")
@@ -308,8 +308,8 @@ def test_eval_cmd_wires_fixture_weather_and_sign_in(monkeypatch, tmp_path):
 
 
 def test_eval_cli_overrides_model(monkeypatch):
-    from hikeall import cli
-    from hikeall.api import chat
+    from hikesense import cli
+    from hikesense.api import chat
 
     monkeypatch.setattr(cli, "_settings", lambda: Settings(supabase_db_url="postgresql://x"))
     monkeypatch.setattr(sm, "authorize", lambda settings: "h")
@@ -322,11 +322,11 @@ def test_eval_cli_overrides_model(monkeypatch):
     monkeypatch.setattr(chat, "default_deps_factory", factory)
     monkeypatch.setattr(ev, "evaluate", lambda *a, **kw: 0)
     assert cli.main(["eval", "--model", "mistralai/x", "--temperature", "0"]) == 0
-    assert seen["settings"].hikeall_model == "mistralai/x"
-    assert seen["settings"].hikeall_temperature == 0.0
+    assert seen["settings"].hikesense_model == "mistralai/x"
+    assert seen["settings"].hikesense_temperature == 0.0
     assert cli.main(["eval"]) == 0
-    assert seen["settings"].hikeall_model == "openai/gpt-4o-mini"
-    assert seen["settings"].hikeall_temperature is None
+    assert seen["settings"].hikesense_model == "openai/gpt-4o-mini"
+    assert seen["settings"].hikesense_temperature is None
 
 
 def test_run_stem_includes_temperature_only_when_set():
@@ -417,8 +417,8 @@ def test_segment_sql_reads_km_positions_in_metres(conn):
     trail (like trail_lodgings.along_km), so the L's first 5,56 km are its north leg."""
     from conftest import L_CORNER_KM, L_LEN_KM, upsert_l_trail
 
-    from hikeall.db import upsert_source
-    from hikeall.models import Source
+    from hikesense.db import upsert_source
+    from hikesense.models import Source
 
     upsert_source(conn, Source(id="test-eval-src", name="t", url="https://example.org",
                                license="ODbL", retrieved_at=date(2026, 10, 31)))  # fmt: skip

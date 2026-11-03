@@ -2,7 +2,7 @@
 // installable. It does not make the app work offline: pages, data and maps always come from the network.
 // Never cached: map tiles, API responses, Supabase calls, pages with data, anything cross-origin or non-GET.
 const VERSION = 3; // bump to drop all old shell caches
-const CACHE = `hikeall-shell-v${VERSION}`;
+const CACHE = `hikesense-shell-v${VERSION}`;
 const SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/favicon.ico"];
 
 self.addEventListener("install", (event) => {
