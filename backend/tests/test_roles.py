@@ -43,9 +43,9 @@ def test_set_role_creates_missing_profile(conn):
 def test_default_role_lookup_reads_the_real_database(conn):
     """The production lookup (own connection) sees committed rows; cleanup leaves nothing behind."""
     import os
+    from types import SimpleNamespace
 
     from hikeall.api.app import _default_role_lookup
-    from types import SimpleNamespace
 
     url = os.environ.get("SUPABASE_DB_URL", "postgresql://postgres:postgres@127.0.0.1:54322/postgres")
     lookup = _default_role_lookup(SimpleNamespace(supabase_db_url=url))  # type: ignore[arg-type]

@@ -15,7 +15,7 @@ from hikeall.adapters.dem import CopernicusDem
 from hikeall.adapters.http import make_http_client
 from hikeall.adapters.osm_pbf import pbf_timestamp
 from hikeall.adapters.overpass import OverpassClient
-from hikeall.config import Settings
+from hikeall.config import Settings, export_langsmith_env
 from hikeall.db import connect
 from hikeall.errors import HikeAllError
 from hikeall.ingest.day_hikes import (
@@ -52,10 +52,12 @@ def _repo_path(p: Path) -> Path:
 
 def _settings() -> Settings | None:
     try:
-        return Settings()
+        settings = Settings()
     except ValidationError:
         print("Fehler: SUPABASE_DB_URL ist nicht gesetzt (.env oder Umgebung).", file=sys.stderr)
         return None
+    export_langsmith_env(settings)  # optional LangSmith tracing (chat/eval runs)
+    return settings
 
 
 def import_trails(only: str | None) -> int:

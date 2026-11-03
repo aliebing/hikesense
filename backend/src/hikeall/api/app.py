@@ -16,7 +16,7 @@ from hikeall.adapters.open_meteo import weather_source
 from hikeall.admin_log import LogReader
 from hikeall.api.admin import make_admin_router
 from hikeall.api.chat import default_deps_factory, make_router
-from hikeall.config import Settings
+from hikeall.config import Settings, export_langsmith_env
 from hikeall.db import upsert_source
 from hikeall.rate_limit import RateLimiter
 from hikeall.roles import Profile, Role, list_profiles, role_of
@@ -101,6 +101,7 @@ def create_app(
         }
 
     if cfg is not None:
+        export_langsmith_env(cfg)  # optional LangSmith tracing, off unless configured
         factory = deps_factory or default_deps_factory(cfg)
         app.include_router(make_router(cfg, factory, RateLimiter()))
         app.include_router(

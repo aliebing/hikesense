@@ -5,6 +5,11 @@ import pytest
 
 DEFAULT_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 
+# Tests never send traces to LangSmith, whatever .env or the shell says.
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGSMITH_TRACING_V2"] = "false"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
 
 @pytest.fixture
 def conn():

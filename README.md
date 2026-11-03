@@ -269,6 +269,21 @@ Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. 
 
 **Datenschutz:** Durch Suchtexte und Benutzer-ID enthält `data/logs/chat.jsonl` jetzt persönliche Daten. Die Datei nicht weitergeben, nicht einchecken und nicht in Berichte oder Screenshots übernehmen.
 
+### LangSmith (optional)
+
+With tracing on, every chat turn shows up in [LangSmith](https://eu.smith.langchain.com) as one run named `chat`: the LangGraph nodes, below them each LLM call (structured output, tool rounds, answer, the events web search) and each tool call (`search_day_hikes`, `plan_multiday`, the knowledge tools), with tokens, cost and duration. The run metadata carries the `request_id` of the matching `/admin` log line, `lang` and hashes of user and thread; tool inputs and outputs are cut at 20,000 characters.
+
+Off by default. To enable, set in `.env` (also passed to the `api` service by `docker compose`) and restart the API:
+
+```
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=lsv2_...
+LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
+LANGSMITH_PROJECT=hikesense
+```
+
+**Privacy:** with tracing on, user messages, model prompts and answers and tool results leave the machine and are stored by LangChain Inc. (EU region). The raw user id and e-mail are never sent, only the user hash. Keep it off for anything you do not want to share with that service; tests always run with tracing off.
+
 ## Mehrtagestour
 
 „3 Tage Westweg ab Hausach, ~15 km pro Tag“ ergibt einen Plan Tag für Tag. Das geht auf allen drei Fernwegen: Westweg (West- und Ostvariante, Pforzheim – Basel), Mittelweg (Pforzheim – Waldshut, westliche Variante über Häusern) und Ostweg (Pforzheim – Schaffhausen). Nennt die Nachricht keinen Fernweg (etwa „4 Tage ab Pforzheim“, Pforzheim liegt an allen drei), fragt der Chat „Auf welchem Fernweg?“, statt zu raten. „Westweg“ allein heißt Westvariante; das Verständnis-Echo sagt dann „Ostvariante möglich“. Der Code plant, das Modell formuliert nur:

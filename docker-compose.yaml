@@ -9,6 +9,11 @@ services:
     environment:
       SUPABASE_DB_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres
       SUPABASE_URL: http://host.docker.internal:54321
+      # optional LangSmith tracing (off unless LANGSMITH_TRACING=true and a key are set in .env)
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://eu.api.smith.langchain.com}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-hikesense}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
