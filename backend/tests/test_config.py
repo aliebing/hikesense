@@ -50,3 +50,45 @@ def test_real_repo_data_dir_is_found_from_any_cwd(monkeypatch, tmp_path):
     s = make()
     assert s.chroma_dir.is_absolute() and s.chroma_dir.parent.name == "data"
     assert (s.chroma_dir.parent.parent / "backend").is_dir()
+
+
+# --- optional LangSmith tracing ---------------------------------------------------------------
+
+_LS_VARS = ("LANGSMITH_TRACING", "LANGSMITH_TRACING_V2", "LANGSMITH_API_KEY", "LANGSMITH_ENDPOINT",
+            "LANGSMITH_PROJECT")
+
+
+@pytest.fixture
+def ls_env(monkeypatch):
+    import os
+
+    for v in _LS_VARS:  # restored after the test
+        monkeypatch.setenv(v, "unset-marker")
+        monkeypatch.delenv(v)
+    yield os.environ
+    config.export_langsmith_env(make(langsmith_tracing="false"))  # off for the next tests
+
+
+def test_langsmith_off_by_default(ls_env):
+    assert config.export_langsmith_env(make()) is False
+    assert ls_env["LANGSMITH_TRACING"] == "false" and ls_env["LANGSMITH_TRACING_V2"] == "false"
+    assert "LANGSMITH_API_KEY" not in ls_env
+
+
+def test_langsmith_needs_both_flag_and_key(ls_env):
+    assert config.export_langsmith_env(make(langsmith_tracing="true")) is False
+    assert config.export_langsmith_env(make(langsmith_api_key="k")) is False
+    assert config.export_langsmith_env(make(langsmith_tracing="", langsmith_api_key="k")) is False
+    assert ls_env["LANGSMITH_TRACING"] == "false" and "LANGSMITH_API_KEY" not in ls_env
+
+
+def test_langsmith_on_exports_env_with_eu_defaults(ls_env):
+    from langsmith.utils import tracing_is_enabled
+
+    assert config.export_langsmith_env(make(langsmith_tracing="true", langsmith_api_key="k")) is True
+    assert ls_env["LANGSMITH_TRACING"] == "true" and ls_env["LANGSMITH_API_KEY"] == "k"
+    assert ls_env["LANGSMITH_ENDPOINT"] == "https://eu.api.smith.langchain.com"
+    assert ls_env["LANGSMITH_PROJECT"] == "hikesense"
+    assert tracing_is_enabled() is True
+    config.export_langsmith_env(make(langsmith_tracing="false"))  # and off again
+    assert tracing_is_enabled() is False

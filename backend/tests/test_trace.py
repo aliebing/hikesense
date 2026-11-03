@@ -107,3 +107,78 @@ def test_traced_tools_no_pydantic_serializer_warning():
         trace.TracedTools(T()).go()
     assert caught == []
     assert json.loads(t.tool_calls[0]["result"]) == {"actual": 3}
+
+
+# --- LangSmith child runs for plain-Python tools -------------------------------------------------
+
+
+class _Tools:
+    def add(self, a, b=0):
+        return {"sum": a + b}
+
+    def fail(self):
+        raise KeyError("nope")
+
+
+def test_tracing_off_never_touches_langsmith(monkeypatch):
+    import langsmith
+    import langsmith.client
+
+    def boom(*a, **k):
+        raise AssertionError("LangSmith used with tracing off")
+
+    monkeypatch.setattr(langsmith, "traceable", boom)
+    monkeypatch.setattr(langsmith.client.Client, "__init__", boom)
+    assert trace.langsmith_on() is False
+    with trace.traced() as t:
+        assert trace.TracedTools(_Tools()).add(1, b=2) == {"sum": 3}
+        with pytest.raises(KeyError):
+            trace.TracedTools(_Tools()).fail()
+    assert [c["name"] for c in t.tool_calls] == ["add", "fail"]
+
+
+class _FakeTraceable:
+    """Stands in for langsmith.traceable: records the run and applies the processors."""
+
+    def __init__(self):
+        self.runs = []
+
+    def __call__(self, **opts):
+        def deco(fn):
+            def wrapper(*args, **kwargs):
+                run = {"opts": opts, "inputs": opts["process_inputs"]({"args": args, **kwargs})}
+                self.runs.append(run)
+                try:
+                    out = fn(*args, **kwargs)
+                except Exception as exc:
+                    run["error"] = exc
+                    raise
+                run["outputs"] = opts["process_outputs"](out)
+                return out
+            return wrapper
+        return deco
+
+
+def test_tracing_on_wraps_tools_as_child_runs_unchanged(monkeypatch):
+    import langsmith
+
+    fake = _FakeTraceable()
+    monkeypatch.setattr(langsmith, "traceable", fake)
+    monkeypatch.setattr(trace, "langsmith_on", lambda: True)
+    tools = trace.TracedTools(_Tools())
+    with trace.traced() as t:
+        assert tools.add(1, b=2) == {"sum": 3}
+        with pytest.raises(KeyError, match="nope") as exc_info:
+            tools.fail()
+    assert [(r["opts"]["name"], r["opts"]["run_type"]) for r in fake.runs] == [
+        ("add", "tool"), ("fail", "tool")]
+    assert fake.runs[0]["outputs"] == {"sum": 3}
+    assert fake.runs[1]["error"] is exc_info.value  # the same exception object, not wrapped
+    assert [c["error"] for c in t.tool_calls] == [None, "KeyError"]  # admin trace as before
+
+
+def test_langsmith_payloads_are_cut():
+    big = trace._ls_bounded({"x": "a" * 30_000})
+    assert big["truncated"] is True and len(big["preview"]) == trace.TOOL_RESULT_MAX_CHARS
+    assert trace._ls_bounded([1, 2]) == {"output": [1, 2]}
+    assert trace._ls_bounded(date(2026, 1, 2)) == {"output": "2026-01-02"}

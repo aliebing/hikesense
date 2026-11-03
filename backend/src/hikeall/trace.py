@@ -1,6 +1,10 @@
 """Per-request trace of LLM and tool calls, for the admin backend. A ContextVar keeps
 concurrent requests apart (same pattern as llm/usage.py). Costs are only what OpenRouter
-reported (None otherwise). Exception message texts are never stored, only class names."""
+reported (None otherwise). Exception message texts are never stored, only class names.
+
+Also the one place where plain-Python tool calls (and the raw web completion) become LangSmith
+child runs when LangSmith tracing is on (see config.export_langsmith_env); off, it is a
+direct call."""
 
 from __future__ import annotations
 
@@ -145,6 +149,44 @@ def to_jsonable(obj: Any) -> Any:
     return str(obj)
 
 
+def langsmith_on() -> bool:
+    """True when LangSmith tracing is enabled for this process/context (env, set at startup)."""
+    try:
+        from langsmith.utils import tracing_is_enabled
+
+        return tracing_is_enabled() is True
+    except Exception:  # noqa: BLE001 - tracing must never break a chat turn
+        return False
+
+
+def _ls_bounded(value: Any) -> dict:
+    """Inputs/outputs for LangSmith: JSON-able and cut like the admin trace."""
+    data = to_jsonable(value)
+    try:
+        text = json.dumps(data, ensure_ascii=False)
+    except Exception:  # noqa: BLE001 - unserializable, fall back to str
+        text = str(data)
+    if len(text) > TOOL_RESULT_MAX_CHARS:
+        return {"truncated": True, "preview": text[:TOOL_RESULT_MAX_CHARS]}
+    return data if isinstance(data, dict) else {"output": data}
+
+
+def langsmith_call(name: str, run_type: str, fn: Any, *args: Any, **kwargs: Any) -> Any:
+    """Call fn; with LangSmith tracing on, as a child run `name` of the current run. Results
+    and exceptions pass through unchanged."""
+    if not langsmith_on():
+        return fn(*args, **kwargs)
+    from langsmith import traceable
+
+    wrapped = traceable(
+        run_type=run_type,  # type: ignore[arg-type]
+        name=name,
+        process_inputs=_ls_bounded,
+        process_outputs=_ls_bounded,
+    )(fn)
+    return wrapped(*args, **kwargs)
+
+
 class TracedTools:
     """Wraps a tools object; every public callable is recorded in the active trace."""
 
@@ -159,7 +201,7 @@ class TracedTools:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             started = time.monotonic()
             try:
-                result = attr(*args, **kwargs)
+                result = langsmith_call(name, "tool", attr, *args, **kwargs)
             except Exception as exc:
                 self._record(name, args, kwargs, None, False, started, type(exc).__name__)
                 raise

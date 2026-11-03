@@ -156,7 +156,11 @@ class OpenRouterGateway:
         model = self._structured_model
         started = time.monotonic()
         try:
-            response = model.root_client.chat.completions.create(
+            # raw OpenAI client: no LangChain run, so a LangSmith child run of its own
+            response = trace.langsmith_call(
+                "web_search",
+                "llm",
+                model.root_client.chat.completions.create,
                 model=model.model_name,
                 messages=[{"role": "user", "content": user}],
                 temperature=0,

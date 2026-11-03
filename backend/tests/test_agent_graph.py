@@ -2359,3 +2359,30 @@ def test_weather_log_carries_the_note(vocab, settings):
     deps = _wx(vocab, settings, None, weather_wish="fine")
     run(deps, FINE_MSG)
     assert log_lines(settings)[-1]["weather_days"]["note"] == "Wetter gerade nicht abrufbar."
+
+
+# --- LangSmith run config ---------------------------------------------------------------------
+
+
+def test_run_config_carries_request_id_but_no_user_id(vocab, settings, monkeypatch):
+    from langchain_core.runnables.config import _get_langsmith_inheritable_metadata_from_config
+
+    from hikeall.agent import graph as graph_mod
+
+    seen = []
+    real = graph_mod._run_config
+    monkeypatch.setattr(graph_mod, "_run_config", lambda *a: seen.append(real(*a)) or seen[-1])
+    deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    list(run_chat(deps, "thread-x", FELDBERG_MSG, "hash123", user_id="u-secret-1", lang="en"))
+    (config,) = seen
+    line = log_lines(settings)[-1]
+    assert config["run_name"] == "chat" and "lang:en" in config["tags"]
+    md = config["metadata"]
+    assert md["request_id"] == line["request_id"] and md["lang"] == "en"
+    assert md["user_hash"] == "hash123" and "thread-x" not in md["thread_id"]
+    assert line["user_id"] == "u-secret-1"  # the local chat log keeps it
+    # what LangChain derives for LangSmith from configurable must not leak it either
+    derived = _get_langsmith_inheritable_metadata_from_config(config) or {}
+    sent = json.dumps([config["run_name"], config["tags"], md, derived], default=str)
+    assert "u-secret-1" not in sent and "user_id" not in derived and "thread-x" not in sent
+    assert "u-secret-1" not in repr(config["configurable"]["user_id"])

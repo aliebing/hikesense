@@ -14,6 +14,7 @@ and holds only plain JSON data.
 from __future__ import annotations
 
 import contextvars
+import hashlib
 import json
 import logging
 import re
@@ -1814,7 +1815,7 @@ def build_graph(deps: AgentDeps) -> Any:
             usage,
             None,
             conf.get("user_hash"),
-            conf.get("user_id"),
+            conf["user_id"].value,
             conf.get("trace"),
         )
         _emit(
@@ -1908,6 +1909,50 @@ def _write_log(
     )
 
 
+@dataclass(frozen=True)
+class _Private:
+    """A value for the log node that must not become LangSmith metadata: LangChain copies
+    every str/int/float/bool of `configurable` into the tracing metadata, a wrapper it does
+    not (and its repr hides the value)."""
+
+    value: str | None = field(repr=False)
+
+
+def _run_config(
+    thread_id: str,
+    request_id: str,
+    user_hash: str | None,
+    user_id: str | None,
+    lang: Lang,
+    usage: LLMUsage,
+    tr: Trace,
+) -> RunnableConfig:
+    """Config of one chat turn. run_name/tags/metadata only matter with LangSmith tracing on:
+    request_id matches the chat log line (/admin); thread and user only as hashes, never the
+    raw user id or an e-mail."""
+    # keyed by user as well: a thread id alone never continues another user's chat
+    graph_thread = f"{user_hash or ''}:{thread_id}"
+    return {
+        "run_name": "chat",
+        "tags": ["chat", f"lang:{lang}"],
+        "metadata": {
+            "request_id": request_id,
+            "thread_id": hashlib.sha256(graph_thread.encode()).hexdigest()[:12],
+            "user_hash": user_hash,
+            "lang": lang,
+        },
+        "configurable": {
+            "thread_id": graph_thread,
+            "usage": usage,
+            "request_id": request_id,
+            "user_hash": user_hash,
+            "user_id": _Private(user_id),
+            "lang": lang,
+            "trace": tr,
+        },
+    }
+
+
 def _run(
     deps: AgentDeps,
     thread_id: str,
@@ -1918,18 +1963,7 @@ def _run(
 ) -> Iterator[ChatEvent]:
     request_id = uuid.uuid4().hex
     with metered(max_cost_usd=deps.settings.max_cost_usd) as usage, traced() as tr:
-        config: RunnableConfig = {
-            "configurable": {
-                # keyed by user as well: a thread id alone never continues another user's chat
-                "thread_id": f"{user_hash or ''}:{thread_id}",
-                "usage": usage,
-                "request_id": request_id,
-                "user_hash": user_hash,
-                "user_id": user_id,
-                "lang": lang,
-                "trace": tr,
-            }
-        }
+        config = _run_config(thread_id, request_id, user_hash, user_id, lang, usage, tr)
         stream = deps.graph.stream(_turn(message, lang), config, stream_mode="custom")
         logged = False  # the log node writes the line and then emits "done"
         try:

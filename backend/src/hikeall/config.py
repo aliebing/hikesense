@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     chat_log_path: Path = Path("logs/chat.jsonl")
     chroma_dir: Path = Path("chroma")
     hikeall_user_agent: str | None = None  # own User-Agent for event pages (None: neutral default)
+    # optional LangSmith tracing: on only with LANGSMITH_TRACING=true and an API key
+    langsmith_tracing: str | None = None  # "true" turns it on (empty: off)
+    langsmith_api_key: SecretStr | None = None
+    langsmith_endpoint: str | None = None  # empty: the EU endpoint
+    langsmith_project: str | None = None  # empty: "hikesense"
 
     @model_validator(mode="after")
     def _resolve_data_paths(self) -> Settings:
@@ -53,3 +58,26 @@ class Settings(BaseSettings):
         if not self.chroma_dir.is_absolute():
             self.chroma_dir = root / self.chroma_dir
         return self
+
+
+LANGSMITH_EU_ENDPOINT = "https://eu.api.smith.langchain.com"
+LANGSMITH_DEFAULT_PROJECT = "hikesense"
+
+
+def export_langsmith_env(settings: Settings) -> bool:
+    """LangChain/LangSmith read only os.environ, while Settings also reads .env: export the
+    LANGSMITH_* values at startup. On only when tracing is true and a key is set; otherwise
+    tracing is forced off (also a stray LANGCHAIN_TRACING_V2). Returns whether it is on."""
+    key = settings.langsmith_api_key.get_secret_value() if settings.langsmith_api_key else ""
+    on = (settings.langsmith_tracing or "").strip().lower() == "true" and bool(key)
+    flag = "true" if on else "false"
+    os.environ["LANGSMITH_TRACING"] = flag
+    os.environ["LANGSMITH_TRACING_V2"] = flag  # read before LANGSMITH_TRACING / LANGCHAIN_*
+    if on:
+        os.environ["LANGSMITH_API_KEY"] = key
+        os.environ["LANGSMITH_ENDPOINT"] = settings.langsmith_endpoint or LANGSMITH_EU_ENDPOINT
+        os.environ["LANGSMITH_PROJECT"] = settings.langsmith_project or LANGSMITH_DEFAULT_PROJECT
+    from langsmith import utils as ls_utils
+
+    ls_utils.get_env_var.cache_clear()  # langsmith caches env lookups
+    return on
