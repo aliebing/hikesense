@@ -147,27 +147,27 @@ Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikesense 
 
 ## Evaluation
 
-Ein fester Testsatz von 52 Anfragen (`data/eval/cases.yaml`) läuft mit `make eval` gegen den echten Agenten: echtes Modell, echte Datenbank, echter Index. Geprüft wird mit Code, nicht von Hand und nicht von einem zweiten Modell. Das Wetter kommt aus gespeicherten Open-Meteo-Daten, damit der Lauf wiederholbar ist. Methode, Kennzahlen und Grenzen stehen in [docs/evaluation/README.md](evaluation/README.md).
+Ein fester Testsatz von 64 Anfragen (`data/eval/cases.yaml`) läuft mit `make eval` gegen den echten Agenten: echtes Modell, echte Datenbank, echter Index. Geprüft wird mit Code, nicht von Hand und nicht von einem zweiten Modell. Das Wetter kommt aus gespeicherten Open-Meteo-Daten, damit der Lauf wiederholbar ist. Methode, Kennzahlen und Grenzen stehen in [docs/evaluation/README.md](evaluation/README.md).
 
-SMART-Ziele, Lauf vom 2026-10-31 mit `openai/gpt-4o-mini` ([Bericht](evaluation/bericht-2026-10-31-openai-gpt-4o-mini.md)):
+SMART-Ziele, drei Wiederholungen vom 2026-11-03 mit `openai/gpt-4o-mini` ([Lauf 1](evaluation/bericht-2026-11-03-openai-gpt-4o-mini-lauf1.md), [2](evaluation/bericht-2026-11-03-openai-gpt-4o-mini-lauf2.md), [3](evaluation/bericht-2026-11-03-openai-gpt-4o-mini-lauf3.md)):
 
-| Ziel | Ist-Wert | Ergebnis |
+| Ziel | Ist-Wert (jeder der drei Läufe) | Ergebnis |
 |---|---|---|
-| 0 % erfundene Touren | 0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0 von 518 Zahlen (0,0 %) | erreicht |
-| 100 % offen benannte Unerfüllbarkeit | 8 von 8 Fällen | erreicht |
-| Recall@5 ≥ 0,8 | 10 von 10 Fällen (1,00) | erreicht |
+| 0 % erfundene Touren | 0 von 110 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen im Text | erreicht (3/3) |
+| ≤ 2 % nicht belegte Zahlen | 0 von 661–690 Zahlen (0,0 %) | erreicht (3/3) |
+| 100 % offen benannte Unerfüllbarkeit | 10 von 10 Fällen | erreicht (3/3) |
+| Recall@5 ≥ 0,8 | 10 von 10 Fällen (1,00) | erreicht (3/3) |
 
-Bestanden sind 52 von 52 Fällen, aufgeteilt in die Gruppen erfüllbar 12, unerfüllbar 8, Mehrtag 9, Änderung 5, Wissen 10, Eingabeschutz 5 sowie Gruppen und Läufe 3. Im Abgleich mit OSM wichen 0 von 82 Touren und Plan-Tagen um mehr als 2 % von der OSM-Linie ab. Ein Lauf kostete 0,0282 USD.
+Bestanden sind in jedem Lauf 64 von 64 Fällen: erfüllbar 18, unerfüllbar 10, Mehrtag 12, Änderung 5, Wissen 10, Eingabeschutz 6 sowie Gruppen und Läufe 3. 12 Fälle (Bodensee, Pfälzerwald, Schweiz, Englisch) kamen nach dem Basislauf vom 2026-10-31 dazu und wurden nicht an gpt-4o-mini entwickelt, sondern vorab nur gegen die Datenbank geprüft. Im Abgleich mit OSM wichen 0 von 116 Touren und Plan-Tagen um mehr als 2 % ab. Ein Lauf kostete 0,032–0,034 USD.
 
-Zusätzlich zu den SMART-Zielen zählt der Lauf falsche Unerfüllbarkeits-Behauptungen: Antworten, die „Keine Tour erfüllt alle Wünsche“ sagen, obwohl der Code nicht ausweichen musste. Ergebnis: 0 von 21 erfüllbaren Fällen (12 Tagestouren, 9 Mehrtagespläne), der Code musste keinen solchen Satz entfernen. Vor dem Fix schrieb das Modell den Satz in 12 von 12 erfüllbaren Tagestour-Fällen, ohne dass ein Fall rot wurde ([Befunde](evaluation/README.md#befunde)).
+Zusätzlich zu den SMART-Zielen zählt der Lauf falsche Unerfüllbarkeits-Behauptungen: Antworten, die „Keine Tour erfüllt alle Wünsche“ sagen, obwohl der Code nicht ausweichen musste. Ergebnis: 0 von 30 erfüllbaren Fällen in jedem Lauf, der Code musste keinen solchen Satz entfernen. Vor dem Fix vom 2026-10-31 schrieb das Modell den Satz in 12 von 12 erfüllbaren Tagestour-Fällen, ohne dass ein Fall rot wurde ([Befunde](evaluation/README.md#befunde)).
 
 Der [Modell- und Temperaturvergleich](evaluation/vergleich.md) nutzt denselben Testsatz. gpt-4o-mini besteht mit T = 0, mit den Standardwerten und mit T = 0,7 jeweils 52 von 52 Fällen. `google/gemini-2.5-flash-lite` besteht 51 von 52 Fällen bei 0,0216 USD je Lauf; ihm fehlte bei einer Wissensfrage die erwartete Jahreszahl. Alle vier SMART-Ziele werden in allen vier Läufen erreicht. Die drei Vergleichsläufe liefen vor dem Fix der Unerfüllbarkeits-Behauptung und wurden nicht wiederholt.
 
 Was die Zahlen **nicht** zeigen:
 
-- **Je Konfiguration gab es nur einen Lauf, ohne Konfidenzintervall.** Bei 8 bzw. 10 Fällen je Ziel verschiebt ein einziger Fall die Quote um 12,5 bzw. 10 Prozentpunkte.
-- **Der Testsatz ist klein und selbst geschrieben.** Er ist mit gpt-4o-mini entwickelt worden und so gewählt, dass die Daten die Fälle tragen. Er misst, ob der Agent richtig mit den Daten umgeht, nicht, wie gut er echte Anfragen abdeckt.
+- **Drei Läufe sind wenig, ein Konfidenzintervall gibt es nicht.** Bei 10 Fällen je Ziel verschiebt ein einziger Fall die Quote um 10 Prozentpunkte; seltene Fehler zeigen drei grüne Läufe nicht.
+- **Der Testsatz ist klein und selbst geschrieben.** 52 der 64 Fälle sind mit gpt-4o-mini entwickelt worden, alle sind so gewählt, dass die Daten die Fälle tragen. Er misst, ob der Agent richtig mit den Daten umgeht, nicht, wie gut er echte Anfragen abdeckt.
 - **Die Zahlenquote erfasst nur Zahlen mit Einheit.** Falsche Aussagen ohne Zahl misst sie nicht. Ein Beispiel: Die falsche Behauptung „Keine Tour erfüllt alle Wünsche“ bei erfüllbaren Anfragen fiel keiner Kennzahl auf, sondern erst beim Aufnehmen der Screenshots ([Befunde](evaluation/README.md#befunde)). Seitdem prüft der Testsatz genau diesen Satz, andere falsche Sätze ohne Zahl weiterhin nicht.
 
 ## Ethik und Datenschutz

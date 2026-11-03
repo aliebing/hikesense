@@ -79,7 +79,14 @@ The app never queries OSM at runtime; the import commands produce a fixed state.
 
 A fixed test set (`data/eval/cases.yaml`) runs against the real agent with `make eval` and is checked by code. SMART targets: 0 % invented tours, ≤ 2 % unsupported numbers, 100 % openly named unsatisfiable requests, Recall@5 ≥ 0.8. Results, repeated runs and the model comparison: [docs/evaluation/](docs/evaluation/README.md).
 
-{{EVAL}}
+| Target | Result, 3 runs with gpt-4o-mini (2026-11-03, 64 cases each) |
+|---|---|
+| 0 % invented tours | 0 of 110 tour ids not in the database, 0 unsupported tour names – every run |
+| ≤ 2 % unsupported numbers | 0 of 661–690 numbers |
+| 100 % unsatisfiable requests named | 10 of 10 |
+| Recall@5 ≥ 0.8 | 1.00 (10 of 10) |
+
+64/64 cases passed in each run, at about 0.03 USD per run. 12 of the cases (Lake Constance, Palatinate Forest, Switzerland, English) were added after the base run and checked only against the database, not tuned on the model.
 
 ## Setup
 
@@ -132,6 +139,9 @@ Recorded with `scripts/video/` (Playwright screen recording, slides, edge-tts na
 - User demo (EN) – how a hiker uses the app
 - Technical overview (EN) – data, quality rules, agent, evaluation
 - AI deep dive (EN / DE) – how the agent calls its tools and where JSON is used
+- LangGraph walkthrough (EN / DE) – generative vs agentic AI, ReAct, the graph state on two real examples
+
+The videos are not in the repository (size); links follow.
 
 ## Limits
 

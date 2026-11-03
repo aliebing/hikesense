@@ -152,12 +152,13 @@ SEGMENTS = [
     ),
     Segment(
         "t15",
-        "Evaluation runs fifty-two fixed requests against the real agent, model, database and index, and checks "
-        "the results with code. The last full run, with gpt-4o-mini on the thirty-first of October, passed all "
-        "fifty-two: no invented tour among seventy-four tour ids, no unsupported number among five hundred and "
-        "eighteen, all eight impossible wishes named, and a recall at five of one for knowledge questions, for "
-        "under three cents. It was one run on a small, self-written set, before the English answers and the "
-        "weather finder. A smoke test of nineteen prompts against the real model covers those.",
+        "Evaluation runs sixty-four fixed requests against the real agent, model, database and index, and checks "
+        "the results with code. Twelve of them were added after the base run, for Lake Constance, the Palatinate "
+        "Forest, Switzerland and English, and checked only against the database first. With gpt-4o-mini, three "
+        "repeated runs on the third of November all passed sixty-four of sixty-four: no invented tour among a "
+        "hundred and ten tour ids, no unsupported number among about six hundred and seventy, all ten impossible "
+        "wishes named, and a recall at five of one, for about three cents a run. A second model is compared in "
+        "the evaluation folder.",
     ),
     Segment(
         "t16",

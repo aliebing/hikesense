@@ -275,8 +275,13 @@ def compute_metrics(results: list[EvalResult], trail_ids: set[str] | None = None
         claim_turns = [i for i, e in enumerate(r.expects) if e.get("no_unsat_claim")]
         if claim_turns:
             m.claim_cases += 1
+            # an error event (model not reachable) is a failed case, not a claim
             m.claim_false += any(
-                check(r.all_events[i], {"no_unsat_claim": True}, lang=r.lang)
+                check(
+                    [e for e in r.all_events[i] if e.type != "error"],
+                    {"no_unsat_claim": True},
+                    lang=r.lang,
+                )
                 for i in claim_turns
                 if i < len(r.all_events)
             )

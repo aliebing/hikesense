@@ -413,17 +413,17 @@
 
 <section id="t15">
   <div class="kicker b">Evaluation</div>
-  <h2 class="b" style="--d:.3s">52 requests, real agent, checked by code</h2>
+  <h2 class="b" style="--d:.3s">64 requests, real agent, checked by code</h2>
   <div class="stats" style="grid-template-columns: repeat(5, 1fr)">
-    <div class="stat b" style="--d:9s"><b>52/52</b><span>cases passed</span></div>
-    <div class="stat b" style="--d:12s"><b>0/74</b><span>tour ids not in the database</span></div>
-    <div class="stat b" style="--d:15s"><b>0/518</b><span>numbers unsupported</span></div>
-    <div class="stat b" style="--d:18.5s"><b>8/8</b><span>impossible wishes named</span></div>
+    <div class="stat b" style="--d:9s"><b>3 × 64/64</b><span>cases passed, 3 runs</span></div>
+    <div class="stat b" style="--d:12s"><b>0/110</b><span>tour ids not in the database</span></div>
+    <div class="stat b" style="--d:15s"><b>0/661–690</b><span>numbers unsupported</span></div>
+    <div class="stat b" style="--d:18.5s"><b>10/10</b><span>impossible wishes named</span></div>
     <div class="stat b" style="--d:20s"><b>1.00</b><span>recall@5, knowledge</span></div>
   </div>
   <div class="grid2" style="margin-top:34px">
-    <div class="card b" style="--d:24s"><h3>Limits</h3><ul><li>one run (31 Oct 2026, gpt-4o-mini, $0.0282)</li><li>small, self-written test set</li><li>only numbers with a unit are checked</li></ul></div>
-    <div class="card b" style="--d:30s"><h3>Smoke test</h3><ul><li>19 prompts against the real model</li><li>incl. English cases and the weather finder</li><li>expectations are never loosened</li></ul></div>
+    <div class="card b" style="--d:24s"><h3>Limits</h3><ul><li>3 runs (3 Nov 2026, gpt-4o-mini, $0.032–0.034 each)</li><li>small, self-written test set; 12 cases added later, not tuned on the model</li><li>only numbers with a unit are checked</li></ul></div>
+    <div class="card b" style="--d:30s"><h3>New in the set</h3><ul><li>Lake Constance, Palatinate Forest, Switzerland</li><li>English requests and English injection</li><li>expectations are never loosened</li></ul></div>
   </div>
 </section>
 

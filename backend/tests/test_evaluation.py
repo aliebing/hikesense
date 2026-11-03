@@ -8,7 +8,7 @@ from test_smoke import card, done, res, results_ev, src
 
 from hikesense import evaluation as ev
 from hikesense import smoke as sm
-from hikesense.agent.graph import AgentDeps, PlanEvent, SourcesEvent, TokenEvent
+from hikesense.agent.graph import AgentDeps, ErrorEvent, PlanEvent, SourcesEvent, TokenEvent
 from hikesense.agent.texts import texts
 from hikesense.agent.weather import DayWeather, is_rain_day, weather_for_days
 from hikesense.config import Settings
@@ -90,6 +90,17 @@ def test_unsat_named_and_false_claims_in_the_case_language():
     m = ev.compute_metrics([en, claim])
     assert (m.unsat_cases, m.unsat_named) == (1, 1)
     assert (m.claim_cases, m.claim_false) == (1, 1)
+
+
+def test_unreachable_model_is_no_false_claim():
+    down = result(
+        "e1",
+        ok=False,
+        events=[[ErrorEvent(message="nicht erreichbar"), done()]],
+        expects=[{"no_unsat_claim": True}],
+    )
+    m = ev.compute_metrics([down])
+    assert (m.claim_cases, m.claim_false) == (1, 0)
 
 
 def test_false_unsat_claims_and_removed_claims():

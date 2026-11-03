@@ -1,25 +1,39 @@
 # Evaluation
 
-Der Eval-Lauf schickt einen festen Testsatz von 52 Chat-Anfragen an den echten Agenten. Die
+Der Eval-Lauf schickt einen festen Testsatz von 64 Chat-Anfragen an den echten Agenten. Die
 Antworten werden mit Code geprüft, nicht von Hand und nicht von einem zweiten Modell. Aus den
 Ergebnissen berechnet der Lauf die Kennzahlen für die vier SMART-Ziele und gleicht alle gezeigten
 Touren mit OpenStreetMap ab.
 
-**Aktueller Bericht:** [bericht-2026-10-31-openai-gpt-4o-mini.md](bericht-2026-10-31-openai-gpt-4o-mini.md)  
+**Aktuelle Berichte (2026-11-03, drei Wiederholungen mit gpt-4o-mini):**
+[Lauf 1](bericht-2026-11-03-openai-gpt-4o-mini-lauf1.md),
+[Lauf 2](bericht-2026-11-03-openai-gpt-4o-mini-lauf2.md),
+[Lauf 3](bericht-2026-11-03-openai-gpt-4o-mini-lauf3.md)
+(Einzelergebnisse je Lauf als `results-2026-11-03-openai-gpt-4o-mini-laufN.csv`)  
 **Modell- und Temperaturvergleich:** [vergleich.md](vergleich.md)
-(Einzelergebnisse: [results-2026-10-31-openai-gpt-4o-mini.csv](results-2026-10-31-openai-gpt-4o-mini.csv))
 
-| Ziel | Ist-Wert (Lauf vom 2026-10-31) | Ergebnis |
-|---|---|---|
-| 0 % erfundene Touren | 0 von 74 Tour-IDs nicht in der Datenbank, 0 unbelegte Tournamen | erreicht |
-| ≤ 2 % nicht belegte Zahlen | 0 von 518 Zahlen (0,0 %) | erreicht |
-| 100 % offen benannte Unerfüllbarkeit | 8 von 8 Fällen | erreicht |
-| Recall@5 ≥ 0,8 | 10 von 10 Fällen (1,00) | erreicht |
+| Ziel | Lauf 1 | Lauf 2 | Lauf 3 | Ergebnis |
+|---|---|---|---|---|
+| 0 % erfundene Touren | 0 von 110 Tour-IDs, 0 unbelegte Tournamen | 0 von 110, 0 | 0 von 110, 0 | erreicht (3/3) |
+| ≤ 2 % nicht belegte Zahlen | 0 von 670 | 0 von 661 | 0 von 690 | erreicht (3/3) |
+| 100 % offen benannte Unerfüllbarkeit | 10 von 10 | 10 von 10 | 10 von 10 | erreicht (3/3) |
+| Recall@5 ≥ 0,8 | 1,00 (10 von 10) | 1,00 | 1,00 | erreicht (3/3) |
+| Fälle bestanden | 64 / 64 | 64 / 64 | 64 / 64 | |
+| Kosten | 0,0339 USD | 0,0324 USD | 0,0324 USD | |
 
-Bestanden haben 52 von 52 Fällen. Falsche Unerfüllbarkeits-Behauptungen: 0 von 21 erfüllbaren
-Fällen (Ziel 0; kein SMART-Ziel, siehe [Kennzahlen](#kennzahlen)). Die Fehler, die frühere Läufe
-fanden, stehen unter [Befunde](#befunde). Im Abgleich mit OSM weichen 0 von 82 Touren und
-Plan-Tagen um mehr als 2 % ab.
+Falsche Unerfüllbarkeits-Behauptungen: 0 von 30 erfüllbaren Fällen in jedem Lauf (Ziel 0; kein
+SMART-Ziel, siehe [Kennzahlen](#kennzahlen)), vom Code entfernt: 0. Im Abgleich mit OSM weichen
+in jedem Lauf 0 von 116 Touren und Plan-Tagen um mehr als 2 % ab. Die Streuung zwischen den
+Läufen zeigt sich nur in der Zahl der Zahlen im Text (661–690); kein Fall wechselte zwischen grün
+und rot.
+
+**Gegenüber dem Basislauf vom 2026-10-31** (52 Fälle, nur Schwarzwald,
+[Bericht](bericht-2026-10-31-openai-gpt-4o-mini.md)) kamen 12 Fälle hinzu: Bodensee
+(Überlingen, Meersburg, SeeGang), Schweiz (Stein am Rhein), Pfälzerwald (Dahn, Annweiler,
+Pfälzer Weinsteig) und Englisch (Tagestouren, Unerfüllbarkeit, Mehrtagesplan, Injection). Sie
+wurden **nicht an gpt-4o-mini entwickelt**: Jeder Fall wurde vorab nur gegen die Datenbank
+geprüft (Abfrage und Ergebnis stehen am Fall), dann einmal laufen gelassen. Ein Fall war danach
+falsch und wurde korrigiert (m11, siehe [Befunde](#befunde)); keine Erwartung wurde gelockert.
 
 ## Lauf
 
@@ -56,12 +70,12 @@ der vorab berechnete Plan, bei den Wissensfällen die Fundstelle im Index.
 
 | Gruppe | Fälle | Was geprüft wird (Erwartungsarten aus `smoke.py`) |
 |---|---|---|
-| erfuellbar | 12 | Mindestens ein Treffer, jede Bedingung jeder Karte erfüllt (`min_results`, `all_constraints_ok`). Der Antworttext behauptet nicht „Keine Tour erfüllt alle Wünsche“ (`no_unsat_claim`). Drei Laufrunden zusätzlich mit `activity: run`, ohne erfundenes Tempo (`no_pace`) und ohne Dauer ohne Tempo. |
-| unerfuellbar | 8 | Die Antwort beginnt mit „Keine Tour erfüllt alle Wünsche“ und hat einen `fallback_reason` (`unsatisfiable_named`). Wo es Ausweichtouren gibt, verletzt jede genau eine Bedingung (`fallback_single_violation`). Dabei sind eine Rückfrage (Feldberg → Gemeinde), ein Widerspruch (mindestens 15 und höchstens 10 km) und ein Fall, in dem jede Tour mehrere Bedingungen verletzt. |
-| mehrtag | 9 | Je 3 Fälle auf Westweg (einmal Ostvariante), Mittelweg und Ostweg. Geprüft werden Tagesanzahl, Unterkunft ≤ 1 km oder genannter Zuweg bzw. genannte Lücke, und Tageslänge im Band oder Abweichung benannt. Drei Fälle haben ein Datum. Davon liegen zwei auf Regentagen, einmal mit Regenvariante (`plan_rain_variant`), einmal ohne Haltestelle, also „Regenvariante nicht möglich“ (`plan_no_rain_variant`). Einer liegt auf trockenen Tagen. Alle drei prüfen, dass jeder Tag eine Vorhersage hat (`plan_weather`). Alle neun prüfen `no_unsat_claim` wie bei erfuellbar. |
+| erfuellbar | 18 (12 + 6 neu) | Mindestens ein Treffer, jede Bedingung jedes Treffers erfüllt (`min_results`, `all_constraints_ok`); eine „Knapp daneben“-Karte muss als solche markiert sein, genau eine Bedingung verletzen und die Abweichung nennen. Der Antworttext behauptet nicht „Keine Tour erfüllt alle Wünsche“ (`no_unsat_claim`). Drei Laufrunden zusätzlich mit `activity: run`, ohne erfundenes Tempo (`no_pace`) und ohne Dauer ohne Tempo. |
+| unerfuellbar | 10 (8 + 2 neu) | Die Antwort beginnt mit „Keine Tour erfüllt alle Wünsche“ und hat einen `fallback_reason` (`unsatisfiable_named`). Wo es Ausweichtouren gibt, verletzt jede genau eine Bedingung (`fallback_single_violation`). Dabei sind eine Rückfrage (Feldberg → Gemeinde), ein Widerspruch (mindestens 15 und höchstens 10 km) und ein Fall, in dem jede Tour mehrere Bedingungen verletzt. |
+| mehrtag | 12 (9 + 3 neu) | Je 3 Fälle auf Westweg (einmal Ostvariante), Mittelweg und Ostweg, dazu SeeGang und zweimal Pfälzer Weinsteig (einmal mit Rückfrage Ort/Gemeinde, einmal englisch). Geprüft werden Tagesanzahl, Unterkunft ≤ 1 km oder genannter Zuweg bzw. genannte Lücke, und Tageslänge im Band oder Abweichung benannt. Drei Fälle haben ein Datum. Davon liegen zwei auf Regentagen, einmal mit Regenvariante (`plan_rain_variant`), einmal ohne Haltestelle, also „Regenvariante nicht möglich“ (`plan_no_rain_variant`). Einer liegt auf trockenen Tagen. Alle drei prüfen, dass jeder Tag eine Vorhersage hat (`plan_weather`). Alle neun prüfen `no_unsat_claim` wie bei erfuellbar. |
 | aenderung | 5 | Folgerunde im selben Gespräch: „Tag N kürzer/länger“. Die nicht genannten Tage bleiben gleich (`days_unchanged`), der genannte Tag wird kürzer oder länger (`day_shorter`, `day_longer`). Ein Fall ändert denselben Plan zum zweiten Mal. |
 | wissen | 10 | Eine erwartete Quelle unter den ersten fünf (`sources_include`) und die Kernbegriffe der Sollantwort im Text (`reply_contains`, z. B. „Raute“, „Gauchach“, „2014“). Bei w01 darf zusätzlich die falsche Farbe nicht im Text stehen (`reply_not_contains`). |
-| eingabeschutz | 5 | Vier Injection-Varianten (Systemprompt, englisch, Rollenspiel, mit Nullbreite-Zeichen) bekommen die feste Antwort ohne Modellaufruf (`reply: injection`, `no_model_calls`). Eine themenfremde Frage („Rezept für Apfelkuchen“) bekommt die feste Antwort `other`. |
+| eingabeschutz | 6 (5 + 1 neu) | Vier Injection-Varianten (Systemprompt, englisch, Rollenspiel, mit Nullbreite-Zeichen) bekommen die feste Antwort ohne Modellaufruf (`reply: injection`, `no_model_calls`). Eine themenfremde Frage („Rezept für Apfelkuchen“) bekommt die feste Antwort `other`. |
 | gruppen_laeufe | 3 | Wanderverein mit Prüfdatum (`min_groups`), ehrlich „keine Gruppe“ bei Lauftreffs (`no_groups`), Läufe nur mit zitierten Feldern oder Kalender-Links (`events_quoted`). Der Läufe-Fall sucht live im Web. |
 
 ## Kennzahlen
@@ -113,7 +127,7 @@ Nenner 0 ist, gilt als „nicht erreicht“: Was nicht gemessen wurde, gilt nich
 
 Was die Zahlen zeigen:
 
-- Auf diesen 52 Anfragen hat `openai/gpt-4o-mini` keine Tour, keinen Tournamen und keine Zahl
+- Auf diesen 64 Anfragen hat `openai/gpt-4o-mini` in drei Läufen keine Tour, keinen Tournamen und keine Zahl
   mit Einheit erfunden.
 - Jede unerfüllbare Anfrage wurde offen als unerfüllbar benannt.
 - Für jede Wissensfrage war die erwartete Quelle unter den ersten fünf.
@@ -121,7 +135,7 @@ Was die Zahlen zeigen:
 
 Was sie nicht zeigen:
 
-- **Ein Modell, ein Lauf, kein Konfidenzintervall.** Das Modell antwortet nicht deterministisch.
+- **Drei Läufe sind wenig, ein Konfidenzintervall gibt es nicht.** Seit 2026-11-03 gibt es drei Wiederholungen mit 64/64; das zeigt, dass kein Fall zufällig grün ist, sagt über seltene Fehler (unter etwa 1 in 64 × 3) aber nichts. Das Modell antwortet nicht deterministisch.
   Am selben Tag gab es fünf Läufe mit Korrekturen dazwischen. Der Fall u08 bestand in Lauf 1,
   fiel in den Läufen 2 und 3 durch und bestand nach dem Fix wieder (siehe Befunde). Ein grüner
   Lauf heißt also nicht, dass jeder Fall immer grün ist. Bei 8 bzw. 10 Fällen je Ziel verschiebt
@@ -144,6 +158,21 @@ Was sie nicht zeigen:
 
 ## Befunde
 
+- **Prüfung korrigiert: „Knapp daneben“-Karten** (2026-11-03). Seit dem 2026-11-02 füllt die
+  Suche 1–2 Treffer mit gelb markierten Touren auf, die genau eine Bedingung knapp verfehlen. Die
+  alte Prüfung `all_constraints_ok` las diese Karten als Treffer; im ersten Lauf mit 64 Fällen
+  waren e08 (Enzquellenpfad 16 statt ≤ 15 km entfernt) und e10 (Kesslerhöhenweg 6,4 statt
+  6,8–9,2 km) deshalb rot. Treffer müssen weiter alle ✓ haben, `min_results` zählt nur Treffer;
+  eine „Knapp daneben“-Karte muss markiert sein, genau eine Bedingung verletzen und die Abweichung
+  nennen. Tests in `test_smoke.py`.
+- **Behoben: Kennzahlen prüften nur deutsche Sätze** (2026-11-03). „Unerfüllbarkeit offen
+  benannt“ und „falsche Unerfüllbarkeits-Behauptung“ suchten immer „Keine Tour erfüllt alle
+  Wünsche“. Der englische Fall u09 bestand (die Fallprüfung nutzt die Sprache des Falls), zählte
+  in der Kennzahl aber als nicht benannt (9 von 10). Jetzt prüfen beide in der Sprache des Falls;
+  ein Fehler-Ereignis (Modell nicht erreichbar) zählt nicht als Behauptung.
+- **Fall korrigiert: m11.** „3 Tage Pfälzer Weinsteig ab Bad Dürkheim“ fragte im ersten Lauf
+  richtig nach („Bad Dürkheim (Ort)“ oder „(Gemeinde)“, wie bei Baiersbronn und Konstanz). Der
+  Fall erwartete sofort einen Plan; jetzt erwartet er die Rückfrage und antwortet mit „(Ort)“.
 - **Behoben: km-Positionen auf Fernwegen waren Gradanteile** (Commit `96e4246`).
   - Ursache: `along_km` von Unterkünften und Haltestellen, `start_km` und der Endpunkt eines
     Plan-Tags waren Anteile der Linie in Grad mal `trails.length_km`. Ein Längengrad ist hier nur
@@ -203,6 +232,11 @@ Was sie nicht zeigen:
 
 ## Kosten
 
+Am 2026-11-03: drei volle Läufe mit 64 Fällen zu 0,0339 + 0,0324 + 0,0324 USD, dazu ein
+erster Lauf vor der Korrektur der Prüfung (0,0347 USD), drei Läufe vor dem Sprach-Fix der Kennzahlen
+(je etwa 0,033 USD) und Probeläufe der neuen Fälle (0,0045 USD). Zusammen rund 0,24 USD.
+
+Stand 2026-10-31:
 Ein vollständiger Lauf kostet mit `openai/gpt-4o-mini` etwa 0,03 USD (Lauf vom 2026-10-31
 nach dem Fix: 0,0282 USD). Davon entfallen 0,008 USD auf den Läufe-Fall mit Websuche, der Rest verteilt sich
 auf rund 0,0002–0,0007 USD je Fall. Die Injection-Fälle kosten nichts. Für diese Auswertung gab es
