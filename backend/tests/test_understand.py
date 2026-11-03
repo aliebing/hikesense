@@ -1706,3 +1706,29 @@ def test_resolve_option_builds_the_display_names_once_per_language(vocab, monkey
     start = u.resolve_option(vocab, "Hausach")
     assert start is not None and start.tag_id == "place:hausach"
     assert len(calls) <= len(u.LANGS)
+
+
+
+def test_good_ground_is_the_walkable_wish(vocab):
+    req = understand(
+        gw_of(start_text="Hinterzarten", wishes=[RawWish(text="guter Untergrund")]),
+        vocab,
+        "Rundweg ab Hinterzarten, guter Untergrund",
+        None,
+    )
+    assert isinstance(req, HikeRequest)
+    assert [(p.tag_id, p.mode) for p in req.preferences] == [("surface:gut_laufbar", "prefer")]
+
+
+@pytest.mark.parametrize(
+    "msg", ["Rundweg ab Hinterzarten, guter Untergrund", "round walk from Hinterzarten with good paths"]
+)
+def test_a_wish_phrase_in_the_message_counts_even_if_the_model_missed_it(vocab, msg):
+    req = understand(gw_of(start_text="Hinterzarten"), vocab, msg, None)
+    assert isinstance(req, HikeRequest)
+    assert [(p.tag_id, p.mode, p.weight) for p in req.preferences] == [("surface:gut_laufbar", "prefer", 3)]
+
+
+def test_a_negated_wish_phrase_is_not_taken(vocab):
+    req = understand(gw_of(start_text="Hinterzarten"), vocab, "Rundweg ab Hinterzarten, kein fester Untergrund nötig", None)
+    assert isinstance(req, HikeRequest) and req.preferences == []

@@ -62,6 +62,6 @@
   label: Gut laufbar
   label_en: Good for running
   category: surface
-  synonyms: [gut begehbar, bequem, fester Untergrund, kinderwagentauglich, leicht zu gehen]
-  synonyms_en: [easy walking, easy going, comfortable, firm ground, pushchair friendly, buggy friendly, stroller friendly, pram friendly, easy to walk]
+  synonyms: [gut begehbar, bequem, fester Untergrund, festen Untergrund, guter Untergrund, guten Untergrund, gutem Untergrund, gute Wege, gut ausgebaute Wege, befestigte Wege, kinderwagentauglich, leicht zu gehen]
+  synonyms_en: [easy walking, easy going, comfortable, firm ground, good ground, good surface, good paths, good trails, well-made paths, pushchair friendly, buggy friendly, stroller friendly, pram friendly, easy to walk]
   rule: {type: share_at_least, field: surface, keys: [paved, gravel], share: 0.6}

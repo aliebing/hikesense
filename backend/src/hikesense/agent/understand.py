@@ -105,7 +105,8 @@ duration_h_min/max (Dauer in Stunden), radius_km_max (Umkreis um den Start in km
 "400 Hm") setzt length_km_approx, duration_h_approx bzw. ascent_m_approx – nicht min oder max.
 - pace_min_per_km: Lauftempo in Minuten pro km, nur wenn genannt.
 - wishes: jeder weitere Wunsch als kurzer Begriff (z. B. "Aussicht", "Wasserfall", \
-"Einkehr", "Kinderwagen"), mode prefer oder avoid, weight 1 bis 5 (3 = normal). \
+"Einkehr", "Kinderwagen", "guter Untergrund"), mode prefer oder avoid, weight 1 bis 5 \
+(3 = normal). \
 Jeden Wunsch aufführen, auch wenn er ungewöhnlich ist.
 - question: bei intent knowledge die Frage.
 Antworte nur mit dem Formular."""
@@ -394,6 +395,7 @@ def resolve(
             return clarify
 
     preferences, unmatched, roundtrips = _resolve_wishes(vocab, raw.wishes, lang)
+    preferences += _wishes_in_message(vocab, message, {p.tag_id for p in preferences})
     constraints, invalid, discarded = _constraints(raw, nums, message, unread, lang)
     unmatched += invalid
     multi, problems, dropped = _multiday_fields(raw, message, nums, today or date.today(), lang)
@@ -860,6 +862,30 @@ def _resolve_wishes(
             conflicts.append(tag.id)
             unmatched.append(_T[lang]["conflict"].format(label=vocab.label(tag.id, lang)))
     return list(prefs.values()), unmatched, roundtrips
+
+
+_NEGATION = re.compile(r"(?:\bohne|\bkein\w*|\bnicht|\bno|\bnot|\bwithout)\s+$")
+
+
+def _wishes_in_message(vocab: TagVocabulary, message: str, have: set[str]) -> list[Preference]:
+    """Safety net for the model: a multi-word wish phrase of a feature/surface tag written in
+    the message ("guter Untergrund", "good paths") counts as a normal wish even when the model
+    left it out. Single words stay with the model (too ambiguous); "kein/ohne/not …" before the
+    phrase is no wish."""
+    text = f" {fold(message)} "
+    found: list[Preference] = []
+    for tag in vocab.all():
+        if tag.category not in ("feature", "surface") or tag.id in have or tag.id == ROUNDTRIP_TAG:
+            continue
+        for term in _terms(tag):
+            if " " not in term:
+                continue
+            m = re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text)
+            if m and not _NEGATION.search(text[: m.start()]):
+                found.append(Preference(tag_id=tag.id, mode="prefer", weight=3))
+                have.add(tag.id)
+                break
+    return found
 
 
 # --- start --------------------------------------------------------------------------------
