@@ -175,7 +175,7 @@ Was die Zahlen **nicht** zeigen:
 - **Herkunft und Lizenz sind sichtbar.** Jede importierte Zeile hat eine Quelle mit Lizenz. Die Karte nennt OSM (ODbL) und BKG (CC BY 4.0), jedes Bild Urheber und Lizenz, jede Wissensantwort ihre Quelle mit Lizenz. Der Wetterhinweis nennt Open-Meteo (CC BY 4.0). Die Etappeneinteilungen sind als Fakten mit Link übernommen, ohne Texte.
 - **Der Standort bleibt im Browser.** „Unterwegs“ rechnet Restkilometer und Ankunft auf dem Gerät. Die Position wird weder gesendet noch gespeichert noch protokolliert. Die Ortung läuft nur, solange die Seite offen und gestartet ist. Es gibt keine Hintergrundortung und keine Aufzeichnung.
 - **Eigene Fotos sind privat.** Nur der Eigentümer sieht sie (Row Level Security). Vor dem Hochladen kodiert der Browser sie neu als JPEG. Dabei fallen EXIF- und GPS-Daten weg.
-- **Keine Kontodaten an das Modell.** E-Mail und Nutzer-ID gehen nicht an das Modell. Das Chat-Protokoll (`chat.jsonl`) enthält keinen Nachrichtentext, nur einen gekürzten SHA-256 der Nutzer-ID.
+- **Keine Kontodaten an das Modell.** E-Mail und Nutzer-ID gehen nicht an das Modell und nicht an LangSmith (dort nur ein gekürzter SHA-256). Das lokale Chat-Protokoll (`data/logs/chat.jsonl`) enthält für den Admin-Bereich Suchtext, Antwort und Nutzer-ID, also persönliche Daten: Es bleibt lokal, ist git-ignoriert und nur für Konten mit Rolle `admin` sichtbar (siehe [Backend (Admin)](#backend-admin)).
 - **Prompt-Injection:** Der Eingabeschutz beantwortet bekannte Injection-Muster und themenfremde Fragen mit einer festen Antwort, ohne das Modell aufzurufen. Antworten, die den Systemprompt wiedergeben würden, werden ersetzt.
 - **Sicherheitshinweis:** Wetter, Sperrungen und Gelände bitte vor Ort selbst prüfen. Die App ersetzt keine Ortskenntnis. Gehzeiten sind Richtwerte nach DIN 33466 ohne Pausen.
 - **Gruppen:** Die Liste enthält nur Name, Art, Ort, Link und Prüfdatum, keine Personen und keine Termine. Sie sagt offen, ob ein Eintrag von Hand oder nur automatisch geprüft ist.
@@ -187,7 +187,7 @@ Grenzen, die die App nicht wegnehmen kann:
 - **Gut kartierte Gebiete sind bevorzugt.** Touren, Unterkünfte und Fotos gibt es dort, wo OSM und Commons viele Daten haben. Weniger kartierte Orte kommen seltener vor, Orte außerhalb der drei Regionen gar nicht (siehe Bekannte Lücken).
 - **Das Modell kann trotz Grounding falsch formulieren.** Geprüft werden Zahlen mit Einheit, Tournamen und der Satz „Keine Tour erfüllt alle Wünsche“, nicht die übrigen Aussagen dazwischen. Ein Beispiel steht unter [Bekannte Lücken](#bekannte-lücken).
 - **Angaben zu Läufen sind ohne Gewähr.** Sie stammen live aus dem Web, jedes Feld mit wörtlichem Zitat von der Seite des Veranstalters. Termine können sich trotzdem ändern, deshalb bitte beim Veranstalter prüfen.
-- **KI-Kosten:** Jede Nachricht kostet Geld bei OpenRouter, gedeckelt auf 0,05 USD und 8 Werkzeugaufrufe je Nachricht. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag. Ein Eval-Lauf über 52 Fälle kostete 0,0282 USD. Die Websuche für Läufe kostet etwa 0,007 USD je Suche.
+- **KI-Kosten:** Jede Nachricht kostet Geld bei OpenRouter, gedeckelt auf 0,05 USD und 8 Werkzeugaufrufe je Nachricht. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag. Ein Eval-Lauf über 64 Fälle kostet etwa 0,033 USD. Die Websuche für Läufe kostet etwa 0,007 USD je Suche.
 
 ## Schnellstart
 

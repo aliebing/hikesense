@@ -4,6 +4,8 @@ A hiking planner for the **Black Forest, Lake Constance (with the Swiss and Aust
 
 The app is bilingual: English by default, German with one click (🇬🇧 / 🇩🇪).
 
+**Showcase:** link follows (showcase.turingcollege.com)
+
 **Videos:** user demo, technical overview and an AI deep dive (EN + DE) – see [Demo videos](#demo-videos).
 
 ![Day hikes with a near miss](docs/showcase/02-tagestouren.jpg)
@@ -142,6 +144,15 @@ Recorded with `scripts/video/` (Playwright screen recording, slides, edge-tts na
 - LangGraph walkthrough (EN / DE) – generative vs agentic AI, ReAct, the graph state on two real examples
 
 The videos are not in the repository (size); links follow.
+
+## Privacy and ethics
+
+- **Sources and licences are visible:** every imported row has a source with licence; map, photos, knowledge answers and weather name theirs.
+- **Location stays in the browser:** "On the way" computes remaining km and arrival on the device; the position is never sent or stored.
+- **Own photos are private** (row level security) and re-encoded in the browser, so EXIF and GPS data are dropped.
+- **No account data to the model:** e-mail and user id never reach the model; LangSmith only gets a hashed user id. The local chat log (`data/logs/chat.jsonl`, git-ignored) holds search text and user id for the admin view, so it is personal data and stays local.
+- **Prompt injection:** known patterns and off-topic requests get a fixed reply without a model call.
+- **Honesty by code:** unsatisfiable wishes are named, unsupported numbers become "?", and walking times are guide values without breaks. The app does not replace local knowledge – check weather and closures on site.
 
 ## Limits
 
