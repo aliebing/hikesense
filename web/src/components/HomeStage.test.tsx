@@ -122,15 +122,3 @@ it("„Neue Suche“ in the results view clears the conversation and shows the s
   expect(screen.queryByRole("button", { name: "Neue Suche" })).toBeNull();
 });
 
-it("a winter backdrop turns the panels matt black (data-tone), a summer one keeps them green", async () => {
-  withLast([{ ...card, cover_page_url: "https://commons.wikimedia.org/wiki/File:Winter_Blick_Feldberg.jpg" } as TourCard]);
-  const { container, unmount } = show();
-  await screen.findByText("results pane");
-  expect(container.querySelector("[data-tone='winter']")).not.toBeNull();
-  unmount();
-  sessionStorage.clear();
-  withLast([card]);
-  const summer = show();
-  await screen.findByText("results pane");
-  expect(summer.container.querySelector("[data-tone]")).toBeNull();
-});

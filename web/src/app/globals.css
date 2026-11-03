@@ -6,8 +6,8 @@
   --color-papier: #f4f1ea;
   --color-wald-flaeche: #284a32;
   --color-sense: #93d36b;
-  /* panels over photos (chat box, text fields); winter photos switch it, see data-tone below */
-  --color-panel: #1f3f27;
+  /* panels over photos (chat box, text fields, chips): dark grey-blue, translucent over the photo */
+  --color-panel: #252f3d;
   --color-sonne: #f0a040;
   --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
@@ -16,7 +16,7 @@
 
 html,
 body {
-  background: #0e2214;
+  background: #070808;
   color: var(--color-papier);
 }
 
@@ -40,7 +40,7 @@ body {
     max-width: 100%;
     border-radius: 0.75rem;
     padding: 0.25rem 0.75rem;
-    background: color-mix(in oklab, var(--color-panel) 88%, transparent);
+    background: color-mix(in oklab, var(--color-panel) 65%, transparent);
     box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
   }
 }
@@ -121,10 +121,10 @@ body {
 /* Start page hero: the landscape photo darkened towards the header, the brand text and the dark green below. */
 .hero-shade {
   background:
-    linear-gradient(to bottom, rgb(6 16 9 / 0.6) 0%, rgb(6 16 9 / 0.15) 16%, transparent 28%),
-    radial-gradient(ellipse 58% 48% at 50% 34%, rgb(6 16 9 / 0.6), transparent 78%),
-    linear-gradient(to bottom, rgb(6 16 9 / 0.18), rgb(6 16 9 / 0.18)),
-    linear-gradient(to bottom, transparent 48%, rgb(14 34 20 / 0.82) 80%, #0e2214 100%);
+    linear-gradient(to bottom, rgb(7 8 8 / 0.6) 0%, rgb(7 8 8 / 0.15) 16%, transparent 28%),
+    radial-gradient(ellipse 58% 48% at 50% 34%, rgb(7 8 8 / 0.6), transparent 78%),
+    linear-gradient(to bottom, rgb(7 8 8 / 0.18), rgb(7 8 8 / 0.18)),
+    linear-gradient(to bottom, transparent 48%, rgb(7 8 8 / 0.82) 80%, #070808 100%);
 }
 .hero-text {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 18px rgb(0 0 0 / 0.5);
@@ -135,17 +135,7 @@ body:has([data-hero-content]) [data-frame-logo] {
   visibility: hidden;
 }
 
-/* Page ground (PageFrame): dark green for summer photos and the start page. */
+/* Page ground (PageFrame): one near-black for every page and photo. */
 :root {
-  --page-top: #0e2214;
-  --page-bottom: #040a05;
-}
-
-/* Over a winter photo dark green looks wrong on snow: the ground runs from dark blue to matt
-   black and the panels turn dark blue. Set on the wrapper of the page part whose backdrop is a
-   winter photo (data-tone="winter"). */
-:root:has([data-tone="winter"]) {
-  --page-top: #13233a;
-  --page-bottom: #0b0c0e;
-  --color-panel: #16263a;
+  --page-ground: #070808;
 }

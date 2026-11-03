@@ -1,7 +1,7 @@
 "use client";
 
 import { useT } from "../i18n";
-import { isWinter, pickBackdrop } from "../lib/backdrop";
+import { pickBackdrop } from "../lib/backdrop";
 import { coverOf } from "../lib/chatState";
 import type { Photo } from "../lib/data";
 import Attribution from "./Attribution";
@@ -27,10 +27,7 @@ export default function HomeStage({ landscapes = [] }: { /** background pool for
     const cover = coverOf(first ?? undefined);
     const backdrop = pickBackdrop(cover ? [cover] : [], landscapes, first?.trail_id ?? state.plan?.plan.trail_id ?? "plan");
     return (
-      <div
-        data-tone={isWinter(backdrop) ? "winter" : undefined}
-        className="grid flex-1 items-start gap-6 md:grid-cols-[24rem_1fr]"
-      >
+      <div className="grid flex-1 items-start gap-6 md:grid-cols-[24rem_1fr]">
         <Backdrop photo={backdrop} />
         {/* from md on the chat column fits the window between header and footer; its history
             scrolls inside the box, so the page itself does not need a scrollbar */}

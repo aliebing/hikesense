@@ -89,7 +89,7 @@ export function HeroFeatures({ className = "" }: { className?: string }) {
     <ul aria-label={t.features} className={`grid w-full max-w-3xl grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 ${className}`}>
       {items.map(([key, label]) => (
         <li key={key} className="hero-text flex flex-col items-center gap-2 text-center">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl md:h-16 md:w-16 bg-panel/85 text-sense shadow-[0_6px_18px_rgb(0_0_0/0.35)] ring-1 ring-sense/25 sm:h-14 sm:w-14">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl md:h-16 md:w-16 bg-panel/60 text-sense shadow-[0_6px_18px_rgb(0_0_0/0.35)] ring-1 ring-sense/25 sm:h-14 sm:w-14">
             <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
               {ICONS[key]}
             </svg>

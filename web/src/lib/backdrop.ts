@@ -21,14 +21,6 @@ function fileName(p: Photo): string | null {
   }
 }
 
-const WINTER = /(winter|schnee|snow|verschneit|frost|raureif|\bski|langlauf|loipe|eis(?!en))/i;
-
-/** A winter photo (by its Commons file name): the panels over it turn matt black. */
-export function isWinter(p: Photo | null | undefined): boolean {
-  const name = p ? fileName(p) : null;
-  return !!name && WINTER.test(name);
-}
-
 export function isLandscape(p: Photo): boolean {
   const name = fileName(p);
   return !!name && LANDSCAPE.test(name) && !NOT_LANDSCAPE.test(name);
