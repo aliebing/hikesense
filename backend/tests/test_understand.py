@@ -804,6 +804,46 @@ def test_multiday_round_walk_says_it_becomes_stages(vocab):
     assert any("Etappen" in u and "Rundweg" in u for u in req.unmatched)
 
 
+class NearTrails(FakeTrails):
+    """Bodensee (area) lies on the two lake trails only."""
+
+    def trails_near(self, start):
+        return ["jubilaeumsweg-bodenseekreis", "seegang"] if start.tag_id == "area:bodensee" else []
+
+
+def test_trail_question_offers_only_the_trails_at_the_start(vocab):
+    res = understand(
+        gw_of(intent="multiday", start_text="Bodensee", days=2),
+        vocab,
+        "2 Tage am Bodensee mit Unterkunft",
+        None,
+        today=TODAY,
+        trails=NearTrails(),
+    )
+    assert isinstance(res, Clarify) and res.question == "Auf welchem Fernweg?"
+    assert res.options == ["Jubiläumsweg Bodenseekreis", "Premiumweg SeeGang"]
+
+
+def test_multiday_round_walk_question_is_honest_and_offers_day_round_walks(vocab):
+    res = understand(
+        gw_of(intent="multiday", start_text="Bodensee", roundtrip=True, days=2),
+        vocab,
+        "Rundweg am Bodensee in 2 Tagen mit Unterkunft",
+        None,
+        today=TODAY,
+        trails=NearTrails(),
+    )
+    assert isinstance(res, Clarify)
+    assert "Etappen auf einem Fernweg" in res.question and "Rundweg" in res.question
+    assert res.options == ["Jubiläumsweg Bodenseekreis", "Premiumweg SeeGang", "Tages-Rundwege"]
+
+
+@pytest.mark.parametrize("days", [2, 3])
+def test_a_day_range_accepts_either_bound(vocab, days):
+    req = multi(vocab, "Westweg in 2-3 Tagen ab Hausach", trail_text="Westweg", start_text="Hausach", days=days)
+    assert isinstance(req, HikeRequest) and req.days == days
+
+
 def test_start_off_trail_asks(vocab):
     res = multi(
         vocab, "Westweg 3 Tage ab Todtnau", trail_text="Westweg", start_text="Todtnau", days=3

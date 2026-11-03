@@ -92,6 +92,7 @@ from hikesense.agent.tools import (
     TrailDetails,
 )
 from hikesense.agent.understand import (
+    DAY_ROUNDS_OPTIONS,
     DAYS_QUESTIONS,
     echo,
     has_weather_word,
@@ -1270,10 +1271,18 @@ def build_graph(deps: AgentDeps) -> Any:
         """Answer to an open clarify question: a place answer continues the partial request
         without a model call; anything else goes to the model with the earlier message."""
         days_answer = pending["question"] in DAYS_QUESTIONS and re.fullmatch(
-            r"\s*\d{1,2}\s*", message
+            r"\s*(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?\s*", message
         )
-        if days_answer:
-            message = f"{message.strip()} Tage"  # "3" answers "Wie viele Tage?"
+        if days_answer:  # "3" or "2-3" answers "Wie viele Tage?" (a range: its upper bound)
+            message = f"{max(int(n) for n in days_answer.groups() if n)} Tage"
+        if pending.get("raw") and message.strip() in DAY_ROUNDS_OPTIONS:
+            # "Tages-Rundwege" under the multi-day round-walk question: the same request as a
+            # day-hike search (start and wishes stay, the multi-day fields go)
+            raw = RawRequest.model_validate(pending["raw"])
+            probe = raw.model_copy(
+                update={"intent": "day_hike", "trail_text": None, "days": None, "day_km": None}
+            )
+            return probe, _resolve(probe, pending["message"], previous, lang), pending["message"]
         if pending.get("raw"):
             raw = RawRequest.model_validate(pending["raw"])
             if days_answer and raw.intent == "multiday":

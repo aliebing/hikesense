@@ -1370,6 +1370,33 @@ def test_a_stage_answer_is_kept_when_another_question_follows(vocab, settings):
     assert len(plan.days) == 2 and plan.days[0].start_km == 0.0  # from Hausach
 
 
+def test_a_day_range_answers_the_days_question_with_its_upper_bound(vocab, settings):
+    deps = make(vocab, settings, structured={RawRequest: [westweg_raw()]}, answers=["Plan."])
+    assert one(run(deps, "Westweg ab Hausach"), "clarify").question == "Wie viele Tage?"
+    events = run(deps, "2-3")
+    assert deps.gateway.calls["structured"] == 1  # no model call, the start stays Hausach
+    assert len(one(events, "plan").plan.days) == 3
+
+
+def test_day_round_walks_option_turns_the_request_into_a_day_hike_search(vocab, settings):
+    class Lake(FakeTools):
+        def trails_near(self, start):
+            return ["westweg-west"]
+
+    deps = make(
+        vocab,
+        settings,
+        tools=Lake(),
+        structured={RawRequest: [RawRequest(intent="multiday", start_text="Feldberg (Schwarzwald)", roundtrip=True)]},
+        answers=["Antwort."],
+    )
+    clarify = one(run(deps, "Rundweg am Feldberg über 2 Tage"), "clarify")
+    assert clarify.options[-1] == "Tages-Rundwege"
+    events = run(deps, "Tages-Rundwege")
+    assert "results" in types(events)
+    assert deps.gateway.calls["structured"] == 1
+
+
 def test_bare_number_answers_the_days_question(vocab, settings):
     deps = make(
         vocab,

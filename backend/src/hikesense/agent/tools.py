@@ -33,6 +33,7 @@ from hikesense.agent.request import (
     DEFAULT_START_TIME,
     DayChange,
     HikeRequest,
+    ResolvedStart,
 )
 from hikesense.agent.weather import REASON_DOWN, NoForecast, forecast_range, weather_for_days
 from hikesense.geo import METRIC_SRID
@@ -156,6 +157,7 @@ _COVER_JOIN = """left join lateral (
         where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
         order by p.id limit 1) c on true"""
 NEARBY_COVER_M = 5000
+NEAR_TRAIL_KM = 10.0  # "am Feldberg": the long-distance trails offered for a place
 # A photo of the nearest photographed day hike within NEARBY_COVER_M that no other shown card
 # uses yet (index KNN over the 20 nearest, then the real distance). Day hikes only: distances
 # to the long-distance trails' huge lines took seconds.
@@ -591,6 +593,8 @@ class AgentTools(Protocol):
 
     def stage_places(self, trail_id: str) -> list[str]: ...
 
+    def trails_near(self, start: ResolvedStart) -> list[str]: ...
+
     def plan_multiday(self, req: HikeRequest, lang: Lang = "de") -> MultidayPlan:
         """Raises StartNotOnTrail if the start is off the trail or at its very end. Notes and
         gaps of the plan are written in `lang`."""
@@ -683,6 +687,29 @@ class DbTools:
     def stage_places(self, trail_id: str) -> list[str]:
         with self._conn_factory() as conn:
             return stage_places(conn, trail_id)
+
+    def trails_near(self, start: ResolvedStart) -> list[str]:
+        """Long-distance trails through an area, or within NEAR_TRAIL_KM of a place."""
+        with self._conn_factory() as conn:
+            if start.bbox is not None:
+                b = start.bbox
+                rows = conn.execute(
+                    """select id from trails where kind = 'long_distance' and geom is not null
+                       and st_intersects(geom, st_makeenvelope(%s, %s, %s, %s, 4326))
+                       order by id""",
+                    (b.west, b.south, b.east, b.north),
+                ).fetchall()
+            elif start.lat is not None and start.lon is not None:
+                rows = conn.execute(
+                    """select id from trails where kind = 'long_distance' and geom is not null
+                       and st_dwithin(geom::geography,
+                                      st_setsrid(st_makepoint(%s, %s), 4326)::geography, %s)
+                       order by id""",
+                    (start.lon, start.lat, NEAR_TRAIL_KM * 1000),
+                ).fetchall()
+            else:
+                return []
+        return [r[0] for r in rows]
 
     def _trail(self, trail_id: str) -> TrailData:
         with self._trails_lock:

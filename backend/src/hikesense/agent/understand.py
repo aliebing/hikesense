@@ -138,6 +138,8 @@ _T = {
         "plan_days": "Der Plan hat {n} Tage. Welchen Tag meinst du?",
         "unknown_trail": "Welchen Fernweg meinst du? „{text}“ kenne ich nicht.",
         "which_trail": "Auf welchem Fernweg?",
+        "round_trail": "Mehrtägig plane ich Etappen auf einem Fernweg, keine Rundwege. Auf welchem Fernweg – oder lieber Tages-Rundwege?",
+        "day_rounds": "Tages-Rundwege",
         "off_trail": "{label} liegt nicht am {trail}. Ab welchem Etappenort?",
         "multiday_round": "Rundwanderung über mehrere Tage: HikeSense plant Mehrtagestouren als Etappen auf einem Fernweg, nicht als Rundweg.",
         "days_invalid": "Tage: {n} ist kein gültiger Wert ({lo}–{hi})",
@@ -227,6 +229,8 @@ _T = {
         "plan_days": "The plan has {n} days. Which day do you mean?",
         "unknown_trail": "Which long-distance trail do you mean? I don't know “{text}”.",
         "which_trail": "On which long-distance trail?",
+        "round_trail": "For several days I plan stages along a long-distance trail, not round walks. Which trail – or rather day round walks?",
+        "day_rounds": "Day round walks",
         "off_trail": "{label} is not on the {trail}. From which stage town?",
         "multiday_round": "Multi-day round walk: HikeSense plans multi-day tours as stages along a long-distance trail, not as a round walk.",
         "days_invalid": "Days: {n} is not a valid value ({lo}–{hi})",
@@ -293,6 +297,8 @@ _T = {
     },
 }
 DAYS_QUESTIONS = frozenset(_T[lang]["days_question"] for lang in LANGS)
+# the option under the multi-day round-walk question that turns it into a day-hike search
+DAY_ROUNDS_OPTIONS = frozenset(_T[lang]["day_rounds"] for lang in LANGS)
 DAYS_QUESTION = _T["de"]["days_question"]
 
 
@@ -302,6 +308,10 @@ class TrailLookup(Protocol):
     def start_km(self, trail_id: str, lat: float, lon: float) -> float | None: ...
 
     def stage_places(self, trail_id: str) -> list[str]: ...
+
+    def trails_near(self, start: ResolvedStart) -> list[str]:
+        """Ids of the long-distance trails at a place (nearby) or through an area."""
+        ...
 
 
 def understand(
@@ -364,7 +374,7 @@ def resolve(
     if is_multiday:
         found = _resolve_trail(vocab, raw.trail_text, message, lang)
         if isinstance(found, Clarify):
-            return found
+            return _trail_question(vocab, found, raw, start, trails, lang)
         trail = found
 
     wants_tour = raw.intent in ("day_hike", "multiday", "change")
@@ -1156,6 +1166,9 @@ _DIRECTION_WORDS = {
 _DAYS_PHRASE = re.compile(
     r"\b(\d+|[a-z]+?)\s*-?\s*(?:tagen|tage|tages|tagig(?:e[nrs]?)?|tagestour|tag|days|day)\b"
 )
+_DAYS_RANGE = re.compile(
+    r"\b(\d+)\s*[-–]\s*(\d+)\s*-?\s*(?:tagen|tage|tages|tagig(?:e[nrs]?)?|tagestour|days|day)\b"
+)
 _PACE_UNIT = re.compile(r"\s*min\b")
 _MONTHS_DE = {
     "januar": 1, "februar": 2, "marz": 3, "maerz": 3, "april": 4, "mai": 5, "juni": 6,
@@ -1195,7 +1208,11 @@ _MONTH_WORD = re.compile(r"\b(?:" + "|".join([*_MONTHS_DE, *_FULL_MONTHS_EN]) + 
 
 
 def _days_written(days: int, text: str, lang: Lang = "de") -> bool:
-    """The count is tied to a day word: "3 Tage", "drei Tage", "dreitägig", "3-Tages-Tour"."""
+    """The count is tied to a day word: "3 Tage", "drei Tage", "dreitägig", "3-Tages-Tour";
+    a range ("2-3 Tagen") accepts either bound."""
+    for m in _DAYS_RANGE.finditer(text):
+        if days in (int(m.group(1)), int(m.group(2))):
+            return True
     for m in _DAYS_PHRASE.finditer(text):
         word = m.group(1)
         value = float(word) if word.isdigit() else _word_value(word)
@@ -1245,6 +1262,38 @@ def _resolve_trail(
         question = _T[lang]["unknown_trail"].format(text=text.strip())
         return Clarify(question=question, options=shown)
     return Clarify(question=_T[lang]["which_trail"], options=shown)
+
+
+def _trail_question(
+    vocab: TagVocabulary,
+    asked: Clarify,
+    raw: RawRequest,
+    start: ResolvedStart | None,
+    trails: TrailLookup | None,
+    lang: Lang,
+) -> Clarify:
+    """The "which trail" question, fitted to the request: only the trails at the named place or
+    area (Bodensee: the two lake trails, never the Westweg), and for a multi-day round walk the
+    honest note plus the way out to day round walks."""
+    t = _T[lang]
+    if raw.trail_text and raw.trail_text.strip():
+        return asked  # an unknown trail name: the question names it
+    if start is None and raw.start_text:
+        found = _resolve_start(vocab, raw.start_text.strip(), lang)
+        start = found if isinstance(found, ResolvedStart) else None
+    near = getattr(trails, "trails_near", None)
+    options = asked.options
+    if start is not None and near is not None:
+        ids = set(near(start))
+        here = [
+            t.label
+            for t in vocab.all()
+            if t.category == "trail" and isinstance(t.rule, LongTrail) and t.rule.trail_id in ids
+        ]
+        options = here or options
+    if raw.roundtrip:
+        return Clarify(question=t["round_trail"], options=[*options, t["day_rounds"]])
+    return Clarify(question=asked.question, options=options)
 
 
 def _trail_name(tag: Tag) -> str:
