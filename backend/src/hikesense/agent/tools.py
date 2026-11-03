@@ -144,7 +144,8 @@ def search_radius_km(req: HikeRequest) -> float:
     return min(radius * SEARCH_FACTOR, MAX_SEARCH_KM)
 
 
-# The cover photo: the first Commons photo of the trail (lowest id) with a thumbnail, else null.
+# The cover photo: the first Commons photo of the trail (lowest id) with a thumbnail, else null
+# (shown cards without one get a nearby trail's photo afterwards, see _fill_nearby_covers).
 # c.url is the large version (backdrop), c.thumb_url the 400 px one (cards).
 _COLS = """t.id, t.name, t.length_km, t.ascent_m, t.descent_m, t.roundtrip, t.source_id,
        c.thumb_url, c.author, c.license, c.license_url, c.page_url, c.url"""
@@ -152,6 +153,39 @@ _COVER_JOIN = """left join lateral (
         select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url from photos p
         where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
         order by p.id limit 1) c on true"""
+NEARBY_COVER_M = 5000
+# The first photo of the nearest photographed trail within NEARBY_COVER_M (index KNN over the
+# 20 nearest trails, then the real distance).
+_NEARBY_COVER = f"""
+    select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url
+    from trails t,
+      lateral (select o.id, o.geom, o.geom <-> t.geom as d from trails o
+               where o.id <> t.id and o.geom is not null
+               order by o.geom <-> t.geom limit 20) o,
+      lateral (select * from photos p
+               where p.trail_id = o.id and p.source = 'commons' and p.thumb_url is not null
+               order by p.id limit 1) p
+    where t.id = %s and st_dwithin(o.geom::geography, t.geom::geography, {NEARBY_COVER_M})
+    order by o.d limit 1"""
+
+
+def _fill_nearby_covers(conn: psycopg.Connection, cands: list[Candidate]) -> None:
+    """Shown cards without a photo of their own get the nearest photographed trail's photo,
+    marked nearby (the card says so). Only for the few shown cards: it is a KNN per trail."""
+    for c in cands:
+        if c.cover_thumb_url is not None:
+            continue
+        row = conn.execute(_NEARBY_COVER, (c.trail_id,)).fetchone()
+        if row:
+            (
+                c.cover_thumb_url,
+                c.cover_author,
+                c.cover_license,
+                c.cover_license_url,
+                c.cover_page_url,
+                c.cover_url,
+            ) = row
+            c.cover_nearby = True
 
 
 def search_day_hikes(
@@ -221,6 +255,10 @@ def search_day_hikes(
         for r in rows
     ]
     selection = select(cands, req, lang)
+    _fill_nearby_covers(
+        conn,
+        [s.candidate for s in selection.matches + selection.near_misses + selection.fallbacks],
+    )
     shown = shown_trail_ids(selection)
     source_ids = sorted({sources[i] for i in shown if sources.get(i)})
     return DayHikeResult(

@@ -104,7 +104,11 @@ export default function TourResultCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo.thumb_url} alt="" loading="lazy" className={`${large ? "h-48" : "h-24"} w-full rounded-lg object-cover`} />
           {/* above the card-wide link so its licence links stay clickable */}
-          <Attribution photo={photo} className="relative z-10 text-wald-dunkel/70" />
+          <Attribution
+            photo={photo}
+            label={card.cover_nearby ? t.tour.photoNearby : undefined}
+            className="relative z-10 text-wald-dunkel/70"
+          />
         </div>
       )}
       {card.near_miss && (

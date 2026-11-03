@@ -61,6 +61,8 @@ export type TourCard = {
   cover_page_url: string | null;
   /** large version of the cover (page backdrop); missing in cards saved before it existed */
   cover_url?: string | null;
+  /** the cover is from the nearest photographed tour (this one has none) */
+  cover_nearby?: boolean;
   results: ConstraintResult[];
   deviation_text: string | null;
   /** misses exactly one hard condition by a little (deviation_text says which); absent in older saved cards */

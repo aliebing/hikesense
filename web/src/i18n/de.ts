@@ -179,6 +179,7 @@ export const de: Messages = {
     inTheArea: "im Gebiet",
     kmToStart: (km: string) => `${km} km bis zum Start`,
     photoBy: "Foto:",
+    photoNearby: "Foto aus der Nähe:",
     ownPhoto: "Eigenes Foto",
     ownLicence: "privat",
     photoPrev: "Vorheriges Bild",

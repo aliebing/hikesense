@@ -101,6 +101,7 @@ class Candidate:
     cover_license_url: str | None = None
     cover_page_url: str | None = None
     cover_url: str | None = None  # large version of the cover (page backdrop)
+    cover_nearby: bool = False  # the cover is from the nearest photographed trail, not this one
 
 
 @dataclass

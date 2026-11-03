@@ -789,6 +789,7 @@ def test_card_carries_cover_thumb(vocab, settings):
     cards = {c.trail_id: c for c in one(run(deps, FELDBERG_MSG), "results").cards}
     assert cards["t-runde"].cover_thumb_url == "https://t/1.jpg"
     assert cards["t-runde"].cover_url == "https://t/1-large.jpg"
+    assert cards["t-runde"].cover_nearby is False
     assert cards["t-kurz"].cover_thumb_url is None
     c = cards["t-runde"]
     assert (c.cover_author, c.cover_license) == ("Autor", "CC BY 4.0")

@@ -181,6 +181,7 @@ export const en = {
     kmToStart: (km: string) => `${km} km to the start`,
     // photos
     photoBy: "Photo:",
+    photoNearby: "Photo from nearby:",
     ownPhoto: "Own photo",
     ownLicence: "private",
     photoPrev: "Previous picture",

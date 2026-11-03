@@ -288,7 +288,7 @@ def _photo(conn, trail_id, n):
 @pytest.mark.db
 def test_search_cards_get_first_commons_thumb(db):
     add_trail(db, "test-p2-photo")
-    add_trail(db, "test-p2-nophoto", dlat=0.01)
+    add_trail(db, "test-p2-nophoto", dlat=0.1)  # ~11 km: no photographed trail within 5 km
     _photo(db, "test-p2-photo", 1)
     _photo(db, "test-p2-photo", 2)
     res = search_day_hikes(db, req())
@@ -305,6 +305,20 @@ def test_search_cards_get_first_commons_thumb(db):
     assert c.cover_page_url == "https://commons.example/page/1"
     n = by_id["test-p2-nophoto"]
     assert (n.cover_author, n.cover_license, n.cover_license_url, n.cover_page_url) == (None,) * 4
+    assert c.cover_nearby is False and n.cover_nearby is False
+
+
+@pytest.mark.db
+def test_trail_without_photo_shows_the_nearest_trails_photo_marked_nearby(db):
+    add_trail(db, "test-p2-photo")
+    add_trail(db, "test-p2-bare", dlat=0.01)  # ~1 km away, no photo of its own
+    _photo(db, "test-p2-photo", 1)
+    res = search_day_hikes(db, req())
+    bare = {s.candidate.trail_id: s.candidate for s in res.selection.matches}["test-p2-bare"]
+    assert bare.cover_thumb_url == "https://commons.example/thumb/test-p2-test-p2-photo-1.jpg"
+    assert bare.cover_url == "https://commons.example/test-p2-test-p2-photo-1.jpg"
+    assert (bare.cover_author, bare.cover_license) == ("A", "CC BY-SA 4.0")
+    assert bare.cover_nearby is True
 
 
 # --- final fix wave ---------------------------------------------------------------------------

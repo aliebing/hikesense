@@ -62,6 +62,13 @@ it("shows the cover with author and licence, but not without attribution data", 
   expect(noAttr.container.querySelector("img")).toBeNull();
 });
 
+it("a photo from a nearby tour says so instead of passing as this tour's photo", () => {
+  const nearby = card({ cover_thumb_url: "https://img/n.jpg", cover_author: "Bea", cover_license: "CC BY 4.0", cover_nearby: true });
+  render(<TourResultCard card={nearby} />);
+  expect(screen.getByText(/Foto aus der Nähe:/)).toHaveTextContent("Foto aus der Nähe: Bea");
+  expect(screen.queryByText(/^Foto:/)).toBeNull();
+});
+
 it("shows figures, verdicts, preferences and the tour link", () => {
   render(<TourResultCard card={card()} />);
   expect(screen.getByRole("link", { name: "Feldsee-Runde" })).toHaveAttribute("href", "/t/t1");
