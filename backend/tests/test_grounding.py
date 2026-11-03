@@ -551,3 +551,19 @@ def test_en_bare_m_before_length_words_is_not_ascent():
     assert en("The hut is 540 m long.", ["540 m"]).unsupported == []
     assert en("an ascent of 540 m", ["540 Hm"]).unsupported == []
     assert en("540 m", ["540 Hm"]).unsupported == []
+
+
+def test_de_metres_of_climb_are_an_ascent():
+    """gpt-4.1-mini writes "902 m Anstieg" for 902 Hm (eval 2026-11-03, m01): metres next to
+    Anstieg/Abstieg/Aufstieg are Höhenmeter, as "540 m of ascent" in English."""
+    e = ev(["14,5 km", "902 Hm", "207 Hm", "86 m"])
+    text = "14,5 km mit 902 m Anstieg und 207 m Abstieg bis zum Bäracker, 86 m vom Weg."
+    r = grounding_check(text, e)
+    assert r.unsupported == [] and r.text == text
+    assert grounding_check("ein Anstieg von 902 m", e).unsupported == []
+    assert grounding_check("Aufstieg: 902 m", e).unsupported == []
+
+
+def test_de_metres_without_climb_word_stay_a_length():
+    e = ev(["902 Hm"])
+    assert grounding_check("Die Unterkunft liegt 902 m vom Weg.", e).unsupported == ["902 m"]

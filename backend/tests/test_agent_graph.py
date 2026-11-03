@@ -849,11 +849,13 @@ def test_react_ascent_is_hm_evidence(vocab, settings):
         structured={RawRequest: [knowledge_raw()]},
         tool_rounds=[
             AIMessage(content="", tool_calls=[call("get_trail_details", {"trail_id": "t1"})]),
-            AIMessage(content="Der Testweg hat 120 Hm, also 120 m Anstieg."),
+            AIMessage(content="Der Testweg hat 120 Hm, also 120 m Anstieg, 120 m vom Start entfernt."),
         ],
     )
     events = run(deps, "Wie steil ist der Testweg?")
-    assert one(events, "done").unsupported == 1  # "120 m" is a length, not supported by Hm
+    # "120 m Anstieg" is a climb (Hm evidence supports it, as "120 m of ascent" in English);
+    # "120 m vom Start entfernt" is a length and Hm never supports a length
+    assert one(events, "done").unsupported == 1
 
 
 # --- final fix wave (R20/R21) --------------------------------------------------------------

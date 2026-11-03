@@ -102,6 +102,17 @@ _ASCENT_AFTER = re.compile(
     re.IGNORECASE,
 )
 
+# German: "902 m Anstieg", "Anstieg von 902 m", "Aufstieg: 902 m": metres of climb are Höhenmeter
+_ASCENT_BEFORE_DE = re.compile(
+    r"(?:Anstieg|Abstieg|Aufstieg|Höhenunterschied|bergauf|bergab)\w*[^\d.,!?;]{0,25}$",
+    re.IGNORECASE,
+)
+_LENGTH_AFTER_DE = re.compile(r"\s?(?:vom|von\s+der|entfernt|lang|weit|Luftlinie)\b", re.IGNORECASE)
+_ASCENT_AFTER_DE = re.compile(
+    r"\s?(?:im\s+|an\s+)?(?:Anstieg|Abstieg|Aufstieg|Höhenunterschied|bergauf|bergab)\w*\b",
+    re.IGNORECASE,
+)
+
 # unit -> (dimension, factor to the dimension's base unit). Höhenmeter are their own dimension:
 # an ascent never supports a length and vice versa.
 _LENGTH = {"km": 1000, "kilometer": 1000, "kilometern": 1000, "m": 1, "meter": 1, "metern": 1}
@@ -244,7 +255,14 @@ _NOT_AFTER_A = frozenset({"m", "h", "hm", "mm", "%", "°", "mi", "ft", "yd"})
 def _unit_of(text: str, m: re.Match[str], lang: Lang) -> tuple[str, Decimal]:
     unit = re.sub(r"\s+", " ", m.group("unit").lower())
     if lang == "de":
-        return _UNITS[unit]
+        dim, factor = _UNITS[unit]
+        if dim == "length" and factor == 1:  # bare metres: the words around may say "Anstieg"
+            before = text[max(0, m.start("num") - 40) : m.start("num")]
+            if _LENGTH_AFTER_DE.match(text, m.end()):  # "86 m vom Weg": a distance
+                return dim, factor
+            if _ASCENT_BEFORE_DE.search(before) or _ASCENT_AFTER_DE.match(text, m.end()):
+                return "ascent", factor
+        return dim, factor
     dim, factor = _UNITS_EN[unit]
     if dim == "metre":  # the words around it may say "climb"
         before = text[max(0, m.start("num") - 40) : m.start("num")]
@@ -436,7 +454,9 @@ def strip_unsat_claims(text: str, lang: Lang = "de") -> tuple[str, int]:
     return (text, 0) if not removed else ("".join(kept).strip(), removed)
 
 
-def strip_weather_claims(text: str, has_word: Callable[[str], bool], lang: Lang = "de") -> tuple[str, int]:
+def strip_weather_claims(
+    text: str, has_word: Callable[[str], bool], lang: Lang = "de"
+) -> tuple[str, int]:
     """The text without sentences that contain a word of the weather wish (`has_word(sentence)`),
     and how many were removed. Used when the forecast says the wish is not met or is unknown."""
     sentence = _SENTENCE_EN if lang == "en" else _SENTENCE
