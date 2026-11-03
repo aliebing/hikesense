@@ -153,7 +153,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
 
   if (variant === "drawer") {
     return (
-      <aside aria-label={t.title} className="w-full rounded-2xl bg-panel/60 p-3 text-papier ring-1 ring-white/10">
+      <aside aria-label={t.title} className="w-full rounded-2xl bg-panel/70 p-3 text-papier ring-1 ring-white/10">
         <details>
           <summary className="cursor-pointer font-serif text-lg">{t.drawerTitle}</summary>
           <div className="mt-3 flex flex-col gap-3">{body}</div>
@@ -167,8 +167,8 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
       aria-label={t.title}
       className={`flex w-full flex-col gap-3 p-4 text-left text-papier ring-1 backdrop-blur-md ${
         variant === "hero"
-          ? "max-w-2xl rounded-3xl bg-panel/55 shadow-[0_12px_40px_rgb(0_0_0/0.45)] ring-sense/30 sm:p-5"
-          : "rounded-2xl bg-panel/60 ring-white/10 sm:max-w-sm md:min-h-0 md:max-w-md md:flex-1"
+          ? "max-w-2xl rounded-3xl bg-panel/70 shadow-[0_12px_40px_rgb(0_0_0/0.45)] ring-sense/30 sm:p-5"
+          : "rounded-2xl bg-panel/70 ring-white/10 sm:max-w-sm md:min-h-0 md:max-w-md md:flex-1"
       }`}
     >
       {hero ? (

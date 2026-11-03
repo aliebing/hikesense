@@ -7,7 +7,7 @@
   --color-wald-flaeche: #284a32;
   --color-sense: #93d36b;
   /* panels over photos (chat box, text fields, chips): dark grey-blue, translucent over the photo */
-  --color-panel: #252f3d;
+  --color-panel: #141a22;
   --color-sonne: #f0a040;
   --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
@@ -40,7 +40,7 @@ body {
     max-width: 100%;
     border-radius: 0.75rem;
     padding: 0.25rem 0.75rem;
-    background: color-mix(in oklab, var(--color-panel) 65%, transparent);
+    background: color-mix(in oklab, var(--color-panel) 55%, transparent);
     box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
   }
 }
