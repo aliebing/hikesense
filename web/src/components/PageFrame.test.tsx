@@ -20,14 +20,14 @@ it("lets the header wrap on narrow screens instead of cutting the last link", ()
   expect(screen.getByText("Fernwege")).toHaveClass("whitespace-nowrap");
 });
 
-it("is dark blue to matt black without photo backdrop or text shadows", () => {
+it("has the seasonal page ground without photo backdrop or text shadows", () => {
   const { container } = render(
     <PageFrame>
       <p>Inhalt</p>
     </PageFrame>,
   );
-  expect(container.firstElementChild).toHaveClass("from-[#13233a]", "to-[#0b0c0e]"); // dark blue towards matt black
-  expect(container.firstElementChild!.className).toMatch(/\bto-(black|\[#0)/);
+  // dark green towards black; the colours are CSS variables a winter photo switches (globals.css)
+  expect(container.firstElementChild).toHaveClass("bg-[linear-gradient(to_bottom,var(--page-top),var(--page-bottom))]");
   expect(container.querySelector("[class*='drop-shadow']")).toBeNull();
   expect(container.querySelector(".fixed")).toBeNull();
 });
