@@ -57,6 +57,12 @@ One chat message runs through a LangGraph graph (`backend/src/hikesense/agent/gr
 
 ## Data
 
+Unlike HikeAI2, which picked about 2,000 OSM routes by a tag-based "popularity score" without checking the line, HikeSense scans **every** OSM hiking relation of the three regions, decides by fixed quality rules (name, 5–30 km, no gaps, not a long-distance trail, inside one region) and stores decision and reason per relation in a versioned CSV. Places, POIs and lodgings come from local Geofabrik extracts, stage splits of the long-distance trails from the trail operators, and every row points to a source with licence.
+
+![Data basis: HikeAI2 vs HikeSense](docs/showcase/datenbasis-vergleich.png)
+
+![Import pipeline: from 4,014 OSM relations to 577 day hikes](docs/showcase/import-pipeline.png)
+
 | Data | Source (licence) | Amount |
 |---|---|---|
 | Long-distance trails | OSM relations (ODbL); stage split as facts from the trail operators | {{LONG}} |
