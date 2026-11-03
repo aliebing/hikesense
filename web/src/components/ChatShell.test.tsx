@@ -352,5 +352,6 @@ it("on the start page the example is plain light text and the input field stands
   const intro = container.querySelector("[data-chat-intro]");
   expect(intro).toHaveClass("text-papier");
   expect(intro?.className).not.toMatch(/bg-/);
+  expect(intro).toHaveClass("border-sense", "rounded-xl");
   expect(screen.getByRole("textbox")).toHaveClass("bg-white", "text-wald-dunkel");
 });

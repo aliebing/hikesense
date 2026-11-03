@@ -29,7 +29,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
         data-chat-intro
         className={
           hero
-            ? "text-sm leading-relaxed text-papier sm:text-base"
+            ? "rounded-xl rounded-tl-sm border border-sense px-3 py-2 text-sm leading-relaxed text-papier sm:text-base"
             : "rounded-xl rounded-tl-sm bg-papier/90 px-3 py-2 text-sm leading-relaxed text-wald-dunkel"
         }
       >
