@@ -154,38 +154,66 @@ _COVER_JOIN = """left join lateral (
         where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
         order by p.id limit 1) c on true"""
 NEARBY_COVER_M = 5000
-# The first photo of the nearest photographed trail within NEARBY_COVER_M (index KNN over the
-# 20 nearest trails, then the real distance).
+# A photo of the nearest photographed day hike within NEARBY_COVER_M that no other shown card
+# uses yet (index KNN over the 20 nearest, then the real distance). Day hikes only: distances
+# to the long-distance trails' huge lines took seconds.
 _NEARBY_COVER = f"""
     select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url
     from trails t,
       lateral (select o.id, o.geom, o.geom <-> t.geom as d from trails o
-               where o.id <> t.id and o.geom is not null
-               order by o.geom <-> t.geom limit 20) o,
-      lateral (select * from photos p
-               where p.trail_id = o.id and p.source = 'commons' and p.thumb_url is not null
-               order by p.id limit 1) p
-    where t.id = %s and st_dwithin(o.geom::geography, t.geom::geography, {NEARBY_COVER_M})
-    order by o.d limit 1"""
+               where o.id <> t.id and o.kind = 'day_hike' and o.geom is not null
+               order by o.geom <-> t.geom limit 20) o
+      join photos p on p.trail_id = o.id
+    where t.id = %(id)s and p.source = 'commons' and p.thumb_url is not null
+      and p.thumb_url <> all(%(used)s)
+      and st_dwithin(o.geom::geography, t.geom::geography, {NEARBY_COVER_M})
+    order by o.d, p.id limit 1"""
+
+
+_OWN_COVER = """
+    select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url
+    from photos p
+    where p.trail_id = %(id)s and p.source = 'commons' and p.thumb_url is not null
+      and p.thumb_url <> all(%(used)s)
+    order by p.id limit 1"""
+_COVER_FIELDS = (
+    "cover_thumb_url",
+    "cover_author",
+    "cover_license",
+    "cover_license_url",
+    "cover_page_url",
+    "cover_url",
+)
 
 
 def _fill_nearby_covers(conn: psycopg.Connection, cands: list[Candidate]) -> None:
-    """Shown cards without a photo of their own get the nearest photographed trail's photo,
-    marked nearby (the card says so). Only for the few shown cards: it is a KNN per trail."""
+    """No photo on two shown cards, and a photo on as many as possible.
+
+    In card order: a cover that an earlier card already shows (one Commons file can belong to
+    two trails) is replaced by another own photo; a card without one gets a photo of the
+    nearest photographed trail, marked nearby (the card says so). Rather no photo than a repeat.
+    Own covers of later cards are reserved, so a lent photo never takes them. Only for the few
+    shown cards: one or two small queries per card."""
+    reserved = {c.cover_thumb_url for c in cands if c.cover_thumb_url is not None}
+    shown: list[str] = []
     for c in cands:
-        if c.cover_thumb_url is not None:
+        if c.cover_thumb_url is not None and c.cover_thumb_url not in shown:
+            shown.append(c.cover_thumb_url)
             continue
-        row = conn.execute(_NEARBY_COVER, (c.trail_id,)).fetchone()
+        taken = sorted(reserved | set(shown))
+        row = None
+        if c.cover_thumb_url is not None:  # a repeat: another own photo, else a nearby one
+            row = conn.execute(_OWN_COVER, {"id": c.trail_id, "used": taken}).fetchone()
+            for f in _COVER_FIELDS:
+                setattr(c, f, None)
+        nearby = row is None
+        if nearby:
+            row = conn.execute(_NEARBY_COVER, {"id": c.trail_id, "used": taken}).fetchone()
         if row:
-            (
-                c.cover_thumb_url,
-                c.cover_author,
-                c.cover_license,
-                c.cover_license_url,
-                c.cover_page_url,
-                c.cover_url,
-            ) = row
-            c.cover_nearby = True
+            for f, v in zip(_COVER_FIELDS, row, strict=True):
+                setattr(c, f, v)
+            c.cover_nearby = nearby
+            shown.append(c.cover_thumb_url)
 
 
 def search_day_hikes(

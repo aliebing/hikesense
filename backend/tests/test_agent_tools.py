@@ -271,6 +271,20 @@ def test_dbtools_knowledge_delegates():
     assert DbTools(lambda: None, Idx()).search_knowledge("a", 2)[0].text == "a2"
 
 
+def _photo_url(conn, trail_id, thumb, n):
+    upsert_photo(
+        conn,
+        trail_id=trail_id,
+        stage_id=None,
+        url=thumb.replace("/thumb/", "/"),
+        thumb_url=thumb,
+        author="A",
+        license="CC BY-SA 4.0",
+        license_url="https://license.example/by-sa",
+        page_url=f"https://commons.example/page/{n}",
+    )
+
+
 def _photo(conn, trail_id, n):
     upsert_photo(
         conn,
@@ -312,13 +326,44 @@ def test_search_cards_get_first_commons_thumb(db):
 def test_trail_without_photo_shows_the_nearest_trails_photo_marked_nearby(db):
     add_trail(db, "test-p2-photo")
     add_trail(db, "test-p2-bare", dlat=0.01)  # ~1 km away, no photo of its own
-    _photo(db, "test-p2-photo", 1)
+    _photo(db, "test-p2-photo", 1)  # the photographed trail's own cover (shown too)
+    _photo(db, "test-p2-photo", 2)
     res = search_day_hikes(db, req())
     bare = {s.candidate.trail_id: s.candidate for s in res.selection.matches}["test-p2-bare"]
-    assert bare.cover_thumb_url == "https://commons.example/thumb/test-p2-test-p2-photo-1.jpg"
-    assert bare.cover_url == "https://commons.example/test-p2-test-p2-photo-1.jpg"
+    assert bare.cover_thumb_url == "https://commons.example/thumb/test-p2-test-p2-photo-2.jpg"
+    assert bare.cover_url == "https://commons.example/test-p2-test-p2-photo-2.jpg"
     assert (bare.cover_author, bare.cover_license) == ("A", "CC BY-SA 4.0")
     assert bare.cover_nearby is True
+
+
+@pytest.mark.db
+def test_no_photo_appears_twice_among_the_shown_cards(db):
+    add_trail(db, "test-p2-photo")
+    add_trail(db, "test-p2-bare1", dlat=0.005)
+    add_trail(db, "test-p2-bare2", dlat=0.01)
+    add_trail(db, "test-p2-bare3", dlat=0.015)
+    _photo(db, "test-p2-photo", 1)  # the photographed trail's own cover
+    _photo(db, "test-p2-photo", 2)  # one more photo to lend
+    res = search_day_hikes(db, req())
+    covers = [s.candidate.cover_thumb_url for s in res.selection.matches]
+    shown = [c for c in covers if c is not None]
+    assert len(shown) == len(set(shown)) == 2  # own cover + one lent photo; the third stays bare
+    assert covers.count(None) == 2
+
+
+@pytest.mark.db
+def test_a_commons_file_on_two_trails_is_the_cover_of_only_one(db):
+    add_trail(db, "test-p2-one")
+    add_trail(db, "test-p2-two", dlat=0.005)
+    _photo(db, "test-p2-one", 1)
+    # the same file also belongs to the second trail, which has one more photo of its own
+    _photo_url(db, "test-p2-two", "https://commons.example/thumb/test-p2-test-p2-one-1.jpg", 10)
+    _photo_url(db, "test-p2-two", "https://commons.example/thumb/test-p2-own-2.jpg", 11)
+    res = search_day_hikes(db, req())
+    by_id = {s.candidate.trail_id: s.candidate for s in res.selection.matches}
+    assert by_id["test-p2-one"].cover_thumb_url.endswith("test-p2-one-1.jpg")
+    assert by_id["test-p2-two"].cover_thumb_url.endswith("test-p2-own-2.jpg")
+    assert by_id["test-p2-two"].cover_nearby is False
 
 
 # --- final fix wave ---------------------------------------------------------------------------
