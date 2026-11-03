@@ -53,8 +53,9 @@ beforeEach(() => {
 });
 
 it("start page: English heading and chat placeholder", () => {
-  renderWithLocale(<ChatProvider><HomeStage photos={[]} /></ChatProvider>, "en");
-  expect(screen.getByRole("heading", { name: "Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest" })).toBeInTheDocument();
+  renderWithLocale(<ChatProvider><HomeStage /></ChatProvider>, "en");
+  expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
+  expect(screen.getByText("Your smart hiking planner for routes, places to stay and everything that makes your tour special.")).toBeInTheDocument();
   expect(screen.getByRole("complementary", { name: "Planning chat" })).toBeInTheDocument();
   expect(screen.getByPlaceholderText("e.g. 12 km round walk from Hinterzarten")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();

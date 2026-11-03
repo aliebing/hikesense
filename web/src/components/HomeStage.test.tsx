@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import { renderWithLocale } from "../test-utils";
 import { ChatProvider } from "./ChatProvider";
 import HomeStage from "./HomeStage";
 import { initialState, saveState } from "../lib/chatState";
@@ -8,7 +9,6 @@ vi.mock("./ResultsPane", () => ({ default: () => <p>results pane</p> }));
 
 const card = { trail_id: "t1", name: "Tour 1", deviation_text: null, cover_thumb_url: "https://img/k.jpg", cover_author: "Karl", cover_license: "CC BY 4.0", cover_license_url: null, cover_page_url: "https://commons.wikimedia.org/wiki/File:Blick_ins_Tal.jpg" } as unknown as TourCard;
 const lake = { url: "https://img/see.jpg", thumb_url: "https://img/see-t.jpg", author: "Sina", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:Teufensee.jpg" };
-const photo = { url: "https://img/a.jpg", thumb_url: "https://img/a-t.jpg", author: "Anna", license: "CC BY 4.0", license_url: null, page_url: null };
 
 const withLast = (cards: TourCard[] | null) =>
   saveState(sessionStorage, {
@@ -18,25 +18,50 @@ const withLast = (cards: TourCard[] | null) =>
 const show = () =>
   render(
     <ChatProvider>
-      <HomeStage photos={[photo]} landscapes={[lake]} />
+      <HomeStage landscapes={[lake]} />
     </ChatProvider>,
   );
 
 beforeEach(() => sessionStorage.clear());
 
-it("before results: title and chat on the full-screen background photo, with its credit", async () => {
+it("before results: HikeSense hero on the start photo, with the chat as main control", () => {
   const { container } = show();
-  // white text on the photo gets a dark green field behind it so it stays readable
-  expect(screen.getByRole("heading", { name: "Wandern im Schwarzwald, am Bodensee und im Pfälzerwald" })).toHaveClass("schrift-feld");
+  const h1 = screen.getByRole("heading", { level: 1, name: "HikeSense" });
+  expect(within(h1).getByText("Sense")).toHaveClass("text-sense");
+  expect(container.querySelector("svg[data-logo-mark='light']")).not.toBeNull();
+  expect(screen.getByText("Plan. Hike. Stay. Explore.")).toBeInTheDocument();
+  expect(screen.getByText("Deine intelligente Wanderplattform für Routen, Unterkünfte und alles, was deine Tour besonders macht.")).toBeInTheDocument();
   expect(screen.getByRole("complementary", { name: "Planungs-Chat" })).toBeInTheDocument();
-  expect(screen.getByText(/Foto: Anna/)).toBeInTheDocument();
   expect(screen.queryByText("results pane")).toBeNull();
-  expect(container.querySelector(".fixed img")).toHaveAttribute("src", "https://img/a.jpg");
+  // the owner's own photo: no credit line, no photo switcher
+  expect(container.querySelector("[data-hero-backdrop] img")).toHaveAttribute("src", "/hero/start-1920.webp");
+  expect(container.querySelector("[data-hero-backdrop] source")).toHaveAttribute("srcset", "/hero/start-900.webp");
+  expect(screen.queryByText(/Foto:/)).toBeNull();
 });
 
-it("subtitle names example trails from all regions", () => {
+it("shows the four features in German", () => {
   show();
-  expect(screen.getByText(/Westweg, Pfälzer Weinsteig, SeeGang/)).toBeInTheDocument();
+  const list = screen.getByRole("list", { name: "Was HikeSense kann" });
+  expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+    "Wanderrouten entdecken",
+    "Passende Unterkünfte finden",
+    "Wetter & Bedingungen im Blick",
+    "KI-gestützte Tourenempfehlungen",
+  ]);
+});
+
+it("hero in English", () => {
+  renderWithLocale(<ChatProvider><HomeStage /></ChatProvider>, "en");
+  expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
+  expect(screen.getByText("Your smart hiking planner for routes, places to stay and everything that makes your tour special.")).toBeInTheDocument();
+  const list = screen.getByRole("list", { name: "What HikeSense does" });
+  expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+    "Discover hiking routes",
+    "Find matching places to stay",
+    "Weather & conditions at a glance",
+    "AI-powered tour recommendations",
+  ]);
+  expect(screen.getByRole("complementary", { name: "Planning chat" })).toBeInTheDocument();
 });
 
 it("after results: chat left, results right, no extra button", async () => {
@@ -45,7 +70,7 @@ it("after results: chat left, results right, no extra button", async () => {
   expect(await screen.findByText("results pane")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Vorschläge zeigen/ })).toBeNull();
   expect(container.querySelector("[class*='md:grid-cols-[24rem_1fr]']")).not.toBeNull();
-  expect(screen.queryByText(/Foto: Anna/)).toBeNull();
+  expect(container.querySelector("[data-hero-backdrop]")).toBeNull();
 });
 
 it("empty results keep the start view", () => {

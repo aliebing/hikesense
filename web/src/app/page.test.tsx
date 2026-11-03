@@ -64,15 +64,14 @@ test("home explains an empty database", async () => {
   expect(screen.queryAllByRole("link", { hidden: true }).filter((l) => l.getAttribute("href")?.startsWith("/t/"))).toHaveLength(0);
 });
 
-test("renders the chat and a background photo with its credit, no tour tiles", async () => {
+test("renders the HikeSense hero and the chat, no tour tiles", async () => {
   mockGetTrails.mockResolvedValue([
     trail("westweg-west", "long_distance", 48.5),
     trail("day-1", "day_hike", 48.1),
   ]);
   render(<ChatProvider>{await Home()}</ChatProvider>);
+  expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "Nachricht" })).toBeInTheDocument();
-  expect(screen.getByText(/Autor westweg-west/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Nächstes Bild" })).toBeInTheDocument();
   expect(screen.queryAllByRole("link").filter((l) => l.getAttribute("href") === "/t/day-1")).toHaveLength(0);
 });
 
@@ -98,7 +97,8 @@ test("English: heading, footer and data error come in English", async () => {
   cookie.lang = "en";
   mockGetTrails.mockResolvedValue([trail("w", "long_distance", 48), trail("a", "day_hike", 47.9)]);
   renderWithLocale(<ChatProvider>{await Home()}</ChatProvider>, "en");
-  expect(screen.getByRole("heading", { name: "Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
+  expect(screen.getByText("Discover hiking routes")).toBeInTheDocument();
   expect(screen.getByText(/Trail data: © OpenStreetMap contributors/)).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "e.g. 12 km round walk from Hinterzarten");
 

@@ -12,7 +12,10 @@ it("lets the header wrap on narrow screens instead of cutting the last link", ()
   );
   expect(screen.getByRole("banner")).toHaveClass("flex-wrap");
   expect(screen.getByRole("navigation")).toHaveClass("flex-wrap");
-  expect(screen.getByRole("link", { name: "Hike all about" })).toHaveClass("whitespace-nowrap");
+  const home = screen.getByRole("link", { name: "HikeSense" });
+  expect(home).toHaveClass("whitespace-nowrap");
+  expect(home).toHaveAttribute("href", "/");
+  expect(home.querySelector("svg[data-logo-mark='light']")).not.toBeNull();
   expect(screen.getByRole("link", { name: "← Zur Startseite" })).toHaveClass("whitespace-nowrap");
   expect(screen.getByText("Fernwege")).toHaveClass("whitespace-nowrap");
 });

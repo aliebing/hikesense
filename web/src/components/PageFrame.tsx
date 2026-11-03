@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useT } from "../i18n";
 import LanguageFlags from "./LanguageFlags";
 import AccountMenu from "./AccountMenu";
+import { LogoMark, Wordmark } from "./Logo";
 
 /** Page frame: dark green ground very dark green running towards black, header with logo, optional „Fernwege“ menu and back link. No photo backdrop. */
 export default function PageFrame({
@@ -21,9 +22,10 @@ export default function PageFrame({
   return (
     <div className="relative isolate flex min-h-dvh flex-col bg-gradient-to-b from-[#0e2214] to-[#040a05] text-papier">
       <div className={`mx-auto flex w-full flex-1 flex-col gap-5 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <Link href="/" className="schrift-feld whitespace-nowrap font-serif text-xl tracking-wide text-papier sm:text-2xl">
-            Hike all about
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <Link href="/" className="schrift-feld flex items-center gap-2 whitespace-nowrap py-1.5 text-xl text-papier sm:text-2xl">
+            <LogoMark trail={false} className="h-7 w-auto sm:h-8" />
+            <Wordmark />
           </Link>
           <nav className="schrift-feld flex empty:hidden flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-papier">
             {longDistance.length > 0 && (

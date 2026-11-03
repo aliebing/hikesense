@@ -5,9 +5,16 @@ export const en = {
   },
   home: {
     title: "Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest",
-    subtitle: "Long-distance trail stages (Westweg, Pfälzer Weinsteig, SeeGang) and day hikes with real routes, ascent and walking times – planned in conversation.",
     intro: "Hello! Describe your day hike – for example “Round walk from Hinterzarten, 10 to 15 km, little ascent, with a view”.",
     backdropCredit: "Background photo:",
+    hero: {
+      subtitle: "Your smart hiking planner for routes, places to stay and everything that makes your tour special.",
+      features: "What HikeSense does",
+      routes: "Discover hiking routes",
+      lodging: "Find matching places to stay",
+      weather: "Weather & conditions at a glance",
+      ai: "AI-powered tour recommendations",
+    },
     loadErrorTitle: "Data could not be loaded.",
     dbDownBefore: "The database cannot be reached. Is Supabase running? Start it with ",
     dbDownMiddle: " or ",
@@ -404,6 +411,7 @@ export const en = {
     noTours: "This saved search contains no tours.",
   },
   frame: {
+    tagline: "Plan. Hike. Stay. Explore.",
     longDistance: "Long-distance trails",
     toHome: "← Home",
     errorTitle: "Something went wrong.",
@@ -411,7 +419,7 @@ export const en = {
     retry: "Try again",
     notFoundTitle: "There is no such trail here.",
     notFoundBody: "Perhaps it has not been imported (yet). Back to the home page.",
-    metaTitle: "Hike all about – Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest",
+    metaTitle: "HikeSense – Hiking in the Black Forest, at Lake Constance and in the Palatinate Forest",
     metaDescription: "Plan hikes in the Black Forest, at Lake Constance and in the Palatinate Forest in conversation: long-distance trail stages (e.g. Westweg, Pfälzer Weinsteig, SeeGang) and day hikes.",
   },
   errors: {
