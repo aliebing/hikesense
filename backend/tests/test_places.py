@@ -198,8 +198,9 @@ class _FakeOverpass:
 _REGION_IDS = {"black_forest": 10, "palatinate": 11, "lake_constance": 12}
 
 
-def test_collect_places_unions_regions_and_dedupes(monkeypatch):
+def test_collect_places_reads_pbf_regions_and_asks_overpass_for_the_rest(monkeypatch):
     from hikeall import regions as R
+    from hikeall.adapters import osm_pbf
     from hikeall.ingest import places as mod
 
     by_south = {
@@ -215,28 +216,19 @@ def test_collect_places_unions_regions_and_dedupes(monkeypatch):
 
     monkeypatch.setattr(mod, "fetch_places", fake_places)
     monkeypatch.setattr(mod, "fetch_pois", lambda o, bbox, *a, **k: [])
-    read = []
+    node = {"type": "node", "id": 2, "lat": 48.0, "lon": 8.0, "tags": {"place": "village", "name": "Aus PBF"}}
+    calls = []
 
-    def fake_read(pbf, bbox):
-        read.append(bbox)
-        return {
-            "elements": [
-                {
-                    "type": "node",
-                    "id": 2,
-                    "lat": 48.0,
-                    "lon": 8.0,
-                    "tags": {"place": "village", "name": "Aus PBF"},
-                }
-            ]
-        }
+    def fake_regions(pbf_dir, regions, what):
+        calls.append((pbf_dir, what))
+        return {"black_forest": {"elements": [node]}}
 
-    monkeypatch.setattr("hikeall.adapters.osm_pbf.read_elements", fake_read)
+    monkeypatch.setattr(osm_pbf, "read_regions", fake_regions)
     reported = []
     places, pois = collect_places(
-        _FakeOverpass(), R.REGIONS, Path("x.pbf"), lambda r, n, m: reported.append((r.id, n, m))
+        _FakeOverpass(), R.REGIONS, Path("osm"), lambda r, n, m: reported.append((r.id, n, m))
     )
-    assert read == [R.get_region("black_forest").bbox]
+    assert calls == [(Path("osm"), "places")]
     assert sorted(asked) == ["lake_constance", "palatinate"]
     ids = [p.id for p in places]
     assert len(ids) == len(set(ids)) and 1 in ids and 2 in ids

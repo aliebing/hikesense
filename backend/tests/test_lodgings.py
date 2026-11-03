@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 import httpx
 import pytest
@@ -257,3 +258,20 @@ def test_collect_lodgings_unions_regions(monkeypatch):
     out = mod.collect_lodgings(None, R.REGIONS, lambda r, n: reported.append((r.id, n)))
     assert len(out) == 4 and len({x.id for x in out}) == 4
     assert [n for _, n in reported] == [2, 2, 2]
+
+
+def test_collect_lodgings_from_pbf_where_complete(monkeypatch):
+    from hikeall import regions as R
+    from hikeall.adapters import osm_pbf
+    from hikeall.ingest import lodgings as mod
+
+    asked = []
+    monkeypatch.setattr(mod, "fetch_lodgings", lambda o, bbox, *a, **k: asked.append(bbox) or [])
+    hotel = {"type": "node", "id": 5, "lat": 48.0, "lon": 8.0,
+             "tags": {"tourism": "hotel", "name": "Hotel PBF"}}
+    monkeypatch.setattr(
+        osm_pbf, "read_regions", lambda d, regions, what: {"black_forest": {"elements": [hotel]}}
+    )
+    out = mod.collect_lodgings(None, R.REGIONS, pbf_dir=Path("osm"))
+    assert [x.name for x in out] == ["Hotel PBF"]
+    assert len(asked) == 2  # palatinate and lake_constance via Overpass
