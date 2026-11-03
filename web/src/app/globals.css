@@ -6,6 +6,8 @@
   --color-papier: #f4f1ea;
   --color-wald-flaeche: #284a32;
   --color-sense: #93d36b;
+  /* panels over photos (chat box, text fields): one place to change their colour */
+  --color-panel: #1f3f27;
   --color-sonne: #f0a040;
   --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
@@ -38,7 +40,7 @@ body {
     max-width: 100%;
     border-radius: 0.75rem;
     padding: 0.25rem 0.75rem;
-    background: rgb(31 63 39 / 0.88);
+    background: color-mix(in oklab, var(--color-panel) 88%, transparent);
     box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
   }
 }
@@ -131,4 +133,10 @@ body {
 /* Start view: the big logo stands in the middle, the small one in the header would repeat it. */
 body:has([data-hero-content]) [data-frame-logo] {
   visibility: hidden;
+}
+
+/* Panels over a winter photo: dark green looks wrong on snow, matt black fits. Set on the
+   wrapper of the page part whose backdrop is a winter photo (data-tone="winter"). */
+:root:has([data-tone="winter"]) {
+  --color-panel: #1a1b1c;
 }

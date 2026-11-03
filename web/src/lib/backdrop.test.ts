@@ -35,3 +35,13 @@ it("prefers the tour's own landscape, else a steady pick from the pool", () => {
   expect(pickBackdrop([ph("N26_Maestro.jpg")], pool, "day-12724385")?.url).toBe(a?.url); // same tour, same picture
   expect(pickBackdrop([ph("N26_Maestro.jpg")], [], "x")).toBeNull();
 });
+
+it("isWinter: winter and snow photos by file name, not the Eisenweg", async () => {
+  const { isWinter } = await import("./backdrop");
+  const p = (file: string) => ({ url: "u", thumb_url: "t", author: "a", license: "l", license_url: null, page_url: `https://commons.wikimedia.org/wiki/File:${file}` });
+  expect(isWinter(p("Winter_Vally_Baden_Wurttemberg.jpg"))).toBe(true);
+  expect(isWinter(p("Feldberg_im_Schnee.jpg"))).toBe(true);
+  expect(isWinter(p("Eisenweg_Blick.jpg"))).toBe(false);
+  expect(isWinter(p("Mathisleweiher_Panorama.jpg"))).toBe(false);
+  expect(isWinter(null)).toBe(false);
+});

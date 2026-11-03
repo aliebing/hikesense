@@ -99,7 +99,7 @@ it("saves after each change", async () => {
   expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).items).toHaveLength(2);
 });
 
-it('abort adds the notice "Abgebrochen."', async () => {
+it('abort adds the notice "Gestoppt."', async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn((_u: string, init: RequestInit) => {
@@ -116,7 +116,7 @@ it('abort adds the notice "Abgebrochen."', async () => {
   await screen.findByText("a:busy=true");
   await act(async () => screen.getByText("a-abort").click());
   expect(await screen.findByText("a:busy=false")).toBeInTheDocument();
-  expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).items.at(-1)).toEqual({ kind: "notice", text: "Abgebrochen." });
+  expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).items.at(-1)).toEqual({ kind: "notice", text: "Gestoppt." });
 });
 
 it("posts to the same-origin /api/chat by default (proxied by Next)", async () => {
@@ -166,5 +166,5 @@ it("a stream still running at sign-out does not write into the fresh conversatio
   await screen.findByText("a:busy=true");
   await act(async () => auth.signedOut?.());
   expect(await screen.findByText("a:busy=false")).toBeInTheDocument();
-  expect(screen.getByText("a:items=0")).toBeInTheDocument(); // no „Abgebrochen.“ in the new chat
+  expect(screen.getByText("a:items=0")).toBeInTheDocument(); // no „Gestoppt.“ in the new chat
 });

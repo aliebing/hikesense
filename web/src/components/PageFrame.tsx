@@ -32,7 +32,7 @@ export default function PageFrame({
             {longDistance.length > 0 && (
               <details className="relative">
                 <summary className="cursor-pointer list-none whitespace-nowrap underline-offset-4 hover:underline">{t.longDistance}</summary>
-                <ul className="absolute right-0 z-20 mt-2 grid min-w-48 gap-1 rounded-xl bg-wald-flaeche p-3 shadow-xl ring-1 ring-white/10">
+                <ul className="absolute right-0 z-20 mt-2 grid min-w-48 gap-1 rounded-xl bg-panel p-3 shadow-xl ring-1 ring-white/10">
                   {longDistance.map((t) => (
                     <li key={t.id}>
                       <Link href={`/t/${t.id}`} className="underline-offset-4 hover:underline">

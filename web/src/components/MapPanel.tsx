@@ -89,7 +89,7 @@ export default function MapPanel({
 
   if (embedded) {
     return (
-      <section aria-label={t.mapOf(trail.name)} className="flex flex-col overflow-hidden rounded-2xl bg-wald-flaeche ring-1 ring-white/10">
+      <section aria-label={t.mapOf(trail.name)} className="flex flex-col overflow-hidden rounded-2xl bg-panel ring-1 ring-white/10">
         <div className="relative h-[55vh] min-h-80">
           {/* the overlay draws its own map; this one stays mounted underneath */}
           <MapView {...view} cooperative />
@@ -98,7 +98,7 @@ export default function MapPanel({
             type="button"
             aria-haspopup="dialog"
             onClick={() => setOpen(true)}
-            className="absolute top-2 left-2 rounded-full bg-wald-dunkel/90 px-3 py-1 text-sm text-papier shadow hover:bg-wald-dunkel focus-visible:outline-2 focus-visible:outline-papier"
+            className="absolute top-2 left-2 rounded-full bg-panel/90 px-3 py-1 text-sm text-papier shadow hover:bg-panel focus-visible:outline-2 focus-visible:outline-papier"
           >
             {t.fullscreen}
           </button>
@@ -297,7 +297,7 @@ function MapView({ trail, lodgings, days, position, pois, cooperative = false }:
         <div className="absolute inset-0 grid place-items-center p-4">
           <p
             role={status === "loading" ? "status" : "alert"}
-            className="max-w-md rounded-xl bg-wald-dunkel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
+            className="max-w-md rounded-xl bg-panel/90 px-4 py-3 text-center text-sm text-papier shadow-lg"
           >
             {status === "loading" ? t.loading : status === "error" ? t.error : t.noWebgl}
           </p>

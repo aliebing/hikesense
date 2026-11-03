@@ -60,7 +60,7 @@ it("several tours: heading, chips, tiles linking with von=chat and the narrowing
   seed([mk(1), mk(2), mk(3), mk(4)]);
   show();
   expect(screen.getByRole("heading", { name: "4 Touren gefunden" })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Erkannte Wünsche" })).toHaveTextContent("Länge 10–14 km");
+  expect(screen.getByRole("list", { name: "Deine Wünsche" })).toHaveTextContent("Länge 10–14 km");
   const links = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.startsWith("/t/"));
   expect(links.map((l) => l.getAttribute("href"))).toEqual(["/t/t1?von=chat", "/t/t2?von=chat", "/t/t3?von=chat", "/t/t4?von=chat"]);
   expect(screen.getByText(/Zu viele\? Schreib z\. B\./)).toBeInTheDocument();
@@ -108,7 +108,7 @@ it("keeps the chips of its own search after a later knowledge question", () => {
     items: [],
   });
   show();
-  expect(within(screen.getByRole("list", { name: "Erkannte Wünsche" })).getByText("Rundweg")).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Deine Wünsche" })).getByText("Rundweg")).toBeInTheDocument();
 });
 
 it("one tour after relaxing a wish: the honest note stays and nothing claims it fits", () => {
@@ -117,7 +117,7 @@ it("one tour after relaxing a wish: the honest note stays and nothing claims it 
   show();
   expect(screen.getByRole("note")).toHaveTextContent(fb);
   expect(screen.getByText("fallback preview Tour 1")).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Erkannte Wünsche" })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Deine Wünsche" })).toBeInTheDocument();
 });
 
 describe("Ergebnis merken", () => {

@@ -32,7 +32,7 @@ import { messagesFor } from "../../../i18n/locale";
 import { getServerLocale } from "../../../i18n/server";
 import { dateIn, hm, hmDown, km, walkingTime } from "../../../lib/format";
 import { mapTrail } from "../../../lib/map";
-import { pickBackdrop } from "../../../lib/backdrop";
+import { isWinter, pickBackdrop } from "../../../lib/backdrop";
 import { describeTour, surfaceLine, tagLabels } from "../../../lib/tour";
 import { fromChat } from "../../../lib/von";
 
@@ -114,7 +114,10 @@ export default async function TrailPage({
 
   return (
     <PageFrame wide>
-      <Backdrop photo={backdrop} />
+      {/* data-tone: panels turn matt black over a winter photo (globals.css) */}
+      <div data-tone={isWinter(backdrop) ? "winter" : undefined} className="contents">
+        <Backdrop photo={backdrop} />
+      </div>
       <Link
         href={back.href}
         className="self-start rounded-full bg-papier px-5 py-2 text-sm font-semibold text-wald-dunkel shadow-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-papier"

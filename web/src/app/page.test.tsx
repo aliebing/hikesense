@@ -101,7 +101,7 @@ test("English: heading, footer and data error come in English", async () => {
   expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
   expect(screen.getByText("Discover hiking routes")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Sources & licences" })).toHaveAttribute("href", "/quellen");
-  expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "e.g. 12 km round walk from Hinterzarten");
+  expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "Where, how far, what matters to you?");
 
   vi.spyOn(console, "error").mockImplementation(() => {});
   mockGetTrails.mockRejectedValue(new Error("no supabase"));

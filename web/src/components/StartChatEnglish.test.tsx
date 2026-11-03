@@ -57,7 +57,7 @@ it("start page: English heading and chat placeholder", () => {
   expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
   expect(screen.getByText("Your smart hiking planner for routes, places to stay and everything that makes your tour special.")).toBeInTheDocument();
   expect(screen.getByRole("complementary", { name: "Planning chat" })).toBeInTheDocument();
-  expect(screen.getByPlaceholderText("e.g. 12 km round walk from Hinterzarten")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("Where, how far, what matters to you?")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
 });
 
@@ -84,7 +84,7 @@ it("results pane: Save result, English found text and hint", () => {
   renderWithLocale(<ChatProvider><ResultsPane /></ChatProvider>, "en");
   expect(screen.getByRole("button", { name: "Save result" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "1 tour found, 1 near miss" })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Understood criteria" })).toHaveTextContent("Round walk");
+  expect(screen.getByRole("list", { name: "Your criteria" })).toHaveTextContent("Round walk");
   expect(screen.getByText(/Too many\?/)).toBeInTheDocument();
 });
 

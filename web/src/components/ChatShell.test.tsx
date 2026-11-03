@@ -62,9 +62,9 @@ it("shows understood chips including 'nicht prüfbar'", async () => {
   renderChat();
   await ask();
   expect(await screen.findByText("Länge ≤ 15 km")).toBeInTheDocument();
-  expect(screen.getByText(/Vorliebe: Aussicht/)).toBeInTheDocument();
+  expect(screen.getByText("Aussicht")).toBeInTheDocument(); // weight 3 = plain name
   expect(screen.queryByText(/aussicht \(/)).toBeNull();
-  expect(screen.getByText("nicht prüfbar: Hundefreundlich")).toBeInTheDocument();
+  expect(screen.getByText("Nicht prüfbar: Hundefreundlich")).toBeVisible(); // never inside the closed summary
   expect(screen.getByText("Tour bitte")).toBeInTheDocument();
 });
 
@@ -129,7 +129,8 @@ it("streams tokens, shows sources with a draft marker", async () => {
   expect(await screen.findByText("Der Feldberg.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Quelle A" })).toHaveAttribute("href", "https://a");
   expect(screen.getByText(/Lizenz: CC BY/)).toBeInTheDocument();
-  expect(screen.getByText("Entwurf")).toBeInTheDocument();
+  // sources sit in a closed disclosure ("ⓘ 1 Quelle"); a draft shows already in its summary
+  expect(screen.getByText("1 Quelle").closest("summary")).toHaveTextContent("Entwurf");
 });
 
 it("clarify options are buttons that send the answer", async () => {
@@ -165,7 +166,7 @@ it("ignores a condition without any bound and a roundtrip without value", async 
   mockStream(sse([{ ...understood, request: odd }, DONE]));
   renderChat();
   await ask();
-  await screen.findByText("Verstanden: Tagestour, Wandern.");
+  await screen.findByText("Tagestour, Wandern."); // the "Verstanden:" prefix is the summary label
   expect(screen.queryByText(/≤ 0/)).toBeNull();
   expect(screen.queryByText("kein Rundweg")).toBeNull();
 });
@@ -199,13 +200,13 @@ function hangingFetch() {
   return () => signal;
 }
 
-it("Abbrechen aborts the request, shows 'Abgebrochen.' as a plain note and frees the input", async () => {
+it("Stopp aborts the request, shows 'Gestoppt.' as a plain note and frees the input", async () => {
   const getSignal = hangingFetch();
   renderChat();
   await ask();
-  await userEvent.click(await screen.findByRole("button", { name: "Abbrechen" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Stopp" }));
   expect(getSignal()?.aborted).toBe(true);
-  expect(await screen.findByText("Abgebrochen.")).toBeInTheDocument();
+  expect(await screen.findByText("Gestoppt.")).toBeInTheDocument();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByLabelText("Nachricht")).toBeEnabled();
 });
@@ -214,21 +215,23 @@ it("aborts the request on unmount", async () => {
   const getSignal = hangingFetch();
   const { unmount } = renderChat();
   await ask();
-  await screen.findByRole("button", { name: "Abbrechen" });
+  await screen.findByRole("button", { name: "Stopp" });
   unmount();
   expect(getSignal()?.aborted).toBe(true);
 });
 
-it("clarify buttons are disabled while an answer is running; history is a polite live region", async () => {
+it("an answered question drops its options (the reply shows the choice); the question announces itself, the history does not", async () => {
   mockStream(sse([{ type: "clarify", question: "Welcher Feldberg?", options: ["Gipfel"] }, DONE]));
   renderChat();
   await ask("Feldberg");
   const btn = await screen.findByRole("button", { name: "Gipfel" });
-  expect(screen.getByRole("list", { name: "Verlauf" })).toHaveAttribute("aria-live", "polite");
+  expect(screen.getByRole("list", { name: "Verlauf" })).not.toHaveAttribute("aria-live");
+  expect(screen.getByRole("status")).toHaveTextContent("Welcher Feldberg?");
   hangingFetch();
   await userEvent.click(btn);
-  await screen.findByRole("button", { name: "Abbrechen" });
-  expect(screen.getByRole("button", { name: "Gipfel" })).toBeDisabled();
+  await screen.findByRole("button", { name: "Stopp" });
+  expect(screen.queryByRole("button", { name: "Gipfel" })).toBeNull();
+  expect(screen.getByText("Gipfel")).toBeInTheDocument(); // the user reply
 });
 
 it("ascent chip says Hm; a single value shows its band and the value", async () => {
@@ -336,11 +339,11 @@ it("a 503 keeps the draft like a 401 does", async () => {
   await waitFor(() => expect(screen.getByLabelText("Nachricht")).toHaveValue("Feldberg bitte"));
 });
 
-it("the chat box lets the background photo show through", () => {
+it("the chat box lets the background photo show through, in the panel colour", () => {
   renderChat();
   const box = screen.getByRole("complementary", { name: "Planungs-Chat" });
   expect(box.className).toContain("backdrop-blur");
-  expect(box.className).toMatch(/bg-wald-flaeche\/\d+/);
+  expect(box.className).toMatch(/bg-panel\/\d+/);
 });
 
 it("on the start page the example is plain light text and the input field stands out in white", () => {
