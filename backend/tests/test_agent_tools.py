@@ -281,7 +281,7 @@ def _photo_url(conn, trail_id, thumb, n):
         author="A",
         license="CC BY-SA 4.0",
         license_url="https://license.example/by-sa",
-        page_url=f"https://commons.example/page/{n}",
+        page_url=f"https://commons.example/wiki/File:{thumb.rsplit('/', 1)[-1]}",
     )
 
 
@@ -349,6 +349,19 @@ def test_no_photo_appears_twice_among_the_shown_cards(db):
     shown = [c for c in covers if c is not None]
     assert len(shown) == len(set(shown)) == 2  # own cover + one lent photo; the third stays bare
     assert covers.count(None) == 2
+
+
+@pytest.mark.db
+def test_the_cover_is_the_most_scenic_photo_not_simply_the_first(db):
+    """Kesslerhöhenweg showed a cow: the first photo by id, though a valley photo was there."""
+    add_trail(db, "test-p2-cow")
+    # real titles: "Hinterwald" counts "wald" -- both score one landscape word
+    _photo_url(db, "test-p2-cow", "https://commons.example/thumb/Hinterwald_Cattle_Hinterzarten.jpg", 1)
+    _photo_url(db, "test-p2-cow", "https://commons.example/thumb/Hotel_Cafe_Restaurant_Panorama.jpg", 2)
+    _photo_url(db, "test-p2-cow", "https://commons.example/thumb/Winter_Vally_Baden_Wurttemberg.jpg", 3)
+    res = search_day_hikes(db, req())
+    cow = {s.candidate.trail_id: s.candidate for s in res.selection.matches}["test-p2-cow"]
+    assert cow.cover_thumb_url.endswith("Winter_Vally_Baden_Wurttemberg.jpg")
 
 
 @pytest.mark.db

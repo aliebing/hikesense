@@ -8,6 +8,7 @@ import threading
 from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Any, Protocol
+from urllib.parse import unquote
 
 import psycopg
 from pydantic import BaseModel, Field
@@ -36,6 +37,7 @@ from hikesense.agent.request import (
 from hikesense.agent.weather import REASON_DOWN, NoForecast, forecast_range, weather_for_days
 from hikesense.geo import METRIC_SRID
 from hikesense.hiking_time import din33466
+from hikesense.ingest.photos import cover_score
 from hikesense.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikesense.models import HikingTime
 from hikesense.numfmt import Lang
@@ -170,12 +172,12 @@ _NEARBY_COVER = f"""
     order by o.d, p.id limit 1"""
 
 
-_OWN_COVER = """
-    select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url
+_PHOTO_COLS = "p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url"
+_OWN_PHOTOS = f"""
+    select p.trail_id, {_PHOTO_COLS}
     from photos p
-    where p.trail_id = %(id)s and p.source = 'commons' and p.thumb_url is not null
-      and p.thumb_url <> all(%(used)s)
-    order by p.id limit 1"""
+    where p.trail_id = any(%(ids)s) and p.source = 'commons' and p.thumb_url is not null
+    order by p.id"""
 _COVER_FIELDS = (
     "cover_thumb_url",
     "cover_author",
@@ -186,34 +188,48 @@ _COVER_FIELDS = (
 )
 
 
-def _fill_nearby_covers(conn: psycopg.Connection, cands: list[Candidate]) -> None:
-    """No photo on two shown cards, and a photo on as many as possible.
+def _scenic(row: tuple) -> int:
+    """Cover rank of a photo by its Commons file name (landscape words; animals, hotels and
+    inns last). row = (thumb_url, author, ..., page_url, url)."""
+    return cover_score(unquote((row[4] or "").split("File:")[-1]).replace(" ", "_"))
 
-    In card order: a cover that an earlier card already shows (one Commons file can belong to
-    two trails) is replaced by another own photo; a card without one gets a photo of the
-    nearest photographed trail, marked nearby (the card says so). Rather no photo than a repeat.
-    Own covers of later cards are reserved, so a lent photo never takes them. Only for the few
-    shown cards: one or two small queries per card."""
-    reserved = {c.cover_thumb_url for c in cands if c.cover_thumb_url is not None}
-    shown: list[str] = []
-    for c in cands:
-        if c.cover_thumb_url is not None and c.cover_thumb_url not in shown:
-            shown.append(c.cover_thumb_url)
-            continue
-        taken = sorted(reserved | set(shown))
-        row = None
-        if c.cover_thumb_url is not None:  # a repeat: another own photo, else a nearby one
-            row = conn.execute(_OWN_COVER, {"id": c.trail_id, "used": taken}).fetchone()
-            for f in _COVER_FIELDS:
-                setattr(c, f, None)
+
+def _best(rows: list[tuple], taken: set[str]) -> tuple | None:
+    """The most scenic photo not taken yet; ties keep the stored order (lowest id first)."""
+    free = [r for r in rows if r[0] not in taken]
+    return max(free, key=_scenic, default=None)  # max keeps the first of equal scores
+
+
+def _fill_nearby_covers(conn: psycopg.Connection, cands: list[Candidate]) -> None:
+    """Covers of the shown cards: the most scenic own photo (a cow is no cover when the valley
+    is there), never one photo on two cards, and a photo on as many as possible.
+
+    In card order: the best own photo no earlier card shows (one Commons file can belong to two
+    trails); without one, a photo of the nearest photographed trail, marked nearby (the card
+    says so). Rather no photo than a repeat. The best own photos of later cards are reserved,
+    so a lent photo never takes them. Only for the few shown cards."""
+    own: dict[str, list[tuple]] = {c.trail_id: [] for c in cands}
+    if cands:
+        for trail_id, *row in conn.execute(_OWN_PHOTOS, {"ids": list(own)}):
+            own[trail_id].append(tuple(row))
+    picks = {c.trail_id: _best(own[c.trail_id], set()) for c in cands}
+    shown: set[str] = set()
+    for i, c in enumerate(cands):
+        later = {p[0] for d in cands[i + 1 :] if (p := picks[d.trail_id]) is not None}
+        row = _best(own[c.trail_id], shown)
         nearby = row is None
         if nearby:
-            row = conn.execute(_NEARBY_COVER, {"id": c.trail_id, "used": taken}).fetchone()
+            taken = sorted(shown | later)
+            rows = conn.execute(_NEARBY_COVER, {"id": c.trail_id, "used": taken}).fetchall()
+            row = rows[0] if rows else None
+        for f in _COVER_FIELDS:
+            setattr(c, f, None)
+        c.cover_nearby = False
         if row:
             for f, v in zip(_COVER_FIELDS, row, strict=True):
                 setattr(c, f, v)
             c.cover_nearby = nearby
-            shown.append(c.cover_thumb_url)
+            shown.add(row[0])
 
 
 def search_day_hikes(

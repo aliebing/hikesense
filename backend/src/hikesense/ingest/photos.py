@@ -52,6 +52,20 @@ _LANDSCAPE = re.compile(
 )
 
 
+# Fine as one of a tour's photos, but no cover: animals, buildings to eat or sleep in.
+_NOT_COVER = re.compile(
+    r"cattle|\bkuh\b|k(ü|ue)he|\bcows?\b|\brind|pferd|horse|ziege|goat|schaf|sheep|"
+    r"hotel|restaurant|\bcaf(e|é)\b|gasthof|gasthaus|pension",
+    re.IGNORECASE,
+)
+
+
+def cover_score(title: str) -> int:
+    """Rank of a photo as a tour's cover: landscape words, -1 for no cover at all."""
+    score = title_score(title)
+    return -1 if score is None or _NOT_COVER.search(title) else score
+
+
 def title_score(title: str) -> int | None:
     """None rejects the photo; otherwise the number of landscape words in the file title."""
     if _REJECT.search(title):
