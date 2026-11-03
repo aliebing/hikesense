@@ -46,13 +46,21 @@ export default function HomeStage({ landscapes = [] }: { /** background pool for
   }
 
   // phone: chat right under the brand (it is the main control), the four features below it;
-  // from md on as in the mock-up: features under the subtitle, chat below them
+  // from md on as in the mock-up: features under the subtitle, chat below them.
+  // Until the tab's saved conversation is read (hydrated) it is unknown whether this or the
+  // results view belongs here: keep both photo and hero invisible, then fade them in, so a
+  // reload with results does not flash the start photo first.
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 pt-1 pb-6 sm:pt-4 md:gap-8">
-      <HeroBackdrop />
-      <HeroBrand />
-      <HeroFeatures className="order-3 md:order-none" />
-      <ChatShell intro={t.intro} variant="hero" />
-    </div>
+    <>
+      <HeroBackdrop shown={hydrated} />
+      <div
+        data-hero-content
+        className={`mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 pt-1 pb-6 transition-opacity duration-500 sm:pt-4 md:gap-8 ${hydrated ? "" : "opacity-0"}`}
+      >
+        <HeroBrand />
+        <HeroFeatures className="order-3 md:order-none" />
+        <ChatShell intro={t.intro} variant="hero" />
+      </div>
+    </>
   );
 }

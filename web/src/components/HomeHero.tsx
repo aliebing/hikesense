@@ -7,9 +7,13 @@ import { LogoMark, Wordmark } from "./Logo";
  * the top of the page and darkened towards the text, header and the dark green below.
  * Sits in the PageFrame's `relative isolate` box like Backdrop.
  */
-export function HeroBackdrop() {
+export function HeroBackdrop({ shown = true }: { /** false: invisible, fades in once true */ shown?: boolean }) {
   return (
-    <div aria-hidden="true" data-hero-backdrop className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[max(100svh,46rem)] overflow-hidden">
+    <div
+      aria-hidden="true"
+      data-hero-backdrop
+      className={`pointer-events-none absolute inset-x-0 top-0 -z-10 h-[max(100svh,46rem)] overflow-hidden transition-opacity duration-500 ${shown ? "" : "opacity-0"}`}
+    >
       <picture>
         <source media="(max-width: 900px)" srcSet="/hero/start-900.webp" />
         <img src="/hero/start-1920.webp" alt="" fetchPriority="high" className="h-full w-full object-cover object-[58%_40%]" />
