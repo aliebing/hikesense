@@ -61,7 +61,7 @@ it("shows understood chips including 'nicht prüfbar'", async () => {
   mockStream(sse([understood, { type: "done", usage: {}, unsupported: 0 }]));
   renderChat();
   await ask();
-  expect(await screen.findByText("Länge ≤ 15 km")).toBeInTheDocument();
+  expect(await screen.findByText("Länge ≤ 15 km")).toBeVisible(); // tags always visible
   expect(screen.getByText("Aussicht")).toBeInTheDocument(); // weight 3 = plain name
   expect(screen.queryByText(/aussicht \(/)).toBeNull();
   expect(screen.getByText("Nicht prüfbar: Hundefreundlich")).toBeVisible(); // never inside the closed summary

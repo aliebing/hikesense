@@ -50,7 +50,7 @@ export default function ResultsPane() {
       {chips.length > 0 && (
         <ul aria-label={t.chat.understood} className="flex flex-wrap gap-1.5">
           {chips.map((c, i) => (
-            <li key={i} className={`rounded-full px-3 py-1 text-sm ${c.warn ? "bg-amber-200 text-amber-950" : "bg-panel/55 text-papier ring-1 ring-white/15 backdrop-blur-sm"}`}>
+            <li key={i} className={`rounded-full px-3 py-1 text-sm ${c.warn ? "bg-amber-200 text-amber-950" : "bg-panel/80 text-papier ring-1 ring-white/15 backdrop-blur-sm"}`}>
               {c.text}
             </li>
           ))}

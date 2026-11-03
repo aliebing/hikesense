@@ -2,6 +2,12 @@ import { render, screen } from "@testing-library/react";
 import type { PlanData } from "../lib/chat";
 import PlanPreview from "./PlanPreview";
 
+const trail = vi.hoisted(() => ({ value: null as unknown }));
+vi.mock("../lib/data", async (orig) => ({ ...(await orig<typeof import("../lib/data")>()), getTrail: async () => trail.value }));
+beforeEach(() => {
+  trail.value = null;
+});
+
 const stop = (name: string) => ({ lodging_id: 1, name, kind: "hotel", website: null, along_km: 0, dist_m: 300 });
 const day = (n: number, a: number, b: number, s: string | null) =>
   ({ day: n, date: null, start_km: a, end_km: b, walk_km: b - a, access_km: 0, length_km: b - a, ascent_m: 1, descent_m: 1, duration_h: 4, start_time: "09:00:00", arrival: "13:00:00", stop: s ? stop(s) : null, gap: null, within_band: true });
@@ -24,4 +30,13 @@ it("a plan without days says why", () => {
   render(<PlanPreview data={data([], ["Keine Unterkunft in Reichweite."])} />);
   expect(screen.getByText("Keine Unterkunft in Reichweite.")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Plan mit Karte/ })).toBeNull();
+});
+
+it("the heading stands in a dark field; each day shows a photo of its stage with credit", async () => {
+  const photo = { url: "https://img/blick.jpg", thumb_url: "https://img/blick-t.jpg", author: "Ola", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:Blick_Hausach.jpg" };
+  trail.value = { stages: [{ length_km: 40, photos: [photo] }] };
+  const { container } = render(<PlanPreview data={data([day(1, 0, 15.2, "Hotel Adler"), day(2, 15.2, 30, null)])} />);
+  expect(screen.getByRole("heading", { name: "Westweg ab Hausach, 2 Tage" })).toHaveClass("schrift-feld");
+  expect(await screen.findByText(/Ola/)).toBeInTheDocument();
+  expect(container.querySelectorAll("li img")).toHaveLength(1); // one photo, never repeated
 });

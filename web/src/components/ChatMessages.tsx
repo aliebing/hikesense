@@ -225,25 +225,26 @@ export default function ChatMessages({
             )}
             {it.kind === "understood" && (
               <div className="flex flex-col gap-1.5">
-                <details className="group rounded-xl bg-white/5 px-3 py-2">
-                  <summary className={`flex cursor-pointer list-none items-baseline gap-2 rounded text-[13px] ${focusRing}`}>
+                {/* the recognised wishes as tags, always visible; the full sentence opens on demand */}
+                <ul aria-label={t.chat.understood} className="flex flex-wrap gap-1.5">
+                  {chipsFor(it.request, it.labels, locale)
+                    .filter((c) => !c.warn)
+                    .map((c, j) => (
+                      <li key={j} className="rounded-md bg-white/12 px-2 py-0.5 text-[13px] text-papier ring-1 ring-white/10">
+                        {c.text}
+                      </li>
+                    ))}
+                </ul>
+                <details className="group">
+                  <summary className={`flex w-fit cursor-pointer list-none items-baseline gap-2 rounded text-[13px] ${focusRing}`}>
                     <span className="font-semibold text-sense">{t.chat.understoodShort}</span>
-                    <span className="line-clamp-1 text-papier/85 group-open:line-clamp-none">
+                    <span className="line-clamp-1 text-papier/75 group-open:line-clamp-none">
                       {it.text.replace(/^(Understood|Verstanden)\s*:\s*/i, "")}
                     </span>
-                    <span aria-hidden="true" className="ml-auto text-papier/60 transition-transform group-open:rotate-90">
+                    <span aria-hidden="true" className="text-papier/60 transition-transform group-open:rotate-90">
                       ›
                     </span>
                   </summary>
-                  <ul aria-label={t.chat.understood} className="mt-2 flex flex-wrap gap-1.5">
-                    {chipsFor(it.request, it.labels, locale)
-                      .filter((c) => !c.warn)
-                      .map((c, j) => (
-                        <li key={j} className="rounded-md bg-white/10 px-2 py-0.5 text-[13px] text-papier">
-                          {c.text}
-                        </li>
-                      ))}
-                  </ul>
                 </details>
                 {/* what cannot be checked never hides */}
                 {chipsFor(it.request, it.labels, locale)
