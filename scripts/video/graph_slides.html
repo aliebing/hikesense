@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LangGraph Examples</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* same look as ai_slides.html (AI video): colours of the app, amber accents */
+  :root {
+    --bg: #0d1a11; --wald: #2f5d3a; --papier: #f4f1ea; --muted: #b9c2b4; --line: rgba(244,241,234,.14);
+    --panel: rgba(244,241,234,.06); --amber: #f0b94a; --ok: #8fd19e; --bad: #f08a6c; --blue: #8fc7ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--papier);
+    font-family: "Source Sans 3", system-ui, sans-serif; }
+  html[data-lang="en"] .de, html[data-lang="de"] .en { display: none !important; }
+  .glow { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(55% 55% at 78% 18%, rgba(111,180,120,.16), transparent 70%),
+                radial-gradient(45% 55% at 12% 92%, rgba(47,93,58,.35), transparent 70%);
+    animation: drift 26s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(-30px, 18px) scale(1.04); } }
+  .ridge { position: fixed; left: 0; right: 0; bottom: 0; height: 120px; opacity: .55; pointer-events: none;
+    background: linear-gradient(to top, #08120b, transparent); }
+
+  section { position: absolute; inset: 0; padding: 80px 110px 60px; display: none; z-index: 1; }
+  section.on { display: flex; flex-direction: column; justify-content: center; }
+  section.top.on { justify-content: flex-start; }
+  .kicker { font: 600 22px "Source Sans 3"; letter-spacing: .28em; text-transform: uppercase; color: var(--amber); }
+  h1 { font: 600 124px/1 "Source Serif 4", Georgia, serif; letter-spacing: -.01em; }
+  h2 { font: 600 60px/1.05 "Source Serif 4", Georgia, serif; margin: 12px 0 30px; }
+  p, li { font-size: 30px; line-height: 1.4; }
+  .muted { color: var(--muted); } .amber { color: var(--amber); } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* build-in: delay = --d (seconds) or --f × the segment's duration (--dur, set by go()) */
+  .b { opacity: 0; transform: translateY(16px); }
+  section.on .b { animation: in .7s cubic-bezier(.2,.7,.2,1) forwards; animation-delay: var(--d, calc(var(--f, 0) * var(--dur, 30s))); }
+  @keyframes in { to { opacity: 1; transform: none; } }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
+  .col { display: grid; gap: 22px; align-content: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 28px; }
+  .card h3 { font: 600 29px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .card p, .card li { font-size: 25px; color: #e4e2da; line-height: 1.38; }
+  .card ul { list-style: none; } .card li { padding: 3px 0; }
+  .pills { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 8px 20px; font-size: 23px; background: rgba(47,93,58,.35); }
+  .pill.mono { font-size: 20px; }
+  .cap { font-size: 20px; color: var(--muted); margin-top: 12px; }
+  .shot { border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.6); display: block; max-width: 100%; max-height: 800px; }
+  .arrow-r { font-size: 54px; color: var(--amber); align-self: center; text-align: center; }
+  .note { font-size: 24px; color: #e4e2da; } .note b { color: var(--amber); font-weight: 600; }
+
+  /* title */
+  #a01 h1 span { color: var(--amber); }
+  #a01 .tag { font-size: 40px; margin-top: 28px; font-family: "Source Serif 4", serif; }
+
+  /* overview pipeline */
+  .pipe { display: grid; grid-template-columns: 1fr 60px 1fr 60px 1.5fr 60px 1fr; align-items: stretch; }
+  .box { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 22px 24px; }
+  .box h3 { font: 600 34px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .box li { list-style: none; font-size: 26px; line-height: 1.5; color: #e4e2da; }
+  .box .tag { display: inline-block; font: 600 17px "JetBrains Mono"; padding: 2px 10px; border-radius: 6px; margin: 4px 6px 0 0; }
+  .tag.m { background: rgba(240,185,74,.2); color: var(--amber); border: 1px solid var(--amber); }
+  .tag.c { background: rgba(143,199,255,.12); color: var(--blue); border: 1px solid rgba(143,199,255,.5); }
+  .arrow { align-self: center; justify-self: center; font-size: 44px; color: var(--muted); text-align: center; line-height: 1; }
+  .arrow small { display: block; font: 600 15px "JetBrains Mono"; color: var(--amber); margin-top: 4px; }
+
+  /* graph */
+  svg text { font-family: "Source Sans 3"; }
+  .node rect { fill: #142619; stroke: rgba(244,241,234,.28); stroke-width: 2; }
+  .node.llm rect { stroke: var(--amber); }
+  .node.tool rect { stroke: var(--blue); }
+  .node text { fill: var(--papier); font-size: 27px; font-weight: 600; text-anchor: middle; }
+  .node .sub { fill: var(--muted); font-size: 19px; font-weight: 400; }
+  .edge { stroke: rgba(244,241,234,.4); stroke-width: 3; fill: none; marker-end: url(#arr); }
+  .edge.cond { stroke: var(--amber); stroke-dasharray: 8 6; }
+  .dot { fill: var(--amber); filter: drop-shadow(0 0 10px var(--amber)); }
+  .legend { font-size: 21px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 26px; height: 14px; border-radius: 4px; margin: 0 8px 0 18px; vertical-align: middle; border: 2px solid var(--amber); }
+  .legend i.code { border-color: rgba(244,241,234,.4); } .legend i.cond { border: none; border-top: 3px dashed var(--amber); border-radius: 0; height: 0; }
+
+  /* message sequence of the tool loop */
+  .seq { display: grid; gap: 9px; }
+  .msg { display: grid; grid-template-columns: 56px 250px 1fr; align-items: center; gap: 16px; padding: 9px 16px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line); }
+  .msg .n { font: 600 22px "JetBrains Mono"; color: var(--muted); text-align: right; }
+  .msg .role { font: 600 21px "JetBrains Mono"; }
+  .msg .role small { display: block; font: 400 16px "Source Sans 3"; color: var(--muted); }
+  .msg .body { font: 400 19px/1.35 "JetBrains Mono", monospace; color: #e8e6df; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg .body .k { color: var(--blue); } .msg .body .s { color: #b9dc8a; } .msg .body .v { color: var(--amber); }
+  .msg.code { border-left: 5px solid var(--blue); } .msg.model { border-left: 5px solid var(--amber); } .msg.tool { border-left: 5px solid var(--ok); }
+  .msg.code .role { color: var(--blue); } .msg.model .role { color: var(--amber); } .msg.tool .role { color: var(--ok); }
+  .msg.final { background: rgba(240,185,74,.1); }
+  .msg.final .body { white-space: normal; }
+
+  /* evidence and the checked reply */
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { font: 600 21px "JetBrains Mono"; padding: 6px 14px; border-radius: 8px; background: rgba(143,209,158,.14); border: 1px solid rgba(143,209,158,.5); color: var(--ok); }
+  .chip.name { background: rgba(143,199,255,.1); border-color: rgba(143,199,255,.45); color: var(--blue); font-family: "Source Sans 3"; font-size: 22px; }
+  .reply { font-size: 27px; line-height: 1.5; background: #f4f1ea; color: #1f3f27; border-radius: 16px; padding: 20px 26px; }
+  .reply .y { background: rgba(80,160,90,.22); border-bottom: 3px solid #2f8a45; padding: 0 4px; border-radius: 4px; }
+  .reply .n { background: rgba(220,90,60,.18); border-bottom: 3px wavy #c44a2a; padding: 0 4px; border-radius: 4px; }
+  .reply .q { background: rgba(240,185,74,.45); padding: 0 8px; border-radius: 4px; font-weight: 700; }
+  .reply .hint { display: block; font-size: 21px; color: #5a5a50; margin-top: 8px; font-style: italic; }
+
+  /* assembly of the final text */
+  .stack { display: grid; gap: 10px; }
+  .part { border-radius: 12px; padding: 12px 20px; font-size: 24px; border: 1px solid var(--line); background: var(--panel); }
+  .part b { font: 600 18px "JetBrains Mono"; margin-right: 12px; }
+  .part.code { border-left: 5px solid var(--blue); } .part.code b { color: var(--blue); }
+  .part.model { border-left: 5px solid var(--amber); } .part.model b { color: var(--amber); }
+
+  /* summary tables */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 26px; }
+  .tbl th { text-align: left; color: var(--amber); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .tbl td { padding: 9px 12px; border-bottom: 1px solid rgba(244,241,234,.07); vertical-align: top; color: #e4e2da; }
+  .tbl td:first-child { font-weight: 600; color: var(--papier); white-space: nowrap; }
+  .jsonlist { counter-reset: j; list-style: none; }
+  .jsonlist li { counter-increment: j; font-size: 26px; padding: 9px 0 9px 56px; position: relative; border-bottom: 1px solid rgba(244,241,234,.07); }
+  .jsonlist li::before { content: counter(j); position: absolute; left: 0; top: 10px; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--wald); font: 600 21px/38px "Source Sans 3"; text-align: center; }
+  .jsonlist li b { font-weight: 600; }
+  .jsonlist li span { color: var(--muted); font-size: 21px; display: block; font-family: "JetBrains Mono", monospace; }
+
+  /* code and JSON panels (code_snippets.py and ai_demo.py, highlighted by Pygments) */
+  .code-slide { padding: 56px 90px 40px; }
+  section.code-slide.on { justify-content: flex-start; }
+  .code-slide h2 { font-size: 50px; margin: 8px 0 20px; }
+  .panels { display: grid; gap: 18px; align-items: start; }
+  .panel { background: #0a140d; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+  .codehead { font: 600 18px "JetBrains Mono", monospace; color: var(--amber); padding: 10px 18px; border-bottom: 1px solid var(--line); background: rgba(240,185,74,.07); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .codehead span { color: var(--muted); font-weight: 400; }
+  .src pre { margin: 0; padding: 10px 0; font: 400 var(--fs, 22px)/1.42 "JetBrains Mono", monospace; color: #e8e6df; white-space: pre; overflow: hidden; font-variant-ligatures: none; }
+  .src pre:not(:has(.linenos)) { padding: 10px 18px; }
+  .src pre.txt { white-space: pre-wrap; color: #e4e2da; }
+  .src pre.sse { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .src .linenos { display: inline-block; width: 3.6em; padding-right: 1em; text-align: right; color: #5d6b5f; user-select: none; }
+  .src .hll { display: block; background: rgba(240,185,74,.16); box-shadow: inset 4px 0 0 var(--amber); margin: 0 -18px; padding: 0 18px; }
+  .src pre:has(.linenos) .hll { margin: 0; padding: 0; }
+  .src .k, .src .kn, .src .kd, .src .ow { color: #ff9e7a; }
+  .src .kc { color: #ff9e7a; }
+  .src .nf, .src .fm, .src .nc, .src .nt { color: #8fc7ff; }
+  .src .s, .src .s1, .src .s2, .src .sa, .src .si, .src .se, .src .sb { color: #b9dc8a; }
+  .src .sd { color: #a0a898; font-style: italic; }
+  .src .c, .src .c1, .src .cm { color: #8d978a; font-style: italic; }
+  .src .mi, .src .mf { color: #f0b94a; }
+  .src .nb, .src .bp { color: #c7a5ff; }
+  .src .nd { color: var(--amber); }
+  .src .o, .src .p { color: #d3cfc4; }
+  .src .err { color: var(--muted); border: none; background: none; }
+  .src .ev { color: var(--amber); font-weight: 600; } .src .dl { color: var(--muted); }
+
+  /* --- graph video additions ------------------------------------------------------------------------------- */
+  .tag.t { background: rgba(143,209,158,.14); color: var(--ok); border: 1px solid rgba(143,209,158,.55); }
+  .tag { display: inline-block; font: 600 17px "JetBrains Mono"; padding: 2px 10px; border-radius: 6px; margin: 2px 6px 2px 0; white-space: nowrap; }
+
+  /* node strip: the path of one run */
+  .path { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; }
+  .pn { font: 600 22px "JetBrains Mono"; padding: 6px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+  .pn i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 9px; vertical-align: 2px; }
+  .pn i.m { background: var(--amber); } .pn i.t { background: var(--ok); } .pn i.c { background: rgba(244,241,234,.45); }
+  .pn.done { color: #d9d6cc; }
+  .pn.cur { color: #10200f; background: var(--amber); border-color: var(--amber); box-shadow: 0 0 22px rgba(240,185,74,.45); }
+  .pn.cur i { background: #10200f; }
+  .pa { color: var(--muted); font-size: 24px; }
+
+  /* step table */
+  .steps { width: 100%; border-collapse: collapse; font-size: 22px; }
+  .steps th { white-space: nowrap; text-align: left; color: var(--amber); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 21px; }
+  .steps td { padding: 11px 12px; border-bottom: 1px solid rgba(244,241,234,.08); vertical-align: top; color: #e4e2da; }
+  .steps td.nd { font: 600 25px "JetBrains Mono"; color: var(--papier); white-space: nowrap; }
+  .steps td.rd { font: 400 18px "JetBrains Mono"; color: var(--muted); max-width: 330px; }
+  .steps td.evc { font: 400 18px "JetBrains Mono"; color: var(--amber); }
+  .tight .steps td { padding: 5px 12px; } .tight .steps td.nd { font-size: 22px; } .tight .steps th { padding: 4px 12px; }
+  .key { display: inline-block; font: 400 17px "JetBrains Mono"; color: var(--blue); background: rgba(143,199,255,.08); border: 1px solid rgba(143,199,255,.3); border-radius: 6px; padding: 1px 8px; margin: 2px 4px 2px 0; }
+
+  /* generative vs agentic */
+  .vs { display: grid; grid-template-columns: 1fr 1.25fr; gap: 40px; }
+  .flow { display: flex; align-items: center; gap: 16px; margin: 16px 0 6px; }
+  .fb { border: 1px solid var(--line); background: #142619; border-radius: 14px; padding: 14px 22px; font: 600 26px "Source Sans 3"; }
+  .fb.llm { border-color: var(--amber); color: var(--amber); }
+  .fa { font-size: 34px; color: var(--muted); }
+  .ring { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px; }
+  .ring .fb { text-align: center; font-size: 23px; padding: 14px 8px; }
+  .ring .fb small { display: block; font: 400 17px "Source Sans 3"; color: var(--muted); margin-top: 4px; }
+  .who { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 34px; }
+  .who .card h3 { font-size: 31px; }
+
+  /* ReAct cycle */
+  .cyc text { font-family: "Source Sans 3"; }
+  .cyc .st rect { fill: #142619; stroke-width: 2.5; }
+  .cyc .st text { fill: var(--papier); font-size: 34px; font-weight: 600; text-anchor: middle; }
+  .cyc .st .sub { fill: var(--muted); font-size: 21px; font-weight: 400; }
+  .cyc .arc { stroke: rgba(244,241,234,.5); stroke-width: 3; fill: none; marker-end: url(#arr2); }
+
+  /* hybrid diagram */
+  .hyb { border: 2px dashed rgba(143,199,255,.5); border-radius: 22px; padding: 22px 26px; position: relative; }
+  .hyb .lab { font: 600 20px "JetBrains Mono"; color: var(--blue); margin-bottom: 14px; }
+  .hyb .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .hyb .pn { font-size: 21px; }
+  .hyb .wk { display: grid; grid-template-columns: auto auto auto; gap: 8px; align-items: center; }
+  .hyb .wk .react { grid-column: 1 / span 2; }
+  .hyb .react { border: 2px solid var(--amber); color: var(--amber); background: rgba(240,185,74,.1); border-radius: 12px; padding: 8px 14px; font: 600 22px "JetBrains Mono"; }
+  .hyb .react small { display: block; font: 400 16px "Source Sans 3"; color: var(--papier); }
+  .reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .reasons .card h3 { font-size: 27px; }
+  .reasons .card p { font-size: 22px; }
+  .motto { font: 600 50px "Source Serif 4", serif; color: var(--amber); margin-top: 30px; }
+
+  /* message rows of the ReAct list: tighter, round labels */
+  .seq { gap: 8px; }
+  .msg { grid-template-columns: 46px 300px 1fr; padding: 8px 14px; }
+  .msg .body { font-size: 18px; }
+  .msg.final .body { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .rmark { font: 600 18px "JetBrains Mono"; color: var(--amber); letter-spacing: .1em; text-transform: uppercase; margin: 6px 0 -2px 4px; }
+
+  .stat { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+  .stat > span { font: 600 21px "JetBrains Mono"; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+  .stat b { color: var(--amber); font-weight: 600; }
+  .lead { font-size: 27px; color: #e4e2da; }
+  .ask { font: 500 30px "JetBrains Mono"; color: var(--papier); background: rgba(143,199,255,.08); border: 1px solid rgba(143,199,255,.3); border-radius: 14px; padding: 14px 22px; display: inline-block; }
+  .ask small { display: block; font: 400 20px "Source Sans 3"; color: var(--muted); margin-top: 4px; }
+  .minute li { font-size: 28px; padding: 9px 0 9px 52px; position: relative; list-style: none; border-bottom: 1px solid rgba(244,241,234,.07); }
+  .minute li::before { content: attr(data-n); position: absolute; left: 0; top: 10px; width: 36px; height: 36px; border-radius: 50%; background: var(--wald); font: 600 20px/36px "Source Sans 3"; text-align: center; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="ridge"></div>
+
+<!-- 1 title -->
+<section id="g01">
+  <div class="kicker b" style="--f:.02">Turing College · AI Engineering · Plan. Hike. Stay. Explore.</div>
+  <h1 class="b" style="--f:.06">HikeSense<br><span class="amber en">LangGraph on two examples</span><span class="amber de">LangGraph an zwei Beispielen</span></h1>
+  <p class="b" style="--f:.15; font-size:40px; margin-top:28px; font-family:'Source Serif 4',serif"><span class="en">The state through the graph, node by node, in real runs.</span><span class="de">Der Zustand durch den Graphen, Knoten für Knoten, in echten Läufen.</span></p>
+  <div class="pills b" style="--f:.3">
+    <span class="pill en">generative vs agentic</span><span class="pill de">generativ vs agentisch</span><span class="pill">ReAct</span><span class="pill">StateGraph</span>
+    <span class="pill">add_conditional_edges</span><span class="pill">checkpointer</span>
+    <span class="pill en">day hike</span><span class="pill de">Tagestour</span><span class="pill en">knowledge question</span><span class="pill de">Wissensfrage</span>
+    <span class="pill mono">openai/gpt-4o-mini</span>
+  </div>
+</section>
+
+<!-- 2 generative vs agentic -->
+<section id="g02">
+  <div class="kicker b"><span class="en">Two terms</span><span class="de">Zwei Begriffe</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">Generative AI vs agentic AI</span><span class="de">Generative KI und agentische KI</span></h2>
+  <div class="vs">
+    <div class="card b" style="--f:.04"><h3 class="en">Generative · one call</h3><h3 class="de">Generativ · ein Aufruf</h3>
+      <div class="flow"><span class="fb">prompt</span><span class="fa">→</span><span class="fb llm">LLM</span><span class="fa">→</span><span class="fb">text</span></div>
+      <p class="en">knows only its training and the prompt · cannot act</p><p class="de">kennt nur Training und Prompt · kann nicht handeln</p></div>
+    <div class="card b" style="--f:.2"><h3 class="en">Agentic · a loop around the model</h3><h3 class="de">Agentisch · eine Schleife um das Modell</h3>
+      <div class="ring">
+        <div class="fb llm b" style="--f:.24">LLM<small class="en">reasons</small><small class="de">überlegt</small></div>
+        <div class="fb b" style="--f:.28">tools<small class="en">act in the world</small><small class="de">handeln</small></div>
+        <div class="fb b" style="--f:.32">loop<small class="en">step after step</small><small class="de">Schritt für Schritt</small></div>
+        <div class="fb b" style="--f:.36">state<small class="en">carried along</small><small class="de">wird mitgenommen</small></div>
+        <div class="fb b" style="--f:.4"><span class="en">decisions</span><span class="de">Entscheidungen</span><small class="en">what next?</small><small class="de">was als Nächstes?</small></div>
+      </div></div>
+  </div>
+  <div class="who">
+    <div class="card b" style="--f:.62"><h3>Workflow</h3><p class="en">the path is written in code · predictable, testable</p><p class="de">der Weg steht im Code · vorhersehbar, testbar</p></div>
+    <div class="card b" style="--f:.78"><h3 class="en">Agent</h3><h3 class="de">Agent</h3><p class="en">the model chooses the next action · flexible, open questions</p><p class="de">das Modell wählt die nächste Aktion · flexibel, offene Fragen</p></div>
+  </div>
+</section>
+
+<!-- 3 ReAct -->
+<section id="g03">
+  <div class="kicker b">ReAct · Reason + Act</div>
+  <h2 class="b" style="--f:.02"><span class="en">Reason → Act → Observe → repeat</span><span class="de">Überlegen → Handeln → Beobachten → wiederholen</span></h2>
+  <div class="grid2" style="grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center">
+    <svg class="cyc b" style="--f:.04" width="900" height="600" viewBox="0 0 900 600">
+      <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="rgba(244,241,234,.7)"/></marker></defs>
+      <g class="st b" style="--f:.06"><rect x="300" y="20" width="300" height="120" rx="18" style="stroke:var(--amber)"/><text x="450" y="76">Reason</text><text class="sub en" x="450" y="110">model thinks</text><text class="sub de" x="450" y="110">Modell überlegt</text></g>
+      <path class="arc b" style="--f:.14" d="M600 110 C720 140, 760 230, 740 300"/>
+      <g class="st b" style="--f:.14"><rect x="580" y="300" width="300" height="120" rx="18" style="stroke:var(--amber)"/><text x="730" y="356">Act</text><text class="sub en" x="730" y="390">tool_calls (JSON)</text><text class="sub de" x="730" y="390">tool_calls (JSON)</text></g>
+      <path class="arc b" style="--f:.22" d="M660 422 C620 520, 420 520, 324 412"/>
+      <g class="st b" style="--f:.22"><rect x="20" y="300" width="300" height="120" rx="18" style="stroke:var(--ok)"/><text x="170" y="356">Observe</text><text class="sub en" x="170" y="390">program runs tool → result</text><text class="sub de" x="170" y="390">Programm → Ergebnis</text></g>
+      <path class="arc b" style="--f:.3" d="M160 298 C140 200, 200 120, 296 92"/>
+      <path class="arc b" style="--f:.5; stroke:var(--amber)" d="M450 142 V250"/>
+      <g class="st b" style="--f:.5"><rect x="340" y="250" width="220" height="80" rx="40" style="stroke:var(--amber); fill:rgba(240,185,74,.12)"/><text x="450" y="302" style="font-size:28px">answer</text></g>
+      <text x="450" y="365" class="b" style="--f:.5; fill:var(--muted); font-size:21px; text-anchor:middle"><tspan class="en">text only = stop</tspan><tspan class="de">nur Text = Stopp</tspan></text>
+    </svg>
+    <div class="col">
+      <div class="card b" style="--f:.06"><h3>Reason</h3><p class="en">What does the question need? Which tool, which arguments?</p><p class="de">Was braucht die Frage? Welches Tool, welche Argumente?</p></div>
+      <div class="card b" style="--f:.14"><h3>Act</h3><p class="en">reply = structured tool call, not text</p><p class="de">Antwort = strukturierter Tool-Aufruf, kein Text</p></div>
+      <div class="card b" style="--f:.22"><h3>Observe</h3><p class="en">the program runs it; the result goes back into the context</p><p class="de">das Programm führt aus; das Ergebnis kommt in den Kontext</p></div>
+      <div class="card b" style="--f:.5"><h3 class="en">Stop</h3><h3 class="de">Stopp</h3><p class="en">text without tool calls · or a limit</p><p class="de">Text ohne Tool-Calls · oder ein Limit</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 hybrid -->
+<section id="g04" class="top">
+  <div class="kicker b"><span class="en">This project</span><span class="de">Dieses Projekt</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">A hybrid: a state machine, with ReAct in one node</span><span class="de">Ein Hybrid: Zustandsmaschine, ReAct in einem Knoten</span></h2>
+  <div class="hyb b" style="--f:.04">
+    <div class="lab en">LangGraph StateGraph · fixed nodes and edges · the route is chosen by code</div>
+    <div class="lab de">LangGraph StateGraph · feste Knoten und Kanten · die Route wählt der Code</div>
+    <div class="row">
+      <span class="pn">guard</span><span class="pa">→</span><span class="pn"><i class="m"></i>understand</span><span class="pa">⇉</span>
+      <div class="wk">
+        <span class="pn">clarify · reply</span><span class="pn"><i class="t"></i>search</span><span class="pn">multiday</span>
+        <span class="react b" style="--f:.14">react ⟳ <small class="en">ReAct loop: the model picks tools</small><small class="de">ReAct-Schleife: Modell wählt Tools</small></span>
+        <span class="pn">groups · events</span>
+      </div>
+      <span class="pa">→</span><span class="pn"><i class="m"></i>answer</span><span class="pa">→</span><span class="pn">ground</span><span class="pa">→</span><span class="pn">log</span>
+    </div>
+    <p class="cap b" style="--f:.08"><span class="en">understand: model JSON (intent, numbers) → code checks it → state["route"] → conditional edge</span><span class="de">understand: Modell-JSON (Absicht, Zahlen) → Code prüft → state["route"] → bedingte Kante</span></p>
+  </div>
+  <div class="reasons" style="margin-top:24px">
+    <div class="card b" style="--f:.3"><h3 class="en">Reliability</h3><h3 class="de">Zuverlässigkeit</h3><p class="en">every condition checked, every time (constraints.select)</p><p class="de">jede Bedingung, jedes Mal geprüft (constraints.select)</p></div>
+    <div class="card b" style="--f:.4"><h3>Grounding</h3><p class="en">every number from data, checked in ground</p><p class="de">jede Zahl aus den Daten, geprüft in ground</p></div>
+    <div class="card b" style="--f:.5"><h3 class="en">Cost</h3><h3 class="de">Kosten</h3><p class="en">day hike: exactly 2 model calls, no loop</p><p class="de">Tagestour: genau 2 Modellaufrufe, keine Schleife</p></div>
+    <div class="card b" style="--f:.6"><h3 class="en">Testability</h3><h3 class="de">Testbarkeit</h3><p class="en">fixed path → evaluation with code</p><p class="de">fester Weg → Evaluation mit Code</p></div>
+  </div>
+  <p class="motto b" style="--f:.84"><span class="en">The code decides, the model words it.</span><span class="de">Der Code entscheidet, das Modell formuliert.</span></p>
+</section>
+
+<!-- 5 state and node -->
+<section id="g05" class="code-slide">
+  <div class="kicker b">LangGraph · State · <span class="en">node</span><span class="de">Knoten</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">A node: state in, partial update out</span><span class="de">Ein Knoten: Zustand rein, Teil-Update raus</span></h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1fr; gap: 26px">
+    <div class="panels" data-code="g05L" data-f=".04"></div>
+    <div class="col">
+      <div class="panels" data-code="g05R" data-f=".66"></div>
+      <div class="card b" style="--f:.42"><p class="en mono" style="font-size:23px">node(state) → {"route": …, …}</p><p class="de mono" style="font-size:23px">node(state) → {"route": …, …}</p>
+        <p class="en">returned keys replace the old values (no reducers) · all other keys stay</p>
+        <p class="de">zurückgegebene Schlüssel ersetzen die alten Werte (keine Reducer) · alle anderen bleiben</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 wiring -->
+<section id="g06" class="code-slide">
+  <div class="kicker b">LangGraph · build_graph</div>
+  <h2 class="b" style="--f:.02"><span class="en">Nodes, edges, and conditional edges on state["route"]</span><span class="de">Knoten, Kanten und bedingte Kanten über state["route"]</span></h2>
+  <div class="grid2" style="grid-template-columns: 1.15fr .85fr; gap: 26px">
+    <div class="panels" data-code="g06" data-f=".04" data-bottom="1040"></div>
+    <div class="col">
+      <div class="card b" style="--f:.1"><h3>add_node</h3><p class="en">12 Python functions</p><p class="de">12 Python-Funktionen</p></div>
+      <div class="card b" style="--f:.22"><h3>add_edge</h3><p class="en">fixed: START → guard · worker → answer → ground → log → END</p><p class="de">fest: START → guard · Arbeitsknoten → answer → ground → log → END</p></div>
+      <div class="card b" style="--f:.42"><h3>add_conditional_edges</h3><p class="en"><span class="mono amber">lambda s: s["route"]</span> · understand writes the route, the edge follows it</p><p class="de"><span class="mono amber">lambda s: s["route"]</span> · understand schreibt die Route, die Kante folgt ihr</p></div>
+      <div class="card b" style="--f:.8"><h3>compile(checkpointer=…)</h3><p class="en">MemorySaver · one state per thread</p><p class="de">MemorySaver · ein Zustand pro Thread</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 streaming + checkpointer -->
+<section id="g07" class="code-slide">
+  <div class="kicker b">LangGraph · stream · checkpointer</div>
+  <h2 class="b" style="--f:.02"><span class="en">Events while it runs, state between messages</span><span class="de">Ereignisse während des Laufs, Zustand zwischen Nachrichten</span></h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1fr; gap: 26px">
+    <div class="panels" data-code="g07L" data-f=".04,.3"></div>
+    <div class="col">
+      <div class="card b" style="--f:.08"><h3 class="en">stream_mode="custom"</h3><h3 class="de">stream_mode="custom"</h3><p class="en">_emit → get_stream_writer() → ChatEvent → SSE, while the graph runs</p><p class="de">_emit → get_stream_writer() → ChatEvent → SSE, während der Graph läuft</p></div>
+      <div class="card b" style="--f:.34"><h3>thread_id = user_hash:thread_id</h3><p class="en">after every node: a checkpoint of the state</p><p class="de">nach jedem Knoten: ein Checkpoint des Zustands</p></div>
+      <div class="card b" style="--f:.5"><h3 class="en">Survives the next message</h3><h3 class="de">Bleibt für die nächste Nachricht</h3>
+        <p><span class="key">request</span><span class="key">pending</span><span class="key">last_tours</span><span class="key">plan</span><span class="key">plan_request</span><span class="key">history</span></p>
+        <p class="en" style="margin-top:8px">reset per message by <span class="mono">_turn()</span>: route, current, data, draft, evidence, final_text, …</p>
+        <p class="de" style="margin-top:8px">pro Nachricht zurückgesetzt von <span class="mono">_turn()</span>: route, current, data, draft, evidence, final_text, …</p></div>
+      <div class="card b" style="--f:.84"><p class="en">this video: <span class="mono amber">stream_mode=["updates", "custom"]</span> · scripts/video/data/capture_graph.py</p><p class="de">dieses Video: <span class="mono amber">stream_mode=["updates", "custom"]</span> · scripts/video/data/capture_graph.py</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 example 1: overview table -->
+<section id="g08" class="top">
+  <div class="kicker b"><span class="en">Example 1 · day hike</span><span class="de">Beispiel 1 · Tagestour</span></div>
+  <h2 class="b" style="--f:.02"><span class="ask" style="font-size:36px">“A round walk near Titisee, about 10 km”</span></h2>
+  <div class="path b" style="--f:.06" data-html="g08p"></div>
+  <div class="b" style="--f:.14" data-html="g08t"></div>
+  <div class="stat b" style="--f:.8">
+    <span><b data-fact="titisee.calls"></b> <span class="en">model calls</span><span class="de">Modellaufrufe</span></span>
+    <span><b data-fact="titisee.tools"></b> <span class="en">tool call · by the graph</span><span class="de">Tool-Aufruf · durch den Graphen</span></span>
+    <span><b data-fact="titisee.cost"></b></span><span class="en">no ReAct</span><span class="de">kein ReAct</span>
+  </div>
+</section>
+
+<!-- 9 guard + understand -->
+<section id="g09" class="top">
+  <div class="kicker b">guard · understand</div>
+  <div class="path b" style="--f:.01" data-html="g09p"></div>
+  <div class="grid2" style="grid-template-columns: .72fr 100px 1.28fr; gap: 12px">
+    <div class="col">
+      <div class="card b" style="--f:.03"><p class="en">guard → <span class="mono amber">route = "understand"</span> · no model</p><p class="de">guard → <span class="mono amber">route = "understand"</span> · kein Modell</p></div>
+      <div class="panels" data-code="g09L" data-f=".12" data-bottom="1040"></div>
+    </div>
+    <div class="arrow-r b" style="--f:.4">→<div class="mono" style="font-size:16px">resolve()</div></div>
+    <div class="col">
+      <div class="panels" data-code="g09R" data-f=".42" data-bottom="840"></div>
+      <div class="card b" style="--f:.8"><p class="en">event <span class="mono amber">understood</span>: “Understood: day hike, walking, start: Titisee, round walk, length 8.5–11.5 km (≈ 10 km), radius at most 15 km.”</p>
+        <p class="de">Ereignis <span class="mono amber">understood</span>: „Understood: day hike, walking, start: Titisee, round walk, length 8.5–11.5 km (≈ 10 km), radius at most 15 km.“</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 search -->
+<section id="g10" class="top">
+  <div class="kicker b">search · <span class="en">the graph calls the tool</span><span class="de">der Graph ruft das Tool</span></div>
+  <div class="path b" style="--f:.01" data-html="g10p"></div>
+  <div class="grid2" style="grid-template-columns: .8fr 1.2fr; gap: 24px">
+    <div class="col">
+      <div class="card b" style="--f:.04"><h3 class="en">reads</h3><h3 class="de">liest</h3><p class="mono" style="font-size:22px">state["current"] → HikeRequest</p></div>
+      <div class="card b" style="--f:.12"><h3 class="en">calls (code, no model)</h3><h3 class="de">ruft auf (Code, kein Modell)</h3><p class="mono" style="font-size:22px">tools.search_day_hikes(req, lang)</p><p class="en">PostGIS + constraints.select</p><p class="de">PostGIS + constraints.select</p></div>
+      <div class="card b" style="--f:.36"><h3 class="en">event</h3><h3 class="de">Ereignis</h3><p class="mono" style="font-size:22px">results · 3 cards</p></div>
+      <div class="panels" data-code="g10d" data-f=".86"></div>
+    </div>
+    <div class="panels" data-code="g10R" data-f=".44"></div>
+  </div>
+</section>
+
+<!-- 11 answer, ground, log -->
+<section id="g11" class="top">
+  <div class="kicker b">answer · ground · log</div>
+  <div class="path b" style="--f:.01" data-html="g11p"></div>
+  <div class="grid2" style="grid-template-columns: 1fr 1fr 1fr; gap: 22px">
+    <div class="col">
+      <div class="card b" style="--f:.02"><h3>answer</h3><p class="en"><span class="tag m">model</span> temperature 0.3 · reads data → writes draft</p><p class="de"><span class="tag m">Modell</span> Temperatur 0,3 · liest data → schreibt draft</p></div>
+      <div class="panels" data-code="g11a" data-f=".08"></div>
+    </div>
+    <div class="col">
+      <div class="card b" style="--f:.2"><h3>ground</h3><p class="en"><span class="tag c">code</span> numbers vs evidence · code sentences around · then tokens</p><p class="de"><span class="tag c">Code</span> Zahlen gegen Belege · Code-Sätze drumherum · dann Tokens</p></div>
+      <div class="panels" data-code="g11g" data-f=".3,.5"></div>
+    </div>
+    <div class="col">
+      <div class="card b" style="--f:.74"><h3>log</h3><p class="en"><span class="tag c">code</span> one JSON line · done</p><p class="de"><span class="tag c">Code</span> eine JSON-Zeile · done</p></div>
+      <div class="panels" data-code="g11l" data-f=".78,.82"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 follow-up -->
+<section id="g12" class="top">
+  <div class="kicker b"><span class="en">Example 1 · follow-up · same thread</span><span class="de">Beispiel 1 · Folgefrage · selber Thread</span></div>
+  <h2 class="b" style="--f:.01; margin-bottom:12px"><span class="ask" style="font-size:32px">“Under 300 m ascent, please”</span></h2>
+  <div class="path b" style="--f:.02" data-html="g12p"></div>
+  <div class="grid2" style="grid-template-columns: .85fr 1.15fr; gap: 22px">
+    <div class="panels" data-code="g12L" data-f=".06"></div>
+    <div class="col">
+      <div class="panels" data-code="g12M" data-f=".3"></div>
+      <div class="panels" data-code="g12R" data-f=".5"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 example 2 overview -->
+<section id="g13" class="top">
+  <div class="kicker b"><span class="en">Example 2 · knowledge question · same thread</span><span class="de">Beispiel 2 · Wissensfrage · selber Thread</span></div>
+  <h2 class="b" style="--f:.01; margin-bottom:12px"><span class="ask" style="font-size:32px">“How long does the first tour take, and where can I stay near it?”</span></h2>
+  <div class="path b" style="--f:.04" data-html="g13p"></div>
+  <div class="grid2" style="grid-template-columns: .8fr 1.2fr; gap: 22px">
+    <div class="panels" data-code="g13L" data-f=".14" data-bottom="540"></div>
+    <div class="panels" data-code="g13R" data-f=".3" data-bottom="540"></div>
+  </div>
+  <div class="b tight" style="--f:.6; margin-top:10px" data-html="g13t"></div>
+</section>
+
+<!-- 14 the ReAct loop, message by message -->
+<section id="g14" class="top" style="padding-top:60px">
+  <div class="kicker b">react · <span class="en">the ReAct loop of this run</span><span class="de">die ReAct-Schleife dieses Laufs</span></div>
+  <div class="path b" style="--f:.01" data-html="g14p"></div>
+  <div data-html="g14s"></div>
+  <div class="stat b" style="--f:.9">
+    <span><span class="en">rounds</span><span class="de">Runden</span> <b>2</b></span><span><span class="en">tools executed</span><span class="de">Tools ausgeführt</span> <b>3 / 8</b></span>
+    <span class="en">model chose: get_trail_details + find_accommodation · not hiking_time</span><span class="de">Modell wählte: get_trail_details + find_accommodation · nicht hiking_time</span>
+  </div>
+</section>
+
+<!-- 15 the loop in code -->
+<section id="g15" class="code-slide">
+  <div class="kicker b">In the code · agent/graph.py · react</div>
+  <h2 class="b" style="--f:.02"><span class="en">Act: tool_round · Observe: ToolMessage · Stop: no tool_calls</span><span class="de">Act: tool_round · Observe: ToolMessage · Stopp: keine tool_calls</span></h2>
+  <div class="panels" data-code="g15"></div>
+</section>
+
+<!-- 16 after react: answer skipped, ground -->
+<section id="g16" class="top">
+  <div class="kicker b">react → answer → ground</div>
+  <div class="path b" style="--f:.01" data-html="g16p"></div>
+  <div class="grid2" style="grid-template-columns: 1.1fr .9fr; gap: 26px">
+    <div class="col">
+      <div class="panels" data-code="g16L" data-f=".03"></div>
+      <div class="panels" data-code="g16c" data-f=".2"></div>
+    </div>
+    <div class="col">
+      <div class="reply b" style="--f:.36"><span class="mono" style="font-size:17px;color:#5a5a50">draft</span><br>The “Genießerpfad - Menzenschwander Geißenpfad” tour is approximately <span class="y">9.78 km</span> long and takes about <span class="n">2 hours and 30 minutes</span> to complete. For accommodation nearby: Heimatschmiede (<span class="y">85 m</span> away), Gästehaus Kaiser (<span class="y">40 m</span> away), …</div>
+      <div class="reply b" style="--f:.58"><span class="mono" style="font-size:17px;color:#5a5a50">final_text · unsupported = 1</span><br>… approximately 9.78 km long and takes about <span class="q">?</span> hours and <span class="q">?</span> minutes to complete. …<span class="hint">Note: 1 figure(s) could not be verified and were removed.</span></div>
+      <div class="stat b" style="--f:.86"><span><b data-fact="tourq.calls"></b> <span class="en">model calls</span><span class="de">Modellaufrufe</span></span><span><b data-fact="tourq.tools"></b> <span class="en">tool calls</span><span class="de">Tool-Aufrufe</span></span><span><b data-fact="tourq.cost"></b></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 17 Westweg: one round -->
+<section id="g17" class="top">
+  <div class="kicker b"><span class="en">Example 2b · new thread</span><span class="de">Beispiel 2b · neuer Thread</span></div>
+  <h2 class="b" style="--f:.01; margin-bottom:12px"><span class="ask" style="font-size:32px">“How is the Westweg waymarked?”</span></h2>
+  <div class="path b" style="--f:.02" data-html="g17p"></div>
+  <div data-html="g17s"></div>
+  <div class="grid2" style="grid-template-columns: 1.3fr .7fr; gap: 22px; margin-top:16px">
+    <div class="panels" data-code="g17n" data-f=".4"></div>
+    <div class="col">
+      <div class="stat b" style="--f:.5"><span><span class="en">rounds</span><span class="de">Runden</span> <b>1</b></span><span><b data-fact="westweg.calls"></b> <span class="en">model calls</span><span class="de">Modellaufrufe</span></span><span><b data-fact="westweg.tools"></b> <span class="en">tool call (code)</span><span class="de">Tool-Aufruf (Code)</span></span></div>
+      <div class="card b" style="--f:.76"><p class="en"><span class="bad">limit:</span> grounding checks numbers and names, not every claim</p><p class="de"><span class="bad">Grenze:</span> Grounding prüft Zahlen und Namen, nicht jede Aussage</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 18 summary -->
+<section id="g18" class="top">
+  <div class="kicker b"><span class="en">Summary</span><span class="de">Zusammenfassung</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">Where the model acts, where the code decides</span><span class="de">Wo das Modell handelt, wo der Code entscheidet</span></h2>
+  <table class="tbl b" style="--f:.04">
+    <tr><th><span class="en">node</span><span class="de">Knoten</span></th><th><span class="en">model</span><span class="de">Modell</span></th><th>Code</th></tr>
+    <tr class="b" style="--f:.06"><td>understand</td><td class="en">fills in RawRequest (1 structured call)</td><td class="de">füllt RawRequest aus (1 strukturierter Aufruf)</td><td class="en">keeps only written numbers, resolves places, sets the route</td><td class="de">behält nur geschriebene Zahlen, löst Orte auf, setzt die Route</td></tr>
+    <tr class="b" style="--f:.12"><td>search · multiday</td><td>–</td><td class="en">calls the tools itself, checks every condition, plans the stages</td><td class="de">ruft die Tools selbst auf, prüft jede Bedingung, plant die Etappen</td></tr>
+    <tr class="b" style="--f:.18"><td>react</td><td class="en">chooses tools and arguments, round by round (ReAct)</td><td class="de">wählt Tools und Argumente, Runde für Runde (ReAct)</td><td class="en">searches first, runs the tools, max. 8, fixed reply without a source</td><td class="de">sucht vorab, führt aus, max. 8, fester Satz ohne Quelle</td></tr>
+    <tr class="b" style="--f:.24"><td>answer</td><td class="en">words the data block (skipped after react)</td><td class="de">formuliert den Datenblock (nach react übersprungen)</td><td class="en">builds the data block</td><td class="de">baut den Datenblock</td></tr>
+    <tr class="b" style="--f:.3"><td>ground · log</td><td>–</td><td class="en">checks every number, adds its own sentences, streams, logs</td><td class="de">prüft jede Zahl, fügt eigene Sätze ein, streamt, loggt</td></tr>
+  </table>
+  <div class="who" style="margin-top:30px">
+    <div class="card b" style="--f:.7"><h3 class="en">Agentic where the question is open</h3><h3 class="de">Agentisch, wo die Frage offen ist</h3><p>react · ReAct · TOOL_SPECS · bind_tools</p></div>
+    <div class="card b" style="--f:.8"><h3 class="en">Workflow where results must be checkable</h3><h3 class="de">Workflow, wo Ergebnisse prüfbar sein müssen</h3><p>search · multiday · groups · events</p></div>
+  </div>
+</section>
+
+<!-- 19 one minute -->
+<section id="g19" class="top">
+  <div class="kicker b"><span class="en">In one minute</span><span class="de">In einer Minute</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">How to explain it to the panel</span><span class="de">So erklärt man es dem Panel</span></h2>
+  <ul class="minute">
+    <li class="b en" data-n="1" style="--f:.04">A LangGraph state machine: 12 nodes, one typed State, a checkpointer per thread.</li>
+    <li class="b de" data-n="1" style="--f:.04">Eine LangGraph-Zustandsmaschine: 12 Knoten, ein typisierter State, ein Checkpointer pro Thread.</li>
+    <li class="b en" data-n="2" style="--f:.12">One structured model call understands the message; code checks it and sets the route.</li>
+    <li class="b de" data-n="2" style="--f:.12">Ein strukturierter Modellaufruf versteht die Nachricht; der Code prüft sie und setzt die Route.</li>
+    <li class="b en" data-n="3" style="--f:.24">Tour searches: the graph calls the search itself; the model only words the result.</li>
+    <li class="b de" data-n="3" style="--f:.24">Tourensuche: Der Graph ruft die Suche selbst auf; das Modell formuliert nur das Ergebnis.</li>
+    <li class="b en" data-n="4" style="--f:.38">Open knowledge questions: a ReAct loop, the model calls 4 tools, at most 8 times.</li>
+    <li class="b de" data-n="4" style="--f:.38">Offene Wissensfragen: eine ReAct-Schleife, das Modell ruft 4 Tools auf, höchstens 8 Mal.</li>
+    <li class="b en" data-n="5" style="--f:.52">Every number is checked against tool results before it is shown.</li>
+    <li class="b de" data-n="5" style="--f:.52">Jede Zahl wird gegen Tool-Ergebnisse geprüft, bevor sie erscheint.</li>
+  </ul>
+  <p class="motto b" style="--f:.8"><span class="en">The code decides, the model words it.</span><span class="de">Der Code entscheidet, das Modell formuliert.</span></p>
+</section>
+
+<script>
+  // graph_demo.py calls setLang, fillHtml, fillFacts and fillCode; go(id, seconds) shows one slide and times it
+  window.setLang = (lang) => { document.documentElement.dataset.lang = lang; document.documentElement.lang = lang; };
+  window.fillHtml = (html) => {
+    for (const [key, value] of Object.entries(html)) {
+      document.querySelectorAll(`[data-html="${key}"]`).forEach((el) => { el.innerHTML = value; });
+    }
+    // table rows build in one after the other
+    document.querySelectorAll("table.steps").forEach((t) => {
+      [...t.querySelectorAll("tr.b")].forEach((tr, i) => tr.style.setProperty("--f", (0.16 + i * 0.07).toFixed(2)));
+    });
+  };
+  window.fillFacts = (facts) => {
+    const de = document.documentElement.dataset.lang === "de";
+    document.querySelectorAll("[data-fact]").forEach((el) => {
+      const [run, key] = el.dataset.fact.split(".");
+      const v = facts[run][key];
+      el.textContent = key === "cost" ? `$${v.toFixed(5)}`.replace(".", de ? "," : ".") : String(v);
+    });
+  };
+  window.fillCode = (code) => {
+    const touched = new Set();
+    for (const [key, panels] of Object.entries(code)) {
+      const box = document.querySelector(`[data-code="${key}"]`);
+      if (!box) continue;
+      const fr = (box.dataset.f || "").split(",").filter(Boolean);
+      box.innerHTML = panels.map((html, n) => {
+        const f = fr[Math.min(n, fr.length - 1)];
+        const delay = f !== undefined ? `--f:${f}` : `--d:${1 + n * 1.2}s`;
+        return `<div class="panel b" style="${delay}">${html}</div>`;
+      }).join("");
+      touched.add(box.closest("section"));
+    }
+    // one font size per slide: shrink all its panels until each fits in height (data-bottom, else the
+    // slide) and no line overflows in width (measured while invisibly shown)
+    for (const sec of touched) {
+      const boxes = [...sec.querySelectorAll("[data-code]")];
+      const wasOn = sec.classList.contains("on");
+      sec.classList.add("on");
+      sec.style.visibility = "hidden";
+      const fits = () => boxes.every((b) => b.getBoundingClientRect().bottom <= Number(b.dataset.bottom || 1040) &&
+        [...b.querySelectorAll("pre")].every((p) => p.scrollWidth <= p.clientWidth + 1));
+      let fs = 24;
+      const set = () => boxes.forEach((b) => b.style.setProperty("--fs", `${fs}px`));
+      set();
+      while (fs > 12 && !fits()) { fs--; set(); }
+      sec.dataset.fs = fs;
+      if (!wasOn) sec.classList.remove("on");
+      sec.style.visibility = "";
+    }
+  };
+  const slides = [...document.querySelectorAll("section")];
+  window.go = (id, seconds) => slides.forEach((s) => {
+    if (s.id === id && seconds) s.style.setProperty("--dur", `${seconds}s`);
+    s.classList.toggle("on", s.id === id);
+  });
+  setLang(new URLSearchParams(location.search).get("lang") || "en");
+  go(location.hash.slice(1) || "g01", 30);
+</script>
+</body>
+</html>

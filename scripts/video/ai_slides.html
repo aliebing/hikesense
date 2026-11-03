@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hike all about – AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* same look as slides.html (tech video): colours of the app, amber accents */
+  :root {
+    --bg: #0d1a11; --wald: #2f5d3a; --papier: #f4f1ea; --muted: #b9c2b4; --line: rgba(244,241,234,.14);
+    --panel: rgba(244,241,234,.06); --amber: #f0b94a; --ok: #8fd19e; --bad: #f08a6c; --blue: #8fc7ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--papier);
+    font-family: "Source Sans 3", system-ui, sans-serif; }
+  html[data-lang="en"] .de, html[data-lang="de"] .en { display: none !important; }
+  .glow { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(55% 55% at 78% 18%, rgba(111,180,120,.16), transparent 70%),
+                radial-gradient(45% 55% at 12% 92%, rgba(47,93,58,.35), transparent 70%);
+    animation: drift 26s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(-30px, 18px) scale(1.04); } }
+  .ridge { position: fixed; left: 0; right: 0; bottom: 0; height: 120px; opacity: .55; pointer-events: none;
+    background: linear-gradient(to top, #08120b, transparent); }
+
+  section { position: absolute; inset: 0; padding: 80px 110px 60px; display: none; z-index: 1; }
+  section.on { display: flex; flex-direction: column; justify-content: center; }
+  section.top.on { justify-content: flex-start; }
+  .kicker { font: 600 22px "Source Sans 3"; letter-spacing: .28em; text-transform: uppercase; color: var(--amber); }
+  h1 { font: 600 124px/1 "Source Serif 4", Georgia, serif; letter-spacing: -.01em; }
+  h2 { font: 600 60px/1.05 "Source Serif 4", Georgia, serif; margin: 12px 0 30px; }
+  p, li { font-size: 30px; line-height: 1.4; }
+  .muted { color: var(--muted); } .amber { color: var(--amber); } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* build-in: delay = --d (seconds) or --f × the segment's duration (--dur, set by go()) */
+  .b { opacity: 0; transform: translateY(16px); }
+  section.on .b { animation: in .7s cubic-bezier(.2,.7,.2,1) forwards; animation-delay: var(--d, calc(var(--f, 0) * var(--dur, 30s))); }
+  @keyframes in { to { opacity: 1; transform: none; } }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
+  .col { display: grid; gap: 22px; align-content: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 28px; }
+  .card h3 { font: 600 29px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .card p, .card li { font-size: 25px; color: #e4e2da; line-height: 1.38; }
+  .card ul { list-style: none; } .card li { padding: 3px 0; }
+  .pills { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 8px 20px; font-size: 23px; background: rgba(47,93,58,.35); }
+  .pill.mono { font-size: 20px; }
+  .cap { font-size: 20px; color: var(--muted); margin-top: 12px; }
+  .shot { border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.6); display: block; max-width: 100%; max-height: 800px; }
+  .arrow-r { font-size: 54px; color: var(--amber); align-self: center; text-align: center; }
+  .note { font-size: 24px; color: #e4e2da; } .note b { color: var(--amber); font-weight: 600; }
+
+  /* title */
+  #a01 h1 span { color: var(--amber); }
+  #a01 .tag { font-size: 40px; margin-top: 28px; font-family: "Source Serif 4", serif; }
+
+  /* overview pipeline */
+  .pipe { display: grid; grid-template-columns: 1fr 60px 1fr 60px 1.5fr 60px 1fr; align-items: stretch; }
+  .box { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 22px 24px; }
+  .box h3 { font: 600 34px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .box li { list-style: none; font-size: 26px; line-height: 1.5; color: #e4e2da; }
+  .box .tag { display: inline-block; font: 600 17px "JetBrains Mono"; padding: 2px 10px; border-radius: 6px; margin: 4px 6px 0 0; }
+  .tag.m { background: rgba(240,185,74,.2); color: var(--amber); border: 1px solid var(--amber); }
+  .tag.c { background: rgba(143,199,255,.12); color: var(--blue); border: 1px solid rgba(143,199,255,.5); }
+  .arrow { align-self: center; justify-self: center; font-size: 44px; color: var(--muted); text-align: center; line-height: 1; }
+  .arrow small { display: block; font: 600 15px "JetBrains Mono"; color: var(--amber); margin-top: 4px; }
+
+  /* graph */
+  svg text { font-family: "Source Sans 3"; }
+  .node rect { fill: #142619; stroke: rgba(244,241,234,.28); stroke-width: 2; }
+  .node.llm rect { stroke: var(--amber); }
+  .node.tool rect { stroke: var(--blue); }
+  .node text { fill: var(--papier); font-size: 27px; font-weight: 600; text-anchor: middle; }
+  .node .sub { fill: var(--muted); font-size: 19px; font-weight: 400; }
+  .edge { stroke: rgba(244,241,234,.4); stroke-width: 3; fill: none; marker-end: url(#arr); }
+  .edge.cond { stroke: var(--amber); stroke-dasharray: 8 6; }
+  .dot { fill: var(--amber); filter: drop-shadow(0 0 10px var(--amber)); }
+  .legend { font-size: 21px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 26px; height: 14px; border-radius: 4px; margin: 0 8px 0 18px; vertical-align: middle; border: 2px solid var(--amber); }
+  .legend i.code { border-color: rgba(244,241,234,.4); } .legend i.cond { border: none; border-top: 3px dashed var(--amber); border-radius: 0; height: 0; }
+
+  /* message sequence of the tool loop */
+  .seq { display: grid; gap: 9px; }
+  .msg { display: grid; grid-template-columns: 56px 250px 1fr; align-items: center; gap: 16px; padding: 9px 16px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line); }
+  .msg .n { font: 600 22px "JetBrains Mono"; color: var(--muted); text-align: right; }
+  .msg .role { font: 600 21px "JetBrains Mono"; }
+  .msg .role small { display: block; font: 400 16px "Source Sans 3"; color: var(--muted); }
+  .msg .body { font: 400 19px/1.35 "JetBrains Mono", monospace; color: #e8e6df; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg .body .k { color: var(--blue); } .msg .body .s { color: #b9dc8a; } .msg .body .v { color: var(--amber); }
+  .msg.code { border-left: 5px solid var(--blue); } .msg.model { border-left: 5px solid var(--amber); } .msg.tool { border-left: 5px solid var(--ok); }
+  .msg.code .role { color: var(--blue); } .msg.model .role { color: var(--amber); } .msg.tool .role { color: var(--ok); }
+  .msg.final { background: rgba(240,185,74,.1); }
+  .msg.final .body { white-space: normal; }
+
+  /* evidence and the checked reply */
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { font: 600 21px "JetBrains Mono"; padding: 6px 14px; border-radius: 8px; background: rgba(143,209,158,.14); border: 1px solid rgba(143,209,158,.5); color: var(--ok); }
+  .chip.name { background: rgba(143,199,255,.1); border-color: rgba(143,199,255,.45); color: var(--blue); font-family: "Source Sans 3"; font-size: 22px; }
+  .reply { font-size: 27px; line-height: 1.5; background: #f4f1ea; color: #1f3f27; border-radius: 16px; padding: 20px 26px; }
+  .reply .y { background: rgba(80,160,90,.22); border-bottom: 3px solid #2f8a45; padding: 0 4px; border-radius: 4px; }
+  .reply .n { background: rgba(220,90,60,.18); border-bottom: 3px wavy #c44a2a; padding: 0 4px; border-radius: 4px; }
+  .reply .q { background: rgba(240,185,74,.45); padding: 0 8px; border-radius: 4px; font-weight: 700; }
+  .reply .hint { display: block; font-size: 21px; color: #5a5a50; margin-top: 8px; font-style: italic; }
+
+  /* assembly of the final text */
+  .stack { display: grid; gap: 10px; }
+  .part { border-radius: 12px; padding: 12px 20px; font-size: 24px; border: 1px solid var(--line); background: var(--panel); }
+  .part b { font: 600 18px "JetBrains Mono"; margin-right: 12px; }
+  .part.code { border-left: 5px solid var(--blue); } .part.code b { color: var(--blue); }
+  .part.model { border-left: 5px solid var(--amber); } .part.model b { color: var(--amber); }
+
+  /* summary tables */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 26px; }
+  .tbl th { text-align: left; color: var(--amber); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .tbl td { padding: 9px 12px; border-bottom: 1px solid rgba(244,241,234,.07); vertical-align: top; color: #e4e2da; }
+  .tbl td:first-child { font-weight: 600; color: var(--papier); white-space: nowrap; }
+  .jsonlist { counter-reset: j; list-style: none; }
+  .jsonlist li { counter-increment: j; font-size: 26px; padding: 9px 0 9px 56px; position: relative; border-bottom: 1px solid rgba(244,241,234,.07); }
+  .jsonlist li::before { content: counter(j); position: absolute; left: 0; top: 10px; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--wald); font: 600 21px/38px "Source Sans 3"; text-align: center; }
+  .jsonlist li b { font-weight: 600; }
+  .jsonlist li span { color: var(--muted); font-size: 21px; display: block; font-family: "JetBrains Mono", monospace; }
+
+  /* code and JSON panels (code_snippets.py and ai_demo.py, highlighted by Pygments) */
+  .code-slide { padding: 56px 90px 40px; }
+  section.code-slide.on { justify-content: flex-start; }
+  .code-slide h2 { font-size: 50px; margin: 8px 0 20px; }
+  .panels { display: grid; gap: 18px; align-items: start; }
+  .panel { background: #0a140d; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+  .codehead { font: 600 18px "JetBrains Mono", monospace; color: var(--amber); padding: 10px 18px; border-bottom: 1px solid var(--line); background: rgba(240,185,74,.07); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .codehead span { color: var(--muted); font-weight: 400; }
+  .src pre { margin: 0; padding: 10px 0; font: 400 var(--fs, 22px)/1.42 "JetBrains Mono", monospace; color: #e8e6df; white-space: pre; overflow: hidden; font-variant-ligatures: none; }
+  .src pre:not(:has(.linenos)) { padding: 10px 18px; }
+  .src pre.txt { white-space: pre-wrap; color: #e4e2da; }
+  .src pre.sse { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .src .linenos { display: inline-block; width: 3.6em; padding-right: 1em; text-align: right; color: #5d6b5f; user-select: none; }
+  .src .hll { display: block; background: rgba(240,185,74,.16); box-shadow: inset 4px 0 0 var(--amber); margin: 0 -18px; padding: 0 18px; }
+  .src pre:has(.linenos) .hll { margin: 0; padding: 0; }
+  .src .k, .src .kn, .src .kd, .src .ow { color: #ff9e7a; }
+  .src .kc { color: #ff9e7a; }
+  .src .nf, .src .fm, .src .nc, .src .nt { color: #8fc7ff; }
+  .src .s, .src .s1, .src .s2, .src .sa, .src .si, .src .se, .src .sb { color: #b9dc8a; }
+  .src .sd { color: #a0a898; font-style: italic; }
+  .src .c, .src .c1, .src .cm { color: #8d978a; font-style: italic; }
+  .src .mi, .src .mf { color: #f0b94a; }
+  .src .nb, .src .bp { color: #c7a5ff; }
+  .src .nd { color: var(--amber); }
+  .src .o, .src .p { color: #d3cfc4; }
+  .src .err { color: var(--muted); border: none; background: none; }
+  .src .ev { color: var(--amber); font-weight: 600; } .src .dl { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="ridge"></div>
+
+<!-- 1 title -->
+<section id="a01">
+  <div class="kicker b" style="--f:.02">Turing College · AI Engineering</div>
+  <h1 class="b" style="--f:.06">Hike all about<br><span class="en">how the AI works</span><span class="de">so arbeitet die KI</span></h1>
+  <p class="tag b" style="--f:.15"><span class="en">One chat message, step by step.</span><span class="de">Eine Chatnachricht, Schritt für Schritt.</span></p>
+  <div class="pills b" style="--f:.3">
+    <span class="pill">HTTP + SSE</span><span class="pill">LangGraph</span><span class="pill">Structured output</span>
+    <span class="pill en">Number check</span><span class="pill de">Zahlenprüfung</span><span class="pill">Tool calling</span>
+    <span class="pill">Grounding</span><span class="pill">Log</span>
+  </div>
+</section>
+
+<!-- 2 overview -->
+<section id="a02">
+  <div class="kicker b"><span class="en">The big picture</span><span class="de">Der Überblick</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">One message, one pass through the graph</span><span class="de">Eine Nachricht, ein Durchlauf durch den Graphen</span></h2>
+  <div class="pipe">
+    <div class="box b" style="--f:.06"><h3>Browser</h3><ul><li>Next.js</li><li class="en">chat in the tab</li><li class="de">Chat im Tab</li></ul></div>
+    <div class="arrow b" style="--f:.1">→<small>JSON</small></div>
+    <div class="box b" style="--f:.14"><h3>API</h3><ul><li>FastAPI</li><li class="en">token check</li><li class="de">Token-Prüfung</li><li class="en">rate limit</li><li class="de">Ratenlimit</li></ul></div>
+    <div class="arrow b" style="--f:.22">→</div>
+    <div class="box b" style="--f:.22"><h3>LangGraph</h3><ul>
+      <li>guard <span class="tag c">code</span></li>
+      <li>understand <span class="tag m">model</span> <span class="tag c">code</span></li>
+      <li>search … <span class="tag c">code</span> <span class="tag c">tools</span></li>
+      <li>answer <span class="tag m">model</span></li>
+      <li>ground · log <span class="tag c">code</span></li></ul></div>
+    <div class="arrow b" style="--f:.75">→<small>SSE</small></div>
+    <div class="box b" style="--f:.75"><h3>Browser</h3><ul><li class="en">chips, cards, text</li><li class="de">Chips, Karten, Text</li><li class="en">from JSON events</li><li class="de">aus JSON-Ereignissen</li></ul></div>
+  </div>
+  <div class="grid2" style="margin-top:34px">
+    <div class="card b" style="--f:.36"><h3 class="en">Model · 2 calls for a day hike</h3><h3 class="de">Modell · 2 Aufrufe bei einer Tagestour</h3>
+      <p class="en">understand: message → JSON · answer: data block → text</p><p class="de">understand: Nachricht → JSON · answer: Datenblock → Text</p></div>
+    <div class="card b" style="--f:.5"><h3 class="en">Code · everything in between</h3><h3 class="de">Code · alles dazwischen</h3>
+      <p class="en">route · search · conditions · numbers · honest sentences · log</p><p class="de">Route · Suche · Bedingungen · Zahlen · ehrliche Sätze · Log</p></div>
+  </div>
+</section>
+
+<!-- 3 request and events -->
+<section id="a03" class="top">
+  <div class="kicker b"><span class="en">In and out</span><span class="de">Hin und zurück</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">A JSON request, a stream of JSON events</span><span class="de">Eine JSON-Anfrage, ein Strom von JSON-Ereignissen</span></h2>
+  <div class="grid2" style="grid-template-columns: 0.95fr 1.05fr">
+    <div class="col">
+      <div class="panels" data-code="a03L" data-f=".05"></div>
+      <div class="card b" style="--f:.16"><p class="en">validated by <span class="mono amber">ChatRequest</span> (Pydantic) in <span class="mono">api/chat.py</span></p>
+        <p class="de">geprüft von <span class="mono amber">ChatRequest</span> (Pydantic) in <span class="mono">api/chat.py</span></p></div>
+      <div class="panels" data-code="a03c" data-f=".3"></div>
+      <div class="pills b" style="--f:.5; margin-top:4px">
+        <span class="pill mono">understood</span><span class="pill mono">clarify</span><span class="pill mono">results</span><span class="pill mono">weather_days</span>
+        <span class="pill mono">plan</span><span class="pill mono">groups</span><span class="pill mono">events</span><span class="pill mono">token</span>
+        <span class="pill mono">sources</span><span class="pill mono">done</span><span class="pill mono">error</span></div>
+    </div>
+    <div class="panels" data-code="a03R" data-f=".24"></div>
+  </div>
+</section>
+
+<!-- 4 graph -->
+<section id="a04">
+  <div class="kicker b"><span class="en">The agent</span><span class="de">Der Agent</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">LangGraph: twelve nodes, one route per message</span><span class="de">LangGraph: zwölf Knoten, eine Route pro Nachricht</span></h2>
+  <svg width="1700" height="640" viewBox="0 0 1700 640" class="b" style="--f:.04">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="rgba(244,241,234,.6)"/></marker></defs>
+    <g class="node b" style="--f:.06"><rect x="0" y="240" width="190" height="100" rx="50"/><text x="95" y="282">START</text><text class="sub en" x="95" y="312">message + lang</text><text class="sub de" x="95" y="312">Nachricht + Sprache</text></g>
+    <path class="edge b" style="--f:.08" d="M192 290 H238"/>
+    <g class="node b" style="--f:.08"><rect x="240" y="235" width="190" height="110" rx="16"/><text x="335" y="282">guard</text><text class="sub en" x="335" y="314">injection check</text><text class="sub de" x="335" y="314">Injection-Prüfung</text></g>
+    <path class="edge cond b" style="--f:.2" d="M432 290 H478"/>
+    <path class="edge cond b" style="--f:.14" d="M335 347 V438"/>
+    <g class="node b" style="--f:.14"><rect x="240" y="440" width="190" height="80" rx="16"/><text x="335" y="478">reply</text><text class="sub en" x="335" y="504">fixed text</text><text class="sub de" x="335" y="504">fester Text</text></g>
+    <g class="node llm b" style="--f:.2"><rect x="480" y="235" width="230" height="110" rx="16"/><text x="595" y="282">understand</text><text class="sub en" x="595" y="314">≤ 1 model call + code</text><text class="sub de" x="595" y="314">≤ 1 Modellaufruf + Code</text></g>
+    <path class="edge cond b" style="--f:.34" d="M712 255 C760 140, 790 60, 838 60"/>
+    <g class="node b" style="--f:.34"><rect x="840" y="20" width="230" height="80" rx="16"/><text x="955" y="70">clarify</text></g>
+    <path class="edge cond b" style="--f:.37" d="M712 275 C770 220, 790 165, 838 165"/>
+    <g class="node tool b" style="--f:.37"><rect x="840" y="125" width="230" height="80" rx="16"/><text x="955" y="160">search</text><text class="sub" x="955" y="190">search_day_hikes</text></g>
+    <path class="edge cond b" style="--f:.4" d="M712 290 H838"/>
+    <g class="node b" style="--f:.4"><rect x="840" y="250" width="230" height="80" rx="16"/><text x="955" y="290">multiday</text><text class="sub en" x="955" y="317">planner</text><text class="sub de" x="955" y="317">Planer</text></g>
+    <path class="edge cond b" style="--f:.43" d="M712 305 C770 360, 790 415, 838 415"/>
+    <g class="node llm b" style="--f:.43"><rect x="840" y="375" width="230" height="80" rx="16"/><text x="955" y="410">react</text><text class="sub en" x="955" y="440">tool calling</text><text class="sub de" x="955" y="440">Tool-Calling</text></g>
+    <path class="edge cond b" style="--f:.46" d="M710 325 C760 440, 790 520, 838 520"/>
+    <g class="node b" style="--f:.46"><rect x="840" y="480" width="230" height="80" rx="16"/><text x="955" y="528">groups · events</text></g>
+    <path class="edge cond b" style="--f:.3" d="M700 345 C650 440, 520 480, 432 480"/>
+    <path class="edge b" style="--f:.55" d="M1072 165 C1120 165, 1130 270, 1168 280"/>
+    <path class="edge b" style="--f:.55" d="M1072 290 H1168"/>
+    <path class="edge b" style="--f:.55" d="M1072 415 C1120 415, 1130 310, 1168 300"/>
+    <path class="edge b" style="--f:.55" d="M1072 520 C1130 520, 1140 320, 1168 305"/>
+    <g class="node llm b" style="--f:.55"><rect x="1170" y="245" width="190" height="90" rx="16"/><text x="1265" y="285">answer</text><text class="sub en" x="1265" y="314">model words it</text><text class="sub de" x="1265" y="314">Modell formuliert</text></g>
+    <path class="edge b" style="--f:.6" d="M1265 337 V388"/>
+    <g class="node b" style="--f:.6"><rect x="1170" y="390" width="190" height="90" rx="16" style="stroke:#8fd19e"/><text x="1265" y="430">ground</text><text class="sub en" x="1265" y="458">number check</text><text class="sub de" x="1265" y="458">Zahlenprüfung</text></g>
+    <path class="edge b" style="--f:.63" d="M1362 435 H1448"/>
+    <g class="node b" style="--f:.63"><rect x="1450" y="390" width="190" height="90" rx="45"/><text x="1545" y="430">log</text><text class="sub" x="1545" y="458">→ END</text></g>
+    <path class="edge b" style="--f:.34" d="M1072 60 H1545 V388"/>
+    <path class="edge b" style="--f:.63" d="M335 522 V600 H1545 V482"/>
+    <circle class="dot b" style="--f:.1" r="10"><animateMotion dur="6s" repeatCount="indefinite" path="M190 290 H595 H955 V165 H1072 C1120 165, 1130 270, 1265 290 V435 H1545"/></circle>
+  </svg>
+  <p class="legend b" style="--f:.3"><i></i><span class="en">model involved</span><span class="de">mit Modell</span><i class="code"></i><span class="en">code only</span><span class="de">nur Code</span><i class="cond"></i><span class="en">conditional edge: reads</span><span class="de">bedingte Kante: liest</span> <span class="mono amber">state["route"]</span></p>
+  <div class="pills b" style="--f:.72">
+    <span class="pill mono">StateGraph(State) · build_graph</span><span class="pill mono">compile(checkpointer=MemorySaver)</span><span class="pill mono">thread_id = user_hash:thread_id</span>
+  </div>
+</section>
+
+<!-- 5 structured output -->
+<section id="a05" class="top">
+  <div class="kicker b">understand · structured output</div>
+  <h2 class="b" style="--f:.02"><span class="en">The model fills in a form: JSON Schema → JSON</span><span class="de">Das Modell füllt ein Formular aus: JSON-Schema → JSON</span></h2>
+  <div class="grid2" style="grid-template-columns: 1.2fr 50px 0.8fr; gap: 18px">
+    <div class="col">
+      <div class="panels" data-code="a05c" data-f=".06"></div>
+      <div class="panels" data-code="a05L" data-f=".2"></div>
+    </div>
+    <div class="arrow-r b" style="--f:.45">→</div>
+    <div class="col">
+      <div class="panels" data-code="a05R" data-f=".5"></div>
+      <p class="cap b" style="--f:.5"><span class="en">temperature 0 · openai/gpt-4o-mini via OpenRouter · Pydantic validates the reply</span><span class="de">Temperatur 0 · openai/gpt-4o-mini über OpenRouter · Pydantic prüft die Antwort</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 code: structured -->
+<section id="a06" class="code-slide">
+  <div class="kicker b">In the code · llm/gateway.py · agent/understand.py</div>
+  <h2 class="b" style="--f:.02"><span class="en">structured(): schema in, validated object out</span><span class="de">structured(): Schema rein, geprüftes Objekt raus</span></h2>
+  <div class="panels" data-code="a06"></div>
+</section>
+
+<!-- 7 number check -->
+<section id="a07" class="top">
+  <div class="kicker b"><span class="en">understand · resolve (code)</span><span class="de">understand · resolve (Code)</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">Valid JSON is not yet correct JSON</span><span class="de">Gültiges JSON ist noch kein richtiges JSON</span></h2>
+  <div class="grid2" style="grid-template-columns: 0.75fr 120px 1.25fr; gap: 16px">
+    <div class="col">
+      <div class="card b" style="--f:.04"><p class="mono" style="font-size:24px">“A round walk near Titisee, about 10 km”</p></div>
+      <div class="panels" data-code="a07L" data-f=".08"></div>
+    </div>
+    <div class="arrow-r b" style="--f:.3">→<div class="mono" style="font-size:19px">resolve()</div></div>
+    <div class="col">
+      <div class="panels" data-code="a07R" data-f=".55" data-bottom="720"></div>
+      <div class="card b" style="--f:.3"><ul>
+        <li class="en"><span class="bad">✗</span> a number the user did not write is dropped · <span class="mono amber">_written</span></li>
+        <li class="de"><span class="bad">✗</span> Zahl, die nicht in der Nachricht steht, fällt weg · <span class="mono amber">_written</span></li>
+        <li class="en b" style="--f:.5"><span class="ok">✓</span> min = max = 10 → band ± 15 % · <span class="mono amber">_approx</span></li>
+        <li class="de b" style="--f:.5"><span class="ok">✓</span> min = max = 10 → Band ± 15 % · <span class="mono amber">_approx</span></li>
+        <li class="en b" style="--f:.66"><span class="ok">✓</span> default radius 15 km, shown in the echo · <span class="mono amber">_finish</span></li>
+        <li class="de b" style="--f:.66"><span class="ok">✓</span> Standard-Umkreis 15 km, sichtbar im Echo · <span class="mono amber">_finish</span></li>
+        <li class="en b" style="--f:.4"><span class="ok">✓</span> “Titisee” → place from the vocabulary, or a clarify question</li>
+        <li class="de b" style="--f:.4"><span class="ok">✓</span> „Titisee“ → Ort aus dem Vokabular, sonst eine Rückfrage</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 search: the code calls the tool -->
+<section id="a08" class="top">
+  <div class="kicker b"><span class="en">search · no model choice</span><span class="de">search · keine Wahl des Modells</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">The graph calls the search tool itself</span><span class="de">Der Graph ruft das Such-Tool selbst auf</span></h2>
+  <div class="grid2" style="grid-template-columns: 0.9fr 1.1fr; gap: 26px">
+    <div class="col">
+      <div class="panels" data-code="a08c" data-f=".05"></div>
+      <div class="panels" data-code="a08L" data-f=".2"></div>
+    </div>
+    <div class="col">
+      <div class="panels" data-code="a08R" data-f=".42"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 tool specs -->
+<section id="a09">
+  <div class="kicker b">react · tool calling</div>
+  <h2 class="b" style="--f:.02"><span class="en">The tool menu: function specs as JSON Schema</span><span class="de">Die Tool-Karte: Funktionsbeschreibungen als JSON-Schema</span></h2>
+  <div class="grid2" style="grid-template-columns: 1.05fr 0.95fr; gap: 34px">
+    <div class="col">
+      <div class="panels" data-code="a09L" data-f=".2"></div>
+      <p class="cap b" style="--f:.2"><span class="en">the descriptions are German: the model reads them, the user never does</span><span class="de">Beschreibungen auf Deutsch: Das Modell liest sie, der Nutzer nie</span></p>
+    </div>
+    <div class="col">
+      <div class="card b" style="--f:.42"><h3>TOOL_SPECS · 4</h3><ul class="mono" style="font-size:24px">
+        <li class="b" style="--f:.45">get_trail_details(trail_id)</li>
+        <li class="b" style="--f:.5">find_accommodation(trail_id, near_km?, max_dist_m?)</li>
+        <li class="b" style="--f:.55">hiking_time(length_km, ascent_m, descent_m)</li>
+        <li class="b" style="--f:.62">search_knowledge(query, k?)</li></ul></div>
+      <div class="card b" style="--f:.72"><p class="en"><span class="mono amber">bind_tools(TOOL_SPECS)</span> → the <span class="mono">tools</span> field of every request in the loop</p>
+        <p class="de"><span class="mono amber">bind_tools(TOOL_SPECS)</span> → das Feld <span class="mono">tools</span> jeder Anfrage in der Schleife</p></div>
+      <div class="card b" style="--f:.1"><p class="en">not on the menu: <span class="mono">search_day_hikes</span> – “called by the graph itself”</p>
+        <p class="de">nicht auf der Karte: <span class="mono">search_day_hikes</span> – „called by the graph itself“</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 the tool loop -->
+<section id="a10" class="top">
+  <div class="kicker b">react · <span class="en">the loop</span><span class="de">die Schleife</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">tool_calls out, ToolMessage back, same id</span><span class="de">tool_calls raus, ToolMessage zurück, gleiche ID</span></h2>
+  <div class="seq">
+    <div class="msg code b" style="--f:.04"><div class="n">1</div><div class="role">SystemMessage<small>code</small></div><div class="body en">“… Use the tools to look up facts; answer only with what the tools return. Every number …”</div><div class="body de">„… Nutze die Werkzeuge, um Fakten nachzuschlagen; antworte nur mit dem, was die Werkzeuge liefern …“</div></div>
+    <div class="msg code b" style="--f:.05"><div class="n">2</div><div class="role">SystemMessage<small class="en">code · last tours</small><small class="de">Code · letzte Touren</small></div><div class="body">- day-12013547: Genießerpfad - Menzenschwander Geißenpfad …</div></div>
+    <div class="msg code b" style="--f:.06"><div class="n">3</div><div class="role">HumanMessage<small class="en">the question</small><small class="de">die Frage</small></div><div class="body en">“How long does the Geißenpfad take, and is there somewhere to eat?”</div><div class="body de">„Wie lange brauche ich für den Geißenpfad, und gibt es dort eine Einkehr?“</div></div>
+    <div class="msg code b" style="--f:.08"><div class="n">4</div><div class="role">AIMessage<small class="en">written by the code</small><small class="de">vom Code geschrieben</small></div><div class="body">tool_calls=[{<span class="k">"name"</span>: <span class="s">"search_knowledge"</span>, <span class="k">"args"</span>: {<span class="k">"query"</span>: …, <span class="k">"k"</span>: <span class="v">5</span>}, <span class="k">"id"</span>: <span class="s">"vorab"</span>}]</div></div>
+    <div class="msg tool b" style="--f:.14"><div class="n">5</div><div class="role">ToolMessage<small>tool_call_id="vorab"</small></div><div class="body">[{<span class="k">"text"</span>: <span class="s">"…"</span>, <span class="k">"title"</span>: <span class="s">"…"</span>, <span class="k">"url"</span>: <span class="s">"https://de.wikipedia.org/…"</span>, <span class="k">"license"</span>: <span class="s">"CC BY-SA 4.0"</span>}, …]</div></div>
+    <div class="msg model b" style="--f:.22"><div class="n">6</div><div class="role">AIMessage<small class="en">model · tool_round</small><small class="de">Modell · tool_round</small></div><div class="body">tool_calls=[{<span class="k">"name"</span>: <span class="s">"get_trail_details"</span>, <span class="k">"args"</span>: {<span class="k">"trail_id"</span>: <span class="s">"day-12013547"</span>}, <span class="k">"id"</span>: <span class="s">"call_1"</span>}]</div></div>
+    <div class="msg tool b" style="--f:.4"><div class="n">7</div><div class="role">ToolMessage<small>tool_call_id="call_1"</small></div><div class="body">{<span class="k">"trail_id"</span>: <span class="s">"day-12013547"</span>, <span class="k">"length_km"</span>: <span class="v">9.78</span>, <span class="k">"ascent_m"</span>: <span class="v">278</span>, <span class="k">"descent_m"</span>: <span class="v">277</span>, <span class="k">"pois"</span>: [{<span class="k">"name"</span>: <span class="s">"Hotel Hirschen"</span>, …}, …], …}</div></div>
+    <div class="msg model b" style="--f:.5"><div class="n">8</div><div class="role">AIMessage<small class="en">model · tool_round</small><small class="de">Modell · tool_round</small></div><div class="body">tool_calls=[{<span class="k">"name"</span>: <span class="s">"hiking_time"</span>, <span class="k">"args"</span>: {<span class="k">"length_km"</span>: <span class="v">9.78</span>, <span class="k">"ascent_m"</span>: <span class="v">278</span>, <span class="k">"descent_m"</span>: <span class="v">277</span>}, <span class="k">"id"</span>: <span class="s">"call_2"</span>}]</div></div>
+    <div class="msg tool b" style="--f:.56"><div class="n">9</div><div class="role">ToolMessage<small>tool_call_id="call_2"</small></div><div class="body">{<span class="k">"hours"</span>: <span class="v">3.19</span>, <span class="k">"horizontal_h"</span>: <span class="v">2.44</span>, <span class="k">"vertical_h"</span>: <span class="v">1.48</span>, <span class="k">"formula"</span>: <span class="s">"max(h, v) + min(h, v) / 2 …"</span>}</div></div>
+    <div class="msg model final b" style="--f:.66"><div class="n">10</div><div class="role">AIMessage<small class="en">no tool_calls → draft</small><small class="de">keine tool_calls → Entwurf</small></div><div class="body en">content=“For the Menzenschwander Geißenpfad (9.8 km, 278 m of ascent), DIN 33466 gives about 3.2 hours without breaks, so about 4 hours …”</div><div class="body de">content=„Für den Menzenschwander Geißenpfad (9,8 km, 278 Hm) rechnet DIN 33466 mit etwa 3,2 Stunden ohne Pausen, also rund 4 Stunden …“</div></div>
+  </div>
+  <p class="cap b" style="--f:.8"><span class="en">max_tool_calls = 8, the code's own search included · tools and results real (database, knowledge index) · model replies scripted for this demo (FakeGateway)</span><span class="de">max_tool_calls = 8, Vorab-Suche des Codes mitgezählt · Tools und Ergebnisse echt (Datenbank, Wissensindex) · Modellantworten für die Demo vorgegeben (FakeGateway)</span></p>
+</section>
+
+<!-- 11 code: the loop -->
+<section id="a11" class="code-slide">
+  <div class="kicker b">In the code · agent/graph.py · react</div>
+  <h2 class="b" style="--f:.02"><span class="en">The loop: tool_round → tool_calls → ToolMessage</span><span class="de">Die Schleife: tool_round → tool_calls → ToolMessage</span></h2>
+  <div class="panels" data-code="a11"></div>
+</section>
+
+<!-- 12 evidence and grounding -->
+<section id="a12" class="top">
+  <div class="kicker b">ground · grounding_check</div>
+  <h2 class="b" style="--f:.02"><span class="en">Tool JSON becomes evidence, every number is checked</span><span class="de">Aus Tool-JSON werden Belege, jede Zahl wird geprüft</span></h2>
+  <div class="grid2" style="grid-template-columns: 0.95fr 1.05fr; gap: 30px">
+    <div class="panels" data-code="a12L" data-f=".05,.12"></div>
+    <div class="col">
+      <div class="card b" style="--f:.2"><h3>_walk → Evidence</h3>
+        <div class="chips">
+          <span class="chip b" style="--f:.22">9,78 km</span><span class="chip b" style="--f:.24">278 Hm</span><span class="chip b" style="--f:.26">277 Hm</span>
+          <span class="chip b" style="--f:.28">3,19 h</span><span class="chip b" style="--f:.29">2,44 h</span><span class="chip b" style="--f:.3">1,48 h</span><span class="chip b" style="--f:.31">286 m</span><span class="chip">…</span>
+          <span class="chip name b" style="--f:.33">Genießerpfad - Menzenschwander Geißenpfad</span><span class="chip name b" style="--f:.34">Hotel Hirschen</span>
+        </div>
+        <p class="b" style="--f:.4; margin-top:12px; font-size:22px"><span class="en">hiking_time counts only if 9.78 km, 278 and 277 m are evidence already</span><span class="de">hiking_time zählt nur, wenn 9,78 km, 278 und 277 Hm schon belegt sind</span></p>
+      </div>
+      <div class="reply b en" style="--f:.55">For the Menzenschwander Geißenpfad (<span class="y">9.8 km</span>, <span class="y">278 m</span> of ascent), DIN 33466 gives about <span class="y">3.2 hours</span> without breaks, so about <span class="n">4 hours</span> with breaks.</div>
+      <div class="reply b de" style="--f:.55">Für den Menzenschwander Geißenpfad (<span class="y">9,8 km</span>, <span class="y">278 Hm</span>) rechnet DIN 33466 mit etwa <span class="y">3,2 Stunden</span> ohne Pausen, also rund <span class="n">4 Stunden</span> mit Pausen.</div>
+      <div class="reply b en" style="--f:.78">… so about <span class="q">?</span> hours with breaks.<span class="hint">Note: 1 figure(s) could not be verified and were removed.</span></div>
+      <div class="reply b de" style="--f:.78">… also rund <span class="q">?</span> Stunden mit Pausen.<span class="hint">Hinweis: 1 Angabe(n) ließ(en) sich nicht belegen und wurde(n) entfernt.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 answer and the final text -->
+<section id="a13" class="top">
+  <div class="kicker b">answer · ground</div>
+  <h2 class="b" style="--f:.02"><span class="en">The model words it, the code has the last word</span><span class="de">Das Modell formuliert, der Code hat das letzte Wort</span></h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1fr; gap: 34px">
+    <div class="col">
+      <div class="panels" data-code="a13d" data-f=".05"></div>
+      <div class="card b" style="--f:.1"><h3 class="en">Answer prompt · temperature 0.3</h3><h3 class="de">Antwort-Prompt · Temperatur 0,3</h3><ul>
+        <li class="en">Name only tours, places, accommodation and sources that appear in the data.</li>
+        <li class="de">Nenne nur Touren, Orte, Unterkünfte und Quellen, die in den Daten stehen.</li>
+        <li class="en">Every number … must appear in the data exactly like that. Calculate nothing, estimate nothing.</li>
+        <li class="de">Jede Zahl … muss genau so in den Daten stehen. Rechne nichts aus, schätze nichts.</li>
+        <li class="en">Whether the tours meet all conditions is said by the program itself.</li>
+        <li class="de">Ob die Touren alle Bedingungen einhalten, sagt das Programm selbst.</li></ul></div>
+    </div>
+    <div class="col">
+      <div class="stack">
+        <div class="part code b" style="--f:.26"><b>prefix</b><span class="en">code: multi-day notes</span><span class="de">Code: Hinweise zur Mehrtagestour</span></div>
+        <div class="part code b" style="--f:.29"><b>reason</b><span class="en">code: “No tour meets all your wishes, because …”</span><span class="de">Code: „Keine Tour erfüllt alle Wünsche, weil …“</span></div>
+        <div class="part model b" style="--f:.22"><b>body</b><span class="en">model text, after grounding_check</span><span class="de">Modelltext, nach grounding_check</span></div>
+        <div class="part code b" style="--f:.32"><b>near</b><span class="en">code: the near-miss sentence</span><span class="de">Code: der Knapp-daneben-Satz</span></div>
+        <div class="part code b" style="--f:.35"><b>weather</b><span class="en">code: the weather day sentence</span><span class="de">Code: der Wetter-Satz</span></div>
+      </div>
+      <div class="card b" style="--f:.5"><h3 class="en">ground removes</h3><h3 class="de">ground entfernt</h3><ul>
+        <li class="en">unsupported numbers → “?” + note · unknown tour names → note</li>
+        <li class="de">unbelegte Zahlen → „?“ + Hinweis · unbekannte Tournamen → Hinweis</li>
+        <li class="en">“no tour meets all your wishes” unless the code fell back</li>
+        <li class="de">„keine Tour erfüllt alle Wünsche“, wenn der Code nicht ausgewichen ist</li>
+        <li class="en">a leaked system prompt → fixed reply</li>
+        <li class="de">durchgesickerter Systemprompt → fester Satz</li></ul></div>
+      <div class="pills b" style="--f:.84; margin-top:0"><span class="pill mono">ground → _emit(TokenEvent(text=chunk)) → SSE</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 14 log -->
+<section id="a14" class="top">
+  <div class="kicker b">log · /admin</div>
+  <h2 class="b" style="--f:.02"><span class="en">One JSON line per turn, readable in the backend</span><span class="de">Eine JSON-Zeile pro Durchlauf, lesbar im Backend</span></h2>
+  <div class="grid2" style="grid-template-columns: 1fr 0.85fr; gap: 30px">
+    <div class="panels" data-code="a14L" data-f=".05"></div>
+    <div><img class="shot b" style="--f:.62" src="out/shots/admin-model.jpg">
+      <p class="cap b" style="--f:.62"><span class="en">/admin · tool calls, model calls, tokens, cost, duration · prompts unfold</span><span class="de">/admin · Tool-Aufrufe, Modellaufrufe, Tokens, Kosten, Dauer · Prompts aufklappbar</span></p></div>
+  </div>
+</section>
+
+<!-- 15 summary -->
+<section id="a15" class="top">
+  <div class="kicker b"><span class="en">Summary</span><span class="de">Zusammenfassung</span></div>
+  <h2 class="b" style="--f:.02"><span class="en">Where JSON appears, and who decides what</span><span class="de">Wo JSON vorkommt, und wer was entscheidet</span></h2>
+  <div class="grid2" style="grid-template-columns: 0.85fr 1.15fr; gap: 40px">
+    <ol class="jsonlist">
+      <li class="b" style="--f:.04"><b class="en">JSON Schema to the model</b><b class="de">JSON-Schema an das Modell</b><span>RawRequest · TOOL_SPECS</span></li>
+      <li class="b" style="--f:.09"><b class="en">model output</b><b class="de">Ausgabe des Modells</b><span>→ Pydantic (LLMBadOutput)</span></li>
+      <li class="b" style="--f:.12"><b class="en">tool arguments</b><b class="de">Tool-Argumente</b><span>AIMessage.tool_calls[].args</span></li>
+      <li class="b" style="--f:.15"><b class="en">tool results</b><b class="de">Tool-Ergebnisse</b><span>ToolMessage · Evidence (_walk)</span></li>
+      <li class="b" style="--f:.18"><b class="en">events to the browser</b><b class="de">Ereignisse an den Browser</b><span>ChatEvent → SSE</span></li>
+      <li class="b" style="--f:.22"><b class="en">the log line</b><b class="de">die Log-Zeile</b><span>data/logs/chat.jsonl → /admin</span></li>
+    </ol>
+    <table class="tbl b" style="--f:.3">
+      <tr><th></th><th class="en">model</th><th class="de">Modell</th><th>Code</th></tr>
+      <tr><td>intent</td><td class="en">names it</td><td class="de">nennt sie</td><td class="en">picks the node, asks back if unclear</td><td class="de">wählt den Knoten, fragt bei Unklarheit nach</td></tr>
+      <tr><td class="en">numbers, place</td><td class="de">Zahlen, Ort</td><td class="en">proposes</td><td class="de">schlägt vor</td><td class="en">keeps only what the user wrote, resolves places</td><td class="de">behält nur Geschriebenes, löst Orte auf</td></tr>
+      <tr><td class="en">day-hike search</td><td class="de">Tagestour-Suche</td><td>–</td><td class="en">calls search_day_hikes, checks conditions</td><td class="de">ruft search_day_hikes auf, prüft Bedingungen</td></tr>
+      <tr><td class="en">knowledge tools</td><td class="de">Wissens-Tools</td><td class="en">picks tools and arguments</td><td class="de">wählt Tools und Argumente</td><td class="en">searches first, runs them, max. 8</td><td class="de">sucht vorab, führt aus, max. 8</td></tr>
+      <tr><td class="en">answer text</td><td class="de">Antworttext</td><td class="en">words it</td><td class="de">formuliert</td><td class="en">checks numbers, adds its own sentences</td><td class="de">prüft Zahlen, fügt eigene Sätze ein</td></tr>
+    </table>
+  </div>
+  <p class="b" style="--f:.86; margin-top:36px; font: 600 54px 'Source Serif 4', serif; color: var(--amber)"><span class="en">The code decides, the model words it.</span><span class="de">Der Code entscheidet, das Modell formuliert.</span></p>
+</section>
+
+<script>
+  // ai_demo.py calls setLang and fillCode; go(id, seconds) shows one slide and times its build-in
+  window.setLang = (lang) => { document.documentElement.dataset.lang = lang; document.documentElement.lang = lang; };
+  window.fillCode = (code) => {
+    const touched = new Set();
+    for (const [key, panels] of Object.entries(code)) {
+      const box = document.querySelector(`[data-code="${key}"]`);
+      if (!box) continue;
+      const fr = (box.dataset.f || "").split(",").filter(Boolean);
+      box.innerHTML = panels.map((html, n) => {
+        const f = fr[Math.min(n, fr.length - 1)];
+        const delay = f !== undefined ? `--f:${f}` : `--d:${1 + n * 1.2}s`;
+        return `<div class="panel b" style="${delay}">${html}</div>`;
+      }).join("");
+      touched.add(box.closest("section"));
+    }
+    // one font size per slide: shrink all its panels until each fits in height (data-bottom, else the
+    // slide) and no line overflows in width (measured while invisibly shown)
+    for (const sec of touched) {
+      const boxes = [...sec.querySelectorAll("[data-code]")];
+      const wasOn = sec.classList.contains("on");
+      sec.classList.add("on");
+      sec.style.visibility = "hidden";
+      const fits = () => boxes.every((b) => b.getBoundingClientRect().bottom <= Number(b.dataset.bottom || 1040) &&
+        [...b.querySelectorAll("pre")].every((p) => p.scrollWidth <= p.clientWidth + 1));
+      let fs = 24;
+      const set = () => boxes.forEach((b) => b.style.setProperty("--fs", `${fs}px`));
+      set();
+      while (fs > 13 && !fits()) { fs--; set(); }
+      sec.dataset.fs = fs;
+      if (!wasOn) sec.classList.remove("on");
+      sec.style.visibility = "";
+    }
+  };
+  const slides = [...document.querySelectorAll("section")];
+  window.go = (id, seconds) => slides.forEach((s) => {
+    if (s.id === id && seconds) s.style.setProperty("--dur", `${seconds}s`);
+    s.classList.toggle("on", s.id === id);
+  });
+  setLang(new URLSearchParams(location.search).get("lang") || "en");
+  go(location.hash.slice(1) || "a01", 30);
+</script>
+</body>
+</html>

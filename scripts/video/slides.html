@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hike all about – Tech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* colours of the app (web/src/app/globals.css): wald, wald-dunkel, papier; amber like the near-miss cards */
+  :root {
+    --bg: #0d1a11; --wald: #2f5d3a; --wald-dunkel: #1f3f27; --flaeche: #284a32; --papier: #f4f1ea;
+    --muted: #b9c2b4; --line: rgba(244,241,234,.14); --panel: rgba(244,241,234,.06);
+    --amber: #f0b94a; --ok: #8fd19e; --bad: #f08a6c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--papier);
+    font-family: "Source Sans 3", system-ui, sans-serif; }
+  .glow { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(55% 55% at 78% 18%, rgba(111,180,120,.16), transparent 70%),
+                radial-gradient(45% 55% at 12% 92%, rgba(47,93,58,.35), transparent 70%);
+    animation: drift 26s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(-30px, 18px) scale(1.04); } }
+  /* a band of tree silhouettes along the bottom edge, like the app's forest photos */
+  .ridge { position: fixed; left: 0; right: 0; bottom: 0; height: 120px; opacity: .55; pointer-events: none;
+    background: linear-gradient(to top, #08120b, transparent); }
+
+  section { position: absolute; inset: 0; padding: 96px 130px 80px; display: none; z-index: 1; }
+  section.on { display: flex; flex-direction: column; justify-content: center; }
+  .kicker { font: 600 22px "Source Sans 3"; letter-spacing: .28em; text-transform: uppercase; color: var(--amber); }
+  h1 { font: 600 128px/1 "Source Serif 4", Georgia, serif; letter-spacing: -.01em; }
+  h2 { font: 600 70px/1.05 "Source Serif 4", Georgia, serif; margin: 14px 0 40px; }
+  p, li { font-size: 31px; line-height: 1.4; }
+  .muted { color: var(--muted); }
+  .amber { color: var(--amber); }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  .b { opacity: 0; transform: translateY(16px); }
+  section.on .b { animation: in .7s cubic-bezier(.2,.7,.2,1) forwards; animation-delay: var(--d, 0s); }
+  @keyframes in { to { opacity: 1; transform: none; } }
+
+  .row { display: flex; gap: 48px; align-items: flex-start; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .cards { display: grid; gap: 22px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px 30px; }
+  .card h3 { font: 600 30px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .card p, .card li { font-size: 25px; color: #e4e2da; }
+  .card ul { list-style: none; }
+  .card li { padding: 4px 0; }
+  .pills { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 26px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 9px 22px; font-size: 24px; background: rgba(47,93,58,.35); }
+  .pill.new { border-color: var(--amber); background: rgba(240,185,74,.12); }
+  .shot { border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.6); display: block;
+    width: auto; max-width: 100%; max-height: 720px; }
+  .cap { font-size: 20px; color: var(--muted); margin-top: 10px; }
+
+  /* title */
+  #t01 h1 span { color: var(--amber); }
+  #t01 .tag { font-size: 40px; margin-top: 28px; font-family: "Source Serif 4", serif; }
+
+  /* architecture */
+  .arch { display: grid; grid-template-columns: 1fr 70px 1fr 70px 1fr; align-items: stretch; }
+  .box { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 24px 28px; }
+  .box h3 { font: 600 40px "Source Serif 4", serif; color: var(--amber); margin-bottom: 8px; }
+  .box li { list-style: none; font-size: 25px; line-height: 1.55; color: #e4e2da; }
+  .arrow { align-self: center; justify-self: center; font-size: 46px; color: var(--muted); }
+
+  /* stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; }
+  .stat b { display: block; font: 600 76px/1 "Source Serif 4", serif; }
+  .stat > span { font-size: 23px; color: var(--muted); }
+  .srcs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; margin-bottom: 34px; }
+  .srcs .card { padding: 18px 20px; }
+  .srcs .card h3 { font-size: 25px; }
+  .srcs .card p { font-size: 20px; }
+
+  /* funnel */
+  .funnel { display: grid; gap: 14px; }
+  .bar { display: grid; grid-template-columns: 270px 1fr; align-items: center; gap: 22px; }
+  .bar .lab { font-size: 25px; text-align: right; color: #e4e2da; }
+  .bar .fill { min-width: 96px; height: 58px; border-radius: 0 8px 8px 0; background: #4d6b55; display: flex; align-items: center; padding-left: 18px;
+    font: 600 28px "Source Sans 3"; transform-origin: left; }
+  section.on .bar .fill { animation: grow 1.1s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0s); }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .bar.keep .fill { background: var(--amber); color: #1b1407; }
+  .rules { counter-reset: r; }
+  .rules li { counter-increment: r; font-size: 25px; padding: 6px 0 6px 48px; position: relative; list-style: none; }
+  .rules li::before { content: counter(r); position: absolute; left: 0; top: 7px; width: 34px; height: 34px; border-radius: 50%;
+    background: var(--wald); font: 600 20px/34px "Source Sans 3"; text-align: center; }
+
+  /* graph */
+  svg text { font-family: "Source Sans 3"; }
+  .node rect { fill: #142619; stroke: rgba(244,241,234,.28); stroke-width: 2; }
+  .node.llm rect { stroke: var(--amber); }
+  .node text { fill: var(--papier); font-size: 27px; font-weight: 600; text-anchor: middle; }
+  .node .sub { fill: var(--muted); font-size: 19px; font-weight: 400; }
+  .edge { stroke: rgba(244,241,234,.4); stroke-width: 3; fill: none; marker-end: url(#arr); }
+  .dot { fill: var(--amber); filter: drop-shadow(0 0 10px var(--amber)); }
+  .legend { font-size: 21px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 26px; height: 14px; border-radius: 4px; margin: 0 8px 0 0; vertical-align: middle; border: 2px solid var(--amber); }
+  .legend i.code { border-color: rgba(244,241,234,.4); }
+
+  /* split */
+  .split .card li { font-size: 26px; border-bottom: 1px solid rgba(244,241,234,.07); padding: 8px 0; }
+
+  /* grounding */
+  .reply { font-size: 30px; line-height: 1.55; background: #f4f1ea; color: #1f3f27; border-radius: 16px; padding: 24px 30px; }
+  .reply .y { background: rgba(80,160,90,.22); border-bottom: 3px solid #2f8a45; padding: 0 4px; border-radius: 4px; }
+  .reply .n { background: rgba(220,90,60,.18); border-bottom: 3px wavy #c44a2a; padding: 0 4px; border-radius: 4px; }
+  .reply .q { background: rgba(240,185,74,.4); padding: 0 8px; border-radius: 4px; font-weight: 700; }
+  .reply .hint { display: block; font-size: 23px; color: #5a5a50; margin-top: 10px; font-style: italic; }
+  .fmt { width: 100%; border-collapse: collapse; font-size: 25px; }
+  .fmt th { text-align: left; color: var(--amber); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .fmt td { padding: 9px 10px; border-bottom: 1px solid rgba(244,241,234,.07); font-family: "JetBrains Mono", monospace; font-size: 23px; }
+
+  /* weather table */
+  .wx td, .wx th { font-family: "Source Sans 3"; font-size: 25px; }
+  .wx td:first-child { font-weight: 600; color: var(--papier); white-space: nowrap; }
+
+  /* code slides: real excerpts from the repository (code_snippets.py), highlighted by Pygments */
+  .code-slide { padding: 60px 90px 44px; }
+  section.code-slide.on { justify-content: flex-start; }
+  .code-slide h2 { font-size: 54px; margin: 8px 0 22px; }
+  .panels { display: grid; gap: 22px; align-items: start; }
+  .panel { background: #0a140d; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .codehead { font: 600 21px "JetBrains Mono", monospace; color: var(--amber); padding: 12px 22px; border-bottom: 1px solid var(--line); background: rgba(240,185,74,.07); }
+  .codehead span { color: var(--muted); font-weight: 400; }
+  .src pre { margin: 0; padding: 12px 0; font: 400 var(--fs, 22px)/1.42 "JetBrains Mono", monospace; color: #e8e6df; white-space: pre; overflow: hidden; font-variant-ligatures: none; }
+  .src .linenos { display: inline-block; width: 3.6em; padding-right: 1em; text-align: right; color: #5d6b5f; user-select: none; }
+  .src .hll { display: block; background: rgba(240,185,74,.14); box-shadow: inset 4px 0 0 var(--amber); }
+  .src .k, .src .kn, .src .kd, .src .kc, .src .ow { color: #ff9e7a; }
+  .src .nf, .src .fm, .src .nc { color: #8fc7ff; }
+  .src .s, .src .s1, .src .s2, .src .sa, .src .si, .src .se, .src .sb { color: #b9dc8a; }
+  .src .sd { color: #a0a898; font-style: italic; }
+  .src .c, .src .c1, .src .cm { color: #8d978a; font-style: italic; }
+  .src .mi, .src .mf { color: #f0b94a; }
+  .src .nb, .src .bp { color: #c7a5ff; }
+  .src .nd { color: var(--amber); }
+  .src .o, .src .p { color: #d3cfc4; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="ridge"></div>
+
+<section id="t01">
+  <div class="kicker b" style="--d:.2s">Turing College · AI Engineering</div>
+  <h1 class="b" style="--d:.6s">Hike all about<br><span>under the hood</span></h1>
+  <p class="tag b" style="--d:1.3s">The code decides, the model words it.</p>
+  <div class="pills b" style="--d:3s">
+    <span class="pill">Data &amp; licences</span><span class="pill">Quality rules</span><span class="pill">LangGraph agent</span>
+    <span class="pill">Grounding</span><span class="pill">Near misses</span><span class="pill">Weather day finder</span>
+    <span class="pill">Admin backend</span><span class="pill">Bilingual</span><span class="pill">Evaluation</span>
+  </div>
+</section>
+
+<section id="t03">
+  <div class="kicker b">Architecture</div>
+  <h2 class="b" style="--d:.3s">Three parts, one graph</h2>
+  <div class="arch">
+    <div class="box b" style="--d:.8s"><h3>Web app</h3><ul><li>Next.js · TypeScript</li><li>installable PWA</li><li>chat as server-sent events</li><li>Vitest</li></ul></div>
+    <div class="arrow b" style="--d:8s">→</div>
+    <div class="box b" style="--d:8s"><h3>API</h3><ul><li>FastAPI · Pydantic</li><li>Supabase token check</li><li>rate limit per account</li><li>LangGraph graph</li><li>pytest</li></ul></div>
+    <div class="arrow b" style="--d:17s">→</div>
+    <div class="box b" style="--d:4s"><h3>Supabase</h3><ul><li>Postgres + PostGIS</li><li>Auth · roles</li><li>Storage (own photos)</li><li>saved plans (RLS)</li></ul></div>
+  </div>
+  <div class="pills b" style="--d:20s">
+    <span class="pill">OpenRouter · openai/gpt-4o-mini</span><span class="pill">ChromaDB + BM25 knowledge index</span>
+    <span class="pill">Open-Meteo</span><span class="pill">basemap.de map tiles</span>
+  </div>
+</section>
+
+<section id="t04">
+  <div class="kicker b">Data</div>
+  <h2 class="b" style="--d:.3s">Every row has a source and a licence</h2>
+  <div class="srcs">
+    <div class="card b" style="--d:3s"><h3>OpenStreetMap</h3><p>trails, places, accommodation, inns · ODbL · imported once</p></div>
+    <div class="card b" style="--d:11s"><h3>Copernicus DEM</h3><p>GLO-30 elevation profiles · © DLR / Airbus, EU/ESA</p></div>
+    <div class="card b" style="--d:14s"><h3>Wikimedia Commons</h3><p>photos with author and licence on each image</p></div>
+    <div class="card b" style="--d:17s"><h3>Open-Meteo</h3><p>forecast, live, up to 14 days · CC BY 4.0</p></div>
+    <div class="card b" style="--d:17s"><h3>basemap.de</h3><p>vector map tiles · BKG · CC BY 4.0</p></div>
+  </div>
+  <div class="stats">
+    <div class="stat b" style="--d:21s"><b><span data-count="lines"></span> · <span data-count="stages"></span></b><span>long-distance lines · stages</span></div>
+    <div class="stat b" style="--d:24s"><b data-count="day_hikes"></b><span>day hikes</span></div>
+    <div class="stat b" style="--d:26s"><b data-count="lodgings"></b><span>places to stay</span></div>
+    <div class="stat b" style="--d:29s"><b data-count="photos"></b><span>Commons photos</span></div>
+  </div>
+  <p class="cap b" style="--d:21s">Black Forest, queried 31 Oct 2026 (README) · the new regions are being imported</p>
+</section>
+
+<section id="t05">
+  <div class="kicker b">Regions</div>
+  <h2 class="b" style="--d:.3s">Black Forest · Lake Constance · Palatinate Forest</h2>
+  <div class="grid2" style="grid-template-columns: 760px 1fr; align-items:center">
+    <!-- the three import boxes from backend/src/hikeall/regions.py, lon 7.4–10.1 / lat 47.3–49.9, to scale (x = (lon − 7.4) / 2.7 × 760, y = (49.9 − lat) / 2.6 × 640) -->
+    <svg width="760" height="640" viewBox="0 0 760 640" class="b" style="--d:.8s">
+      <g font-size="24" font-weight="600">
+        <rect x="42" y="234" width="352" height="344" rx="10" fill="rgba(47,93,58,.55)" stroke="#8fd19e" stroke-width="2"/>
+        <text x="62" y="270" fill="#f4f1ea">Black Forest</text><text x="62" y="298" fill="#b9c2b4" font-size="19" font-weight="400">DE</text>
+        <g class="b" style="--d:6s"><rect x="42" y="37" width="254" height="197" rx="10" fill="rgba(240,185,74,.18)" stroke="#f0b94a" stroke-width="2"/>
+        <text x="62" y="73" fill="#f4f1ea">Palatinate Forest</text><text x="62" y="101" fill="#b9c2b4" font-size="19" font-weight="400">DE only</text></g>
+        <g class="b" style="--d:3s"><rect x="394" y="480" width="324" height="135" rx="10" fill="rgba(240,185,74,.18)" stroke="#f0b94a" stroke-width="2"/>
+        <text x="414" y="516" fill="#f4f1ea">Lake Constance</text><text x="414" y="544" fill="#b9c2b4" font-size="19" font-weight="400">DE · CH · AT</text></g>
+      </g>
+    </svg>
+    <div>
+      <div class="card b" style="--d:9s"><h3>Long-distance trails with stages</h3>
+        <div class="pills" style="margin-top:8px"><span class="pill">Westweg (west + east)</span><span class="pill">Mittelweg</span><span class="pill">Ostweg</span></div>
+        <div class="pills" style="margin-top:14px"><span class="pill new">Pfälzer Weinsteig</span><span class="pill new">Pfälzer Waldpfad</span><span class="pill new">Jubiläumsweg Bodenseekreis</span><span class="pill new">SeeGang</span></div>
+      </div>
+      <p class="cap b" style="--d:18s; font-size:24px; margin-top:24px">Same quality rules in every region · day hikes for Lake Constance and the Palatinate Forest: import running</p>
+    </div>
+  </div>
+</section>
+
+<section id="t06">
+  <div class="kicker b">Quality before quantity</div>
+  <h2 class="b" style="--d:.3s">Which OSM relations become day hikes</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.05fr">
+    <ul class="rules card b" style="--d:4s">
+      <li class="b" style="--d:6s">no name → rejected</li>
+      <li class="b" style="--d:7.5s">stage of a long-distance trail</li>
+      <li class="b" style="--d:9s">gaps in the route</li>
+      <li class="b" style="--d:10s">shorter than 5 or longer than 30 km</li>
+      <li class="b" style="--d:12s">long-distance network (iwn, nwn)</li>
+      <li class="b" style="--d:14.5s">then: a manual decision always wins</li>
+    </ul>
+    <div class="funnel">
+      <div class="bar b" style="--d:17s"><div class="lab">scanned</div><div class="fill" style="--d:17s;width:100%"><span data-count="scanned"></span></div></div>
+      <div class="bar b" style="--d:18.5s"><div class="lab">automatically rejected</div><div class="fill" style="--d:18.5s;width:78%"><span data-count="auto_rejected"></span></div></div>
+      <div class="bar b" style="--d:19.5s"><div class="lab">rejected on review*</div><div class="fill" style="--d:19.5s;width:15%"><span data-count="manual_rejected"></span></div></div>
+      <div class="bar keep b" style="--d:21s"><div class="lab">day hikes</div><div class="fill" style="--d:21s;width:9%"><span data-count="day_hikes"></span></div></div>
+      <p class="cap b" style="--d:21s">Black Forest · decision and reason per relation in data/curated/day_hikes.csv · *proposed by Claude, still to be confirmed by Ali</p>
+    </div>
+  </div>
+</section>
+
+<section id="c06" class="code-slide">
+  <div class="kicker b">In the code · curation</div>
+  <h2 class="b" style="--d:.3s">The automatic first decision</h2>
+  <div class="panels" data-code="c06"></div>
+</section>
+
+<section id="t07">
+  <div class="kicker b">The agent</div>
+  <h2 class="b" style="--d:.3s">The LangGraph graph</h2>
+  <svg width="1660" height="600" viewBox="0 0 1660 600" class="b" style="--d:.5s">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="rgba(244,241,234,.6)"/></marker></defs>
+    <g class="node b" style="--d:1s"><rect x="0" y="240" width="190" height="100" rx="50"/><text x="95" y="282">message</text><text class="sub" x="95" y="312">+ language</text></g>
+    <path class="edge b" style="--d:1.5s" d="M192 290 H238"/>
+    <g class="node b" style="--d:1.5s"><rect x="240" y="235" width="190" height="110" rx="16"/><text x="335" y="282">guard</text><text class="sub" x="335" y="314">injection → fixed reply</text></g>
+    <path class="edge b" style="--d:6s" d="M432 290 H478"/>
+    <g class="node llm b" style="--d:6s"><rect x="480" y="235" width="230" height="110" rx="16"/><text x="595" y="282">understand</text><text class="sub" x="595" y="314">1 model call + code</text></g>
+    <path class="edge b" style="--d:10.5s" d="M710 255 C760 140, 790 60, 838 60"/>
+    <g class="node b" style="--d:10.5s"><rect x="840" y="20" width="230" height="80" rx="16"/><text x="955" y="70">clarify</text></g>
+    <path class="edge b" style="--d:13s" d="M712 275 C770 220, 790 165, 838 165"/>
+    <g class="node b" style="--d:13s"><rect x="840" y="125" width="230" height="80" rx="16"/><text x="955" y="165">search</text><text class="sub" x="955" y="192">day hikes</text></g>
+    <path class="edge b" style="--d:15s" d="M712 290 H838"/>
+    <g class="node b" style="--d:15s"><rect x="840" y="250" width="230" height="80" rx="16"/><text x="955" y="290">multiday</text><text class="sub" x="955" y="317">plan</text></g>
+    <path class="edge b" style="--d:16.5s" d="M712 305 C770 360, 790 415, 838 415"/>
+    <g class="node llm b" style="--d:16.5s"><rect x="840" y="375" width="230" height="80" rx="16"/><text x="955" y="415">react</text><text class="sub" x="955" y="442">knowledge + tools</text></g>
+    <path class="edge b" style="--d:19s" d="M710 325 C760 440, 790 520, 838 520"/>
+    <g class="node b" style="--d:19s"><rect x="840" y="480" width="230" height="80" rx="16"/><text x="955" y="528">groups · events</text></g>
+    <path class="edge b" style="--d:20.5s" d="M1072 165 C1120 165, 1130 270, 1168 280"/>
+    <path class="edge b" style="--d:20.5s" d="M1072 290 H1168"/>
+    <path class="edge b" style="--d:20.5s" d="M1072 415 C1120 415, 1130 310, 1168 300"/>
+    <path class="edge b" style="--d:20.5s" d="M1072 520 C1130 520, 1140 320, 1168 305"/>
+    <g class="node llm b" style="--d:20.5s"><rect x="1170" y="245" width="190" height="90" rx="16"/><text x="1265" y="285">answer</text><text class="sub" x="1265" y="314">model words it</text></g>
+    <path class="edge b" style="--d:23s" d="M1265 337 V388"/>
+    <g class="node b" style="--d:23s"><rect x="1170" y="390" width="190" height="90" rx="16" style="stroke:#8fd19e"/><text x="1265" y="430">ground</text><text class="sub" x="1265" y="458">number check</text></g>
+    <path class="edge b" style="--d:25.5s" d="M1362 435 H1448"/>
+    <g class="node b" style="--d:25.5s"><rect x="1450" y="390" width="180" height="90" rx="45"/><text x="1540" y="430">log</text><text class="sub" x="1540" y="458">one line</text></g>
+    <path class="edge b" style="--d:10.5s" d="M1072 60 H1540 V388"/>
+    <circle class="dot b" style="--d:2s" r="10"><animateMotion dur="6s" repeatCount="indefinite" path="M190 290 H595 H955 V165 H1072 C1120 165, 1130 270, 1265 290 V435 H1540"/></circle>
+  </svg>
+  <p class="legend b" style="--d:3s"><i></i>model involved &nbsp;&nbsp; <i class="code"></i>code only · node names as in backend/src/hikeall/agent/graph.py (build_graph)</p>
+</section>
+
+<section id="c07" class="code-slide">
+  <div class="kicker b">In the code · graph</div>
+  <h2 class="b" style="--d:.3s">build_graph: the wiring</h2>
+  <div class="panels" data-code="c07"></div>
+</section>
+
+<section id="t08">
+  <div class="kicker b">Division of labour</div>
+  <h2 class="b" style="--d:.3s">The code decides, <span class="amber">the model words it</span></h2>
+  <div class="grid2 split">
+    <div class="card b" style="--d:3s"><h3>Model</h3><ul>
+      <li>message → structured request (one call)</li>
+      <li>answer text from the tool results</li>
+      <li>tool choice for knowledge questions</li></ul></div>
+    <div class="card b" style="--d:9s"><h3>Code</h3><ul>
+      <li class="b" style="--d:11s">keeps a number only if the user wrote it</li>
+      <li class="b" style="--d:13.5s">resolves places, asks when ambiguous</li>
+      <li class="b" style="--d:15s">searches and checks every condition</li>
+      <li class="b" style="--d:16.5s">near misses and fallbacks</li>
+      <li class="b" style="--d:17.5s">day plans, walking time to DIN 33466</li>
+      <li class="b" style="--d:20s">honest sentences: “No tour meets all your wishes, because …”</li></ul></div>
+  </div>
+</section>
+
+<section id="c08" class="code-slide">
+  <div class="kicker b">In the code · understand</div>
+  <h2 class="b" style="--d:.3s">Did the user write this number?</h2>
+  <div class="panels" data-code="c08"></div>
+</section>
+
+<section id="t09">
+  <div class="kicker b">Conditions</div>
+  <h2 class="b" style="--d:.3s">Matches, near misses, fallbacks</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.25fr; align-items:center">
+    <div class="cards">
+      <div class="card b" style="--d:1s"><h3>✓ ✗ ? per condition</h3><p>length · ascent · round walk · distance · duration</p></div>
+      <div class="card b" style="--d:12s"><h3>Near miss</h3><p>fills 1–2 matches up to 3 · exactly one condition, missed by ≤ 25 % · never the round walk</p></div>
+      <div class="card b" style="--d:22s"><h3>Fallback</h3><p>no match: tours that break exactly one condition, best per condition · reason written by the code</p></div>
+    </div>
+    <div>
+      <img class="shot b" style="--d:13s" src="out/shots/nearmiss.jpg">
+      <p class="cap b" style="--d:13s">“Under 300 m ascent” after “a round walk near Titisee, about 10 km”</p>
+    </div>
+  </div>
+</section>
+
+<section id="c09" class="code-slide">
+  <div class="kicker b">In the code · constraints</div>
+  <h2 class="b" style="--d:.3s">select: reproducible by design</h2>
+  <div class="panels" data-code="c09"></div>
+</section>
+
+<section id="t10">
+  <div class="kicker b">Grounding</div>
+  <h2 class="b" style="--d:.3s">Every number with a unit is checked</h2>
+  <div class="grid2" style="grid-template-columns: 1.15fr 1fr">
+    <div>
+      <div class="reply b" style="--d:2s">The Jägersteig is <span class="y">11.6 km</span> long with <span class="y">295 m</span> of ascent and takes about <span class="n">5 hours</span>.</div>
+      <p class="b" style="--d:13s; margin:18px 0 10px; font-size:26px">→ not in this round's tool results:</p>
+      <div class="reply b" style="--d:14s">… and takes about <span class="q">?</span> hours.<span class="hint">+ a note that one number was not supported</span></div>
+      <p class="cap b" style="--d:4s">illustration of the rule, not a recorded answer</p>
+    </div>
+    <table class="fmt b" style="--d:21s">
+      <tr><th></th><th>German</th><th>English</th></tr>
+      <tr><td>decimal</td><td>11,6 km</td><td>11.6 km</td></tr>
+      <tr><td>thousands</td><td>1.200 Hm</td><td>1,200 m</td></tr>
+      <tr><td>words</td><td>zwei Stunden</td><td>two hours</td></tr>
+      <tr><td>clock</td><td>13:30 Uhr</td><td>1.30 pm</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="c10" class="code-slide">
+  <div class="kicker b">In the code · grounding</div>
+  <h2 class="b" style="--d:.3s">grounding_check</h2>
+  <div class="panels" data-code="c10"></div>
+</section>
+
+<section id="t11">
+  <div class="kicker b">Weather day finder</div>
+  <h2 class="b" style="--d:.3s">Days that fit the wish, never a guess</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1fr">
+    <div>
+      <table class="fmt wx b" style="--d:8s">
+        <tr><th>wish</th><th>threshold (all inclusive)</th></tr>
+        <tr class="b" style="--d:10s"><td>fine</td><td>weather code 0–3 (clear to overcast) · ≤ 0.5 mm · ≤ 30 %</td></tr>
+        <tr class="b" style="--d:17s"><td>dry</td><td>≤ 1.0 mm · ≤ 40 %</td></tr>
+        <tr class="b" style="--d:20s"><td>snow</td><td>≥ 1.0 cm snowfall or a snow weather code</td></tr>
+      </table>
+      <div class="pills b" style="--d:6s"><span class="pill">today … +14 days</span><span class="pill">Open-Meteo · CC BY 4.0</span><span class="pill">multi-day: every day must fit</span></div>
+    </div>
+    <div>
+      <img class="shot b" style="--d:2s" src="out/shots/weather.jpg">
+      <p class="cap b" style="--d:2s">“A round walk near Titisee in fine weather”</p>
+    </div>
+  </div>
+</section>
+
+<section id="c11" class="code-slide">
+  <div class="kicker b">In the code · weather</div>
+  <h2 class="b" style="--d:.3s">matches: yes, no, or unknown</h2>
+  <div class="panels" data-code="c11"></div>
+</section>
+
+<section id="t13">
+  <div class="kicker b">Roles &amp; admin backend</div>
+  <h2 class="b" style="--d:.3s">Every search, traceable</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.45fr; align-items:center">
+    <div class="cards">
+      <div class="card b" style="--d:1s"><h3>Roles</h3><p>profiles: user or admin · read-only for clients · checked on the server (403)</p></div>
+      <div class="card b" style="--d:8s"><h3>Per search</h3><p>understood request · answer · number check · why these tours (incl. 20 best rejected)</p></div>
+      <div class="card b" style="--d:22s"><h3>Trace</h3><p>tool calls with arguments and results · prompts · tokens · cost as reported · duration</p></div>
+    </div>
+    <div>
+      <img class="shot b" style="--d:14s" src="out/shots/admin-why.jpg">
+      <p class="cap b" style="--d:14s">/admin · the near-miss search from the user video</p>
+    </div>
+  </div>
+</section>
+
+<section id="t14">
+  <div class="kicker b">Bilingual</div>
+  <h2 class="b" style="--d:.3s">🇬🇧 English by default, 🇩🇪 German on click</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.3fr; align-items:center">
+    <div class="cards">
+      <div class="card b" style="--d:4s"><h3>Web</h3><p>two catalogues with the same keys (en.ts, de.ts) · a test finds hard-coded frame texts</p></div>
+      <div class="card b" style="--d:12s"><h3>Backend</h3><p>lang with every message · answers, questions, fixed sentences and system prompt in that language</p></div>
+      <div class="card b" style="--d:21s"><h3>Saved results</h3><p>keep the language they were made in · API clients without lang get German</p></div>
+    </div>
+    <img class="shot b" style="--d:2s" src="out/shots/german.jpg">
+  </div>
+</section>
+
+<section id="t15">
+  <div class="kicker b">Evaluation</div>
+  <h2 class="b" style="--d:.3s">52 requests, real agent, checked by code</h2>
+  <div class="stats" style="grid-template-columns: repeat(5, 1fr)">
+    <div class="stat b" style="--d:9s"><b>52/52</b><span>cases passed</span></div>
+    <div class="stat b" style="--d:12s"><b>0/74</b><span>tour ids not in the database</span></div>
+    <div class="stat b" style="--d:15s"><b>0/518</b><span>numbers unsupported</span></div>
+    <div class="stat b" style="--d:18.5s"><b>8/8</b><span>impossible wishes named</span></div>
+    <div class="stat b" style="--d:20s"><b>1.00</b><span>recall@5, knowledge</span></div>
+  </div>
+  <div class="grid2" style="margin-top:34px">
+    <div class="card b" style="--d:24s"><h3>Limits</h3><ul><li>one run (31 Oct 2026, gpt-4o-mini, $0.0282)</li><li>small, self-written test set</li><li>only numbers with a unit are checked</li></ul></div>
+    <div class="card b" style="--d:30s"><h3>Smoke test</h3><ul><li>19 prompts against the real model</li><li>incl. English cases and the weather finder</li><li>expectations are never loosened</li></ul></div>
+  </div>
+</section>
+
+<section id="t16">
+  <div class="kicker b">Ethics &amp; limits</div>
+  <h2 class="b" style="--d:.3s">What the app does not know, it says</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.2fr; align-items:center">
+    <div class="cards">
+      <div class="card b" style="--d:1s"><h3>Privacy</h3><p>location stays in the browser · own photos private, GPS removed · no e-mail or user id to the model</p></div>
+      <div class="card b" style="--d:8s"><h3>Limits</h3><p>room availability unknown · OSM can be out of date · wording between checked numbers can still be wrong</p></div>
+    </div>
+    <img class="shot b" style="--d:3s" src="out/shots/home.jpg">
+  </div>
+  <p class="b" style="--d:18s; margin-top:46px; font: 600 60px 'Source Serif 4', serif; color: var(--amber)">Thanks for watching</p>
+</section>
+
+<script>
+  // tech_demo.py fills the counts and the code slides; panel n builds in after 1 + n × 1.2 s
+  window.fillCounts = (counts) => {
+    for (const el of document.querySelectorAll("[data-count]")) el.textContent = counts[el.dataset.count] ?? "?";
+  };
+  window.fillCode = (code) => {
+    for (const [key, panels] of Object.entries(code)) {
+      const box = document.querySelector(`[data-code="${key}"]`);
+      box.innerHTML = panels.map((html, n) => `<div class="panel b" style="--d:${1 + n * 1.2}s">${html}</div>`).join("");
+      // shrink the code until it fits the slide in height and width (measured while invisibly shown)
+      const sec = box.closest("section");
+      const wasOn = sec.classList.contains("on");
+      sec.classList.add("on");
+      sec.style.visibility = "hidden";
+      let fs = 24;
+      const fits = () => box.getBoundingClientRect().bottom <= 1040 && [...box.querySelectorAll("pre")].every((p) => p.scrollWidth <= p.clientWidth + 1);
+      box.style.setProperty("--fs", `${fs}px`);
+      while (fs > 13 && !fits()) box.style.setProperty("--fs", `${--fs}px`);
+      if (!wasOn) sec.classList.remove("on");
+      sec.style.visibility = "";
+    }
+  };
+  const slides = [...document.querySelectorAll("section")];
+  window.go = (id) => slides.forEach(s => s.classList.toggle("on", s.id === id));
+  go(location.hash.slice(1) || "t01");
+</script>
+</body>
+</html>
