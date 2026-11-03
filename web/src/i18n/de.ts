@@ -40,6 +40,7 @@ export const de: Messages = {
     thinking: "denkt nach …",
     cancel: "Abbrechen",
     cancelled: "Abgebrochen.",
+    newSearch: "Neue Suche",
     signInBefore: "Zum Planen bitte ",
     signInLink: "anmelden",
     sessionExpired: "Sitzung abgelaufen – bitte erneut anmelden.",

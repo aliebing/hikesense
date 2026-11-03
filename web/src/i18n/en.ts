@@ -38,6 +38,7 @@ export const en = {
     thinking: "thinking …",
     cancel: "Cancel",
     cancelled: "Cancelled.",
+    newSearch: "New search",
     signInBefore: "To plan, please ",
     signInLink: "sign in",
     sessionExpired: "Session expired – please sign in again.",

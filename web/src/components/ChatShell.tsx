@@ -9,7 +9,7 @@ import { useChat } from "./ChatProvider";
 
 /** Planning chat: the conversation lives in ChatProvider; this is one view of it. */
 export default function ChatShell({ intro, variant = "stage" }: { intro: string; variant?: "stage" | "hero" | "drawer" }) {
-  const { state, busy, send, abort } = useChat();
+  const { state, busy, send, abort, reset } = useChat();
   const { session, loading } = useSession();
   const t = useT().chat;
   const [text, setText] = useState("");
@@ -93,7 +93,19 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
           : "bg-wald-flaeche/60 ring-white/15 sm:max-w-sm md:max-w-md"
       }`}
     >
-      <h2 className="font-serif text-lg">{t.title}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-serif text-lg">{t.title}</h2>
+        {/* start over: clears this tab's conversation, the home page shows its start view again */}
+        {variant === "stage" && (state.items.length > 0 || !!state.last || !!state.plan) && (
+          <button
+            type="button"
+            onClick={reset}
+            className="rounded-full border border-white/40 px-3 py-0.5 text-xs hover:bg-white/15"
+          >
+            {t.newSearch}
+          </button>
+        )}
+      </div>
       {body}
     </aside>
   );

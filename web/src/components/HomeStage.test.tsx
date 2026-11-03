@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { renderWithLocale } from "../test-utils";
 import { ChatProvider } from "./ChatProvider";
 import HomeStage from "./HomeStage";
-import { initialState, saveState } from "../lib/chatState";
+import { initialState, saveState, STORAGE_KEY } from "../lib/chatState";
 import type { TourCard } from "../lib/chat";
 
 vi.mock("./ResultsPane", () => ({ default: () => <p>results pane</p> }));
@@ -108,4 +108,16 @@ it("a tile photo that is no landscape is not used as background; a pool landscap
   await screen.findByText("results pane");
   expect(container.querySelector("[aria-hidden='true'] img[src^='https://img/k']")).toBeNull();
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/see.jpg']")).not.toBeNull();
+});
+
+it("„Neue Suche“ in the results view clears the conversation and shows the start page again", async () => {
+  withLast([card]);
+  show();
+  await screen.findByText("results pane");
+  fireEvent.click(screen.getByRole("button", { name: "Neue Suche" }));
+  expect(await screen.findByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
+  expect(screen.queryByText("results pane")).toBeNull();
+  expect(sessionStorage.getItem(STORAGE_KEY) ?? "").not.toContain("Tour 1");
+  // the start page itself has nothing to clear
+  expect(screen.queryByRole("button", { name: "Neue Suche" })).toBeNull();
 });
