@@ -5,6 +5,9 @@
   --color-wald-dunkel: #1f3f27;
   --color-papier: #f4f1ea;
   --color-wald-flaeche: #284a32;
+  --color-sense: #93d36b;
+  --color-sonne: #f0a040;
+  --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -105,4 +108,16 @@ body {
   border: 3px solid #ffffff;
   background: #1a73e8;
   box-shadow: 0 0 0 2px rgb(26 115 232 / 0.35), 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+/* Start page hero: the landscape photo darkened towards the header, the brand text and the dark green below. */
+.hero-shade {
+  background:
+    linear-gradient(to bottom, rgb(6 16 9 / 0.6) 0%, rgb(6 16 9 / 0.15) 16%, transparent 28%),
+    radial-gradient(ellipse 58% 48% at 50% 34%, rgb(6 16 9 / 0.6), transparent 78%),
+    linear-gradient(to bottom, rgb(6 16 9 / 0.18), rgb(6 16 9 / 0.18)),
+    linear-gradient(to bottom, transparent 48%, rgb(14 34 20 / 0.82) 80%, #0e2214 100%);
+}
+.hero-text {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 18px rgb(0 0 0 / 0.5);
 }

@@ -8,7 +8,7 @@ import ChatMessages from "./ChatMessages";
 import { useChat } from "./ChatProvider";
 
 /** Planning chat: the conversation lives in ChatProvider; this is one view of it. */
-export default function ChatShell({ intro, variant = "stage" }: { intro: string; variant?: "stage" | "drawer" }) {
+export default function ChatShell({ intro, variant = "stage" }: { intro: string; variant?: "stage" | "hero" | "drawer" }) {
   const { state, busy, send, abort } = useChat();
   const { session, loading } = useSession();
   const t = useT().chat;
@@ -87,7 +87,11 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
   return (
     <aside
       aria-label={t.title}
-      className="flex w-full flex-col gap-3 rounded-2xl bg-wald-flaeche/60 p-4 text-papier ring-1 ring-white/15 backdrop-blur-md sm:max-w-sm md:max-w-md"
+      className={`flex w-full flex-col gap-3 rounded-2xl p-4 text-left text-papier ring-1 backdrop-blur-md ${
+        variant === "hero"
+          ? "max-w-2xl bg-wald-dunkel/70 shadow-[0_12px_40px_rgb(0_0_0/0.45)] ring-sense/25 sm:p-5"
+          : "bg-wald-flaeche/60 ring-white/15 sm:max-w-sm md:max-w-md"
+      }`}
     >
       <h2 className="font-serif text-lg">{t.title}</h2>
       {body}

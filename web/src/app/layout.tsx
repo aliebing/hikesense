@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { ChatProvider } from "../components/ChatProvider";
 import { LocaleProvider } from "../i18n";
@@ -13,16 +14,22 @@ export async function generateMetadata(): Promise<Metadata> {
     title: t.metaTitle,
     description: t.metaDescription,
     manifest: "/manifest.webmanifest",
-    icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
+    icons: {
+      icon: [{ url: "/favicon.ico", sizes: "any" }, { url: "/icons/icon.svg", type: "image/svg+xml" }],
+      apple: "/icons/apple-touch-icon.png",
+    },
   };
 }
+
+// the brand face (wordmark, hero, tagline); body text stays on the system sans
+const brand = Montserrat({ subsets: ["latin"], weight: ["500", "600", "800"], variable: "--font-montserrat", display: "swap" });
 
 export const viewport: Viewport = { themeColor: "#2f5d3a" };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getServerLocale();
   return (
-    <html lang={locale}>
+    <html lang={locale} className={brand.variable}>
       <body className="antialiased"><LocaleProvider initialLocale={locale}><ChatProvider>{children}</ChatProvider></LocaleProvider><ServiceWorker /></body>
     </html>
   );

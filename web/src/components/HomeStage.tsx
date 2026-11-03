@@ -8,14 +8,15 @@ import Attribution from "./Attribution";
 import Backdrop from "./Backdrop";
 import ChatShell from "./ChatShell";
 import { useChat } from "./ChatProvider";
-import PhotoSwitcher from "./PhotoSwitcher";
+import { HeroBackdrop, HeroBrand, HeroFeatures } from "./HomeHero";
 import ResultsPane from "./ResultsPane";
 
 /**
- * Home content. Before any result: title and chat in the middle of the full-screen background photo.
- * After a search or plan: chat on the left, the tiles (or the one tour, or the plan) on the right.
+ * Home content. Before any result: the HikeSense hero (logo, tagline, what the app does) on the
+ * landscape photo, with the chat as the main control. After a search or plan: chat on the left,
+ * the tiles (or the one tour, or the plan) on the right.
  */
-export default function HomeStage({ photos, landscapes = [] }: { photos: Photo[]; /** background pool for the results view */ landscapes?: Photo[] }) {
+export default function HomeStage({ landscapes = [] }: { /** background pool for the results view */ landscapes?: Photo[] }) {
   const { state, hydrated } = useChat();
   const t = useT().home;
   const hasResults = hydrated && ((state.last && state.last.cards.length > 0) || !!state.plan);
@@ -44,20 +45,14 @@ export default function HomeStage({ photos, landscapes = [] }: { photos: Photo[]
     );
   }
 
+  // phone: chat right under the brand (it is the main control), the four features below it;
+  // from md on as in the mock-up: features under the subtitle, chat below them
   return (
-    <>
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-6 py-4 sm:py-8">
-        <section className="flex flex-col items-center gap-3 text-center">
-          <h1 className="schrift-feld px-5 py-2 font-serif text-4xl leading-tight sm:text-6xl">{t.title}</h1>
-          <p className="schrift-feld max-w-lg px-4 py-2 text-base text-papier sm:text-lg">
-            {t.subtitle}
-          </p>
-        </section>
-        <ChatShell intro={t.intro} />
-      </div>
-      <div className="flex justify-end">
-        <PhotoSwitcher photos={photos} variant="backdrop" />
-      </div>
-    </>
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 pt-1 pb-6 sm:pt-4 md:gap-8">
+      <HeroBackdrop />
+      <HeroBrand />
+      <HeroFeatures className="order-3 md:order-none" />
+      <ChatShell intro={t.intro} variant="hero" />
+    </div>
   );
 }

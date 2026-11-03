@@ -7,9 +7,16 @@ export const de: Messages = {
   },
   home: {
     title: "Wandern im Schwarzwald, am Bodensee und im Pfälzerwald",
-    subtitle: "Fernweg-Etappen (Westweg, Pfälzer Weinsteig, SeeGang) und Tagestouren mit echten Strecken, Höhenmetern und Gehzeiten – im Gespräch geplant.",
     intro: "Hallo! Beschreibe deine Tagestour – zum Beispiel „Rundweg ab Hinterzarten, 10 bis 15 km, wenig Höhenmeter, mit Aussicht“.",
     backdropCredit: "Hintergrundbild:",
+    hero: {
+      subtitle: "Deine intelligente Wanderplattform für Routen, Unterkünfte und alles, was deine Tour besonders macht.",
+      features: "Was HikeSense kann",
+      routes: "Wanderrouten entdecken",
+      lodging: "Passende Unterkünfte finden",
+      weather: "Wetter & Bedingungen im Blick",
+      ai: "KI-gestützte Tourenempfehlungen",
+    },
     loadErrorTitle: "Daten konnten nicht geladen werden.",
     dbDownBefore: "Die Datenbank ist nicht erreichbar. Läuft Supabase? Starten mit ",
     dbDownMiddle: " bzw. ",
@@ -386,6 +393,7 @@ export const de: Messages = {
     noTours: "Diese gemerkte Suche enthält keine Touren.",
   },
   frame: {
+    tagline: "Plan. Hike. Stay. Explore.",
     longDistance: "Fernwege",
     toHome: "← Zur Startseite",
     errorTitle: "Etwas ist schiefgelaufen.",
@@ -393,7 +401,7 @@ export const de: Messages = {
     retry: "Erneut versuchen",
     notFoundTitle: "Diesen Weg gibt es hier nicht.",
     notFoundBody: "Vielleicht wurde er (noch) nicht importiert. Zurück zur Startseite.",
-    metaTitle: "Hike all about – Wandern im Schwarzwald, am Bodensee und im Pfälzerwald",
+    metaTitle: "HikeSense – Wandern im Schwarzwald, am Bodensee und im Pfälzerwald",
     metaDescription: "Wanderungen im Schwarzwald, am Bodensee und im Pfälzerwald im Gespräch planen: Fernweg-Etappen (z. B. Westweg, Pfälzer Weinsteig, SeeGang) und Tagestouren.",
   },
   errors: {
