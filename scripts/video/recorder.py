@@ -68,7 +68,14 @@ async def synthesize(segments: list[Segment], out: Path, voice: str = VOICE, rat
         txt = out / f"{s.key}.txt"
         key = f"{voice} {rate}\n{s.text}"
         if not (mp3.exists() and txt.exists() and txt.read_text() == key):
-            await edge_tts.Communicate(s.text, voice, rate=rate).save(str(mp3))
+            for attempt in range(8):  # the service answers now and then with no audio: try again
+                try:
+                    await edge_tts.Communicate(s.text, voice, rate=rate).save(str(mp3))
+                    break
+                except edge_tts.exceptions.NoAudioReceived:
+                    if attempt == 7:
+                        raise
+                    await asyncio.sleep(3 + 3 * attempt)
             txt.write_text(key)
         s.audio, s.duration = mp3, MP3(str(mp3)).info.length
 

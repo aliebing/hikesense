@@ -1,6 +1,6 @@
 # Wie die KI arbeitet: Spickzettel fürs Review
 
-Eine Chatnachricht von Anfang bis Ende, mit echten JSON-Beispielen und kurzen Antworten auf die typischen Review-Fragen. Grundsatz des Projekts: **Der Code entscheidet, das Modell formuliert.** Das Video dazu: `scripts/video/ai_demo.py` (`out/hikeallabout-ai-de.mp4`, `out/hikeallabout-ai-en.mp4`).
+Eine Chatnachricht von Anfang bis Ende, mit echten JSON-Beispielen und kurzen Antworten auf die typischen Review-Fragen. Grundsatz des Projekts: **Der Code entscheidet, das Modell formuliert.** Das Video dazu: `scripts/video/ai_demo.py` (`out/hikeallabout-ai-de.mp4`, `out/hikeallabout-ai-en.mp4`); LangGraph Schritt für Schritt an echten Durchläufen, mit agentisch vs. generativ und ReAct: Abschnitt 4 und `scripts/video/graph_demo.py`.
 
 Quellen der Beispiele (Stand 2026-11-03):
 
@@ -218,11 +218,95 @@ Nein. Die `token`-Ereignisse entstehen erst in `ground`, nachdem der ganze Text 
 
 ---
 
+## 4. LangGraph an zwei Beispielen
+
+Video dazu: `scripts/video/graph_demo.py` (`out/hikeallabout-graph-de.mp4`, `out/hikeallabout-graph-en.mp4`). Alle Werte unten stammen aus **echten Durchläufen** durch den kompilierten Graphen (`default_deps_factory`: echte Datenbank, echter Wissensindex, echtes Modell `openai/gpt-4o-mini` über OpenRouter), aufgezeichnet am 2026-11-03 mit `scripts/video/data/capture_graph.py` über `graph.stream(..., stream_mode=["updates", "custom"])`. Rohdaten: `scripts/video/data/graph_runs.json` (ohne Nutzer-ID, Thread-Schlüssel `video-demo:<thread>`). Vier Nachrichten, zusammen **0,0024 $**. Die Formulierungen des Modells ändern sich von Lauf zu Lauf; die Tabellen beschreiben genau diesen Lauf.
+
+### Generative KI, agentische KI, ReAct
+
+- **Generative KI** (einfachste Form): ein Modellaufruf, Prompt rein, Text raus. Kein Werkzeug, keine Schleife, kein Zustand.
+- **Agent:** Modell + Tools + Schleife + Zustand + Entscheidungen. Entscheidende Frage: *Wer wählt die nächste Aktion?* Im **Workflow** steht der Weg im Code; im **Agenten** wählt ihn das Modell.
+- **ReAct** (Reason + Act): Das Modell überlegt (*Reason*), verlangt einen Tool-Aufruf (*Act*, strukturierte `tool_calls`), das Programm führt ihn aus und gibt das Ergebnis zurück (*Observe*, `ToolMessage`), das Modell überlegt erneut … bis es nur Text liefert oder ein Limit greift.
+- **Hike all about ist ein Hybrid:** Außen eine LangGraph-Zustandsmaschine mit festen Knoten und Kanten; die Route setzt der **Code** in `understand` (aus dem strukturierten Modell-JSON, geprüft). Eine echte ReAct-Schleife gibt es **nur im Knoten `react`** (Wissensfragen). Gründe: Zuverlässigkeit (jede Bedingung wird geprüft), Grounding (jede Zahl aus Daten), Kosten (Tagestour = genau 2 Modellaufrufe), Testbarkeit (fester Weg → Evaluation mit Code).
+
+### LangGraph, wie es hier genutzt wird
+
+- `State` (`TypedDict`, `graph.py`): alle Schlüssel des Durchlaufs. Ein **Knoten** ist eine Python-Funktion `node(state) -> dict`; er gibt nur die geänderten Schlüssel zurück (**Teil-Update**). Reducer sind nicht definiert, also ersetzt ein zurückgegebener Schlüssel den alten Wert.
+- `build_graph`: `StateGraph(State)`, `add_node` × 12, `add_edge` (START → guard, Arbeitsknoten → answer → ground → log → END), `add_conditional_edges("understand", lambda s: s["route"], [...])`, `compile(checkpointer=MemorySaver)`.
+- **Streaming:** `graph.stream(_turn(message, lang), config, stream_mode="custom")`; in den Knoten schickt `_emit` → `get_stream_writer()` jedes `ChatEvent` sofort an den Browser.
+- **Checkpointer:** `thread_id = user_hash:thread_id`; nach jedem Knoten ein Checkpoint. `_turn()` setzt nur die Schlüssel pro Nachricht zurück; `request`, `pending`, `last_tours`, `plan`, `plan_request`, `history` bleiben für die nächste Nachricht.
+
+### Beispiel 1: „A round walk near Titisee, about 10 km“ (Thread `titisee`)
+
+Weg: guard → understand → search → answer → ground → log · 2 Modellaufrufe, 1 Tool-Aufruf (vom Graphen) · 1916 Tokens rein / 311 raus · 0,00047 $
+
+| Knoten | liest | Modell / Tool | schreibt (echte Schlüssel) | Ereignis |
+|---|---|---|---|---|
+| guard | `message`, `history` | – | `message`, `history`, `route="understand"` | – |
+| understand | `message`, `request`, `pending`, `plan` | **Modell** 1× (`RawRequest`, 1435/153 Tokens), dann `resolve` (Code) | `pending`, `intent="day_hike"`, `activity`, `discarded_numbers=8`, `current`, `request`, `plan`, `plan_request`, `route="search"` | `understood` |
+| search | `current`, `lang` | Tool **`search_day_hikes`**, vom Code aufgerufen (177 ms) | `tool_calls=1`, `reason=null`, `sources`, `last_tours` (3 Touren), `near_sentence=null`, `candidates`, `data`, `evidence` | `results` (3 Karten) |
+| answer | `draft`, `data`, `system` | **Modell** 1× (481/158 Tokens, Temperatur 0,3) | `draft` | – |
+| ground | `draft`, `fixed`, `reason`, `evidence`, `sources`, … | – | `unsupported=0`, `unsupported_names`, `unsat_claims_removed=0`, `final_text` | `token` ×87, `sources` |
+| log | ganzer Zustand + `config` (Usage, Trace) | – | `{}` (nichts), schreibt die Log-Zeile | `done` |
+
+Das Modell schrieb in `RawRequest` acht Nullen (Anstieg, Dauer, Umkreis, Tempo), die niemand verlangt hat; `resolve` verwarf sie (`discarded_numbers=8`), machte aus 10 km das Band 8,5–11,5 km und ergänzte den Standard-Umkreis 15 km. Kein ReAct: Die Suche ruft der Graph selbst auf.
+
+**Folgefrage im selben Thread: „Under 300 m ascent, please“** · 2 Modellaufrufe, 1 Tool-Aufruf · 0,00037 $
+
+- Vor dem Lauf im Checkpoint: `request` (Titisee, Rundweg, 8,5–11,5 km, Umkreis 15 km), `last_tours` (Säbelthomaweg, Menzenschwander Geißenpfad, Rötenbachschlucht), `history`.
+- understand: Das Modell bekommt die vorige Anfrage mit und antwortet `intent="change"`, `ascent_m_max=300` (plus kopierte alte Werte, 6 verworfen). Der Code führt zusammen (`_merge`): gleicher Start und gleiches Längenband, neu `{"kind": "ascent_m", "max": 300}`; `route="search"`.
+- search: 2 Treffer (Menzenschwander Geißenpfad 9,78 km / 278 m, Rötenbachschlucht 10,07 km / 296 m) und knapp daneben Jägersteig („Near miss: Genießerpfad - Jägersteig (11.6 km instead of at most 11.5).“).
+
+### Beispiel 2: „How long does the first tour take, and where can I stay near it?“ (selber Thread)
+
+Weg: guard → understand → react → answer (übersprungen) → ground → log · 3 Modellaufrufe (understand + 2 ReAct-Runden), 3 Tool-Aufrufe · 6466/418 Tokens · 0,00097 $
+
+| Knoten | liest | Modell / Tool | schreibt | Ereignis |
+|---|---|---|---|---|
+| guard | `message`, `history` | – | `message`, `history`, `route` | – |
+| understand | `message`, `request`, … | **Modell** 1× | `intent="knowledge"`, `discarded_numbers=7`, `current` (Frage), `route="react"` | `understood` |
+| react | `current`, `message`, `last_tours` | `search_knowledge` (Code, `id="vorab"`), dann **Modell** 2× mit `get_trail_details` + `find_accommodation` | `tool_calls=3`, `evidence`, `sources`, `draft` | – |
+| answer | `draft` | – (Entwurf da → `{}`) | nichts | – |
+| ground | `draft`, `evidence`, … | – | `unsupported=1`, `final_text` | `token` ×78, `sources` |
+| log | Zustand + `config` | – | `{}` | `done` |
+
+Die Nachrichtenliste in `react` (echt, gekürzt):
+
+| # | Nachricht | von | Inhalt |
+|---|---|---|---|
+| 1 | `SystemMessage` | Code | Regeln: „Use the tools … Every number … must come from a tool result“ |
+| 2 | `SystemMessage` | Code | letzte Touren aus dem Checkpoint: `day-12013547: Genießerpfad - Menzenschwander Geißenpfad`, `day-11205385 …`, `day-3074944 …` |
+| 3 | `HumanMessage` | Nutzer | die Frage |
+| 4 | `AIMessage` | **Code** | `tool_calls=[search_knowledge(query=<Frage>, k=5)]`, `id="vorab"` |
+| 5 | `ToolMessage` | Code | `tool_call_id="vorab"`: nur lose passende Stellen (Ostweg, Schwarzwald, Schauinsland) |
+| 6 | `AIMessage` | **Modell, Runde 1** | zwei Aufrufe auf einmal: `get_trail_details(trail_id="day-12013547")`, `find_accommodation(trail_id="day-12013547")` (IDs `call_Lvtr…`, `call_GQev…`) |
+| 7 | `ToolMessage` | Code | `tool_call_id="call_Lvtr…"`: `length_km 9.78`, `ascent_m 278`, `descent_m 277`, POIs … |
+| 8 | `ToolMessage` | Code | `tool_call_id="call_GQev…"`: Heimatschmiede 85 m, Gästehaus Kaiser 40 m, Forellenhof 348 m, … |
+| 9 | `AIMessage` | **Modell, Runde 2** | keine `tool_calls` → Entwurf |
+
+Das Modell hat „die erste Tour“ richtig dem ersten Eintrag von `last_tours` zugeordnet (nach der Folgefrage der Geißenpfad), aber **`hiking_time` nicht aufgerufen** und stattdessen „about 2 hours and 30 minutes“ geschrieben. Diese Dauer steht in keinem Tool-Ergebnis: `ground` machte daraus „about ? hours and ? minutes“ mit Hinweis („Note: 1 figure(s) could not be verified and were removed.“). 9.78 km und die Entfernungen der Unterkünfte sind belegt und blieben stehen.
+
+**Zweiter Wissens-Durchlauf, neuer Thread: „How is the Westweg waymarked?“** · 2 Modellaufrufe, 1 Tool-Aufruf (nur die Vorab-Suche des Codes) · 0,00058 $. Keine letzten Touren → keine Touren-Nachricht. Die Vorab-Suche fand Westweg-Stellen aus Wikivoyage und Wikipedia; in Runde 1 antwortete das Modell **ohne weiteren Tool-Aufruf**. Ehrliche Grenze: Die Stellen beschreiben die Markierung nicht, die Antwort bleibt allgemein („signposts and symbols“); Grounding prüft Zahlen und Namen, nicht jede Aussage.
+
+### Wo ist es agentisch, wo fester Workflow?
+
+| | Modell | Code |
+|---|---|---|
+| understand | füllt `RawRequest` aus (1 strukturierter Aufruf) | behält nur geschriebene Zahlen, löst Orte auf, setzt `route` |
+| search, multiday, groups, events | – (außer Extraktion bei events) | ruft die Tools selbst auf, prüft Bedingungen, plant Etappen |
+| react | **wählt Tools und Argumente, Runde für Runde (ReAct)** | Vorab-Suche, führt die Tools aus, max. 8 Aufrufe, fester Satz ohne Quelle |
+| answer | formuliert den Datenblock (nach `react` übersprungen) | baut den Datenblock |
+| ground, log | – | prüft jede Zahl, fügt eigene Sätze ein, streamt, loggt |
+
+**In einer Minute:** Hike all about ist eine LangGraph-Zustandsmaschine mit 12 Knoten. Ein strukturierter Modellaufruf versteht die Nachricht; der Code prüft sie und wählt die Route. Bei Tourensuchen ruft der Graph die Suche selbst auf, das Modell formuliert nur. Bei offenen Wissensfragen ruft das Modell in einer ReAct-Schleife vier Tools auf, höchstens acht Mal. Jede Zahl wird gegen Tool-Ergebnisse geprüft, bevor sie erscheint; ein Checkpointer pro Thread macht Folgefragen möglich. Der Code entscheidet, das Modell formuliert.
+
+---
+
 ## English
 
 # How the AI works: review cheat sheet
 
-One chat message from start to finish, with real JSON and short answers to the usual review questions. The project's principle: **the code decides, the model words it.** The video: `scripts/video/ai_demo.py` (`out/hikeallabout-ai-en.mp4`, `out/hikeallabout-ai-de.mp4`). The JSON examples are the ones in sections 2.1–2.5 above (identical data; JSON keys are English anyway).
+One chat message from start to finish, with real JSON and short answers to the usual review questions. The project's principle: **the code decides, the model words it.** The video: `scripts/video/ai_demo.py` (`out/hikeallabout-ai-en.mp4`, `out/hikeallabout-ai-de.mp4`); LangGraph step by step on real runs, with agentic vs generative and ReAct: section 4 and `scripts/video/graph_demo.py`. The JSON examples are the ones in sections 2.1–2.5 above (identical data; JSON keys are English anyway).
 
 Sources of the examples (as of 2026-11-03):
 
@@ -281,3 +365,43 @@ LangGraph is the flow: `StateGraph(State)` with twelve nodes, conditional edges 
 
 **Does the model stream its answer live?**
 No. The `token` events are created in `ground`, after the whole text has been checked; the code splits it into word chunks (`_CHUNK`). So no unsupported number can flash on the screen. `understood` and `results`, on the other hand, are sent as soon as the code has them.
+
+### 4. LangGraph on two examples
+
+The video: `scripts/video/graph_demo.py` (`out/hikeallabout-graph-en.mp4`, `out/hikeallabout-graph-de.mp4`). All values come from **real runs** through the compiled graph (`default_deps_factory`: real database, real knowledge index, real model `openai/gpt-4o-mini` via OpenRouter), recorded on 2026-11-03 by `scripts/video/data/capture_graph.py` with `graph.stream(..., stream_mode=["updates", "custom"])`. Raw data: `scripts/video/data/graph_runs.json` (no user id; thread key `video-demo:<thread>`). Four messages, **$0.0024** in total. The model's wording changes between runs; the tables describe this run.
+
+**Generative vs agentic, ReAct.** Generative AI in its simplest form is one model call: prompt in, text out. An agent is model + tools + loop + state + decisions; the question is *who chooses the next action*: in a **workflow** the path is written in code, in an **agent** the model chooses it. **ReAct** (reason + act): the model reasons, requests a tool call (structured `tool_calls`), the program runs it and returns the result (observe, `ToolMessage`), and the model reasons again, until it replies with text only or a limit stops it. **Hike all about is a hybrid:** a LangGraph state machine with fixed nodes and edges whose route is set by **code** in `understand` (from the model's checked structured output); a real ReAct loop runs **only inside `react`** (knowledge questions). Why: reliability (every condition checked), grounding (every number from data), cost (a day hike = exactly 2 model calls), testability (a fixed path can be evaluated with code).
+
+**LangGraph as used here.** `State` is a `TypedDict`; a node is `node(state) -> dict` returning only the keys it changes (a partial update; no reducers, so a returned key replaces the old value). `build_graph`: `StateGraph(State)`, 12 × `add_node`, `add_edge` (START → guard, worker → answer → ground → log → END), `add_conditional_edges("understand", lambda s: s["route"], [...])`, `compile(checkpointer=MemorySaver)`. Streaming: `graph.stream(_turn(message, lang), config, stream_mode="custom")`, and `_emit` → `get_stream_writer()` sends each `ChatEvent` at once. Checkpointer: `thread_id = user_hash:thread_id`, a checkpoint after every node; `_turn()` resets only the per-message keys, so `request`, `pending`, `last_tours`, `plan`, `plan_request` and `history` carry over to the next message.
+
+**Example 1: "A round walk near Titisee, about 10 km"** (thread `titisee`) · guard → understand → search → answer → ground → log · 2 model calls, 1 tool call (by the graph) · 1916 tokens in / 311 out · $0.00047
+
+| Node | reads | model / tool | writes (real keys) | event |
+|---|---|---|---|---|
+| guard | `message`, `history` | – | `message`, `history`, `route="understand"` | – |
+| understand | `message`, `request`, `pending`, `plan` | **model** 1× (`RawRequest`, 1435/153 tokens), then `resolve` (code) | `pending`, `intent="day_hike"`, `activity`, `discarded_numbers=8`, `current`, `request`, `plan`, `plan_request`, `route="search"` | `understood` |
+| search | `current`, `lang` | tool **`search_day_hikes`**, called by the code (177 ms) | `tool_calls=1`, `reason=null`, `sources`, `last_tours` (3 tours), `near_sentence=null`, `candidates`, `data`, `evidence` | `results` (3 cards) |
+| answer | `draft`, `data`, `system` | **model** 1× (481/158 tokens, temperature 0.3) | `draft` | – |
+| ground | `draft`, `fixed`, `reason`, `evidence`, `sources`, … | – | `unsupported=0`, `unsupported_names`, `unsat_claims_removed=0`, `final_text` | `token` ×87, `sources` |
+| log | whole state + `config` (usage, trace) | – | `{}` (nothing); writes the log line | `done` |
+
+The model wrote eight unrequested zeros into `RawRequest`; `resolve` dropped them (`discarded_numbers=8`), turned 10 km into 8.5–11.5 km and added the default 15 km radius. No ReAct: the graph calls the search itself.
+
+**Follow-up, same thread: "Under 300 m ascent, please"** · 2 model calls, 1 tool call · $0.00037. The checkpoint already holds `request`, `last_tours` and `history`. The model gets the previous request and answers `intent="change"`, `ascent_m_max=300` (plus copied old values, 6 dropped); the code merges (`_merge`): same start and length band, plus `{"kind": "ascent_m", "max": 300}`, `route="search"`. Result: 2 matches (Menzenschwander Geißenpfad 9.78 km / 278 m, Rötenbachschlucht 10.07 km / 296 m) and the near miss Jägersteig ("11.6 km instead of at most 11.5").
+
+**Example 2: "How long does the first tour take, and where can I stay near it?"** (same thread) · guard → understand → react → answer (skipped) → ground → log · 3 model calls (understand + 2 ReAct rounds), 3 tool calls · 6466/418 tokens · $0.00097
+
+| Node | model / tool | writes | event |
+|---|---|---|---|
+| understand | **model** 1× | `intent="knowledge"`, `discarded_numbers=7`, `current` (the question), `route="react"` | `understood` |
+| react | `search_knowledge` (code, `id="vorab"`), then **model** 2× with `get_trail_details` + `find_accommodation` | `tool_calls=3`, `evidence`, `sources`, `draft` | – |
+| answer | – (a draft exists → `{}`) | nothing | – |
+| ground | – | `unsupported=1`, `final_text` | `token` ×78, `sources` |
+
+Messages in `react`: (1) `SystemMessage` rules, (2) `SystemMessage` last tours with ids from the checkpoint, (3) `HumanMessage` question, (4) `AIMessage` **written by the code**: `search_knowledge`, `id="vorab"`, (5) `ToolMessage` `vorab`: only loosely related passages (Ostweg, Black Forest, Schauinsland), (6) `AIMessage` **model, round 1**: two calls at once, `get_trail_details(trail_id="day-12013547")` and `find_accommodation(trail_id="day-12013547")`, (7)/(8) `ToolMessage`s with the matching `tool_call_id`s (9.78 km, 278 m up, 277 m down; Heimatschmiede 85 m, Gästehaus Kaiser 40 m, …), (9) `AIMessage` **model, round 2**: no `tool_calls` → draft. The model mapped "the first tour" correctly to the first entry of `last_tours`, but **did not call `hiking_time`** and wrote "about 2 hours and 30 minutes" itself; that duration is in no tool result, so `ground` turned it into "about ? hours and ? minutes" with a note. 9.78 km and the distances of the guest houses are evidence and stayed.
+
+**Second knowledge run, new thread: "How is the Westweg waymarked?"** · 2 model calls, 1 tool call (only the code's first search) · $0.00058. No last tours, so no tour message; the first search found Westweg passages from Wikivoyage and Wikipedia, and in round 1 the model answered **without any further tool call**. Honest limit: the passages do not describe the waymark, so the answer stays general ("signposts and symbols"); grounding checks numbers and names, not every claim.
+
+**Where agentic, where a fixed workflow?** The model acts in `understand` (fills in `RawRequest`), in the `react` rounds (**chooses tools and arguments: ReAct**) and in `answer` (words the data block; skipped after `react`). The code decides the route, calls the tools of `search`, `multiday`, `groups` and `events` itself, checks every condition, plans the stages, makes the first knowledge search, enforces the limit of 8 calls, answers with a fixed sentence without a source, and checks every number in `ground`.
+
+**In one minute:** Hike all about is a LangGraph state machine with 12 nodes. One structured model call understands the message; code checks it and picks the route. For tour searches the graph calls the search itself and the model only words the result. For open knowledge questions a ReAct loop lets the model call four tools, at most eight times. Every number is checked against tool results before it is shown, and a checkpointer per thread makes follow-ups work. The code decides, the model words it.
