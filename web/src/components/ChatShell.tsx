@@ -126,7 +126,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
             aria-label={t.message}
             enterKeyHint="send"
             autoComplete="off"
-            className={`min-w-0 flex-1 rounded-full border-2 border-sense bg-white text-wald-dunkel shadow-lg placeholder:text-wald-dunkel/70 focus:outline-none focus:ring-4 focus:ring-sense/40 ${
+            className={`min-w-0 flex-1 rounded-md border-2 border-sense bg-white text-tinte shadow-lg placeholder:text-tinte/60 focus:outline-none focus:ring-4 focus:ring-sense/40 ${
               hero ? "px-5 py-3 text-base" : "px-4 py-2.5 text-base sm:text-[15px]"
             }`}
           />
@@ -134,7 +134,7 @@ export default function ChatShell({ intro, variant = "stage" }: { intro: string;
             type="submit"
             disabled={busy || !text.trim()}
             aria-label={hero ? undefined : t.send}
-            className={`shrink-0 rounded-full bg-sense font-semibold text-wald-dunkel shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sense/40 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-papier/60 disabled:shadow-none disabled:hover:brightness-100 ${
+            className={`shrink-0 rounded-md bg-sense font-semibold text-tinte shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sense/40 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-papier/60 disabled:shadow-none disabled:hover:brightness-100 ${
               hero ? "px-6 py-3 text-base" : "grid size-11 place-items-center"
             }`}
           >

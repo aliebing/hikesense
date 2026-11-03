@@ -70,7 +70,7 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
   const href = `/t/${card.trail_id}?von=chat`;
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl bg-papier p-4 text-wald-dunkel">
+    <article className="flex flex-col gap-4 rounded-md bg-papier p-4 text-tinte">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-wald-dunkel/70">{fallback ? t.previewFallback : t.previewFits}</p>
@@ -101,7 +101,7 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
         {photo && (
           <figure className="hidden flex-col gap-1 lg:flex">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo.thumb_url} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" />
+            <img src={photo.thumb_url} alt="" className="aspect-[4/3] w-full rounded-sm object-cover" />
             <Attribution photo={photo} className="text-wald-dunkel/70" />
           </figure>
         )}

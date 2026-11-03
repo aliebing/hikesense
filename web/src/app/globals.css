@@ -8,6 +8,8 @@
   --color-sense: #93d36b;
   /* panels over photos (chat box, text fields, chips): dark grey-blue, translucent over the photo */
   --color-panel: #141a22;
+  /* text on white and paper boxes: near-black, darker than the forest green */
+  --color-tinte: #111418;
   --color-sonne: #f0a040;
   --font-brand: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;

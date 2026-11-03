@@ -50,7 +50,7 @@ function Row({ r, deviation, near = false }: { r: ConstraintResult; deviation: s
     );
   }
   return (
-    <li className="text-wald-dunkel/80">
+    <li className="text-tinte/80">
       <span aria-label={t.results.unknown}>?</span> {label}: {t.results.unknown}, {t.results.notCheckable}{paren}
     </li>
   );
@@ -88,26 +88,26 @@ export default function TourResultCard({
   ];
   return (
     <article
-      className={`flex flex-col gap-1 rounded-xl p-3 text-sm text-wald-dunkel ${
+      className={`flex flex-col gap-1 rounded-md p-3 text-sm text-tinte ${
         card.near_miss ? "ring-2 ring-amber-400 focus-within:ring-4 focus-within:ring-amber-600 " : ""
       }${
         from ? `relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl${card.near_miss ? "" : " focus-within:ring-2 focus-within:ring-amber-400"}` : "bg-papier/95"
       }`}
     >
       {!photo && large && (
-        <div aria-hidden="true" className="grid h-48 w-full place-items-center rounded-lg wald-verlauf p-3 text-center font-serif text-lg text-papier">
+        <div aria-hidden="true" className="grid h-48 w-full place-items-center rounded-sm wald-verlauf p-3 text-center font-serif text-lg text-papier">
           {card.name}
         </div>
       )}
       {photo && (
         <div className="flex flex-col gap-0.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo.thumb_url} alt="" loading="lazy" className={`${large ? "h-48" : "h-24"} w-full rounded-lg object-cover`} />
+          <img src={photo.thumb_url} alt="" loading="lazy" className={`${large ? "h-48" : "h-24"} w-full rounded-sm object-cover`} />
           {/* above the card-wide link so its licence links stay clickable */}
           <Attribution
             photo={photo}
             label={card.cover_nearby ? t.tour.photoNearby : undefined}
-            className="relative z-10 text-wald-dunkel/70"
+            className="relative z-10 text-tinte/70"
           />
         </div>
       )}

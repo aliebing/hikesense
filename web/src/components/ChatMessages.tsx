@@ -216,7 +216,7 @@ export default function ChatMessages({
             }`}
           >
             {it.kind === "user" && (
-              <p className={`max-w-[85%] self-end rounded-2xl rounded-br-md bg-papier px-3.5 py-2 ${text} text-wald-dunkel shadow-sm`}>
+              <p className={`max-w-[85%] self-end rounded-md bg-papier px-3.5 py-2 ${text} text-tinte shadow-sm`}>
                 {it.text}
               </p>
             )}
