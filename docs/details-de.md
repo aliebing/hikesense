@@ -162,7 +162,7 @@ Bestanden sind in jedem Lauf 64 von 64 Fällen: erfüllbar 18, unerfüllbar 10, 
 
 Zusätzlich zu den SMART-Zielen zählt der Lauf falsche Unerfüllbarkeits-Behauptungen: Antworten, die „Keine Tour erfüllt alle Wünsche“ sagen, obwohl der Code nicht ausweichen musste. Ergebnis: 0 von 30 erfüllbaren Fällen in jedem Lauf, der Code musste keinen solchen Satz entfernen. Vor dem Fix vom 2026-10-31 schrieb das Modell den Satz in 12 von 12 erfüllbaren Tagestour-Fällen, ohne dass ein Fall rot wurde ([Befunde](evaluation/README.md#befunde)).
 
-Der [Modell- und Temperaturvergleich](evaluation/vergleich.md) nutzt denselben Testsatz. gpt-4o-mini besteht mit T = 0, mit den Standardwerten und mit T = 0,7 jeweils 52 von 52 Fällen. `google/gemini-2.5-flash-lite` besteht 51 von 52 Fällen bei 0,0216 USD je Lauf; ihm fehlte bei einer Wissensfrage die erwartete Jahreszahl. Alle vier SMART-Ziele werden in allen vier Läufen erreicht. Die drei Vergleichsläufe liefen vor dem Fix der Unerfüllbarkeits-Behauptung und wurden nicht wiederholt.
+Der [Modellvergleich](evaluation/vergleich.md) nutzt denselben Testsatz. `openai/gpt-4.1-mini` (rund doppelt so teuer) bestand vor einem Grounding-Fix 59 und 58 von 64 Fällen: Es schrieb „902 m Anstieg“, und das Grounding las „m“ als Länge (behoben, danach 60 und 61 von 64). Die übrigen Fehler sind falsch herausgelöste Ortsangaben („near Überlingen“), bei denen der Code nachfragt, statt etwas zu erfinden. `google/gemini-2.5-flash-lite` war am 2026-11-03 beim Anbieter gedrosselt (HTTP 429); von den beantworteten Fällen bestanden 42 von 43 und 55 von 55. gpt-4o-mini bleibt Standardmodell.
 
 Was die Zahlen **nicht** zeigen:
 

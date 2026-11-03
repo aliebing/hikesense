@@ -1,5 +1,57 @@
 # Modell- und Temperaturvergleich
 
+## Stand 2026-11-03: 64 Fälle, Wiederholungen, zweites Modell
+
+Testsatz mit 64 Fällen (52 + 12 neue, nicht an gpt-4o-mini entwickelt), gleiche Erwartungen,
+gespeicherte Wetterdaten. Jede Konfiguration lief mindestens zweimal.
+
+| Kennzahl | gpt-4o-mini (3 Läufe + 1 nach dem Grounding-Fix) | gpt-4.1-mini vor dem Fix (2 Läufe) | gpt-4.1-mini nach dem Fix (2 Läufe) | gemini-2.5-flash-lite (2 Läufe, Anbieterstörung) |
+|---|---|---|---|---|
+| Fälle bestanden | 64, 64, 64 / 64; nach Fix 64 / 64 | 59, 58 / 64 | 60, 61 / 64 | 42, 55 / 64 (davon 21 bzw. 9 „nicht erreichbar“) |
+| erfundene Touren | 0 von 110 | 0 von 108–109 | 0 von 108–110 | 0 von 95–99 |
+| nicht belegte Zahlen | 0,0 % | 2,7 % / 4,5 % | 0,6 % / 0,0 % | 0,5 % / 0,0 % |
+| Unerfüllbarkeit offen benannt | 10 / 10 | 9 / 10, 10 / 10 | 9 / 10, 8 / 10 | 10 / 10, 8 / 10 |
+| Recall@5 | 1,00 | 1,00 | 1,00 | 0,30 / 1,00 (Ausfälle) |
+| falsche Unerfüllbarkeits-Behauptungen | 0 von 30 | 0 von 30 | 0 von 30 | 0 von 30 |
+| OSM-Abweichungen > 2 % | 0 von 116 | 0 | 0 | 0 |
+| Kosten je Lauf | 0,032–0,035 USD | 0,064–0,072 USD | 0,063–0,064 USD | – (Ausfälle) |
+
+Berichte: gpt-4o-mini [Lauf 1](bericht-2026-11-03-openai-gpt-4o-mini-lauf1.md),
+[2](bericht-2026-11-03-openai-gpt-4o-mini-lauf2.md), [3](bericht-2026-11-03-openai-gpt-4o-mini-lauf3.md),
+[nach Fix](bericht-2026-11-03-openai-gpt-4o-mini-nach-fix.md); gpt-4.1-mini
+[vor Fix 1](bericht-2026-11-03-openai-gpt-4-1-mini-vor-fix-lauf1.md), [vor Fix 2](bericht-2026-11-03-openai-gpt-4-1-mini-vor-fix-lauf2.md),
+[Lauf 1](bericht-2026-11-03-openai-gpt-4-1-mini-lauf1.md), [Lauf 2](bericht-2026-11-03-openai-gpt-4-1-mini-lauf2.md);
+Gemini [Lauf 1](bericht-2026-11-03-google-gemini-2-5-flash-lite-lauf1.md),
+[Lauf 2](bericht-2026-11-03-google-gemini-2-5-flash-lite-lauf2.md).
+
+**Gemini war am 2026-11-03 nicht verlässlich erreichbar.** OpenRouter meldete HTTP 429 („temporarily
+rate-limited upstream“, gemeinsamer Pool von Google AI Studio), auch zwischen den Läufen. Die App
+zeigte dann „Der Planungs-Assistent ist gerade nicht erreichbar“ und erfand nichts. Von den Fällen,
+die Gemini beantwortete, bestanden 42 von 43 und 55 von 55; der eine echte Fehler war u10 mit zwei
+Zahlen, die das Grounding als unbelegt markierte. Zwei frühere Gemini-Läufe desselben Abends
+(vor dem Sprach-Fix der Kennzahlen, ebenfalls mit 429) sind nicht eingecheckt.
+
+**Zweites Modell gpt-4.1-mini.** Weil Gemini ausfiel und das Konto andere Anbieter per Guardrail
+sperrt (Mistral, Llama, DeepSeek, Qwen; siehe unten), lief zusätzlich `openai/gpt-4.1-mini` – ein
+neueres, rund doppelt so teures Modell desselben Anbieters. Es fand zwei echte Schwächen:
+
+- **Grounding-Fehlalarm, behoben** (Commit `c74ae21`). gpt-4.1-mini schreibt „902 m Anstieg“ statt
+  „902 Hm“. Das Grounding las „m“ im Deutschen immer als Länge und ersetzte den richtigen Wert durch
+  „?“ (6 von 6 Zahlen je Mehrtagesplan, 2,7–4,5 % unbelegt). Im Englischen galt „540 m of ascent“
+  schon als Anstieg. Jetzt zählen Meter neben Anstieg/Abstieg/Aufstieg auch im Deutschen als
+  Höhenmeter, „86 m vom Weg“ bleibt eine Länge. Danach 0,6 % und 0,0 %; gpt-4o-mini weiter 64/64.
+- **Ortsangabe falsch herausgelöst, nicht behoben.** gpt-4.1-mini übernimmt „near Überlingen“ (u09)
+  bzw. „Pfälzer Weinsteig ab Bad Dürkheim“ (m11) als Ortsnamen und liest „über 25 km“ teils als
+  „≈ 25 km“ (u10). Der Code erfindet daraufhin nichts: Er fragt nach dem Ort bzw. zeigt das
+  Verständnis-Echo („Länge 21,25–28,75 km (≈ 25 km)“). Ein Fix (Präpositionen vor dem Ort
+  abschneiden) wäre an diesem Modell entwickelt; er ist als nächster Schritt notiert.
+
+Folgerung: gpt-4o-mini bleibt Standardmodell – günstiger und auf diesem Testsatz fehlerfrei. Das
+stärkere Modell ist nicht besser, weil die Qualität hier an der Code-Prüfung hängt, nicht an der
+Formulierung; seine Abweichungen fängt der Code ab (Rückfrage, „?“), statt sie durchzulassen.
+
+## Stand 2026-10-31
+
 Derselbe Testsatz (52 Fälle, `data/eval/cases.yaml`), dieselben Erwartungen, dieselben Prompts, gleiche
 gespeicherte Wetterdaten, Lauf am 2026-10-31.
 

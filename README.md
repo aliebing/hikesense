@@ -86,7 +86,7 @@ A fixed test set (`data/eval/cases.yaml`) runs against the real agent with `make
 | 100 % unsatisfiable requests named | 10 of 10 |
 | Recall@5 ≥ 0.8 | 1.00 (10 of 10) |
 
-64/64 cases passed in each run, at about 0.03 USD per run. 12 of the cases (Lake Constance, Palatinate Forest, Switzerland, English) were added after the base run and checked only against the database, not tuned on the model.
+64/64 cases passed in each run, at about 0.03 USD per run. 12 of the cases (Lake Constance, Palatinate Forest, Switzerland, English) were added after the base run and checked only against the database, not tuned on the model. A second model (gpt-4.1-mini) found one grounding false alarm ("902 m Anstieg" read as a length, fixed); Gemini 2.5 Flash Lite was rate-limited upstream on the day of the runs. Details: [docs/evaluation/vergleich.md](docs/evaluation/vergleich.md).
 
 ## Setup
 

@@ -158,6 +158,8 @@ Was sie nicht zeigen:
 
 ## Befunde
 
+- **Behoben: „902 m Anstieg“ galt als unbelegte Länge** (Commit `c74ae21`, gefunden im
+  Modellvergleich mit gpt-4.1-mini). Details in [vergleich.md](vergleich.md).
 - **Prüfung korrigiert: „Knapp daneben“-Karten** (2026-11-03). Seit dem 2026-11-02 füllt die
   Suche 1–2 Treffer mit gelb markierten Touren auf, die genau eine Bedingung knapp verfehlen. Die
   alte Prüfung `all_constraints_ok` las diese Karten als Treffer; im ersten Lauf mit 64 Fällen
