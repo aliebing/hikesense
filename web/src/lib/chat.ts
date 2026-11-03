@@ -59,6 +59,8 @@ export type TourCard = {
   cover_license: string | null;
   cover_license_url: string | null;
   cover_page_url: string | null;
+  /** large version of the cover (page backdrop); missing in cards saved before it existed */
+  cover_url?: string | null;
   results: ConstraintResult[];
   deviation_text: string | null;
   /** misses exactly one hard condition by a little (deviation_text says which); absent in older saved cards */

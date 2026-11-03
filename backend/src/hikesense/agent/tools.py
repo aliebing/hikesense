@@ -145,10 +145,11 @@ def search_radius_km(req: HikeRequest) -> float:
 
 
 # The cover photo: the first Commons photo of the trail (lowest id) with a thumbnail, else null.
+# c.url is the large version (backdrop), c.thumb_url the 400 px one (cards).
 _COLS = """t.id, t.name, t.length_km, t.ascent_m, t.descent_m, t.roundtrip, t.source_id,
-       c.thumb_url, c.author, c.license, c.license_url, c.page_url"""
+       c.thumb_url, c.author, c.license, c.license_url, c.page_url, c.url"""
 _COVER_JOIN = """left join lateral (
-        select p.thumb_url, p.author, p.license, p.license_url, p.page_url from photos p
+        select p.thumb_url, p.author, p.license, p.license_url, p.page_url, p.url from photos p
         where p.trail_id = t.id and p.source = 'commons' and p.thumb_url is not null
         order by p.id limit 1) c on true"""
 
@@ -208,13 +209,14 @@ def search_day_hikes(
             ascent_m=r[3],
             descent_m=r[4],
             roundtrip=r[5],
-            distance_km=float(r[12]),
+            distance_km=float(r[13]),
             tags=tags[r[0]],
             cover_thumb_url=r[7],
             cover_author=r[8],
             cover_license=r[9],
             cover_license_url=r[10],
             cover_page_url=r[11],
+            cover_url=r[12],
         )
         for r in rows
     ]

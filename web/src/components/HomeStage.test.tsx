@@ -7,7 +7,7 @@ import type { TourCard } from "../lib/chat";
 
 vi.mock("./ResultsPane", () => ({ default: () => <p>results pane</p> }));
 
-const card = { trail_id: "t1", name: "Tour 1", deviation_text: null, cover_thumb_url: "https://img/k.jpg", cover_author: "Karl", cover_license: "CC BY 4.0", cover_license_url: null, cover_page_url: "https://commons.wikimedia.org/wiki/File:Blick_ins_Tal.jpg" } as unknown as TourCard;
+const card = { trail_id: "t1", name: "Tour 1", deviation_text: null, cover_url: "https://img/k.jpg", cover_thumb_url: "https://img/k-thumb.jpg", cover_author: "Karl", cover_license: "CC BY 4.0", cover_license_url: null, cover_page_url: "https://commons.wikimedia.org/wiki/File:Blick_ins_Tal.jpg" } as unknown as TourCard;
 const lake = { url: "https://img/see.jpg", thumb_url: "https://img/see-t.jpg", author: "Sina", license: "CC BY 4.0", license_url: null, page_url: "https://commons.wikimedia.org/wiki/File:Teufensee.jpg" };
 
 const withLast = (cards: TourCard[] | null) =>
@@ -86,18 +86,26 @@ it("a plan, also an empty one, shows the results pane", async () => {
   expect(await screen.findByText("results pane")).toBeInTheDocument();
 });
 
-it("after results the first tour's photo lies behind the middle, with its credit", async () => {
+it("after results the first tour's large photo (not the 400 px thumbnail) lies behind the middle, with its credit", async () => {
   withLast([card]);
   const { container } = show();
   await screen.findByText("results pane");
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/k.jpg']")).not.toBeNull();
+  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/k-thumb.jpg']")).toBeNull();
   expect(screen.getByText(/Hintergrundbild:/)).toHaveTextContent("Hintergrundbild: Karl");
+});
+
+it("a card from before cover_url existed still gets its thumbnail as background", async () => {
+  withLast([{ ...card, cover_url: undefined } as unknown as TourCard]);
+  const { container } = show();
+  await screen.findByText("results pane");
+  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/k-thumb.jpg']")).not.toBeNull();
 });
 
 it("a tile photo that is no landscape is not used as background; a pool landscape is", async () => {
   withLast([{ ...card, cover_page_url: "https://commons.wikimedia.org/wiki/File:N26_Maestro.jpg" } as TourCard]);
   const { container } = show();
   await screen.findByText("results pane");
-  expect(container.querySelector("[aria-hidden='true'] img[src='https://img/k.jpg']")).toBeNull();
+  expect(container.querySelector("[aria-hidden='true'] img[src^='https://img/k']")).toBeNull();
   expect(container.querySelector("[aria-hidden='true'] img[src='https://img/see.jpg']")).not.toBeNull();
 });

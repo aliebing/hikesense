@@ -31,7 +31,7 @@ export const STORAGE_KEY = "hikesense.chat.v1";
 export function coverOf(card: TourCard | undefined): Photo | null {
   if (!card?.cover_thumb_url || !card.cover_author || !card.cover_license) return null;
   return {
-    url: card.cover_thumb_url,
+    url: card.cover_url ?? card.cover_thumb_url,
     thumb_url: card.cover_thumb_url,
     author: card.cover_author,
     license: card.cover_license,

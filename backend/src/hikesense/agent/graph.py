@@ -336,6 +336,7 @@ class TourCard(BaseModel):
     cover_license: str | None = None
     cover_license_url: str | None = None
     cover_page_url: str | None = None
+    cover_url: str | None = None  # large version of the cover (page backdrop)
     results: list[ConstraintResult]
     deviation_text: str | None = None
     near_miss: bool = False  # misses one hard condition by a little; deviation_text says which
@@ -560,6 +561,7 @@ def _card(s: Scored, area: bool, near_miss: bool = False, lang: Lang = "de") -> 
         cover_license=c.cover_license,
         cover_license_url=c.cover_license_url,
         cover_page_url=c.cover_page_url,
+        cover_url=c.cover_url,
         results=[_as_float(r) for r in s.results],
         deviation_text=format_deviation(s.violated, lang) if s.violated else None,
         near_miss=near_miss,

@@ -296,7 +296,9 @@ def test_search_cards_get_first_commons_thumb(db):
     assert by_id["test-p2-photo"].cover_thumb_url == (
         "https://commons.example/thumb/test-p2-test-p2-photo-1.jpg"
     )
+    assert by_id["test-p2-photo"].cover_url == "https://commons.example/test-p2-test-p2-photo-1.jpg"
     assert by_id["test-p2-nophoto"].cover_thumb_url is None
+    assert by_id["test-p2-nophoto"].cover_url is None
     c = by_id["test-p2-photo"]
     assert (c.cover_author, c.cover_license) == ("A", "CC BY-SA 4.0")
     assert c.cover_license_url == "https://license.example/by-sa"
