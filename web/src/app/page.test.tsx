@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { renderWithLocale } from "../test-utils";
 import type { TrailSummary } from "../lib/data";
 import { ChatProvider } from "../components/ChatProvider";
@@ -85,12 +85,13 @@ test("menu lists long-distance trails", async () => {
   expect(screen.getByRole("link", { name: "Weg westweg-west", hidden: true })).toHaveAttribute("href", "/t/westweg-west");
 });
 
-test("home footer credits the elevation data (Copernicus GLO-30)", async () => {
+test("home footer: one short line with OSM and elevation credits and a link to all sources", async () => {
   mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1)]);
   render(<ChatProvider>{await Home()}</ChatProvider>);
-  expect(screen.getByRole("contentinfo")).toHaveTextContent(
-    "Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA",
-  );
+  const footer = screen.getByRole("contentinfo");
+  expect(footer).toHaveTextContent("© OpenStreetMap-Mitwirkende · Höhen: Copernicus DEM · Quellen & Lizenzen");
+  expect(within(footer).getByRole("link", { name: "© OpenStreetMap-Mitwirkende" })).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
+  expect(within(footer).getByRole("link", { name: "Quellen & Lizenzen" })).toHaveAttribute("href", "/quellen");
 });
 
 test("English: heading, footer and data error come in English", async () => {
@@ -99,7 +100,7 @@ test("English: heading, footer and data error come in English", async () => {
   renderWithLocale(<ChatProvider>{await Home()}</ChatProvider>, "en");
   expect(screen.getByRole("heading", { level: 1, name: "HikeSense" })).toBeInTheDocument();
   expect(screen.getByText("Discover hiking routes")).toBeInTheDocument();
-  expect(screen.getByText(/Trail data: © OpenStreetMap contributors/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Sources & licences" })).toHaveAttribute("href", "/quellen");
   expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "e.g. 12 km round walk from Hinterzarten");
 
   vi.spyOn(console, "error").mockImplementation(() => {});

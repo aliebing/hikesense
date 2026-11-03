@@ -1,3 +1,4 @@
+import CreditsLine from "../components/CreditsLine";
 import HomeStage from "../components/HomeStage";
 import Notice from "../components/Notice";
 import PageFrame from "../components/PageFrame";
@@ -59,9 +60,7 @@ export default async function Home() {
   return (
     <PageFrame wide longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HomeStage landscapes={landscapes.slice(0, 40)} />
-      <footer className="schrift-feld text-[11px] text-papier">
-        {t.footer}
-      </footer>
+      <CreditsLine />
     </PageFrame>
   );
 }

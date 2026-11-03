@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { renderWithLocale } from "../../../test-utils";
 import { ChatProvider } from "../../../components/ChatProvider";
 import type { TrailDetail } from "../../../lib/data";
@@ -77,7 +77,9 @@ test("trail footer credits the elevation data (Copernicus GLO-30)", async () => 
   render(<ChatProvider>{await page()}</ChatProvider>);
   const footer = screen.getByRole("contentinfo");
   expect(footer).toHaveTextContent("OpenStreetMap (ODbL)");
-  expect(footer).toHaveTextContent("Höhen: Copernicus DEM GLO-30 © DLR e.V./Airbus, bereitgestellt von EU/ESA");
+  expect(footer).toHaveTextContent("Höhen: Copernicus DEM");
+  expect(footer).not.toHaveTextContent("DIN 33466"); // details are on the sources page
+  expect(within(footer).getByRole("link", { name: "Quellen & Lizenzen" })).toHaveAttribute("href", "/quellen");
 });
 
 test("when lodgings fail to load, the map legend says so instead of „0 Unterkünfte“", async () => {
@@ -224,7 +226,7 @@ test("English: the tour page, its blocks and tags are in English", async () => {
   expect(lodging).toHaveTextContent("1,200 m from the trail");
   expect(screen.getByRole("region", { name: "Groups nearby" })).toHaveTextContent("As of 01/03/2026 · within 15 km of the trail");
   expect(screen.getByRole("region", { name: "Inns & viewpoints" })).toHaveTextContent("Café");
-  expect(screen.getByRole("contentinfo")).toHaveTextContent("Sources: OpenStreetMap (ODbL) · Elevation: Copernicus DEM GLO-30");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("Sources: OpenStreetMap (ODbL) · Elevation: Copernicus DEM · Sources & licences");
 });
 
 test("English: the data-load error is English", async () => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CreditsLine from "../../../components/CreditsLine";
 import Attribution from "../../../components/Attribution";
 import Backdrop from "../../../components/Backdrop";
 import Block from "../../../components/Block";
@@ -199,30 +200,33 @@ export default async function TrailPage({
         </div>
       )}
 
-      <footer className="schrift-feld text-[11px] text-papier">
-        {t.sources}{" "}
-        {trail.sources.map((s, i) => (
-          <span key={s.id}>
-            {i > 0 && " · "}
-            {s.url ? (
-              <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                {s.name}
-              </a>
-            ) : (
-              s.name
-            )}
-            {s.license && ` (${s.license})`}
-          </span>
-        ))}
-        {" · "}{t.footerElevation}
-        {" · "}{t.footerTime}
-        {pois && pois.length > 0 && ` · ${t.footerOsm}`}
+      <CreditsLine
+        osm={!trail.sources.some((s) => s.id === "osm")}
+        lead={
+          <>
+            {t.sources}{" "}
+            {trail.sources.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && " · "}
+                {s.url ? (
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                    {s.name}
+                  </a>
+                ) : (
+                  s.name
+                )}
+                {s.license && ` (${s.license})`}
+              </span>
+            ))}
+          </>
+        }
+      >
         {backdrop && (
           <div className="mt-1 flex flex-wrap items-baseline gap-1">
             <Attribution photo={backdrop} label={t.backdrop} />
           </div>
         )}
-      </footer>
+      </CreditsLine>
     </PageFrame>
   );
 }
