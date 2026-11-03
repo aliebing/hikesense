@@ -18,11 +18,11 @@ from code_snippets import Snippet, render_slides
 from playwright.async_api import async_playwright
 from recorder import BROWSER_ARGS, SCALE, VIEW_H, VIEW_W, H, Screencast, Segment, W, narrate, render, synthesize
 
-# Counts for the slides, from README.md ("Daten und Lizenzen", queried 2026-10-31, Black Forest only). Update them
-# from the README after the import of the new regions, together with the narration of t04/t05/t06.
+# Counts for the slides, from docs/details-de.md ("Daten und Lizenzen", queried 2026-11-03, all three regions);
+# keep them in step with the narration of t04/t06.
 COUNTS = {
-    "lines": "4", "stages": "46", "day_hikes": "122", "lodgings": "1,814", "photos": "849",
-    "scanned": "1,712", "auto_rejected": "1,335", "manual_rejected": "255",
+    "lines": "8", "stages": "75", "day_hikes": "577", "lodgings": "3,514", "photos": "2,713",
+    "scanned": "4,014", "auto_rejected": "3,048", "manual_rejected": "389",
 }  # fmt: skip
 
 SEGMENTS = [
@@ -44,24 +44,25 @@ SEGMENTS = [
         "Every imported row points to a source with its licence. Trails, places and accommodation come from "
         "OpenStreetMap, imported once, so the app never queries OpenStreetMap at runtime. Elevation profiles are "
         "computed from the Copernicus terrain model, photos come from Wikimedia Commons with author and licence, "
-        "and the weather from Open-Meteo, live, for up to fourteen days. For the Black Forest that is four "
-        "long-distance lines with forty-six stages, a hundred and twenty-two day hikes, eighteen hundred and "
-        "fourteen places to stay and eight hundred and forty-nine photos.",
+        "and the weather from Open-Meteo, live, for up to fourteen days. In all, that is eight "
+        "long-distance lines with seventy-five stages, five hundred and seventy-seven day hikes, three thousand "
+        "five hundred and fourteen places to stay and two thousand seven hundred and thirteen photos.",
     ),
     Segment(
         "t05",
         "There are now three regions: the Black Forest, Lake Constance with its Swiss and Austrian shore, and the "
         "Palatinate Forest, German side only. Four long-distance trails with stages join the Westweg, Mittelweg "
         "and Ostweg: the Pfälzer Weinsteig, the Pfälzer Waldpfad, the Jubiläumsweg Bodenseekreis and the SeeGang. "
-        "The import for the new regions is still running, so the counts here are for the Black Forest.",
+        "Places, points of interest and accommodation are read from Geofabrik extracts of five areas, so the "
+        "import no longer depends on the busy Overpass servers.",
     ),
     Segment(
         "t06",
         "Day hikes follow strict rules: quality before quantity. A scan writes every OpenStreetMap hiking relation "
         "into a curation file. A relation is rejected automatically if it has no name, is a stage of a "
         "long-distance trail, has gaps, is shorter than five or longer than thirty kilometres, or belongs to a "
-        "long-distance network. A manual decision always wins. Of seventeen hundred and twelve relations in the "
-        "Black Forest, a hundred and twenty-two remain.",
+        "long-distance network. A manual decision always wins. Of four thousand and fourteen relations in the "
+        "three regions, five hundred and seventy-seven remain.",
     ),
     Segment(
         "c06",

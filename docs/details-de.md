@@ -1,6 +1,6 @@
 # HikeSense – Details (Deutsch)
 
-Ein Wanderplaner für den Schwarzwald, den man über einen KI-Chat bedient. Er plant Tagestouren und Mehrtagestouren auf Westweg, Mittelweg und Ostweg mit Unterkünften, Gehzeiten und Wetter. Jede Strecke kommt aus der Datenbank, nicht vom Sprachmodell. Jede Zahl im Antworttext prüft der Code gegen die Ergebnisse der Werkzeuge.
+Ein Wanderplaner für Schwarzwald, Bodensee (mit Schweizer und österreichischem Ufer) und Pfälzerwald, den man über einen KI-Chat bedient, auf Deutsch oder Englisch. Er plant Tagestouren und Mehrtagestouren auf acht Fernwegen mit Unterkünften, Gehzeiten und Wetter. Jede Strecke kommt aus der Datenbank, nicht vom Sprachmodell. Jede Zahl im Antworttext prüft der Code gegen die Ergebnisse der Werkzeuge.
 
 ## Showcase
 
@@ -8,7 +8,7 @@ Ein Wanderplaner für den Schwarzwald, den man über einen KI-Chat bedient. Er p
 
 | Unerfüllbarer Wunsch: ehrlich benannt, Ausweichtouren mit genau einer verletzten Bedingung | Mehrtagesplan mit Unterkünften, Ankunftszeiten und Wetter | „Unterwegs“ auf dem Handy |
 |---|---|---|
-| ![Ausweichtouren für „Rundweg, unter 200 Hm, über 15 km, Feldberg“](showcase/04-unerfuellbar-ausweichtouren.png) | ![Plan „3 Tage Westweg ab Hausach“ mit Wetter](showcase/05-mehrtagesplan-wetter.png) | ![Restkilometer und Ankunft auf Tag 1](showcase/10-unterwegs-handy.jpg) |
+| ![Ausweichtouren für „Rundweg, unter 200 Hm, über 15 km, Feldberg“](showcase/04-unerfuellbar-ausweichtouren.jpg) | ![Plan „3 Tage Westweg ab Hausach“ mit Unterkünften](showcase/05-mehrtagesplan.jpg) | ![Restkilometer und Ankunft auf Tag 1](showcase/10-unterwegs-handy.jpg) |
 
 Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echten Modell (`openai/gpt-4o-mini`). Die Position für „Unterwegs“ ist simuliert: ein Punkt auf Tag 1 des Plans, die Uhr des Browsers steht auf 10:00. Die Bilder 02, 10, 11 und 12 sind nach den Fixes vom selben Tag neu aufgenommen.
 
@@ -17,14 +17,14 @@ Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echt
 
 Die Bilder zeigen noch die Optik vor dem Umbau vom 2026-11-01 (Fotohintergrund, eigene Vorschlagsseite). Seitdem ist die App dunkelgrün, die Vorschläge stehen als Kacheln direkt neben dem Chat, und Tour- und Planseite zeigen die Karte eingebettet. Neue Screenshots folgen mit dem neuen Video.
 
-1. [Startseite](showcase/01-startseite.jpg)
-2. [Tagestouren zu „Rundweg 10–14 km um Hinterzarten, unter 400 Hm“](showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, der Antworttext nennt passende Touren ohne Unerfüllbarkeits-Satz. Die Sternchen im Text sind Markdown des Modells; seit dem 2026-11-01 stellt die App es dar (fett, kursiv, Links, Listen), der Screenshot ist älter.
+1. [Startseite](showcase/01-startseite.jpg). Die Screenshots 1–8 sind vom 2026-11-03 (HikeSense, englische Oberfläche), 9–12 noch mit dem alten Namen.
+2. [Tagestouren zu „A round walk near Titisee, about 10 km“ und „Under 300 m ascent, please“](showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, dazu eine gelbe Karte „Near miss“ mit der einen knappen Abweichung (11,6 statt höchstens 11,5 km).
 3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](showcase/03-unerfuellbar-chat.jpg)
-4. [Ausweichtouren mit der einen verletzten Bedingung](showcase/04-unerfuellbar-ausweichtouren.png)
-5. [Mehrtagesplan mit Wetter (Open-Meteo)](showcase/05-mehrtagesplan-wetter.png)
-6. [Karte mit Tagesabschnitten](showcase/06-tagesabschnitte-karte.png)
-7. [Routenseite mit Fotos, Lizenzen und Gruppen in der Nähe](showcase/07-routenseite-fotos.png)
-8. [Karte einer Tagestour mit Unterkünften (basemap.de)](showcase/08-routenkarte.png)
+4. [Ausweichtouren mit der einen verletzten Bedingung](showcase/04-unerfuellbar-ausweichtouren.jpg)
+5. [Mehrtagesplan mit Unterkünften und Ankunftszeiten](showcase/05-mehrtagesplan.jpg)
+6. [Karte mit Tagesabschnitten](showcase/06-tagesabschnitte-karte.jpg)
+7. [Routenseite mit Fotos, Lizenzen und Gruppen in der Nähe](showcase/07-routenseite-fotos.jpg)
+8. [Karte einer Tagestour mit Unterkünften (basemap.de)](showcase/08-routenkarte.jpg)
 9. [Wissensfrage mit Quellen und Lizenz](showcase/09-wissensfrage-quellen.jpg)
 10. [„Unterwegs“ auf dem Handy](showcase/10-unterwegs-handy.jpg)
 11. [„Unterwegs“ mit Position auf der Karte](showcase/11-unterwegs-karte-handy.jpg)
@@ -46,7 +46,7 @@ HikeSense ist deshalb neu gebaut. Im Vordergrund steht das Planen, der Chat ist 
 
 ## Was die App kann
 
-1. **Mehrtagestour planen:** teilt Westweg (West- und Ostvariante), Mittelweg oder Ostweg ab einem Etappenort in Tage mit Zielstrecke. Tagesziel ist eine Unterkunft höchstens 1 km vom Weg. Dazu kommen die Ankunftszeit nach DIN 33466, das Wetter und an Regentagen eine Regenvariante mit der Bahn.
+1. **Mehrtagestour planen:** teilt Westweg (West- und Ostvariante), Mittelweg, Ostweg, SeeGang, Jubiläumsweg Bodenseekreis, Pfälzer Weinsteig oder Pfälzer Waldpfad ab einem Etappenort in Tage mit Zielstrecke. Tagesziel ist eine Unterkunft höchstens 1 km vom Weg. Dazu kommen die Ankunftszeit nach DIN 33466, das Wetter und an Regentagen eine Regenvariante mit der Bahn.
 2. **Tagestouren:** schlägt höchstens 5 Touren im Umkreis eines Startorts vor, jede mit ✓ oder ✗ je Bedingung.
 3. **Ehrlicher Umgang mit Wünschen:** Erfüllt keine Tour alle Bedingungen, sagt der Code das mit Begründung. Er zeigt dann Touren, die genau eine Bedingung verletzen, und nennt die Abweichung (z. B. „632 Hm statt höchstens 200“).
 4. **Chat im Vordergrund:** Der Plan entsteht im Gespräch und lässt sich dort ändern, etwa mit „Tag 3 kürzer“ oder „Und eine Regenvariante für Tag 1?“.
@@ -129,18 +129,18 @@ Die Oberfläche gibt es auf **Englisch (Standard)** und **Deutsch**. Zwei Fahnen
 
 ## Daten und Lizenzen
 
-Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikesense import-*`, siehe `Makefile`) erzeugen einen festen Stand, die App fragt OSM zur Laufzeit nicht ab. Wege, Etappen, Unterkünfte, Orte und Punkte verweisen je Zeile auf eine Quelle mit Lizenz (Tabelle `sources`), Bilder tragen Urheber und Lizenz selbst. Die Karte zeigt die Attribution für OSM und BKG, jedes Bild seinen Urheber und seine Lizenz. Die Mengen unten wurden am 2026-10-31 aus der Datenbank abgefragt, die Abfrage steht als Kommentar daneben.
+Alles liegt in einer lokalen Supabase-Datenbank. Die Import-Skripte (`hikesense import-*`, siehe `Makefile`) erzeugen einen festen Stand, die App fragt OSM zur Laufzeit nicht ab. Wege, Etappen, Unterkünfte, Orte und Punkte verweisen je Zeile auf eine Quelle mit Lizenz (Tabelle `sources`), Bilder tragen Urheber und Lizenz selbst. Die Karte zeigt die Attribution für OSM und BKG, jedes Bild seinen Urheber und seine Lizenz. Die Mengen unten wurden am 2026-11-03 aus der Datenbank abgefragt, die Abfrage steht als Kommentar daneben.
 
 | Datenart | Quelle und Lizenz | Menge |
 |---|---|---|
-| Fernwege und Etappen | Wegverlauf: OSM-Relationen (ODbL). Etappeneinteilung (Start, Ziel, km) als Fakten von Schwarzwald Tourismus (Westweg) und vom Schwarzwaldverein (Mittelweg, Ostweg), ohne übernommene Texte | 4 Linien: Westweg West 286,1 km, Westweg Ost 288,6 km, Mittelweg 224,8 km, Ostweg 244,5 km; zusammen 46 Etappen <!-- select id, round(length_km::numeric,1) from trails where kind='long_distance'; select count(*) from stages; --> |
-| Tagestouren | OSM-Wanderrelationen (ODbL). 1712 gescannt, automatisch gefiltert (Lücken, Länge), danach 255 weitere abgelehnt. Diese Ablehnungen sind von Claude vorgeschlagen, noch nicht von Ali bestätigt (siehe [Offene Prüfungen](#offene-prüfungen-vor-abgabe)). Entscheidung und Grund je Relation in `data/curated/day_hikes.csv` | 122 Touren <!-- select count(*) from trails where kind='day_hike'; CSV: 1712 Zeilen, 1335 automatisch verworfen, 255 mit manual_reason „Vorschlag Claude: …“ verworfen --> |
-| Unterkünfte | OSM (Hotel, Pension, Ferienwohnung, Chalet, Hostel, Hütte, Campingplatz; ODbL), Website-Link, falls vorhanden | 1814 Unterkünfte, 3115 Verknüpfungen mit Wegen <!-- select count(*) from lodgings; select kind, count(*) from lodgings group by kind; select count(*) from trail_lodgings; --> |
-| Einkehr, Aussicht, Gipfel, Wasserfälle, Hütten, Bahnhöfe | OSM (ODbL). In `sources` steht für alle OSM-Daten eine Zeile `osm`: „OpenStreetMap contributors (Overpass API)“, abgerufen 2026-10-28. Orte und Punkte kann der Import auch aus dem Geofabrik-Extrakt Baden-Württemberg lesen (`make places`, Extrakt mit Stand 2026-10-28); welcher der beiden Wege den aktuellen Stand erzeugt hat, hält `sources` nicht fest | 767 Einkehr, 460 Aussichtspunkte, 179 Gipfel, 57 Wasserfälle, 31 Hütten, 40 Bahnhöfe und Haltepunkte <!-- select kind, count(*) from pois group by kind; --> |
-| Orte (Startorte) | OSM (wie oben; ODbL) | 3955 Orte <!-- select count(*) from places; --> |
+| Fernwege und Etappen | Wegverlauf: OSM-Relationen (ODbL). Etappeneinteilung (Start, Ziel, km) als Fakten von Schwarzwald Tourismus (Westweg), vom Schwarzwaldverein (Mittelweg, Ostweg), von Pfalz.Touristik (Weinsteig, Waldpfad), vom Landratsamt Bodenseekreis (Jubiläumsweg) und von seen.de/wildganz.com (SeeGang, Etappen-km nicht offiziell bestätigt), ohne übernommene Texte | 8 Linien: Westweg West 286,1 km, Westweg Ost 288,6 km, Mittelweg 224,8 km, Ostweg 244,5 km, SeeGang 52,9 km, Jubiläumsweg Bodenseekreis 114,9 km, Pfälzer Weinsteig 181,8 km, Pfälzer Waldpfad 126,7 km; zusammen 75 Etappen <!-- select id, round(length_km::numeric,1) from trails where kind='long_distance'; select count(*) from stages; --> |
+| Tagestouren | OSM-Wanderrelationen (ODbL) aller drei Regionen. 4014 gescannt, 3048 nach festen Regeln verworfen (Name, 5–30 km, Lücken, Fernweg, Region), danach 389 weitere abgelehnt, davon 84 mit „Regionsausgleich“ (Dichteregel im Schwarzwald, keine Qualitätsregel). Diese Ablehnungen sind von Claude vorgeschlagen, noch nicht von Ali bestätigt (siehe [Offene Prüfungen](#offene-prüfungen-vor-abgabe)). Entscheidung und Grund je Relation in `data/curated/day_hikes.csv` | 577 Touren: Schwarzwald 122, Bodensee 95, Pfälzerwald 360 <!-- select region, count(*) from trails where kind='day_hike' group by region; CSV: 4014 Zeilen, 3048 automatisch verworfen, 389 mit manual_reason „Vorschlag Claude: …“ verworfen --> |
+| Unterkünfte | OSM (Hotel, Pension, Ferienwohnung, Chalet, Hostel, Hütte, Campingplatz; ODbL), Website-Link, falls vorhanden | 3514 Unterkünfte, 9426 Verknüpfungen mit Wegen <!-- select count(*) from lodgings; select kind, count(*) from lodgings group by kind; select count(*) from trail_lodgings; --> |
+| Einkehr, Aussicht, Gipfel, Wasserfälle, Hütten, Bahnhöfe | OSM (ODbL), gelesen aus Geofabrik-Extrakten (Baden-Württemberg, Rheinland-Pfalz, Schwaben, Schweiz, Österreich; `make osm-extract`, `make places`, Stand 2026-10-29 bzw. 2026-11-03). Wegverläufe kommen weiter über Overpass. In `sources` steht dafür eine Zeile `osm`: „OpenStreetMap contributors (Overpass API; Geofabrik extracts …)“ | 2389 Einkehr, 1212 Aussichtspunkte, 628 Gipfel, 85 Wasserfälle, 46 Hütten, 127 Bahnhöfe und Haltepunkte; 4487 davon an Wegen <!-- select kind, count(*) from pois group by kind; --> |
+| Orte (Startorte) | OSM (wie oben; ODbL) | 10308 Orte <!-- select count(*) from places; --> |
 | Höhenprofile | Copernicus DEM GLO-30 (© DLR e.V. 2010–2014 und © Airbus Defence and Space GmbH 2014–2018, bereitgestellt unter COPERNICUS von EU und ESA), beim Import auf jede Linie gerechnet | alle Linien |
-| Bilder | Wikimedia Commons (Geo-Suche entlang der Linie). Urheber und Lizenz stehen je Bild in der Datenbank und am Bild. Eigene Uploads sind privat (Supabase Storage) | 849 Commons-Bilder zu 118 Touren und Wegen <!-- select source, count(*) from photos group by source; select count(distinct trail_id) from photos where source='commons'; --> |
-| Wissensindex (RAG) | 15 Wikipedia- und 3 Wikivoyage-Artikel (CC BY-SA 4.0, `data/knowledge/sources.yaml`) und 4 eigene Texte (`data/knowledge/*.md`), ChromaDB + BM25 | 551 Abschnitte im Index <!-- sqlite3 data/chroma/chroma.sqlite3 'select count(*) from embeddings' --> |
+| Bilder | Wikimedia Commons (Geo-Suche entlang der Linie). Urheber und Lizenz stehen je Bild in der Datenbank und am Bild. Eigene Uploads sind privat (Supabase Storage) | 2713 Commons-Bilder zu 530 von 585 Touren und Wegen <!-- select source, count(*) from photos group by source; select count(distinct trail_id) from photos where source='commons'; --> |
+| Wissensindex (RAG) | 25 Wikipedia- und 5 Wikivoyage-Artikel (CC BY-SA 4.0, `data/knowledge/sources.yaml`) und 4 eigene Texte (`data/knowledge/*.md`), ChromaDB + BM25 | 1160 Abschnitte im Index <!-- sqlite3 data/chroma/chroma.sqlite3 'select count(*) from embeddings' --> |
 | Gruppen | Kuratierte Liste `data/curated/groups.csv`, Link und Prüfdatum je Eintrag | 24 Einträge, alle mit Status „vorschlag“ <!-- select status, count(*) from groups group by status; --> |
 | Karte | basemap.de-Vektorkacheln (BKG, CC BY 4.0), zur Laufzeit geladen | – |
 | Wetter | Open-Meteo.com (CC BY 4.0), zur Laufzeit für Tage bis 14 Tage ab heute | – |
@@ -183,8 +183,8 @@ Was die Zahlen **nicht** zeigen:
 Grenzen, die die App nicht wegnehmen kann:
 
 - **Zimmerverfügbarkeit ist unbekannt.** Die App prüft und bucht keine Zimmer. Sie verlinkt die Website der Unterkunft oder eine Suche. Eine Unterkunft im Plan heißt nicht, dass dort ein Zimmer frei ist oder dass sie noch geöffnet hat.
-- **OSM-Daten können veraltet oder unvollständig sein.** Das betrifft Wegverläufe, Unterkünfte, Einkehr und Haltestellen, mit dem Stand des Imports (2026-10-28 bis 2026-10-31). <!-- select min(retrieved_at)::date, max(retrieved_at)::date from sources; -->
-- **Gut kartierte Gebiete sind bevorzugt.** Touren, Unterkünfte und Fotos gibt es dort, wo OSM und Commons viele Daten haben. Weniger kartierte Orte kommen seltener vor, Orte außerhalb Baden-Württembergs gar nicht (siehe Bekannte Lücken).
+- **OSM-Daten können veraltet oder unvollständig sein.** Das betrifft Wegverläufe, Unterkünfte, Einkehr und Haltestellen, mit dem Stand des Imports (2026-10-28 bis 2026-11-03). <!-- select min(retrieved_at)::date, max(retrieved_at)::date from sources; -->
+- **Gut kartierte Gebiete sind bevorzugt.** Touren, Unterkünfte und Fotos gibt es dort, wo OSM und Commons viele Daten haben. Weniger kartierte Orte kommen seltener vor, Orte außerhalb der drei Regionen gar nicht (siehe Bekannte Lücken).
 - **Das Modell kann trotz Grounding falsch formulieren.** Geprüft werden Zahlen mit Einheit, Tournamen und der Satz „Keine Tour erfüllt alle Wünsche“, nicht die übrigen Aussagen dazwischen. Ein Beispiel steht unter [Bekannte Lücken](#bekannte-lücken).
 - **Angaben zu Läufen sind ohne Gewähr.** Sie stammen live aus dem Web, jedes Feld mit wörtlichem Zitat von der Seite des Veranstalters. Termine können sich trotzdem ändern, deshalb bitte beim Veranstalter prüfen.
 - **KI-Kosten:** Jede Nachricht kostet Geld bei OpenRouter, gedeckelt auf 0,05 USD und 8 Werkzeugaufrufe je Nachricht. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag. Ein Eval-Lauf über 52 Fälle kostete 0,0282 USD. Die Websuche für Läufe kostet etwa 0,007 USD je Suche.
@@ -346,8 +346,8 @@ Die Liste hat 24 Einträge (Schwarzwaldverein-Ortsgruppen und DAV-Sektionen). Wa
 
 **Daten**
 
-- **Basel und Schaffhausen liegen außerhalb des OSM-Extrakts Baden-Württemberg.** Die Wegenden von Westweg (Basel) und Ostweg (Schaffhausen) heißen zwar so, aber auf Schweizer Seite fehlen Unterkünfte und Haltestellen. „Ab Basel“ lässt sich als Startort nicht auflösen, der Name ist nur eine Beschriftung.
-- **Nicht jeder Etappenort lässt sich als Startort auflösen.** Beim Westweg sind es 7 von 17 Etappenorten, beim Mittelweg 8 von 10 (es fehlen Zwieselberg und Kalte Herberge), beim Ostweg 11 von 13 (es fehlen Schramberg und Villingen). Bei den übrigen hilft ein Ort in der Nähe als Startangabe. Nach einem Ort, der nicht am Weg liegt, fragt der Chat und bietet nur Etappenorte an, die sich auflösen. <!-- Prüfung 2026-10-31: für jede trail_id stage_places(conn, id) aus hikesense.agent.tools, je Name _is_point(_resolve_start(vocab, name)) aus hikesense.agent.understand; Westweg = Vereinigung von westweg-west und westweg-ost (17 verschiedene Namen) -->
+- **Basel und Schaffhausen gehören zu keiner Region.** Der Schwarzwald liest nur den Extrakt Baden-Württemberg; die Schweiz ist nur für das Bodensee-Gebiet importiert. Die Wegenden von Westweg (Basel) und Ostweg (Schaffhausen) heißen zwar so, aber dort fehlen Unterkünfte und Haltestellen. „Ab Basel“ lässt sich nicht auflösen, Schaffhausen liegt mehr als 2 km vom Linienende.
+- **Nicht jeder Etappenort lässt sich als Startort auflösen.** Beim Westweg sind es 7 von 17 Etappenorten (es fehlen u. a. Unterstmatt, Alexanderschanze, Kalte Herberge, Basel), beim Mittelweg 8 von 10 (es fehlen Zwieselberg und Kalte Herberge), beim Ostweg 10 von 13 (Schramberg und Villingen nur nach Rückfrage, Schaffhausen nicht am Weg). Beim Pfälzer Waldpfad lösen sich 4 von 9 direkt auf: Johanniskreuz ist in OSM keine Ortschaft, Schopp und Erlenbach liegen mehr als 2 km von der Linie, Heltersberg und Hauenstein gehen nach Rückfrage (Ort/Gipfel). Beim Weinsteig schreibt die Etappenquelle „Neustadt a. d. Weinstraße“ und „St. Martin“, OSM „Neustadt an der Weinstraße“ und „Sankt Martin“; die Rückfrage bietet die richtige Schreibweise an. Konstanz (SeeGang), Bad Dürkheim (Weinsteig) und Neukirch (Jubiläumsweg) sind mehrdeutig und gehen nach Rückfrage. Bei den übrigen hilft ein Ort in der Nähe als Startangabe. Nach einem Ort, der nicht am Weg liegt, fragt der Chat und bietet nur Etappenorte an, die sich auflösen. <!-- Prüfung 2026-10-31: für jede trail_id stage_places(conn, id) aus hikesense.agent.tools, je Name _is_point(_resolve_start(vocab, name)) aus hikesense.agent.understand; Westweg = Vereinigung von westweg-west und westweg-ost (17 verschiedene Namen) -->
 - **Ostweg: 7 von 12 Etappen weichen um mehr als 5 % von den offiziellen km ab.** Am stärksten betroffen ist Etappe 5, Freudenstadt – Alpirsbach, mit 16,7 statt 22,5 km. Der Grund liegt darin, wo die Etappenenden auf der Linie gesetzt sind. Die Etappen 5 bis 7 zusammen weichen nur um 2,7 % ab (66,2 statt 68 km), die ganze Linie hat 244,4 km Etappensumme gegenüber 245,5 km offiziell. Der Wegverlauf selbst ist also nicht kürzer. <!-- select seq, length_km from stages where trail_id='ostweg' order by seq; offizielle km: data/curated/trails.yaml (km je Etappe) -->
 - **Mittelweg: 4 von 9 Etappen weichen um mehr als 5 % ab** (Etappen 4, 5, 7 und 9; die OSM-Linie ist dort kürzer als die offiziellen Angaben). Die Quelle ist selbst nicht einheitlich: Sie nennt 249 km Gesamtlänge, ihre Etappen ergeben 233 km. <!-- select seq, length_km from stages where trail_id='mittelweg' order by seq -->
 - **Nur eine Variante je Weg, außer beim Westweg.** Angeboten werden der Mittelweg über Häusern (westliche Variante) und der Ostweg ohne die Variante über Loßburg. Beim Westweg gibt es West- und Ostvariante.
@@ -373,4 +373,4 @@ Diese Prüfungen kann nur Ali selbst machen. Der Abschnitt wird danach entfernt.
 - [ ] Die 24 Gruppen in `data/curated/groups.csv` von Hand prüfen (`geprüft` setzen, `make groups`) und danach die Angaben zu „vorschlag“ in diesem README anpassen.
 - [ ] Ein echtes Foto hochladen und prüfen, dass EXIF- und GPS-Daten im gespeicherten Bild fehlen.
 - [ ] „Unterwegs“ auf dem Handy über `cloudflared` testen, mit echter Ortung. Die Screenshots oben nutzen eine simulierte Position.
-- [ ] Die 255 Ablehnungen in `data/curated/day_hikes.csv` (`manual_decision = rejected`, Grund „Vorschlag Claude: …“) durchsehen. Sie sind von Claude vorgeschlagen, noch nicht von Ali bestätigt. Danach die Angabe in [Daten und Lizenzen](#daten-und-lizenzen) anpassen.
+- [ ] Die 389 Ablehnungen in `data/curated/day_hikes.csv` (`manual_decision = rejected`, Grund „Vorschlag Claude: …“) durchsehen. Sie sind von Claude vorgeschlagen, noch nicht von Ali bestätigt. Besonders die 84 mit „Regionsausgleich“: Das ist eine Dichteregel (höchstens zwei Touren je 0,1°-Feld im Schwarzwald), keine Qualitätsregel; ohne sie hätte der Schwarzwald 206 statt 122 Tagestouren. Danach die Angabe in [Daten und Lizenzen](#daten-und-lizenzen) anpassen.

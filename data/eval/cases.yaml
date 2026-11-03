@@ -4,6 +4,12 @@
 # Erwartungen werden nie gelockert: fällt ein Fall durch, wird die Ursache gesucht. Ist der Fall
 # selbst falsch (der Code richtig), wird der Fall korrigiert und hier begründet.
 #
+# all_constraints_ok seit 2026-11-03: geprüft werden die Treffer; „Knapp daneben“-Karten (seit 2026-11-02,
+# füllen 1–2 Treffer auf) müssen als solche markiert sein, genau eine Bedingung verletzen und die
+# Abweichung nennen. Erster Lauf nach der Funktion: e08 und e10 rot, weil die alte Prüfung die gelbe
+# Karte (Enzquellenpfad 16 km statt ≤ 15 km entfernt; Kesslerhöhenweg 6,4 statt 6,8–9,2 km) als
+# Treffer las. Nicht gelockert: Treffer brauchen weiter alle ✓, min_results zählt nur Treffer.
+#
 # Jeder Fall ist vorher gegen Datenbank bzw. Wissensindex geprüft (ein Fall soll am Agenten
 # scheitern können, nicht an fehlenden Daten). Tagestouren: die SQL-Abfrage am Fall gibt wieder,
 # was die Suche prüft (Tagestouren mit Geometrie, Abstand Start–Linie ≤ 15 km = Standard-Umkreis,

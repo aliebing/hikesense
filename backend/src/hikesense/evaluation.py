@@ -67,6 +67,7 @@ from hikesense.agent.graph import AgentDeps
 from hikesense.agent.grounding import numbers_in_text
 from hikesense.errors import HikeSenseError
 from hikesense.geo import METRIC_SRID
+from hikesense.numfmt import Lang
 from hikesense.smoke import (
     Case,
     CaseResult,
@@ -192,6 +193,7 @@ class EvalResult(CaseResult):
 
     group: str = ""
     expects: list[dict[str, Any]] = field(default_factory=list)
+    lang: Lang = "de"  # reply language of the case; the fixed sentences are checked in it
 
 
 @dataclass
@@ -223,7 +225,12 @@ def run_eval(
         case = by_id[r.case]
         base = {f.name: getattr(r, f.name) for f in fields(r)}
         out.append(
-            EvalResult(**base, group=case.group or "", expects=[t.expect for t in case.turns])
+            EvalResult(
+                **base,
+                group=case.group or "",
+                expects=[t.expect for t in case.turns],
+                lang=case.lang,
+            )
         )
     return out
 
@@ -269,7 +276,7 @@ def compute_metrics(results: list[EvalResult], trail_ids: set[str] | None = None
         if claim_turns:
             m.claim_cases += 1
             m.claim_false += any(
-                check(r.all_events[i], {"no_unsat_claim": True})
+                check(r.all_events[i], {"no_unsat_claim": True}, lang=r.lang)
                 for i in claim_turns
                 if i < len(r.all_events)
             )
@@ -280,7 +287,7 @@ def compute_metrics(results: list[EvalResult], trail_ids: set[str] | None = None
         if r.group == "unerfuellbar":
             m.unsat_cases += 1
             last = r.all_events[-1] if r.all_events else []
-            m.unsat_named += not check(last, {"unsatisfiable_named": True})
+            m.unsat_named += not check(last, {"unsatisfiable_named": True}, lang=r.lang)
         if r.group == "wissen" and any("sources_include" in e for e in r.expects):
             m.recall_cases += 1
             m.recall_hits += _recall_hit(r)

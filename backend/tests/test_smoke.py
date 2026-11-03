@@ -52,8 +52,10 @@ def res(ok=True, kind="length_km"):
     return ConstraintResult(kind=kind, ok=ok, actual=1.0, bound="x", deviation_rel=0.0)
 
 
-def card(tid="t", results=(), duration=None):
+def card(tid="t", results=(), duration=None, near_miss=False, deviation=None):
     return TourCard(
+        near_miss=near_miss,
+        deviation_text=deviation,
         trail_id=tid,
         name=tid,
         length_km=10,
@@ -152,6 +154,30 @@ def test_min_results_and_all_constraints_ok():
     assert sm.check(bad, {"min_results": 2})
     assert sm.check(bad, {"all_constraints_ok": True})
     assert sm.check([done()], {"all_constraints_ok": True})  # no hits is not "all ok"
+
+
+def test_all_constraints_ok_accepts_only_proper_near_miss_cards():
+    """ "Knapp daneben" fills 1-2 hits up with marked cards that miss exactly one condition."""
+    hit = card("a", [res(True), res(True, "radius_km")])
+    near = card(
+        "n",
+        [res(True), res(False, "radius_km")],
+        near_miss=True,
+        deviation="16 km entfernt statt höchstens 15",
+    )
+    assert (
+        sm.check([results_ev([hit, near]), done()], {"min_results": 1, "all_constraints_ok": True})
+        == []
+    )
+    unmarked = card("u", [res(True), res(False, "radius_km")])
+    assert sm.check([results_ev([hit, unmarked]), done()], {"all_constraints_ok": True})
+    two_bad = card("t", [res(False), res(False, "radius_km")], near_miss=True, deviation="x")
+    assert sm.check([results_ev([hit, two_bad]), done()], {"all_constraints_ok": True})
+    no_text = card("x", [res(True), res(False, "radius_km")], near_miss=True)
+    assert sm.check([results_ev([hit, no_text]), done()], {"all_constraints_ok": True})
+    only_near = [results_ev([near]), done()]  # near misses alone are no hits
+    assert sm.check(only_near, {"min_results": 1})
+    assert sm.check(only_near, {"all_constraints_ok": True})
 
 
 def test_clarify_options_include():
@@ -320,7 +346,14 @@ def test_smoke_writes_csv_and_exit_code(deps, tmp_path, capsys):
     assert code == 0
     rows = list(csv.DictReader((tmp_path / "result-2026-10-30.csv").open()))
     assert rows == [
-        {"Fall": "inj", "ok": "true", "unsupported": "0", "unsupported_names": "", "cost_usd": "0.000000", "Fehler": ""}
+        {
+            "Fall": "inj",
+            "ok": "true",
+            "unsupported": "0",
+            "unsupported_names": "",
+            "cost_usd": "0.000000",
+            "Fehler": "",
+        }
     ]
     assert "Kosten gesamt" in capsys.readouterr().out
     p.write_text(p.read_text().replace("injection", "other"))
@@ -466,7 +499,9 @@ def test_plan_no_rain_variant_needs_the_rain_day_without_station():
     ev.rain = {1: None, 2: variant}
     assert sm.check([ev], {"plan_no_rain_variant": [1]}) == []
     assert sm.check([ev], {"plan_no_rain_variant": [2]})  # day 2 has a variant
-    assert sm.check([ev.model_copy(update={"rain": {}})], {"plan_no_rain_variant": [1]})  # no rain day
+    assert sm.check(
+        [ev.model_copy(update={"rain": {}})], {"plan_no_rain_variant": [1]}
+    )  # no rain day
     assert sm.check([], {"plan_no_rain_variant": [1]})
 
 
@@ -702,7 +737,10 @@ def test_unsatisfiable_named_needs_fallback_and_the_opening_sentence():
 def test_no_unsat_claim_ignores_case():
     exp = {"no_unsat_claim": True}
     assert sm.check([TokenEvent(text="Hier sind passende Touren.")], exp) == []
-    for text in ("Keine Tour erfüllt alle Wünsche, aber hier …", "Hallo! keine tour ERFÜLLT alle wünsche."):
+    for text in (
+        "Keine Tour erfüllt alle Wünsche, aber hier …",
+        "Hallo! keine tour ERFÜLLT alle wünsche.",
+    ):
         assert sm.check([TokenEvent(text=text)], exp) == [
             "Antwort behauptet „Keine Tour erfüllt alle Wünsche“"
         ]
@@ -751,7 +789,14 @@ def _weather_ev(wish="fine", days=1):
     from hikesense.agent.graph import WeatherDay, WeatherDaysEvent
 
     w = DayWeather(
-        date=date(2026, 11, 4), code=1, t_min_c=2, t_max_c=9, precip_mm=0, precip_prob_pct=10, snowfall_cm=0, text="klar"
+        date=date(2026, 11, 4),
+        code=1,
+        t_min_c=2,
+        t_max_c=9,
+        precip_mm=0,
+        precip_prob_pct=10,
+        snowfall_cm=0,
+        text="klar",
     )
     return WeatherDaysEvent(
         wish=wish,

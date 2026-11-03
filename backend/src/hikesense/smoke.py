@@ -325,16 +325,24 @@ def check(
     errors: list[str] = []
     results = _first(events, "results")
     cards = results.cards if results else []
+    hits = [c for c in cards if not c.near_miss]  # "Knapp daneben" cards are checked on their own
     for e in events:
         if e.type == "error":
             errors.append(f"Fehler-Ereignis: {e.message}")
     for kind, want in expect.items():
         if kind == "min_results":
-            if len(cards) < want:
-                errors.append(f"{len(cards)} Treffer, erwartet mindestens {want}")
+            if len(hits) < want:
+                errors.append(f"{len(hits)} Treffer, erwartet mindestens {want}")
         elif kind == "all_constraints_ok":
-            bad = [c.trail_id for c in cards if any(r.ok is not True for r in c.results)]
-            if not cards or bad:
+            bad = [c.trail_id for c in hits if any(r.ok is not True for r in c.results)]
+            # a near miss must say so: exactly one failed condition and the deviation named
+            bad += [
+                c.trail_id
+                for c in cards
+                if c.near_miss
+                and (sum(r.ok is not True for r in c.results) != 1 or not c.deviation_text)
+            ]
+            if not hits or bad:
                 errors.append(f"nicht alle Bedingungen erfüllt: {bad or 'keine Treffer'}")
         elif kind == "clarify_options_include":
             clarify = _first(events, "clarify")

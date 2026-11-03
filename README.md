@@ -69,8 +69,8 @@ Unlike HikeAI2, which picked about 2,000 OSM routes by a tag-based "popularity s
 | Day hikes | OSM hiking relations (ODbL), filtered by quality rules, curated in `data/curated/day_hikes.csv` | 577 (Black Forest 122, Lake Constance 95, Palatinate 360) |
 | Places to stay, places, POIs | OSM (ODbL), read from Geofabrik extracts (Baden-Württemberg, Rhineland-Palatinate, Swabia, Switzerland, Austria) | 3,514 places to stay, 10,308 places, 4,487 POIs on the trails |
 | Elevation | Copernicus DEM GLO-30 | all lines |
-| Photos | Wikimedia Commons, author and licence per photo | {{PHOTOS}} |
-| Knowledge index | Wikipedia, Wikivoyage (CC BY-SA 4.0) and own texts | {{KNOW}} |
+| Photos | Wikimedia Commons, author and licence per photo | 2,713 photos on 530 of 585 trails |
+| Knowledge index | Wikipedia, Wikivoyage (CC BY-SA 4.0) and own texts | 30 articles + 4 own texts, 1,160 chunks |
 | Map / weather | basemap.de (BKG, CC BY 4.0) / Open-Meteo (CC BY 4.0), at runtime | – |
 
 The app never queries OSM at runtime; the import commands produce a fixed state.

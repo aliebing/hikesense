@@ -18,8 +18,11 @@ from hikesense.llm.gateway import FakeGateway
 REPO = ev.REPO_ROOT
 
 
-def result(case="c", group="erfuellbar", ok=True, events=(), expects=(), errors=(), cost=0.0):
+def result(
+    case="c", group="erfuellbar", ok=True, events=(), expects=(), errors=(), cost=0.0, lang="de"
+):
     return ev.EvalResult(
+        lang=lang,
         case=case,
         ok=ok,
         group=group,
@@ -72,6 +75,23 @@ def test_unsat_named():
     assert (m.unsat_cases, m.unsat_named) == (2, 1)
 
 
+def test_unsat_named_and_false_claims_in_the_case_language():
+    head = sm.UNSAT_HEADS["en"]
+    fb = results_ev([card("a", [res(False)])], "No tour …")
+    en = result(
+        "u9", "unerfuellbar", events=[[fb, TokenEvent(text=head + ", because …")]], lang="en"
+    )
+    claim = result(
+        "e17",
+        events=[[TokenEvent(text="Sorry. " + head + ".")]],
+        expects=[{"no_unsat_claim": True}],
+        lang="en",
+    )
+    m = ev.compute_metrics([en, claim])
+    assert (m.unsat_cases, m.unsat_named) == (1, 1)
+    assert (m.claim_cases, m.claim_false) == (1, 1)
+
+
 def test_false_unsat_claims_and_removed_claims():
     want = [{"no_unsat_claim": True}]
     clean = result("e1", events=[[TokenEvent(text="Passt."), done(claims=1)]], expects=want)
@@ -79,7 +99,9 @@ def test_false_unsat_claims_and_removed_claims():
         "e2", ok=False, events=[[TokenEvent(text="Keine Tour erfüllt alle Wünsche.")]], expects=want
     )
     plan = result("m1", "mehrtag", events=[[TokenEvent(text="Tag 1"), done()]], expects=want * 1)
-    other = result("u", "unerfuellbar", events=[[TokenEvent(text="Keine Tour erfüllt alle Wünsche")]])
+    other = result(
+        "u", "unerfuellbar", events=[[TokenEvent(text="Keine Tour erfüllt alle Wünsche")]]
+    )
     m = ev.compute_metrics([clean, false, plan, other])
     assert (m.claim_cases, m.claim_false, m.claims_removed) == (3, 1, 1)
 
