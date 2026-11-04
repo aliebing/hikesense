@@ -3,10 +3,13 @@ const sb = vi.hoisted(() => ({
   signUp: vi.fn(),
   signOut: vi.fn(),
   getSession: vi.fn(),
+  resend: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  updateUser: vi.fn(),
 }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth: sb }) }));
 
-import { checkBlocked, getAccessToken, onBlocked, reportBlocked, safeNext, signIn, signOut, signUp } from "./auth";
+import { checkBlocked, getAccessToken, onBlocked, reportBlocked, requestPasswordReset, resendConfirmation, safeNext, setNewPassword, signIn, signOut, signUp } from "./auth";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://sb");
@@ -77,4 +80,39 @@ it("reportBlocked reaches every listener until it unsubscribes", () => {
   off();
   reportBlocked();
   expect(seen).toEqual([1]);
+});
+
+it("signUp sends the confirmation link back to /anmelden/bestaetigt", async () => {
+  sb.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
+  await signUp("a@b.de", "xxxxxx", "de");
+  expect(sb.signUp).toHaveBeenLastCalledWith({ email: "a@b.de", password: "xxxxxx", options: { emailRedirectTo: `${window.location.origin}/anmelden/bestaetigt` } });
+});
+
+it("resendConfirmation resends the sign-up mail", async () => {
+  sb.resend.mockResolvedValue({ error: null });
+  expect(await resendConfirmation("a@b.de", "de")).toEqual({ error: null, notice: "Bestätigungsmail ist unterwegs." });
+  expect(sb.resend).toHaveBeenCalledWith({ type: "signup", email: "a@b.de", options: { emailRedirectTo: `${window.location.origin}/anmelden/bestaetigt` } });
+});
+
+it("requestPasswordReset gives the same neutral notice whether the address exists or not", async () => {
+  sb.resetPasswordForEmail.mockResolvedValueOnce({ error: { message: "User not found" } });
+  const unknown = await requestPasswordReset("nobody@b.de", "de");
+  sb.resetPasswordForEmail.mockResolvedValueOnce({ error: null });
+  const known = await requestPasswordReset("a@b.de", "de");
+  expect(unknown).toEqual(known);
+  expect(known).toEqual({ error: null, notice: "Wenn es ein Konto mit dieser Adresse gibt, haben wir dir einen Link geschickt." });
+  expect(sb.resetPasswordForEmail).toHaveBeenLastCalledWith("a@b.de", { redirectTo: `${window.location.origin}/passwort-neu` });
+});
+
+it("requestPasswordReset reports only an unreachable service", async () => {
+  sb.resetPasswordForEmail.mockRejectedValueOnce(new TypeError("offline"));
+  expect((await requestPasswordReset("a@b.de", "de")).error).toMatch(/nicht erreichbar/);
+});
+
+it("setNewPassword updates the password and maps errors", async () => {
+  sb.updateUser.mockResolvedValueOnce({ data: {}, error: null });
+  expect(await setNewPassword("neues-pw-1", "de")).toEqual({ error: null });
+  expect(sb.updateUser).toHaveBeenCalledWith({ password: "neues-pw-1" });
+  sb.updateUser.mockResolvedValueOnce({ data: {}, error: { message: "Password should be at least 6 characters" } });
+  expect((await setNewPassword("x", "de")).error).toMatch(/zu kurz/);
 });

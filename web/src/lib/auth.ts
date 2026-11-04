@@ -94,9 +94,11 @@ async function run(call: () => Promise<{ error: { message: string } | null; sess
 export const signIn = (email: string, password: string, locale: Locale): Promise<AuthResult> =>
   run(() => getBrowserSupabase().auth.signInWithPassword({ email, password }), locale);
 
+const confirmUrl = () => `${window.location.origin}/anmelden/bestaetigt`;
+
 export async function signUp(email: string, password: string, locale: Locale): Promise<AuthResult> {
   try {
-    const { data, error } = await getBrowserSupabase().auth.signUp({ email, password });
+    const { data, error } = await getBrowserSupabase().auth.signUp({ email, password, options: { emailRedirectTo: confirmUrl() } });
     if (error) return { error: localized(error.message, locale) };
     // with e-mail confirmation on, there is a user but no session until the link was clicked
     if (!data.session) return { error: null, notice: messagesFor(locale).errors.auth.confirmEmail };
@@ -106,13 +108,29 @@ export async function signUp(email: string, password: string, locale: Locale): P
   }
 }
 
-export const signOut = (locale: Locale): Promise<AuthResult> => run(() => getBrowserSupabase().auth.signOut(), locale);
-
-/** A bare name without "@" signs in as <name>@hikesense.local (local admin: "admin"). */
-export function loginEmail(input: string): string {
-  const v = input.trim();
-  return v.includes("@") ? v : `${v}@hikesense.local`;
+/** Sends the sign-up confirmation mail again. */
+export async function resendConfirmation(email: string, locale: Locale): Promise<AuthResult> {
+  const r = await run(() => getBrowserSupabase().auth.resend({ type: "signup", email, options: { emailRedirectTo: confirmUrl() } }), locale);
+  return r.error ? r : { error: null, notice: messagesFor(locale).errors.auth.resent };
 }
+
+/** Sends the reset link. Always the same neutral notice, whether the address exists or not;
+ * only an unreachable service is reported. */
+export async function requestPasswordReset(email: string, locale: Locale): Promise<AuthResult> {
+  const e = messagesFor(locale).errors.auth;
+  try {
+    await getBrowserSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/passwort-neu` });
+  } catch {
+    return { error: e.unreachable };
+  }
+  return { error: null, notice: e.resetSent };
+}
+
+/** Sets the new password of the recovery session opened by the reset link. */
+export const setNewPassword = (password: string, locale: Locale): Promise<AuthResult> =>
+  run(() => getBrowserSupabase().auth.updateUser({ password }), locale);
+
+export const signOut = (locale: Locale): Promise<AuthResult> => run(() => getBrowserSupabase().auth.signOut(), locale);
 
 /** A `?next=` target only when it is a path of this site; anything else goes home. */
 export function safeNext(raw: string | null | undefined): string {

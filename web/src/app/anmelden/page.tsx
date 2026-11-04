@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLocale, useT } from "../../i18n";
 import PageFrame from "../../components/PageFrame";
-import { loginEmail, safeNext, signIn, signUp } from "../../lib/auth";
+import { resendConfirmation, safeNext, signIn, signUp } from "../../lib/auth";
+import { messagesFor } from "../../i18n/locale";
 
 const field = "rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70";
 
@@ -25,11 +27,14 @@ export default function Anmelden() {
     setQuery({ next: safeNext(p.get("next")), blocked: p.get("gesperrt") === "1", save: p.has("next") });
   }, []);
 
+  // sign-up notice and the "not confirmed" sign-in error share this text: both offer a new mail
+  const confirmText = messagesFor(locale).errors.auth.confirmEmail;
+
   const go = async (action: typeof signIn) => {
     setBusy(true);
     setError(null);
     setNotice(null);
-    const r = await action(loginEmail(email), password, locale);
+    const r = await action(email.trim(), password, locale);
     setBusy(false);
     if (r.error) setError(r.error);
     else if (r.notice) setNotice(r.notice);
@@ -49,10 +54,26 @@ export default function Anmelden() {
             void go(signIn);
           }}
         >
-          <input type="text" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.identifier} aria-label={t.email} className={field} />
+          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.identifier} aria-label={t.email} className={field} />
           <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.password} aria-label={t.password} className={field} />
           {error && <p role="alert" className="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">{error}</p>}
           {notice && <p role="status" className="rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{notice}</p>}
+          {(error === confirmText || notice === confirmText) && (
+            <button
+              type="button"
+              disabled={busy || !email.trim()}
+              onClick={async () => {
+                setBusy(true);
+                const r = await resendConfirmation(email.trim(), locale);
+                setBusy(false);
+                setError(r.error);
+                setNotice(r.notice ?? null);
+              }}
+              className="self-start text-sm underline underline-offset-2 disabled:opacity-60"
+            >
+              {t.resend}
+            </button>
+          )}
           <div className="flex gap-2">
             <button type="submit" disabled={busy} className="flex-1 rounded-full bg-wald px-4 py-2 text-sm text-papier disabled:opacity-60">
               {t.submit}
@@ -67,6 +88,9 @@ export default function Anmelden() {
             </button>
           </div>
         </form>
+        <Link href="/passwort-vergessen" className="text-sm underline underline-offset-4">
+          {t.forgot}
+        </Link>
       </main>
     </PageFrame>
   );

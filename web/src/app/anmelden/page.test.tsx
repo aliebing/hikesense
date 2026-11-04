@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const h = vi.hoisted(() => ({ push: vi.fn(), signIn: vi.fn(), signUp: vi.fn() }));
+const h = vi.hoisted(() => ({ push: vi.fn(), signIn: vi.fn(), signUp: vi.fn(), resend: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push, refresh: () => {} }) }));
 vi.mock("../../lib/auth", async (orig) => ({
-  loginEmail: (await orig<typeof import("../../lib/auth")>()).loginEmail,
+  resendConfirmation: h.resend,
   safeNext: (await orig<typeof import("../../lib/auth")>()).safeNext,
   signIn: h.signIn,
   signUp: h.signUp,
@@ -48,13 +48,38 @@ it("sign-up with confirmation shows the hint instead of redirecting", async () =
   expect(h.push).not.toHaveBeenCalled();
 });
 
-it("signs in with a bare user name as <name>@hikesense.local", async () => {
+it("the field takes an e-mail address only and passes it unchanged", async () => {
   h.signIn.mockResolvedValue({ error: null });
   render(<Anmelden />);
-  await userEvent.type(screen.getByLabelText("E-Mail"), "admin");
-  await userEvent.type(screen.getByLabelText("Passwort"), "admin");
+  expect(screen.getByLabelText("E-Mail")).toHaveAttribute("type", "email");
+  expect(screen.getByPlaceholderText("E-Mail")).toBeInTheDocument();
+  await fill();
   await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
-  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("admin@hikesense.local", "admin", "de"));
+  await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("a@b.de", "geheim12", "de"));
+});
+
+it("shows the forgot-password link", () => {
+  render(<Anmelden />);
+  expect(screen.getByRole("link", { name: "Passwort vergessen?" })).toHaveAttribute("href", "/passwort-vergessen");
+});
+
+it("offers to resend the confirmation mail after sign-up", async () => {
+  h.signUp.mockResolvedValue({ error: null, notice: "Bitte bestätige deine E-Mail-Adresse" });
+  h.resend.mockResolvedValue({ error: null, notice: "Bestätigungsmail ist unterwegs." });
+  render(<Anmelden />);
+  await fill();
+  await userEvent.click(screen.getByRole("button", { name: "Konto anlegen" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Bestätigungsmail erneut senden" }));
+  expect(h.resend).toHaveBeenCalledWith("a@b.de", "de");
+  expect(await screen.findByRole("status")).toHaveTextContent("Bestätigungsmail ist unterwegs.");
+});
+
+it("offers to resend when signing in unconfirmed", async () => {
+  h.signIn.mockResolvedValue({ error: "Bitte bestätige deine E-Mail-Adresse" });
+  render(<Anmelden />);
+  await fill();
+  await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
+  expect(await screen.findByRole("button", { name: "Bestätigungsmail erneut senden" })).toBeInTheDocument();
 });
 
 it("English: texts, and the language is passed to sign-in", async () => {
@@ -62,7 +87,8 @@ it("English: texts, and the language is passed to sign-in", async () => {
   h.signIn.mockResolvedValue({ error: null });
   renderWithLocale(<Anmelden />, "en");
   expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
-  expect(screen.getByPlaceholderText("E-mail or username")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("E-mail")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Forgot password?" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "← Back to chat" })).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("E-mail"), "a@b.de");
