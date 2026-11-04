@@ -132,6 +132,16 @@ body {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 18px rgb(0 0 0 / 0.5);
 }
 
+/* Start view: the credit line stands centred under the chat, as wide as the chat box (42rem). */
+body:has([data-hero-content]) [data-credits] {
+  max-width: 42rem;
+  margin-inline: auto;
+  align-items: center;
+}
+body:has([data-hero-content]) [data-credits] > p {
+  justify-content: center;
+}
+
 /* Start view: the big logo stands in the middle, the small one in the header would repeat it. */
 body:has([data-hero-content]) [data-frame-logo] {
   visibility: hidden;

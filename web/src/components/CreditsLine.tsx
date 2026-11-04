@@ -19,7 +19,7 @@ export default function CreditsLine({
   const t = useT().credits;
   return (
     // as wide as the header row and aligned with it, as high as its navigation; quiet grey 12 px text
-    <footer className="schrift-feld flex min-h-12 w-full flex-col justify-center gap-1 text-xs font-normal text-papier/70">
+    <footer data-credits className="schrift-feld flex min-h-10 w-full flex-col justify-center gap-1 text-xs font-normal text-papier/70">
       <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         {lead && <span>{lead}</span>}
         {osm && (
