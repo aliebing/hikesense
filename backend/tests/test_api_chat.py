@@ -6,6 +6,7 @@ import uuid
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from hikesense.agent.graph import DoneEvent, TokenEvent, UnderstoodEvent
 from hikesense.agent.prompts import ERROR_UNAVAILABLE
@@ -15,7 +16,7 @@ from hikesense.api import chat as chat_api
 from hikesense.api.app import create_app as _create_app
 from hikesense.config import Settings
 from hikesense.guard import RATE_LIMIT_REPLY
-from hikesense.guest_quota import GuestDecision
+from hikesense.guest_quota import GuestDecision, guest_key, guest_salt
 from hikesense.llm.usage import LLMUsage
 
 ORIGIN = "http://localhost:3000"
@@ -138,18 +139,17 @@ def test_rate_limit_text_follows_the_request_language(client, seen):
     ((_, data),) = parse_sse(r.text)
     assert data["message"] == texts("en").rate_limit_reply.format(s=int(r.headers["retry-after"]))
     assert "requests" in data["message"]
-    # an unreadable body or an unknown language still gets the German text
-    r = client.post("/chat", content=b"not json", headers=bearer())
+    # an unknown language gets the German text; an unreadable body is refused before counting
+    body = {"thread_id": str(uuid.uuid4()), "message": "Hi"}
+    r = client.post("/chat", json=body, headers=bearer())
     assert r.status_code == 429
     assert "Zu viele Anfragen" in parse_sse(r.text)[0][1]["message"]
+    assert client.post("/chat", content=b"not json", headers=bearer()).status_code == 422
 
 
-def test_rate_limited_deeply_nested_body_is_still_429(client, seen):
-    for _ in range(10):
-        assert post(client).status_code == 200
+def test_deeply_nested_body_is_422_not_500(client, seen):
     r = client.post("/chat", content=b"[" * 60000, headers=bearer())
-    assert r.status_code == 429
-    assert "Zu viele Anfragen" in parse_sse(r.text)[0][1]["message"]
+    assert r.status_code == 422
 
 
 def test_stream_failure_text_follows_the_request_language(settings, monkeypatch):
@@ -218,7 +218,36 @@ def test_trusted_proxy_entry_is_the_guest_key(settings, seen):
     client = TestClient(create_app(trusted, quota=quota, deps_factory=lambda: "deps"))
     body = {"thread_id": str(uuid.uuid4()), "message": "x"}
     client.post("/chat", json=body, headers={"X-Forwarded-For": "1.1.1.1, 198.51.100.4"})
-    assert quota.keys == ["198.51.100.4"]
+    assert quota.keys == [guest_key("198.51.100.4", guest_salt(trusted))]
+
+
+def test_guest_quota_stores_no_plain_ip(settings, seen):
+    quota = FakeQuota()
+    salted = settings.model_copy(update={"hikesense_guest_salt": SecretStr("geheim")})
+    client = TestClient(create_app(salted, quota=quota, deps_factory=lambda: "deps"))
+    body = {"thread_id": str(uuid.uuid4()), "message": "x"}
+    client.post("/chat", json=body)
+    assert quota.keys == [guest_key("testclient", "geheim")]
+
+
+def test_invalid_guest_request_uses_no_slot(settings, seen):
+    quota = FakeQuota()
+    client = TestClient(create_app(settings, quota=quota, deps_factory=lambda: "deps"))
+    tid = str(uuid.uuid4())
+    assert client.post("/chat", json={"thread_id": tid, "message": "   "}).status_code == 422
+    assert client.post("/chat", content=b"{kaputt", headers={"content-type": "application/json"}).status_code == 422
+    assert client.post("/chat", json={"thread_id": "nope", "message": "x"}).status_code == 422
+    assert quota.keys == []
+
+
+def test_guest_quota_db_failure_is_not_an_auth_message(settings, seen):
+    class Down:
+        def acquire(self, key):
+            raise RuntimeError("db down")
+
+    client = TestClient(create_app(settings, quota=Down(), deps_factory=lambda: "deps"))
+    r = client.post("/chat", json={"thread_id": str(uuid.uuid4()), "message": "x"})
+    assert r.status_code == 503 and r.json() == {"detail": "service_unavailable"}
 
 
 def test_signed_in_user_does_not_use_guest_quota(settings, seen):

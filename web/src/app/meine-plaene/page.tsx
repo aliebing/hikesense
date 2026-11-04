@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import PageFrame from "../../components/PageFrame";
 import { useLocale, useT } from "../../i18n";
 import type { Locale } from "../../i18n";
-import { useSession } from "../../lib/auth";
+import { checkBlocked, reportBlocked, useSession } from "../../lib/auth";
 import { dateIn } from "../../lib/format";
 import { deletePlan, isSavedSearch, listPlans, planErrorText, type PlanError, type SavedPlan } from "../../lib/plans";
 
@@ -99,6 +99,7 @@ export default function MeinePlaene() {
 
   const remove = async (id: string) => {
     const r = await deletePlan(id);
+    if (r.error && (await checkBlocked())) return reportBlocked();
     if (r.error) setError(r.error);
     else {
       setError(null);

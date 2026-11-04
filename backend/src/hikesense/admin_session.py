@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import math
+import secrets
 import threading
 import time
 from collections import defaultdict, deque
@@ -19,30 +20,68 @@ SESSION_S = 8 * 3600
 ADMIN_NAME = "admin"
 
 
+MAX_PASSWORD_BYTES = 72  # bcrypt ignores (bcrypt 4) or refuses (bcrypt 5) anything longer
+
+
 def check_password(password: str, bcrypt_hash: str) -> bool:
+    raw = password.encode()
+    if len(raw) > MAX_PASSWORD_BYTES:
+        return False
     try:
-        return bcrypt.checkpw(password.encode(), bcrypt_hash.encode())
+        return bcrypt.checkpw(raw, bcrypt_hash.encode())
     except ValueError:  # not a bcrypt hash
         return False
 
 
-def _sig(secret: str, exp: int) -> str:
-    return hmac.new(secret.encode(), f"admin:{exp}".encode(), hashlib.sha256).hexdigest()
+def _ascii_int(text: str) -> int | None:
+    """Only 0-9: str.isdigit() also accepts "²" or Arabic-Indic digits, which int() rejects."""
+    return int(text) if text and text.isascii() and text.isdigit() else None
 
 
-def issue(secret: str, now: float) -> str:
-    exp = int(now) + SESSION_S
-    return f"{exp}.{_sig(secret, exp)}"
+class Sessions:
+    """Signed backend sessions that the server also remembers: `exp.sid.sig`, HMAC over expiry
+    and session id. Sign-out drops the id, so a copied cookie stops working at once; a restart
+    forgets all ids (the admin signs in again). One process (uvicorn without workers)."""
 
+    MAX = 50  # sessions kept at once; the oldest goes first
 
-def valid(cookie: str | None, secret: str, now: float) -> bool:
-    if not cookie:
-        return False
-    exp_text, _, sig = cookie.partition(".")
-    if not exp_text.isdigit() or not sig:
-        return False
-    exp = int(exp_text)
-    return hmac.compare_digest(sig, _sig(secret, exp)) and exp > now
+    def __init__(self) -> None:
+        self._live: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def __len__(self) -> int:
+        return len(self._live)
+
+    @staticmethod
+    def _sig(secret: str, exp: int, sid: str) -> str:
+        return hmac.new(secret.encode(), f"admin:{exp}:{sid}".encode(), hashlib.sha256).hexdigest()
+
+    def issue(self, secret: str, now: float) -> str:
+        exp, sid = int(now) + SESSION_S, secrets.token_urlsafe(16)
+        with self._lock:
+            self._live = {k: e for k, e in self._live.items() if e > now}
+            while len(self._live) >= self.MAX:
+                self._live.pop(min(self._live, key=self._live.__getitem__))
+            self._live[sid] = exp
+        return f"{exp}.{sid}.{self._sig(secret, exp, sid)}"
+
+    def valid(self, cookie: str | None, secret: str, now: float) -> bool:
+        parts = (cookie or "").split(".")
+        if len(parts) != 3:
+            return False
+        exp, sid, sig = _ascii_int(parts[0]), parts[1], parts[2]
+        if exp is None or not sid or not sig:
+            return False
+        if not hmac.compare_digest(sig, self._sig(secret, exp, sid)) or exp <= now:
+            return False
+        with self._lock:
+            return self._live.get(sid) == exp
+
+    def revoke(self, cookie: str | None) -> None:
+        parts = (cookie or "").split(".")
+        if len(parts) == 3:
+            with self._lock:
+                self._live.pop(parts[1], None)
 
 
 class LoginThrottle:

@@ -3,7 +3,7 @@ import uuid
 import pytest
 from starlette.requests import Request
 
-from hikesense.guest_quota import client_ip, guest_owner, ip_key, quota_acquire
+from hikesense.guest_quota import client_ip, guest_key, guest_owner, ip_key, quota_acquire
 
 
 def _request(headers=None, client=("203.0.113.7", 1234)):
@@ -44,6 +44,14 @@ def test_ip_key_groups_ipv6_by_64():
 def test_ip_key_keeps_ipv4_and_garbage():
     assert ip_key("198.51.100.4") == "198.51.100.4"
     assert ip_key("not-an-ip") == "not-an-ip"
+
+
+def test_guest_key_is_salted_and_never_the_ip():
+    k = guest_key("198.51.100.4", "salt-a")
+    assert "198.51.100" not in k and len(k) == 32
+    assert k == guest_key("198.51.100.4", "salt-a")
+    assert k != guest_key("198.51.100.4", "salt-b")  # no lookup table over all IPv4 addresses
+    assert guest_key("2001:db8::1", "s") == guest_key("2001:db8::ffff", "s")  # still per /64
 
 
 def test_guest_owner_has_prefix_and_no_ip():

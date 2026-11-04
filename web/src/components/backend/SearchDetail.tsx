@@ -2,7 +2,7 @@ import type { Candidate, DetailConstraint, DetailRequest, SearchDetail as Detail
 import { messagesFor, type Locale } from "../../i18n/locale";
 import { useLocale, useT } from "../../i18n";
 import { ms, usd, when } from "../../lib/backend";
-import { dateIn, dayLabel, MISSING, num } from "../../lib/format";
+import { dayLabel, MISSING, num } from "../../lib/format";
 import ChatText from "../ChatText";
 
 const PREVIEW = 300;

@@ -28,6 +28,8 @@ function Admin() {
   const [listError, setListError] = useState<number | null>(null);
   const seq = useRef(0);
   const offsetRef = useRef(0);
+  // 401 while the page is open: the session ran out (or was signed out elsewhere) -> sign-in form
+  const failed = useCallback((status: number) => (status === 401 ? setGate("login") : setListError(status)), []);
 
   useEffect(() => {
     setGate("checking");
@@ -42,12 +44,12 @@ function Admin() {
       setGate("ok");
       const u = await backendGet<{ users: BackendUser[] }>("/users");
       if (live && u.ok) setUsers(u.data.users);
-      else if (live && !u.ok) setListError(u.status);
+      else if (live && !u.ok) failed(u.status);
     })();
     return () => {
       live = false;
     };
-  }, [attempt]);
+  }, [attempt, failed]);
 
   const query = (who: string, offset: number) => `/searches?${who === ALL ? "" : `user=${encodeURIComponent(who)}&`}offset=${offset}&limit=${LIMIT}`;
 
@@ -55,12 +57,12 @@ function Admin() {
     const n = ++seq.current;
     const r = await backendGet<SearchPage>(query(who, offset));
     if (n !== seq.current) return;
-    if (!r.ok) return setListError(r.status);
+    if (!r.ok) return failed(r.status);
     setListError(null);
     offsetRef.current = offset;
     setPage((p) => (offset > 0 && p ? { ...r.data, items: [...p.items, ...r.data.items] } : r.data));
     if (offset === 0) setSelected(r.data.items[0]?.request_id ?? null);
-  }, []);
+  }, [failed]);
 
   useEffect(() => {
     if (gate === "ok") void load(owner, 0);
@@ -70,7 +72,11 @@ function Admin() {
     setDetail(null);
     if (gate !== "ok" || !selected) return;
     let live = true;
-    void backendGet<Detail>(`/searches/${encodeURIComponent(selected)}`).then((r) => live && setDetail(r.ok ? r.data : { status: r.status }));
+    void backendGet<Detail>(`/searches/${encodeURIComponent(selected)}`).then((r) => {
+      if (!live) return;
+      if (!r.ok && r.status === 401) return setGate("login");
+      setDetail(r.ok ? r.data : { status: r.status });
+    });
     return () => {
       live = false;
     };
@@ -129,7 +135,7 @@ function Admin() {
       </div>
       <section className={card}>
         <h2 className="mb-2 font-serif text-lg">{t.accounts}</h2>
-        <UserTable users={users} />
+        <UserTable users={users} onExpired={() => setGate("login")} />
       </section>
       {page && <SearchTable page={page} selected={selected} onSelect={setSelected} onMore={() => void load(owner, offsetRef.current + LIMIT)} />}
     </main>

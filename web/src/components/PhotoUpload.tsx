@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useT } from "../i18n";
 import type { PhotoErrorCode } from "../lib/photo";
-import { getBrowserSupabase, useSession } from "../lib/auth";
+import { checkBlocked, getBrowserSupabase, reportBlocked, useSession } from "../lib/auth";
 import { prepareUpload, uploadOwnPhoto } from "../lib/photo";
 
 /** „Eigenes Foto“ button for signed-in users: strips location data in the browser, then uploads privately. */
@@ -26,6 +26,7 @@ export default function PhotoUpload({ trailId, onUploaded }: { trailId: string; 
       await uploadOwnPhoto(getBrowserSupabase(), userId, trailId, blob);
       onUploaded();
     } catch (e) {
+      if (await checkBlocked()) return reportBlocked(); // a blocked account is signed out
       // PhotoError carries a code; anything else gets the generic text
       const code = (e as { code?: PhotoErrorCode } | null)?.code;
       setError(code && code in t.photoErrors ? t.photoErrors[code] : t.photoUploadFailed);

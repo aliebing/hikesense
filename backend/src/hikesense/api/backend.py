@@ -37,8 +37,10 @@ def make_backend_router(
     set_blocked: Callable[[str, bool], bool],
     reader: admin_log.LogReader,
     throttle: admin_session.LoginThrottle,
+    sessions: admin_session.Sessions | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/backend")
+    store = sessions or admin_session.Sessions()
 
     def secrets() -> tuple[str, str] | None:
         h, s = settings.hikesense_admin_password_hash, settings.hikesense_admin_session_secret
@@ -48,7 +50,7 @@ def make_backend_router(
 
     def signed_in(request: Request) -> bool:
         sec = secrets()
-        return bool(sec) and admin_session.valid(
+        return bool(sec) and store.valid(
             request.cookies.get(admin_session.COOKIE), sec[1], time.time()
         )
 
@@ -77,7 +79,7 @@ def make_backend_router(
         r = JSONResponse({"name": admin_session.ADMIN_NAME})
         r.set_cookie(
             admin_session.COOKIE,
-            admin_session.issue(sec[1], time.time()),
+            store.issue(sec[1], time.time()),
             max_age=admin_session.SESSION_S,
             httponly=True,
             samesite="strict",
@@ -88,6 +90,7 @@ def make_backend_router(
 
     @router.post("/logout")
     async def logout(request: Request) -> JSONResponse:
+        store.revoke(request.cookies.get(admin_session.COOKIE))  # a copy stops working too
         r = JSONResponse({"ok": True})
         r.delete_cookie(
             admin_session.COOKIE, path="/", httponly=True, samesite="strict", secure=secure(request)
@@ -152,7 +155,9 @@ def make_backend_router(
             return JSONResponse(SIGN_IN, status_code=401)
         try:
             found = await run_in_threadpool(set_blocked, user_id, block)
-        except SupabaseAdminError:
+        except SupabaseAdminError as exc:
+            if exc.status == 404:  # gone in Supabase Auth: same answer as an unknown app user
+                return JSONResponse({"detail": "Benutzer nicht gefunden"}, status_code=404)
             log.exception("supabase admin api failed")
             return JSONResponse({"detail": "Supabase-Admin-API nicht erreichbar"}, status_code=502)
         except psycopg.Error:

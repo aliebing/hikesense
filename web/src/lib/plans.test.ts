@@ -16,7 +16,7 @@ beforeEach(() => {
   h.from.mockImplementation(() => ({
     insert: h.insert,
     select: () => ({ order: h.order }),
-    delete: () => ({ eq: h.eq }),
+    delete: () => ({ eq: (...a: unknown[]) => ({ select: () => h.eq(...a) }) }),
   }));
 });
 
@@ -41,7 +41,7 @@ it("lists and deletes own plans", async () => {
   h.order.mockResolvedValue({ data: rows, error: null });
   expect(await listPlans()).toEqual({ plans: rows, error: null });
   expect(h.order).toHaveBeenCalledWith("created_at", { ascending: false });
-  h.eq.mockResolvedValue({ error: null });
+  h.eq.mockResolvedValue({ data: [{ id: "p1" }], error: null });
   expect(await deletePlan("p1")).toEqual({ error: null });
   expect(h.eq).toHaveBeenCalledWith("id", "p1");
 });
@@ -162,4 +162,9 @@ it("savedSearchOf keeps the near_miss flag of a card", () => {
   const items: ChatItem[] = [{ kind: "user", text: "x" }, { kind: "results", cards: [card("a"), near], fallback: null, runWithoutPace: false, labels: {} }];
   const s = savedSearchOf(stateOf(items, { cards: [card("a"), near] }));
   expect(s!.results.cards.map((c) => c.near_miss)).toEqual([undefined, true]);
+});
+
+it("a delete that removed nothing (e.g. RLS of a blocked account) is a failure", async () => {
+  h.eq.mockResolvedValue({ data: [], error: null });
+  expect(await deletePlan("p1")).toEqual({ error: "delete" });
 });

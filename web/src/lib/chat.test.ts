@@ -133,3 +133,16 @@ it("keeps the code of a guest-limit error event", async () => {
   expect(got).toEqual([{ type: "error", message: "aufgebraucht", code: "guest_limit" }]);
   vi.unstubAllGlobals();
 });
+
+it("503 from the guest counter says the service is down, not the sign-in", async () => {
+  const json = (body: string) => new Response(body, { status: 503, headers: { "Content-Type": "application/json" } });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json('{"detail":"service_unavailable"}')).mockResolvedValueOnce(json('{"detail":"x"}')));
+  const got: ChatEvent[] = [];
+  await streamChat("http://api", "t", "x", (e) => got.push(e), undefined, null, "de");
+  await streamChat("http://api", "t", "x", (e) => got.push(e), undefined, null, "de");
+  expect(got).toEqual([
+    { type: "error", message: chatError("unreachable", "de") },
+    { type: "error", message: chatError("authUnavailable", "de") },
+  ]);
+  vi.unstubAllGlobals();
+});

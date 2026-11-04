@@ -43,12 +43,12 @@ def settings(tmp_path):
 
 
 class FakeBlocker:
-    def __init__(self, fail=False):
-        self.calls, self.fail = [], fail
+    def __init__(self, fail=False, status=500):
+        self.calls, self.fail, self.status = [], fail, status
 
     def __call__(self, user_id, blocked):
         if self.fail:
-            raise SupabaseAdminError(500)
+            raise SupabaseAdminError(self.status)
         if user_id not in {u.user_id for u in USERS}:
             return False
         self.calls.append((user_id, blocked))
@@ -137,7 +137,22 @@ def test_supabase_bearer_token_is_ignored(settings):
 
 def test_forged_cookie_rejected(settings):
     c = backend(settings)
-    c.cookies.set("hs_admin", f"{int(time.time()) + 3600}.{'0' * 64}")
+    c.cookies.set("hs_admin", f"{int(time.time()) + 3600}.sid.{'0' * 64}")
+    assert c.get("/backend/me").status_code == 401
+
+
+def test_non_ascii_digit_cookie_is_401_not_500(settings):
+    c = backend(settings)
+    raw = f"hs_admin=\u00b2\u00b3.sid.{'0' * 64}".encode("latin-1")  # "²³" is no number
+    assert c.get("/backend/me", headers={"cookie": raw}).status_code == 401
+
+
+def test_copied_cookie_stops_working_after_logout(settings):
+    c = backend(settings)
+    login(c)
+    stolen = c.cookies.get("hs_admin")
+    c.post("/backend/logout")
+    c.cookies.set("hs_admin", stolen)
     assert c.get("/backend/me").status_code == 401
 
 
@@ -187,6 +202,14 @@ def test_block_admin_api_failure_502(settings):
     login(c)
     r = c.post("/backend/users/u-1/block")
     assert r.status_code == 502 and r.json() == {"detail": "Supabase-Admin-API nicht erreichbar"}
+
+
+def test_block_user_gone_in_supabase_404(settings):
+    # deleted in Supabase but app_users row still there (or the other way round): not a 502
+    c = backend(settings, blocker=FakeBlocker(fail=True, status=404))
+    login(c)
+    r = c.post("/backend/users/u-1/block")
+    assert r.status_code == 404 and r.json() == {"detail": "Benutzer nicht gefunden"}
 
 
 def test_users_db_error_503(settings):

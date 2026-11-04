@@ -116,11 +116,13 @@ export async function resendConfirmation(email: string, locale: Locale): Promise
 }
 
 /** Sends the reset link. Always the same neutral notice, whether the address exists or not;
- * only an unreachable service is reported. */
+ * only an unreachable service and Supabase's mail rate limit (no mail was sent) are reported. */
 export async function requestPasswordReset(email: string, locale: Locale): Promise<AuthResult> {
   const e = messagesFor(locale).errors.auth;
   try {
-    await getBrowserSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/passwort-neu` });
+    const { error } = await getBrowserSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/passwort-neu` });
+    const m = error?.message ?? "";
+    if ((error as { status?: number } | null)?.status === 429 || m.includes("rate limit") || m.includes("security purposes")) return { error: e.rateLimit };
   } catch {
     return { error: e.unreachable };
   }

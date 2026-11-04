@@ -101,10 +101,12 @@ export async function listPlans(): Promise<{ plans: SavedPlan[]; error: PlanErro
   }
 }
 
+/** Deletes one own plan. RLS refuses silently (no error, no row), e.g. for a blocked account:
+ * a delete that removed nothing counts as failed. */
 export async function deletePlan(id: string): Promise<{ error: PlanError | null }> {
   try {
-    const { error } = await getBrowserSupabase().from("saved_plans").delete().eq("id", id);
-    return { error: error ? "delete" : null };
+    const { data, error } = await getBrowserSupabase().from("saved_plans").delete().eq("id", id).select("id");
+    return { error: error || !data?.length ? "delete" : null };
   } catch {
     return { error: "delete" };
   }

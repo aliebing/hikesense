@@ -7,8 +7,9 @@ import { adminErrorText, backendPost, when, type BackendUser } from "../../lib/b
 
 const btn = "rounded-full border border-wald-dunkel/40 px-3 py-0.5 text-xs hover:bg-wald-dunkel/10 disabled:opacity-60";
 
-/** Account list with block/unblock; each action asks inside its row first (no browser dialog). */
-export default function UserTable({ users }: { users: BackendUser[] }) {
+/** Account list with block/unblock; each action asks inside its row first (no browser dialog).
+ * An expired backend session (401) calls `onExpired`, which shows the sign-in again. */
+export default function UserTable({ users, onExpired }: { users: BackendUser[]; onExpired?: () => void }) {
   const t = useT().admin;
   const { locale } = useLocale();
   const [rows, setRows] = useState(users);
@@ -24,6 +25,7 @@ export default function UserTable({ users }: { users: BackendUser[] }) {
     const r = await backendPost<{ status: BackendUser["status"] }>(`/users/${encodeURIComponent(u.user_id)}/${block ? "block" : "unblock"}`);
     setBusy(null);
     setAsking(null);
+    if (!r.ok && r.status === 401 && onExpired) return onExpired();
     if (!r.ok) return setError(adminErrorText(r.status, locale));
     setRows((all) => all.map((x) => (x.user_id === u.user_id ? { ...x, status: r.data.status } : x)));
   };

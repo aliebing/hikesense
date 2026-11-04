@@ -560,7 +560,7 @@ def smoke_user_cmd() -> int:
 
 
 def admin_secrets_cmd() -> int:
-    """Prints the two .env lines for the /backend sign-in; writes nothing anywhere."""
+    """Prints the .env lines for the /backend sign-in and the guest salt; writes nothing."""
     import getpass
     import secrets
 
@@ -570,6 +570,9 @@ def admin_secrets_cmd() -> int:
     if len(pw) < 8:
         print("Admin – mindestens 8 Zeichen", file=sys.stderr)
         return 2
+    if len(pw.encode()) > 72:
+        print("Admin – höchstens 72 Byte (bcrypt), Umlaute zählen doppelt", file=sys.stderr)
+        return 2
     if getpass.getpass("Noch einmal: ") != pw:
         print("Admin – die Eingaben stimmen nicht überein", file=sys.stderr)
         return 2
@@ -577,6 +580,7 @@ def admin_secrets_cmd() -> int:
     print("In .env eintragen (einfache Anführungszeichen wegen der $-Zeichen):")
     print(f"HIKESENSE_ADMIN_PASSWORD_HASH='{hashed}'")
     print(f"HIKESENSE_ADMIN_SESSION_SECRET='{secrets.token_urlsafe(32)}'")
+    print(f"HIKESENSE_GUEST_SALT='{secrets.token_urlsafe(32)}'")
     return 0
 
 
@@ -651,7 +655,7 @@ def main(argv: list[str] | None = None) -> int:
         "users-migrate", help="Einmalig: bestehende Konten bestätigen, altes Admin-Konto löschen"
     )
     sub.add_parser(
-        "admin-secrets", help="Passwort-Hash und Sitzungsgeheimnis für /backend erzeugen"
+        "admin-secrets", help="Passwort-Hash, Sitzungsgeheimnis für /backend und Gast-Salt erzeugen"
     )
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")

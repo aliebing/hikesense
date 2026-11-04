@@ -254,7 +254,7 @@ Pläne merken, „Meine Pläne“ und eigene Fotos brauchen ein Konto; Chatten g
 
 ### Backend (Admin)
 
-`/backend` (nirgends verlinkt, `noindex`) zeigt Benutzer und ihre Suchen mit Details und Summen und unten die Benutzerverwaltung (Status unbestätigt/aktiv/gesperrt, Registrierung, letzte Anmeldung, Sperren/Entsperren mit Rückfrage). Es hat eine eigene Anmeldung: Name `admin`, Passwort gegen `HIKESENSE_ADMIN_PASSWORD_HASH` (bcrypt), danach ein signiertes HttpOnly-Cookie (`HIKESENSE_ADMIN_SESSION_SECRET`, 8 Stunden). Supabase-Tokens zählen dort nicht. Nach 5 Fehlversuchen in 15 Minuten ist die Anmeldung gesperrt (429). Fehlt Hash oder Geheimnis, ist das Backend aus. Gäste erscheinen als eine Zeile „Gäste“. `/admin` gibt es nicht mehr.
+`/backend` (nirgends verlinkt, `noindex`) zeigt Benutzer und ihre Suchen mit Details und Summen und unten die Benutzerverwaltung (Status unbestätigt/aktiv/gesperrt, Registrierung, letzte Anmeldung, Sperren/Entsperren mit Rückfrage). Es hat eine eigene Anmeldung: Name `admin`, Passwort gegen `HIKESENSE_ADMIN_PASSWORD_HASH` (bcrypt), danach ein signiertes HttpOnly-Cookie (`HIKESENSE_ADMIN_SESSION_SECRET`, 8 Stunden), das sich der Server zusätzlich merkt: „Abmelden“ macht auch eine Kopie des Cookies sofort ungültig, ein Neustart der API meldet den Admin ab. Supabase-Tokens zählen dort nicht. POST-Anfragen von fremden Seiten (anderer `Origin`) lehnt die API ab. Nach 5 Fehlversuchen in 15 Minuten ist die Anmeldung gesperrt (429). Fehlt Hash oder Geheimnis, ist das Backend aus. Gäste erscheinen als eine Zeile „Gäste“. `/admin` gibt es nicht mehr.
 
 Das Protokoll enthält je Anfrage:
 
@@ -267,6 +267,8 @@ Das Protokoll enthält je Anfrage:
 Die Kosten der einzelnen Aufrufe müssen nicht die Gesamtkosten ergeben: Fehlgeschlagene LLM-Aufrufe zählen in der Summe mit, stehen aber nicht in der Liste.
 
 Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. Ältere Zeilen (vor dieser Änderung) haben nur die Kennzahlen und werden über den Hash der Benutzer-ID den Benutzern zugeordnet.
+
+**Gäste:** Gezählt (Tabelle `guest_requests`) und protokolliert wird je Gast nur ein HMAC der IPv4-Adresse bzw. des IPv6-/64-Netzes mit `HIKESENSE_GUEST_SALT`, nie die Adresse selbst. Ungültige oder leere Nachrichten verbrauchen kein Gast-Kontingent.
 
 **Datenschutz:** Durch Suchtexte und Benutzer-ID enthält `data/logs/chat.jsonl` jetzt persönliche Daten. Die Datei nicht weitergeben, nicht einchecken und nicht in Berichte oder Screenshots übernehmen.
 
@@ -315,6 +317,17 @@ Die Konstanten stehen in `backend/src/hikesense/agent/weather.py`.
 - **Ein Punkt:** Eine Tagestour wird am Startort bewertet (bei einem Gebiet in der Mitte der Box), eine Mehrtagestour am Tagesziel jeder Etappe. Bei Mehrtagestouren sucht der Code Starttage, an denen alle Tage passen; passt keiner, nennt der Satz, wie viele Tage höchstens passen.
 - **Ehrlichkeit:** Passt kein Tag, steht das so da („In den nächsten 14 Tagen passt kein Tag …“), dazu die am ehesten passenden Tage. Es wird nichts geschätzt und keine Vorhersage erfunden. Fehlen Werte, heißt es „lässt sich nicht sagen“, ist Open-Meteo nicht erreichbar, „Wetter gerade nicht abrufbar“. Alle Zahlen kommen aus Open-Meteo und laufen durch die Zahlenprüfung oder stehen in vom Code geschriebenen Sätzen. Ohne Wetterwunsch ändert sich nichts.
 - **Anzeige:** Die Karte „Tage für …“ steht im Chat über den Touren, im Admin-Detail als Block „Wetter-Tagesfinder“. Der Smoke-Test (Fälle 15–18) prüft nur die Form, nicht bestimmte Tage, weil sie vom echten Wetter abhängen.
+
+### Online-Gang mit Supabase Cloud (Reihenfolge)
+
+1. **Projekt anlegen** (Region EU) und lokal verknüpfen: `npx supabase link --project-ref <ref>`.
+2. **Schema:** `npx supabase db push` spielt alle Migrationen aus `supabase/migrations/` ein (Tabellen, RLS, Trigger für `app_users`, Bucket `uploads`).
+3. **Auth einstellen** (Dashboard → Authentication): E-Mail-Bestätigung an; *Site URL* = öffentliche Adresse; *Redirect URLs* = `<adresse>/anmelden/bestaetigt` und `<adresse>/passwort-neu`; eigenes SMTP eintragen (der eingebaute Versand ist stark begrenzt); Mailtexte für Bestätigung und Passwort-Reset anpassen (sonst englische Standardtexte).
+4. **`.env` für den Server:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` (bzw. JWKS über `SUPABASE_URL`) und `SUPABASE_DB_URL` (Verbindungs-String aus dem Dashboard) aus dem Cloud-Projekt; `make admin-secrets` für Backend-Passwort, Sitzungsgeheimnis und `HIKESENSE_GUEST_SALT` (neu erzeugen, nicht die lokalen Werte übernehmen); `HIKESENSE_TRUSTED_PROXY_HOPS` = Zahl der Proxys vor der Web-App (z. B. 1); `HIKESENSE_ALLOWED_ORIGINS` = öffentliche Adresse; `OPENROUTER_API_KEY`.
+5. **Daten laden:** `make import`, `make places`, `make knowledge`, `make tags` gegen die Cloud-Datenbank (dauert; die Wissensdatenbank `chroma/` liegt neben der API, nicht in Supabase).
+6. **Bestehende Konten** nur beim Umzug aus einer alten Datenbank: `make users-migrate` (bestätigt alte Konten, löscht das alte Admin-Konto). Bei einem leeren Projekt entfällt der Schritt.
+7. **API und Web starten** (Docker Compose oder Hosting). Der Web-Container bekommt nur `SUPABASE_URL`, `SUPABASE_ANON_KEY` und `API_INTERNAL_URL`, nie die geheimen Schlüssel. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_API_URL` bleiben leer (alles läuft über den Proxy der Web-App).
+8. **Prüfen:** `make smoke-user && make smoke`; dann im Browser registrieren, bestätigen, merken, unter `/backend` anmelden, das Konto sperren und entsperren.
 
 ## Auf dem Handy (HTTPS-Tunnel)
 

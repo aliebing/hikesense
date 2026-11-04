@@ -283,7 +283,11 @@ export async function streamChat(
     });
     // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
     if (res.status === 401) return onEvent({ type: "auth", message: chatError("sessionExpired", lang) });
-    if (res.status === 503) return onEvent({ type: "error", message: chatError("authUnavailable", lang) });
+    if (res.status === 503) {
+      // the guest counter (database) failing is not a sign-in problem
+      const body = (await res.json().catch(() => null)) as { detail?: string } | null;
+      return onEvent({ type: "error", message: chatError(body?.detail === "service_unavailable" ? "unreachable" : "authUnavailable", lang) });
+    }
     if (res.status === 403) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null;
       if (body?.detail === "account_blocked") return onEvent({ type: "blocked" });

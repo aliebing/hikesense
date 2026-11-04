@@ -25,14 +25,14 @@ services:
   # only talks to :3000: next.config.ts proxies /sb/* to SUPABASE_URL and
   # /api/chat to API_INTERNAL_URL, so one tunnel to :3000 serves the phone.
   # The NEXT_PUBLIC_* URLs are blanked so a value in .env cannot bypass that.
+  # No env_file: the web app gets only the public anon key, never the service-role key, the
+  # OpenRouter key or the backend secrets (Compose reads ${SUPABASE_ANON_KEY} from .env itself).
   web:
     build: ./web
     ports:
       - "127.0.0.1:3000:3000"
-    env_file:
-      - path: .env
-        required: false
     environment:
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SUPABASE_URL: http://host.docker.internal:54321
       API_INTERNAL_URL: http://api:8000
       NEXT_PUBLIC_SUPABASE_URL: ""

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import UserTable from "./UserTable";
 import type { BackendUser } from "../../lib/backend";
@@ -68,4 +68,14 @@ it("guest row has no block button", () => {
   render(<UserTable users={users} />);
   const guest = within(rowOf("Gäste"));
   expect(guest.queryByRole("button")).toBeNull();
+});
+
+it("an expired backend session leads back to the sign-in instead of an error", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(reply(401, { detail: "Bitte anmelden" }));
+  const onExpired = vi.fn();
+  render(<UserTable users={users} onExpired={onExpired} />);
+  await userEvent.click(within(rowOf("anna@x.de")).getByRole("button", { name: "Sperren" }));
+  await userEvent.click(within(rowOf("anna@x.de")).getByRole("button", { name: "Ja" }));
+  await waitFor(() => expect(onExpired).toHaveBeenCalledTimes(1));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

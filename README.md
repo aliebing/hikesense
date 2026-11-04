@@ -101,7 +101,7 @@ npx supabase start            # local Supabase (Postgres + PostGIS, Auth, Storag
 npx supabase status           # copy the anon key into SUPABASE_ANON_KEY in .env
 ```
 
-In `.env` also set `OPENROUTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (from `npx supabase status`; server only, never `NEXT_PUBLIC_*`), a random `HIKESENSE_SMOKE_PASSWORD`, and the two backend lines printed by `make admin-secrets` (`HIKESENSE_ADMIN_PASSWORD_HASH`, `HIKESENSE_ADMIN_SESSION_SECRET`).
+In `.env` also set `OPENROUTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (from `npx supabase status`; server only, never `NEXT_PUBLIC_*`), a random `HIKESENSE_SMOKE_PASSWORD`, and the three lines printed by `make admin-secrets` (`HIKESENSE_ADMIN_PASSWORD_HASH`, `HIKESENSE_ADMIN_SESSION_SECRET`, `HIKESENSE_GUEST_SALT`).
 
 Import the data (takes a few hours; trails come from the public Overpass API, places and lodgings from local Geofabrik extracts):
 

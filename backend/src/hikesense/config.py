@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # chat without an account: per IP (/64) and for all guests together, sliding 24 h
     hikesense_guest_per_day: int = 10
     hikesense_guest_total_per_day: int = 200
+    # HMAC key for guest IPs (counted and logged only as salted hashes); empty: random per process
+    hikesense_guest_salt: SecretStr | None = None
+    # extra origins allowed to POST (comma-separated, e.g. https://hikesense.example.org); the
+    # local ones and the web app's own host (X-Forwarded-Host) are always allowed
+    hikesense_allowed_origins: str = ""
     # reverse proxies in front of the web app that append to X-Forwarded-For (0: header ignored)
     hikesense_trusted_proxy_hops: int = 0
     overpass_url: str = "https://overpass-api.de/api/interpreter"

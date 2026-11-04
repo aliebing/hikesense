@@ -8,8 +8,9 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import psycopg
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from hikesense.adapters.open_meteo import weather_source
@@ -27,6 +28,24 @@ from hikesense.users import AppUser, apply_block, list_app_users, status_of
 log = logging.getLogger(__name__)
 
 ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+CHECKED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def origin_allowed(request: Request, extra: list[str]) -> bool:
+    """A state-changing request from a browser must come from this app: its Origin is one of the
+    local or configured origins, or names the host the browser called (Next forwards it as
+    X-Forwarded-Host). No Origin header (curl, smoke run) is no cross-site request."""
+    origin = request.headers.get("origin")
+    if origin is None:
+        return True
+    if origin in ALLOWED_ORIGINS or origin in extra:
+        return True
+    host = origin.split("://", 1)[1] if "://" in origin else ""
+    called = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    called = called.split(",")[0].strip()
+    return bool(host) and host == called
 
 
 def _db_ok(settings: Settings | None) -> bool:
@@ -65,9 +84,7 @@ def _default_set_blocked(settings: Settings) -> Callable[[str, bool], bool]:
     def set_blocked(user_id: str, block: bool) -> bool:
         admin = SupabaseAdmin(settings)
         with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
-            found = apply_block(conn, admin, user_id, block)
-            conn.commit()
-            return found
+            return apply_block(conn, admin, user_id, block, commit=conn.commit)
 
     return set_blocked
 
@@ -105,6 +122,17 @@ def create_app(
         cfg = settings or Settings()
     except Exception:  # noqa: BLE001 - unset DB URL etc.: health reports db=false, chat errors
         cfg = None
+    extra = [
+        o.strip().rstrip("/")
+        for o in (cfg.hikesense_allowed_origins if cfg else "").split(",")
+        if o.strip()
+    ]
+
+    @app.middleware("http")
+    async def check_origin(request: Request, call_next):
+        if request.method in CHECKED_METHODS and not origin_allowed(request, extra):
+            return JSONResponse({"detail": "origin_not_allowed"}, status_code=403)
+        return await call_next(request)
 
     @app.get("/health")
     def health() -> dict:

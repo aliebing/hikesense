@@ -104,6 +104,13 @@ it("requestPasswordReset gives the same neutral notice whether the address exist
   expect(sb.resetPasswordForEmail).toHaveBeenLastCalledWith("a@b.de", { redirectTo: `${window.location.origin}/passwort-neu` });
 });
 
+it("requestPasswordReset says so when Supabase refuses for too many mails", async () => {
+  sb.resetPasswordForEmail.mockResolvedValueOnce({ error: { message: "email rate limit exceeded", status: 429 } });
+  expect(await requestPasswordReset("a@b.de", "de")).toEqual({ error: "Zu viele Versuche – bitte warte einen Moment" });
+  sb.resetPasswordForEmail.mockResolvedValueOnce({ error: { message: "For security purposes, you can only request this after 40 seconds.", status: 429 } });
+  expect((await requestPasswordReset("a@b.de", "en")).error).toBe("Too many attempts – please wait a moment");
+});
+
 it("requestPasswordReset reports only an unreachable service", async () => {
   sb.resetPasswordForEmail.mockRejectedValueOnce(new TypeError("offline"));
   expect((await requestPasswordReset("a@b.de", "de")).error).toMatch(/nicht erreichbar/);

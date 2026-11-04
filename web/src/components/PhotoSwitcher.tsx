@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "../i18n";
 import type { PhotoErrorCode } from "../lib/photo";
-import { getBrowserSupabase, useSession } from "../lib/auth";
+import { checkBlocked, getBrowserSupabase, reportBlocked, useSession } from "../lib/auth";
 import type { Photo } from "../lib/data";
 import { deleteOwnPhoto, listOwnPhotos } from "../lib/photo";
 import Attribution from "./Attribution";
@@ -63,6 +63,7 @@ export default function PhotoSwitcher({
       setIndex(0);
       await loadOwn();
     } catch (e) {
+      if (await checkBlocked()) return reportBlocked(); // a blocked account is signed out
       const code = (e as { code?: PhotoErrorCode } | null)?.code;
       setDeleteError(code && code in t.photoErrors ? t.photoErrors[code] : t.photoDeleteFailed);
     }

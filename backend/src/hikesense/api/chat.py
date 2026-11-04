@@ -30,7 +30,7 @@ from hikesense.chatlog import ChatLogEntry
 from hikesense.config import Settings
 from hikesense.db import connect
 from hikesense.guard import sanitize_text
-from hikesense.guest_quota import GuestQuota, client_ip, guest_owner, ip_key
+from hikesense.guest_quota import GuestQuota, client_ip, guest_key, guest_owner, guest_salt
 from hikesense.knowledge.search import try_open
 from hikesense.llm.gateway import OpenRouterGateway
 from hikesense.rate_limit import RateLimiter
@@ -124,20 +124,9 @@ def _failure_log(
         log.exception("chat log write failed")
 
 
-async def _peek_lang(request: Request) -> Lang:
-    """The reply language of a request that is turned away before its body is validated: read
-    leniently (small bodies only); anything unclear means German."""
-    declared = request.headers.get("content-length", "")
-    if not declared.isdigit() or int(declared) > MAX_BODY_BYTES:
-        return "de"
-    try:
-        lang = json.loads(await request.body()).get("lang")
-    except Exception:  # noqa: BLE001 - e.g. RecursionError on deeply nested JSON
-        return "de"
-    return "en" if lang == "en" else "de"
-
-
 BLOCKED = {"detail": "account_blocked"}
+# not the sign-in text: the assistant itself (here the guest counter) is unavailable
+UNAVAILABLE = {"detail": "service_unavailable"}
 
 
 def make_router(
@@ -196,40 +185,22 @@ def make_router(
         user = await authenticate_optional(request, settings)
         if isinstance(user, JSONResponse):
             return user
-        if user is None:  # guest: counted per IP and for all guests together
-            key = ip_key(client_ip(request, settings.hikesense_trusted_proxy_hops))
-            try:
-                guest = await run_in_threadpool(guest_quota.acquire, key)
-            except Exception:
-                log.exception("guest quota failed")
-                return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
-            if not guest.allowed:
-                lang = await _peek_lang(request)
-                t = texts(lang)
-                text = t.guest_total_reply if guest.reason == "total" else t.guest_limit_reply
-                return await refused(text, guest.retry_after_s, "guest_limit")
-            user_hash, user_id = guest_owner(key), None
-        else:
+        if user is not None:
             denied = await blocked(user.user_id)
             if denied is not None:
                 return denied
-            decision = limiter.acquire(user.user_id)  # before the graph, after the token check
-            if not decision.allowed:
-                lang = await _peek_lang(request)
-                message = texts(lang).rate_limit_reply.format(s=decision.retry_after_s)
-                return await refused(message, decision.retry_after_s)
-            user_hash, user_id = chatlog.hash_user(user.user_id), user.user_id
+        # the body is checked before anything is counted: a broken request costs no guest slot
         declared = request.headers.get("content-length", "")
-        if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        if declared.isascii() and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
             raise HTTPException(status_code=413, detail="Nachricht zu groß")
         data = await request.body()
         if len(data) > MAX_BODY_BYTES:
             raise HTTPException(status_code=413, detail="Nachricht zu groß")
         try:
             body = ChatRequest.model_validate(json.loads(data))
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, RecursionError, UnicodeDecodeError) as exc:
             raise RequestValidationError(
-                [{"type": "json_invalid", "loc": ("body",), "msg": str(exc)}]
+                [{"type": "json_invalid", "loc": ("body",), "msg": type(exc).__name__}]
             )
         except ValidationError as exc:
             raise RequestValidationError(
@@ -240,6 +211,25 @@ def make_router(
             raise RequestValidationError(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
+        t = texts(body.lang)
+        if user is None:  # guest: counted per IP and for all guests together
+            ip = client_ip(request, settings.hikesense_trusted_proxy_hops)
+            key = guest_key(ip, guest_salt(settings))
+            try:
+                guest = await run_in_threadpool(guest_quota.acquire, key)
+            except Exception:
+                log.exception("guest quota failed")
+                return JSONResponse(UNAVAILABLE, status_code=503)
+            if not guest.allowed:
+                text = t.guest_total_reply if guest.reason == "total" else t.guest_limit_reply
+                return await refused(text, guest.retry_after_s, "guest_limit")
+            user_hash, user_id = guest_owner(key), None
+        else:
+            decision = limiter.acquire(user.user_id)  # before the graph, after the token check
+            if not decision.allowed:
+                message_text = t.rate_limit_reply.format(s=decision.retry_after_s)
+                return await refused(message_text, decision.retry_after_s)
+            user_hash, user_id = chatlog.hash_user(user.user_id), user.user_id
         return EventSourceResponse(
             stream(str(body.thread_id), message, user_hash, user_id, body.lang),
             headers=STREAM_HEADERS,

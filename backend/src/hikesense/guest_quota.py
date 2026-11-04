@@ -4,8 +4,10 @@ sliding 24 h window kept in Postgres, so neither a restart nor a new IP lifts th
 from __future__ import annotations
 
 import hashlib
+import hmac
 import ipaddress
 import logging
+import secrets
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -67,6 +69,29 @@ def ip_key(ip: str) -> str:
             return str(addr.ipv4_mapped)
         return str(ipaddress.ip_network(f"{addr}/64", strict=False))
     return str(addr)
+
+
+_process_salt = secrets.token_hex(32)
+_warned_salt = False
+
+
+def guest_salt(settings: Settings) -> str:
+    """HIKESENSE_GUEST_SALT, or a random salt for this process (warned once): then a restart
+    starts every guest's own count afresh; the total cap still holds."""
+    global _warned_salt
+    s = settings.hikesense_guest_salt
+    if s is not None and s.get_secret_value():
+        return s.get_secret_value()
+    if not _warned_salt:
+        _warned_salt = True
+        log.warning("HIKESENSE_GUEST_SALT is not set: guest counts restart with the process.")
+    return _process_salt
+
+
+def guest_key(ip: str, salt: str) -> str:
+    """What is stored and counted for a guest: HMAC of the IPv4 address or IPv6 /64, never the
+    address itself. Without the salt nobody can map it back by hashing all IPv4 addresses."""
+    return hmac.new(salt.encode(), ip_key(ip).encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def guest_owner(key: str) -> str:

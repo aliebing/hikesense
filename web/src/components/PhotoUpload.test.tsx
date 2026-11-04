@@ -5,11 +5,13 @@ const h = vi.hoisted(() => ({
   session: null as null | { user: { id: string } },
   prepareUpload: vi.fn(),
   uploadOwnPhoto: vi.fn(),
+  blocked: false,
+  report: vi.fn(),
 }));
 vi.mock("../lib/auth", () => ({
-  checkBlocked: async () => false,
+  checkBlocked: async () => h.blocked,
   onBlocked: () => () => {},
-  reportBlocked: () => {},
+  reportBlocked: h.report,
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({}),
 }));
@@ -68,4 +70,16 @@ it("an unknown upload error gets the generic text, never the technical message",
   renderWithLocale(<PhotoUpload trailId="t1" onUploaded={() => {}} />, "en");
   await userEvent.upload(screen.getByLabelText("Choose photo"), new File(["y"], "a.jpg", { type: "image/jpeg" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Upload did not work");
+});
+
+it("a refused upload of a blocked account signs it out", async () => {
+  h.session = { user: { id: "u1" } };
+  h.blocked = true;
+  h.prepareUpload.mockResolvedValue(new Blob(["x"]));
+  h.uploadOwnPhoto.mockRejectedValue(Object.assign(new Error("x"), { code: "upload" }));
+  render(<PhotoUpload trailId="t1" onUploaded={() => {}} />);
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  await userEvent.upload(input, new File(["x"], "a.jpg", { type: "image/jpeg" }));
+  await waitFor(() => expect(h.report).toHaveBeenCalledTimes(1));
+  h.blocked = false;
 });

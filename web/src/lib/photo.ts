@@ -145,7 +145,8 @@ export async function uploadOwnPhoto(sb: SupabaseClient, userId: string, trailId
 
 /** Deletes row and file of one own photo. Throws a PhotoError. */
 export async function deleteOwnPhoto(sb: SupabaseClient, own: { id: number; path: string }): Promise<void> {
-  const del = await sb.from("photos").delete().eq("id", own.id);
-  if (del.error) throw new PhotoError("remove");
+  // RLS refuses silently (no error, no row), e.g. for a blocked account
+  const del = await sb.from("photos").delete().eq("id", own.id).select("id");
+  if (del.error || !del.data?.length) throw new PhotoError("remove");
   await sb.storage.from(BUCKET).remove([own.path]);
 }

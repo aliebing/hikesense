@@ -138,3 +138,33 @@ def test_apply_block_unknown_user_calls_nothing(conn):
     assert apply_block(conn, fake, str(uuid.uuid4()), True) is False
     assert apply_block(conn, fake, "not-a-uuid", True) is False
     assert fake.calls == []
+
+
+def test_apply_block_commit_failure_undoes_the_ban(conn):
+    # Supabase already banned, then the status cannot be saved: the ban is taken back, so
+    # Supabase and app_users never disagree
+    from hikesense.users import apply_block
+
+    a = _user(conn)
+    fake = FakeBanner()
+
+    def broken_commit():
+        raise RuntimeError("commit failed")
+
+    with pytest.raises(RuntimeError):
+        apply_block(conn, fake, a, True, commit=broken_commit)
+    assert fake.calls == [("ban", a), ("unban", a)]
+
+
+def test_apply_block_commits_after_the_admin_call(conn):
+    from hikesense.users import apply_block
+
+    a = _user(conn)
+    order = []
+
+    class Recorder(FakeBanner):
+        def ban(self, uid):
+            order.append("ban")
+
+    assert apply_block(conn, Recorder(), a, True, commit=lambda: order.append("commit"))
+    assert order == ["ban", "commit"]

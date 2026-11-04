@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
 
 import psycopg
+
+log = logging.getLogger(__name__)
 
 Status = Literal["unbestätigt", "aktiv", "gesperrt"]
 DbStatus = Literal["aktiv", "gesperrt"]
@@ -102,21 +106,38 @@ class _Banner(Protocol):
     def unban(self, user_id: str) -> None: ...
 
 
-def apply_block(conn: psycopg.Connection, admin: _Banner, user_id: str, block: bool) -> bool:
-    """Blocks or unblocks an app user: Supabase first (no sign-in, no token refresh), then the
-    status that RLS and /chat check. False (and nothing called) for an unknown user. If the
-    Admin API fails, the status stays as it was. Does not commit; the caller does."""
+def apply_block(
+    conn: psycopg.Connection,
+    admin: _Banner,
+    user_id: str,
+    block: bool,
+    commit: Callable[[], None] | None = None,
+) -> bool:
+    """Blocks or unblocks an app user in both places, all or nothing. The row is locked and its
+    status written first (not yet committed), then Supabase is called (no sign-in, no token
+    refresh), then `commit` runs. If Supabase fails, nothing is committed; if the commit fails,
+    the Supabase call is undone. False (and nothing called) for an unknown user. Without
+    `commit` the caller commits (and owns the undo)."""
     try:
         with conn.transaction():
             exists = conn.execute(
-                "select 1 from app_users where user_id = %s::uuid", (user_id,)
+                "select 1 from app_users where user_id = %s::uuid for update", (user_id,)
             ).fetchone()
     except psycopg.errors.InvalidTextRepresentation:
         return False
     if not exists:
         return False
-    if block:
-        admin.ban(user_id)
-    else:
-        admin.unban(user_id)
-    return set_status(conn, user_id, "gesperrt" if block else "aktiv")
+    do, undo = (admin.ban, admin.unban) if block else (admin.unban, admin.ban)
+    with conn.transaction():  # savepoint: a failing Supabase call takes the status back
+        set_status(conn, user_id, "gesperrt" if block else "aktiv")
+        do(user_id)
+    if commit is not None:
+        try:
+            commit()
+        except Exception:
+            try:
+                undo(user_id)
+            except Exception:
+                log.exception("undo after failed commit failed: %s", user_id)
+            raise
+    return True

@@ -143,3 +143,10 @@ describe("in English", () => {
     expect(await screen.findByText("Not set up")).toBeInTheDocument();
   });
 });
+
+it("a session that expires while the page is open shows the sign-in again", async () => {
+  route(json(200, ME), { "/backend/searches?": () => json(401, { detail: "Bitte anmelden" }) });
+  render(<AdminPage />);
+  expect(await screen.findByLabelText("Name")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

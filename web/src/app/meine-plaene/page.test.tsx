@@ -6,13 +6,15 @@ const h = vi.hoisted(() => ({
   loading: false,
   listPlans: vi.fn(),
   deletePlan: vi.fn(),
+  blocked: false,
+  report: vi.fn(),
 }));
 vi.mock("../../lib/auth", () => ({
-  checkBlocked: async () => false,
+  checkBlocked: async () => h.blocked,
   onBlocked: () => () => {},
-  reportBlocked: () => {},
+  reportBlocked: h.report,
   useSession: () => ({ session: h.session, loading: h.loading }),
-  signOut: vi.fn(),
+  signOut: vi.fn(async () => ({ error: null })),
 }));
 vi.mock("../../lib/plans", async (orig) => ({ ...(await orig<typeof import("../../lib/plans")>()), listPlans: h.listPlans, deletePlan: h.deletePlan }));
 
@@ -26,6 +28,7 @@ const plans = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.blocked = false;
   h.session = { user: { email: "a@b.de" } };
   h.loading = false;
   h.listPlans.mockResolvedValue({ plans, error: null });
@@ -135,4 +138,13 @@ describe("in English", () => {
     renderWithLocale(<MeinePlaene />, "en");
     expect(await screen.findByRole("alert")).toHaveTextContent("Your plans could not be loaded");
   });
+});
+
+it("a refused delete of a blocked account signs it out", async () => {
+  h.deletePlan.mockResolvedValue({ error: "delete" });
+  h.blocked = true;
+  render(<MeinePlaene />);
+  await screen.findByText("Feldsee-Runde");
+  await userEvent.click(screen.getAllByRole("button", { name: /Löschen/ })[0]);
+  await waitFor(() => expect(h.report).toHaveBeenCalledTimes(1));
 });
