@@ -53,7 +53,7 @@ FIXTURE = Path(__file__).resolve().parents[2] / "web/src/lib/__fixtures__/chat-s
 
 
 def _stream(settings, deps, *messages) -> str:
-    client = TestClient(create_app(settings, deps_factory=lambda: deps))
+    client = TestClient(create_app(settings, deps_factory=lambda: deps, status_lookup=lambda uid: "aktiv"))
     thread = str(uuid.uuid4())
     text = ""
     for m in messages:

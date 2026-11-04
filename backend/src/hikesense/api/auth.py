@@ -17,6 +17,17 @@ AUTH_MESSAGES = {
 }
 
 
+async def authenticate_optional(
+    request: Request, settings: Settings
+) -> AuthUser | None | JSONResponse:
+    """None for a guest (no Authorization header at all). A header that is present but invalid
+    or expired still gets the 401, so a client with a stale session signs in again instead of
+    silently becoming a guest."""
+    if not request.headers.get("authorization", "").strip():
+        return None
+    return await authenticate(request, settings)
+
+
 async def authenticate(request: Request, settings: Settings) -> AuthUser | JSONResponse:
     """The signed-in user from the Bearer token, or the 401/503 response to send instead."""
     header = request.headers.get("authorization", "")

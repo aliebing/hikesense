@@ -27,7 +27,9 @@ class SupabaseAdmin:
     def __init__(self, settings: Settings, http: httpx.Client | None = None) -> None:
         key = settings.supabase_service_role_key
         if key is None or not key.get_secret_value() or not settings.supabase_url:
-            raise SupabaseAdminError(0, "SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY in .env eintragen")
+            raise SupabaseAdminError(
+                0, "SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY in .env eintragen"
+            )
         self._base = f"{settings.supabase_url.rstrip('/')}/auth/v1/admin"
         secret = key.get_secret_value()
         self._headers = {"apikey": secret, "Authorization": f"Bearer {secret}"}
@@ -35,11 +37,17 @@ class SupabaseAdmin:
 
     def _call(self, method: str, path: str, **kw: object) -> httpx.Response:
         try:
-            r = self._http.request(method, self._base + path, headers=self._headers, timeout=TIMEOUT_S, **kw)  # type: ignore[arg-type]
+            r = self._http.request(
+                method, self._base + path, headers=self._headers, timeout=TIMEOUT_S, **kw
+            )  # type: ignore[arg-type]
         except httpx.HTTPError as exc:
-            raise SupabaseAdminError(0, f"Supabase-Admin-API nicht erreichbar ({type(exc).__name__})") from exc
+            raise SupabaseAdminError(
+                0, f"Supabase-Admin-API nicht erreichbar ({type(exc).__name__})"
+            ) from exc
         if r.status_code >= 400:
-            raise SupabaseAdminError(r.status_code, f"Supabase-Admin-API: HTTP {r.status_code} {r.text[:200]}")
+            raise SupabaseAdminError(
+                r.status_code, f"Supabase-Admin-API: HTTP {r.status_code} {r.text[:200]}"
+            )
         return r
 
     def ban(self, user_id: str) -> None:
@@ -54,7 +62,9 @@ class SupabaseAdmin:
         self._call("PUT", f"/users/{user_id}", json={"email_confirm": True})
 
     def create_confirmed_user(self, email: str, password: str) -> str:
-        r = self._call("POST", "/users", json={"email": email, "password": password, "email_confirm": True})
+        r = self._call(
+            "POST", "/users", json={"email": email, "password": password, "email_confirm": True}
+        )
         return str(r.json()["id"])
 
     def delete_user(self, user_id: str) -> None:
@@ -64,7 +74,11 @@ class SupabaseAdmin:
         users: list[dict] = []
         page = 1
         while True:
-            batch = self._call("GET", "/users", params={"page": page, "per_page": PER_PAGE}).json().get("users", [])
+            batch = (
+                self._call("GET", "/users", params={"page": page, "per_page": PER_PAGE})
+                .json()
+                .get("users", [])
+            )
             users.extend(batch)
             if len(batch) < PER_PAGE:
                 return users

@@ -47,9 +47,13 @@ def test_set_status_sets_and_clears_blocked_at(conn):
     a = _user(conn)
     assert set_status(conn, a, "gesperrt") is True
     assert status_of(conn, a) == "gesperrt"
-    assert conn.execute("select blocked_at is not null from app_users where user_id = %s", (a,)).fetchone()[0]
+    assert conn.execute(
+        "select blocked_at is not null from app_users where user_id = %s", (a,)
+    ).fetchone()[0]
     assert set_status(conn, a, "aktiv") is True
-    assert conn.execute("select status, blocked_at from app_users where user_id = %s", (a,)).fetchone() == ("aktiv", None)
+    assert conn.execute(
+        "select status, blocked_at from app_users where user_id = %s", (a,)
+    ).fetchone() == ("aktiv", None)
 
 
 def test_set_status_unknown_user_returns_false(conn):

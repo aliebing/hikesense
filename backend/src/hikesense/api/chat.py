@@ -25,11 +25,12 @@ from hikesense.agent.events import EventFinder
 from hikesense.agent.graph import AgentDeps, ErrorEvent, run_chat
 from hikesense.agent.texts import Lang, texts
 from hikesense.agent.tools import DbTools
-from hikesense.api.auth import authenticate
+from hikesense.api.auth import AUTH_MESSAGES, authenticate, authenticate_optional
 from hikesense.chatlog import ChatLogEntry
 from hikesense.config import Settings
 from hikesense.db import connect
 from hikesense.guard import sanitize_text
+from hikesense.guest_quota import GuestQuota, client_ip, guest_owner, ip_key
 from hikesense.knowledge.search import try_open
 from hikesense.llm.gateway import OpenRouterGateway
 from hikesense.rate_limit import RateLimiter
@@ -136,13 +137,20 @@ async def _peek_lang(request: Request) -> Lang:
     return "en" if lang == "en" else "de"
 
 
+BLOCKED = {"detail": "account_blocked"}
+
+
 def make_router(
-    settings: Settings, deps_factory: Callable[[], Any], limiter: RateLimiter
+    settings: Settings,
+    deps_factory: Callable[[], Any],
+    limiter: RateLimiter,
+    guest_quota: GuestQuota,
+    status_lookup: Callable[[str], str],
 ) -> APIRouter:
     router = APIRouter()
 
     async def stream(
-        thread_id: str, message: str, user_hash: str, user_id: str, lang: Lang
+        thread_id: str, message: str, user_hash: str, user_id: str | None, lang: Lang
     ) -> AsyncIterator[dict[str, str]]:
         try:
             deps = await run_in_threadpool(deps_factory)
@@ -154,24 +162,63 @@ def make_router(
             _failure_log(settings, exc, user_hash, user_id, message)
             yield _event(ErrorEvent(message=texts(lang).error_unavailable))
 
-    @router.post("/chat")
-    async def chat(request: Request) -> EventSourceResponse:
+    async def refused(
+        message: str, retry_after_s: int, code: str | None = None
+    ) -> EventSourceResponse:
+        async def one() -> AsyncIterator[dict[str, str]]:
+            yield _event(ErrorEvent(message=message, code=code))
+
+        return EventSourceResponse(
+            one(),
+            status_code=429,
+            headers={**STREAM_HEADERS, "Retry-After": str(retry_after_s)},
+        )
+
+    async def blocked(user_id: str) -> JSONResponse | None:
+        """403 for a blocked account (its access token may still be valid for up to an hour)."""
+        try:
+            status = await run_in_threadpool(status_lookup, user_id)
+        except Exception:
+            log.exception("account status lookup failed")
+            return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
+        return JSONResponse(BLOCKED, status_code=403) if status == "gesperrt" else None
+
+    @router.get("/account")
+    async def account(request: Request) -> JSONResponse:
         user = await authenticate(request, settings)
         if isinstance(user, JSONResponse):
             return user
-        decision = limiter.acquire(user.user_id)  # before the graph, after the token check
-        if not decision.allowed:
-            lang = await _peek_lang(request)
-            message = texts(lang).rate_limit_reply.format(s=decision.retry_after_s)
+        denied = await blocked(user.user_id)
+        return denied or JSONResponse({"status": "aktiv"})
 
-            async def limited() -> AsyncIterator[dict[str, str]]:
-                yield _event(ErrorEvent(message=message))
-
-            return EventSourceResponse(
-                limited(),
-                status_code=429,
-                headers={**STREAM_HEADERS, "Retry-After": str(decision.retry_after_s)},
-            )
+    @router.post("/chat", response_model=None)
+    async def chat(request: Request) -> EventSourceResponse | JSONResponse:
+        user = await authenticate_optional(request, settings)
+        if isinstance(user, JSONResponse):
+            return user
+        if user is None:  # guest: counted per IP and for all guests together
+            key = ip_key(client_ip(request, settings.hikesense_trusted_proxy_hops))
+            try:
+                guest = await run_in_threadpool(guest_quota.acquire, key)
+            except Exception:
+                log.exception("guest quota failed")
+                return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
+            if not guest.allowed:
+                lang = await _peek_lang(request)
+                return await refused(
+                    texts(lang).guest_limit_reply, guest.retry_after_s, "guest_limit"
+                )
+            user_hash, user_id = guest_owner(key), None
+        else:
+            denied = await blocked(user.user_id)
+            if denied is not None:
+                return denied
+            decision = limiter.acquire(user.user_id)  # before the graph, after the token check
+            if not decision.allowed:
+                lang = await _peek_lang(request)
+                message = texts(lang).rate_limit_reply.format(s=decision.retry_after_s)
+                return await refused(message, decision.retry_after_s)
+            user_hash, user_id = chatlog.hash_user(user.user_id), user.user_id
         declared = request.headers.get("content-length", "")
         if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
             raise HTTPException(status_code=413, detail="Nachricht zu groß")
@@ -194,13 +241,7 @@ def make_router(
                 [{"type": "value_error", "loc": ("body", "message"), "msg": "empty message"}]
             )
         return EventSourceResponse(
-            stream(
-                str(body.thread_id),
-                message,
-                chatlog.hash_user(user.user_id),
-                user.user_id,
-                body.lang,
-            ),
+            stream(str(body.thread_id), message, user_hash, user_id, body.lang),
             headers=STREAM_HEADERS,
         )
 

@@ -53,6 +53,7 @@ class Texts:
     react_tours: str
     injection_reply: str
     rate_limit_reply: str
+    guest_limit_reply: str
     # words the code puts into the placeholders of the events and groups sentences
     word_run: str
     word_runs: str
@@ -167,6 +168,10 @@ DE = Texts(
         f"({REGION_NAMES})."
     ),
     rate_limit_reply="Zu viele Anfragen – bitte in {s} Sekunden noch einmal.",
+    guest_limit_reply=(
+        "Du hast die Gast-Anfragen für heute aufgebraucht. Melde dich an oder registriere dich, "
+        "um weiterzumachen."
+    ),
     word_run="Lauf",
     word_runs="Läufe",
     word_page="Seite",
@@ -287,6 +292,7 @@ EN = Texts(
         f"({REGION_NAMES_EN})."
     ),
     rate_limit_reply="Too many requests – please try again in {s} seconds.",
+    guest_limit_reply="You've used up today's guest requests. Sign in or create an account to keep going.",
     word_run="run",
     word_runs="runs",
     word_page="page",

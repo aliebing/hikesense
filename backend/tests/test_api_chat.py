@@ -12,9 +12,10 @@ from hikesense.agent.prompts import ERROR_UNAVAILABLE
 from hikesense.agent.request import HikeRequest
 from hikesense.api import auth as auth_api
 from hikesense.api import chat as chat_api
-from hikesense.api.app import create_app
+from hikesense.api.app import create_app as _create_app
 from hikesense.config import Settings
 from hikesense.guard import RATE_LIMIT_REPLY
+from hikesense.guest_quota import GuestDecision
 from hikesense.llm.usage import LLMUsage
 
 ORIGIN = "http://localhost:3000"
@@ -34,6 +35,26 @@ def settings(tmp_path):
         chroma_dir=tmp_path / "chroma",
         openrouter_api_key="k",
         supabase_jwt_secret=SECRET,
+    )
+
+
+class FakeQuota:
+    """Guest quota without a database: `allow` decides, `keys` records the ip keys asked for."""
+
+    def __init__(self, allow=True, reason="ip"):
+        self.allow, self.reason, self.keys = allow, reason, []
+
+    def acquire(self, key):
+        self.keys.append(key)
+        if self.allow:
+            return GuestDecision(True, "ok", 0)
+        return GuestDecision(False, self.reason, 3600)
+
+
+def create_app(settings=None, quota=None, status="aktiv", **kw):
+    """The app with fakes for the database lookups (guest quota, account status)."""
+    return _create_app(
+        settings, guest_quota=quota or FakeQuota(), status_lookup=lambda uid: status, **kw
     )
 
 
@@ -154,11 +175,71 @@ def test_rate_limit_per_user_not_ip(client, seen):
     assert post(client, headers=bearer("u2")).status_code == 200  # same IP, other user
 
 
-def test_missing_token_401(client, seen):
+def test_guest_without_token_can_chat(settings, seen):
+    quota = FakeQuota()
+    client = TestClient(create_app(settings, quota=quota, deps_factory=lambda: "deps"))
     r = client.post("/chat", json={"thread_id": str(uuid.uuid4()), "message": "x"})
-    assert r.status_code == 401
-    assert r.json() == {"detail": "Bitte anmelden."}
+    assert r.status_code == 200
+    assert [name for name, _ in parse_sse(r.text)] == ["understood", "token", "done"]
+    assert len(quota.keys) == 1 and users == [None]
+
+
+def test_guest_limit_returns_429_with_guest_text(settings, seen):
+    from hikesense.agent.texts import texts
+
+    for reason in ("ip", "total"):
+        client = TestClient(create_app(settings, quota=FakeQuota(False, reason), deps_factory=lambda: "deps"))
+        body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "en"}
+        r = client.post("/chat", json=body)
+        assert r.status_code == 429 and int(r.headers["retry-after"]) == 3600
+        ((name, data),) = parse_sse(r.text)
+        assert name == "error"
+        assert data["message"] == texts("en").guest_limit_reply
+        assert data["code"] == "guest_limit"
     assert seen == []
+
+
+def test_spoofed_forwarded_header_does_not_change_key(settings, seen):
+    quota = FakeQuota()
+    client = TestClient(create_app(settings, quota=quota, deps_factory=lambda: "deps"))
+    for fake in ("1.1.1.1", "2.2.2.2"):
+        body = {"thread_id": str(uuid.uuid4()), "message": "x"}
+        client.post("/chat", json=body, headers={"X-Forwarded-For": f"{fake}, 198.51.100.4"})
+    assert quota.keys[0] == quota.keys[1]  # without trusted proxies the header is ignored
+    assert quota.keys[0] not in ("1.1.1.1", "2.2.2.2")
+
+
+def test_trusted_proxy_entry_is_the_guest_key(settings, seen):
+    quota = FakeQuota()
+    trusted = settings.model_copy(update={"hikesense_trusted_proxy_hops": 1})
+    client = TestClient(create_app(trusted, quota=quota, deps_factory=lambda: "deps"))
+    body = {"thread_id": str(uuid.uuid4()), "message": "x"}
+    client.post("/chat", json=body, headers={"X-Forwarded-For": "1.1.1.1, 198.51.100.4"})
+    assert quota.keys == ["198.51.100.4"]
+
+
+def test_signed_in_user_does_not_use_guest_quota(settings, seen):
+    quota = FakeQuota(False)
+    client = TestClient(create_app(settings, quota=quota, deps_factory=lambda: "deps"))
+    assert post(client).status_code == 200
+    assert quota.keys == []
+
+
+def test_blocked_user_gets_403(settings, seen):
+    client = TestClient(create_app(settings, status="gesperrt", deps_factory=lambda: "deps"))
+    r = post(client)
+    assert r.status_code == 403
+    assert r.json() == {"detail": "account_blocked"}
+    assert seen == []
+
+
+def test_account_endpoint_reports_status(settings):
+    ok = TestClient(create_app(settings, deps_factory=lambda: "deps"))
+    assert ok.get("/account", headers=bearer()).json() == {"status": "aktiv"}
+    assert ok.get("/account").status_code == 401
+    blocked = TestClient(create_app(settings, status="gesperrt", deps_factory=lambda: "deps"))
+    r = blocked.get("/account", headers=bearer())
+    assert r.status_code == 403 and r.json() == {"detail": "account_blocked"}
 
 
 def test_invalid_token_401(client, seen):
@@ -173,9 +254,9 @@ def test_expired_token_401(client, seen):
     assert seen == []
 
 
-def test_unauthenticated_requests_do_not_use_rate_limit(client, seen):
+def test_rejected_tokens_do_not_use_rate_limit(client, seen):
     for _ in range(12):
-        assert client.post("/chat", json={}).status_code == 401
+        assert post(client, headers={"Authorization": "Bearer abc.def.ghi"}).status_code == 401
     assert post(client).status_code == 200
 
 
@@ -260,7 +341,7 @@ def test_unexpected_error_becomes_error_event_and_log(settings, monkeypatch, cap
     with caplog.at_level(logging.ERROR):
         r = post(client)
     events = parse_sse(r.text)
-    assert events[-1] == ("error", {"type": "error", "message": ERROR_UNAVAILABLE})
+    assert events[-1] == ("error", {"type": "error", "message": ERROR_UNAVAILABLE, "code": None})
     assert "secret" not in r.text
     line = json.loads(settings.chat_log_path.read_text().splitlines()[-1])
     assert line["error"] == "RuntimeError"
@@ -274,7 +355,7 @@ def test_deps_factory_failure_becomes_error_event(settings, seen):
 
     client = TestClient(create_app(settings, deps_factory=factory))
     events = parse_sse(post(client).text)
-    assert events == [("error", {"type": "error", "message": ERROR_UNAVAILABLE})]
+    assert events == [("error", {"type": "error", "message": ERROR_UNAVAILABLE, "code": None})]
     line = json.loads(settings.chat_log_path.read_text())
     assert line["error"] == "ValueError"
     assert line["message"] and "llm_calls" in line  # a new line, not mistaken for an old one

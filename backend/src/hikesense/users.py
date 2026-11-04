@@ -34,7 +34,9 @@ def list_app_users(conn: psycopg.Connection) -> list[AppUser]:
     ).fetchall()
     out = []
     for uid, email, status, confirmed, created, last in rows:
-        shown: Status = "gesperrt" if status == "gesperrt" else ("aktiv" if confirmed else "unbestätigt")
+        shown: Status = (
+            "gesperrt" if status == "gesperrt" else ("aktiv" if confirmed else "unbestätigt")
+        )
         out.append(AppUser(uid, email, shown, created, last))
     return out
 

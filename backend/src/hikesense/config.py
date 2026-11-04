@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     hikesense_admin_password_hash: SecretStr | None = None  # bcrypt hash, admin@hikesense.local
     # Auth Admin API (ban, confirm, create users); server only, never in the browser
     supabase_service_role_key: SecretStr | None = None
+    # chat without an account: per IP (/64) and for all guests together, sliding 24 h
+    hikesense_guest_per_day: int = 10
+    hikesense_guest_total_per_day: int = 200
+    # reverse proxies in front of the web app that append to X-Forwarded-For (0: header ignored)
+    hikesense_trusted_proxy_hops: int = 0
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None

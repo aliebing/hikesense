@@ -21,7 +21,9 @@ def settings(**kw):
 
 
 def test_ban_sends_long_ban_duration(respx_mock):
-    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(return_value=httpx.Response(200, json={"id": "u1"}))
+    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(
+        return_value=httpx.Response(200, json={"id": "u1"})
+    )
     with httpx.Client() as http:
         SupabaseAdmin(settings(), http).ban("u1")
     req = route.calls.last.request
@@ -31,29 +33,41 @@ def test_ban_sends_long_ban_duration(respx_mock):
 
 
 def test_unban_sends_none(respx_mock):
-    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(return_value=httpx.Response(200, json={"id": "u1"}))
+    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(
+        return_value=httpx.Response(200, json={"id": "u1"})
+    )
     with httpx.Client() as http:
         SupabaseAdmin(settings(), http).unban("u1")
     assert json.loads(route.calls.last.request.content) == {"ban_duration": "none"}
 
 
 def test_confirm_user_sets_email_confirm(respx_mock):
-    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(return_value=httpx.Response(200, json={"id": "u1"}))
+    route = respx_mock.put(f"{AUTH}/admin/users/u1").mock(
+        return_value=httpx.Response(200, json={"id": "u1"})
+    )
     with httpx.Client() as http:
         SupabaseAdmin(settings(), http).confirm_user("u1")
     assert json.loads(route.calls.last.request.content) == {"email_confirm": True}
 
 
 def test_create_confirmed_user_sets_email_confirm(respx_mock):
-    route = respx_mock.post(f"{AUTH}/admin/users").mock(return_value=httpx.Response(200, json={"id": "new-id"}))
+    route = respx_mock.post(f"{AUTH}/admin/users").mock(
+        return_value=httpx.Response(200, json={"id": "new-id"})
+    )
     with httpx.Client() as http:
         uid = SupabaseAdmin(settings(), http).create_confirmed_user("a@b.de", "pw-123456")
     assert uid == "new-id"
-    assert json.loads(route.calls.last.request.content) == {"email": "a@b.de", "password": "pw-123456", "email_confirm": True}
+    assert json.loads(route.calls.last.request.content) == {
+        "email": "a@b.de",
+        "password": "pw-123456",
+        "email_confirm": True,
+    }
 
 
 def test_delete_user(respx_mock):
-    route = respx_mock.delete(f"{AUTH}/admin/users/u1").mock(return_value=httpx.Response(200, json={}))
+    route = respx_mock.delete(f"{AUTH}/admin/users/u1").mock(
+        return_value=httpx.Response(200, json={})
+    )
     with httpx.Client() as http:
         SupabaseAdmin(settings(), http).delete_user("u1")
     assert route.called
@@ -61,7 +75,9 @@ def test_delete_user(respx_mock):
 
 def test_find_user_id_pages_through_users(respx_mock):
     pages = [
-        httpx.Response(200, json={"users": [{"id": f"x{i}", "email": f"x{i}@a.de"} for i in range(50)]}),
+        httpx.Response(
+            200, json={"users": [{"id": f"x{i}", "email": f"x{i}@a.de"} for i in range(50)]}
+        ),
         httpx.Response(200, json={"users": [{"id": "hit", "email": "Admin@HikeSense.local"}]}),
     ]
     respx_mock.get(f"{AUTH}/admin/users").mock(side_effect=pages)

@@ -18,8 +18,10 @@ from hikesense.api.admin import make_admin_router
 from hikesense.api.chat import default_deps_factory, make_router
 from hikesense.config import Settings, export_langsmith_env
 from hikesense.db import upsert_source
+from hikesense.guest_quota import DbGuestQuota, GuestQuota
 from hikesense.rate_limit import RateLimiter
 from hikesense.roles import Profile, Role, list_profiles, role_of
+from hikesense.users import status_of
 
 log = logging.getLogger(__name__)
 
@@ -66,11 +68,21 @@ def _default_profiles_lookup(settings: Settings) -> Callable[[], list[Profile]]:
     return lookup
 
 
+def _default_status_lookup(settings: Settings) -> Callable[[str], str]:
+    def lookup(user_id: str) -> str:
+        with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
+            return status_of(conn, user_id)
+
+    return lookup
+
+
 def create_app(
     settings: Settings | None = None,
     deps_factory: Callable[[], Any] | None = None,
     role_lookup: Callable[[str], Role] | None = None,
     profiles_lookup: Callable[[], list[Profile]] | None = None,
+    guest_quota: GuestQuota | None = None,
+    status_lookup: Callable[[str], str] | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -103,7 +115,15 @@ def create_app(
     if cfg is not None:
         export_langsmith_env(cfg)  # optional LangSmith tracing, off unless configured
         factory = deps_factory or default_deps_factory(cfg)
-        app.include_router(make_router(cfg, factory, RateLimiter()))
+        app.include_router(
+            make_router(
+                cfg,
+                factory,
+                RateLimiter(),
+                guest_quota or DbGuestQuota(cfg),
+                status_lookup or _default_status_lookup(cfg),
+            )
+        )
         app.include_router(
             make_admin_router(
                 cfg,

@@ -444,6 +444,7 @@ class DoneEvent(ChatEvent):
 class ErrorEvent(ChatEvent):
     type: Literal["error"] = "error"
     message: str
+    code: str | None = None  # machine-readable reason for the web app, e.g. "guest_limit"
 
 
 # --- deps and state -----------------------------------------------------------------------
