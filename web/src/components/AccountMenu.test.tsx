@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const h = vi.hoisted(() => ({ session: null as null | { user: { email: string } }, signOut: vi.fn() }));
@@ -6,12 +6,10 @@ vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading
 const chat = vi.hoisted(() => ({ reset: vi.fn() }));
 vi.mock("./ChatProvider", () => ({ useResetChat: () => chat.reset }));
 
-const adm = vi.hoisted(() => ({ get: vi.fn() }));
-vi.mock("../lib/admin", () => ({ adminGet: adm.get }));
 
 import AccountMenu from "./AccountMenu";
 
-beforeEach(() => { adm.get.mockReset(); adm.get.mockResolvedValue({ ok: false, status: 403, message: "Kein Zugriff" }); });
+beforeEach(() => { vi.restoreAllMocks(); });
 
 it("offers sign-in without a session", () => {
   h.session = null;
@@ -49,23 +47,12 @@ it("keeps the header narrow on phones: e-mail only from sm up, links never break
   expect(screen.getByRole("button", { name: "Abmelden" })).toHaveClass("whitespace-nowrap");
 });
 
-it("shows Backend link only for admins", async () => {
-  h.session = { user: { email: "admin@hikesense.local" } };
-  adm.get.mockResolvedValue({ ok: true, data: { role: "admin" } });
-  const { unmount } = render(<AccountMenu />);
-  expect(await screen.findByRole("link", { name: "Backend" })).toHaveAttribute("href", "/admin");
-  expect(adm.get).toHaveBeenCalledWith("/me");
-  unmount();
-
-  h.session = { user: { email: "smoke@hikesense.local" } };
-  adm.get.mockResolvedValue({ ok: false, status: 403, message: "Kein Zugriff" });
+it("never links to the backend and never asks it", () => {
+  const f = vi.spyOn(globalThis, "fetch");
+  h.session = { user: { email: "a@b.de" } };
   render(<AccountMenu />);
-  await waitFor(() => expect(adm.get).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole("link", { name: "Backend" })).toBeNull();
+  expect(document.querySelector('a[href*="backend"], a[href*="admin"]')).toBeNull();
+  expect(f.mock.calls.some((c) => String(c[0]).includes("backend"))).toBe(false);
 });
 
-it("does not ask /me without a session", () => {
-  h.session = null;
-  render(<AccountMenu />);
-  expect(adm.get).not.toHaveBeenCalled();
-});

@@ -1,8 +1,15 @@
-import { getAccessToken } from "./auth";
 import { messagesFor, type Locale } from "../i18n/locale";
 import { dateIn, MISSING, num } from "./format";
 
-export type AdminUser = { user_id: string; email: string | null; role: string | null; searches: number };
+/** One row of /backend/users; "guest" and "unknown" are summary rows without an account. */
+export type BackendUser = {
+  user_id: string;
+  email: string | null;
+  status: "unbestätigt" | "aktiv" | "gesperrt" | "gast" | null;
+  created_at?: string | null;
+  last_sign_in_at?: string | null;
+  searches: number;
+};
 
 export type SearchSummary = {
   request_id: string;
@@ -110,12 +117,12 @@ export type SearchDetail = {
 /** Failure carries only the HTTP status (0 = no connection); texts come from the catalog via adminErrorText. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number };
 
-export async function adminGet<T>(path: string): Promise<AdminResult<T>> {
-  const token = await getAccessToken();
-  if (!token) return { ok: false, status: 401 };
+/** Calls the admin backend through the same-origin proxy; the HttpOnly session cookie rides
+ * along, no Supabase token is ever sent there. */
+async function call<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   let res: Response;
   try {
-    res = await fetch("/api/admin" + path, { headers: { Authorization: `Bearer ${token}` } });
+    res = await fetch("/api/backend" + path, { credentials: "same-origin", ...init });
   } catch {
     return { ok: false, status: 0 };
   }
@@ -129,12 +136,24 @@ export async function adminGet<T>(path: string): Promise<AdminResult<T>> {
   return { ok: true, data: body as T };
 }
 
+const post = (body?: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+export const backendGet = <T>(path: string) => call<T>(path);
+export const backendPost = <T>(path: string, body?: unknown) => call<T>(path, post(body));
+export const backendLogin = (name: string, password: string) => call<{ name: string }>("/login", post({ name, password }));
+export const backendLogout = () => call<{ ok: boolean }>("/logout", post());
+
 /** Catalog text for a failed admin call. */
 export function adminErrorText(status: number, locale: Locale): string {
   const a = messagesFor(locale).admin;
   if (status === 401) return a.signInPlease;
   if (status === 403) return a.noAccess;
   if (status === 503) return a.notSetUp;
+  if (status === 429) return a.tooManyTries;
   if (status === 0) return a.unreachable;
   return a.error(status);
 }

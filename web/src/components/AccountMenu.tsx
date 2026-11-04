@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useLocale, useT } from "../i18n";
-import { adminGet } from "../lib/admin";
 import { signOut, useSession } from "../lib/auth";
 import { useResetChat } from "./ChatProvider";
 
@@ -15,17 +13,6 @@ export default function AccountMenu() {
   const resetChat = useResetChat();
   const { locale } = useLocale();
   const t = useT().account;
-  const [isAdmin, setIsAdmin] = useState(false);
-  const userKey = session?.user.id ?? session?.user.email ?? (session ? "user" : null);
-  useEffect(() => {
-    setIsAdmin(false);
-    if (!userKey) return;
-    let stale = false;
-    adminGet("/me")
-      .then((r) => { if (!stale) setIsAdmin(r.ok); })
-      .catch(() => {});
-    return () => { stale = true; };
-  }, [userKey]);
   if (loading) return null;
   if (!session) {
     return (
@@ -36,11 +23,6 @@ export default function AccountMenu() {
   }
   return (
     <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      {isAdmin && (
-        <Link href="/admin" className="whitespace-nowrap underline-offset-4 hover:underline">
-          {t.backend}
-        </Link>
-      )}
       <Link href="/meine-plaene" className="whitespace-nowrap underline-offset-4 hover:underline">
         {t.myPlans}
       </Link>

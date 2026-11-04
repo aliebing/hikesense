@@ -1,8 +1,8 @@
 "use client";
 
 import { useLocale, useT } from "../../i18n";
-import type { SearchPage, SearchSummary } from "../../lib/admin";
-import { ms, usd, when } from "../../lib/admin";
+import type { SearchPage, SearchSummary } from "../../lib/backend";
+import { ms, usd, when } from "../../lib/backend";
 import { MISSING, num } from "../../lib/format";
 
 export default function SearchTable({

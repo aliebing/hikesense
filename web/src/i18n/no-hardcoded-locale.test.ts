@@ -18,7 +18,7 @@ it("no source file outside i18n/ hard-codes the German Intl locale", () => {
 const withoutComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 
 // Data values and parsers that legitimately contain German (stored values, backend vocabulary, filename regexes).
-const ALLOWED = [/"geprüft"/, /"Eigenes Foto"/];
+const ALLOWED = [/"geprüft"/, /"Eigenes Foto"/, /"unbestätigt"/];
 
 it("no German umlaut or ß in string literals outside i18n/ (texts belong in the catalogs)", () => {
   const offenders: string[] = [];

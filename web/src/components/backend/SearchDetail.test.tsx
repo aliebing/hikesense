@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import type { SearchDetail as Detail } from "../../lib/admin";
+import type { SearchDetail as Detail } from "../../lib/backend";
 import SearchDetail from "./SearchDetail";
 
 const base: Detail = { request_id: "r1", ts: "2026-11-02T13:02:00Z", owner: "u1", email: "anna@example.org", intent: "day_hike", activity: "hike", tool_calls: 1, input_tokens: 3000, output_tokens: 400, cost_usd: 0.0021, duration_ms: 4200 };
