@@ -89,7 +89,8 @@ test("home footer: one short line with OSM and elevation credits and a link to a
   mockGetTrails.mockResolvedValue([trail("day-1", "day_hike", 48.1)]);
   render(<ChatProvider>{await Home()}</ChatProvider>);
   const footer = screen.getByRole("contentinfo");
-  expect(footer).toHaveTextContent("© OpenStreetMap-Mitwirkende · Höhen: Copernicus DEM · Quellen & Lizenzen");
+  expect(footer).toHaveTextContent(/© OpenStreetMap-Mitwirkende\s*Höhen: Copernicus DEM\s*Quellen & Lizenzen/);
+  expect(footer).toHaveClass("min-h-12", "text-sm", "font-normal"); // like the header navigation
   expect(within(footer).getByRole("link", { name: "© OpenStreetMap-Mitwirkende" })).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
   expect(within(footer).getByRole("link", { name: "Quellen & Lizenzen" })).toHaveAttribute("href", "/quellen");
 });

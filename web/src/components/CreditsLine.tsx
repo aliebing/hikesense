@@ -18,21 +18,17 @@ export default function CreditsLine({
 }) {
   const t = useT().credits;
   return (
-    <footer className="schrift-feld text-xs text-papier sm:text-sm">
-      <p>
-        {lead}
-        {lead && " · "}
+    // same box as the header navigation: height, text size, weight, spacing between items
+    <footer className="schrift-feld flex min-h-12 flex-col justify-center gap-1 text-sm font-normal text-papier">
+      <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        {lead && <span>{lead}</span>}
         {osm && (
-          <>
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
-              {t.osm}
-            </a>
-            {" · "}
-          </>
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap underline-offset-4 hover:underline">
+            {t.osm}
+          </a>
         )}
-        {t.elevation}
-        {" · "}
-        <Link href="/quellen" className="underline underline-offset-2">
+        <span className="whitespace-nowrap">{t.elevation}</span>
+        <Link href="/quellen" className="whitespace-nowrap underline-offset-4 hover:underline">
           {t.link}
         </Link>
       </p>

@@ -226,7 +226,7 @@ test("English: the tour page, its blocks and tags are in English", async () => {
   expect(lodging).toHaveTextContent("1,200 m from the trail");
   expect(screen.getByRole("region", { name: "Groups nearby" })).toHaveTextContent("As of 01/03/2026 · within 15 km of the trail");
   expect(screen.getByRole("region", { name: "Inns & viewpoints" })).toHaveTextContent("Café");
-  expect(screen.getByRole("contentinfo")).toHaveTextContent("Sources: OpenStreetMap (ODbL) · Elevation: Copernicus DEM · Sources & licences");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent(/Sources: OpenStreetMap \(ODbL\)\s*Elevation: Copernicus DEM\s*Sources & licences/);
 });
 
 test("English: the data-load error is English", async () => {
