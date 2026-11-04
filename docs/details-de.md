@@ -10,17 +10,15 @@ Ein Wanderplaner für Schwarzwald, Bodensee (mit Schweizer und österreichischem
 |---|---|---|
 | ![Ausweichtouren für „Rundweg, unter 200 Hm, über 15 km, Feldberg“](showcase/04-unerfuellbar-ausweichtouren.jpg) | ![Plan „3 Tage Westweg ab Hausach“ mit Unterkünften](showcase/05-mehrtagesplan.jpg) | ![Restkilometer und Ankunft auf Tag 1](showcase/10-unterwegs-handy.jpg) |
 
-Alle Screenshots stammen aus der lokal laufenden App vom 2026-10-31 mit dem echten Modell (`openai/gpt-4o-mini`). Die Position für „Unterwegs“ ist simuliert: ein Punkt auf Tag 1 des Plans, die Uhr des Browsers steht auf 10:00. Die Bilder 02, 10, 11 und 12 sind nach den Fixes vom selben Tag neu aufgenommen.
+Alle Screenshots stammen aus der lokal laufenden App vom 2026-11-05 (englische Oberfläche) mit dem echten Modell (`openai/gpt-4o-mini`). Die Position für „Unterwegs“ ist simuliert: ein Punkt 6 km nach Hausach auf Tag 1 des Plans, die Uhr des Browsers steht auf 10:00. Neu aufnehmen: `scripts/showcase/shots.py` (Playwright; braucht `make smoke-user`, schreibt die Bilder in den angegebenen Ordner).
 
 <details>
 <summary>Alle Screenshots</summary>
 
-Die Bilder zeigen noch die Optik vor dem Umbau vom 2026-11-01 (Fotohintergrund, eigene Vorschlagsseite). Seitdem ist die App dunkelgrün, die Vorschläge stehen als Kacheln direkt neben dem Chat, und Tour- und Planseite zeigen die Karte eingebettet. Neue Screenshots folgen mit dem neuen Video.
-
-1. [Startseite](showcase/01-startseite.jpg). Die Screenshots 1–8 sind vom 2026-11-03 (HikeSense, englische Oberfläche), 9–12 noch mit dem alten Namen.
+1. [Startseite](showcase/01-startseite.jpg)
 2. [Tagestouren zu „A round walk near Titisee, about 10 km“ und „Under 300 m ascent, please“](showcase/02-tagestouren.jpg): Karten mit ✓ je Bedingung, dazu eine gelbe Karte „Near miss“ mit der einen knappen Abweichung (11,6 statt höchstens 11,5 km).
-3. [Rückfrage „Feldberg“ und ehrlich benannte Unerfüllbarkeit im Chat](showcase/03-unerfuellbar-chat.jpg)
-4. [Ausweichtouren mit der einen verletzten Bedingung](showcase/04-unerfuellbar-ausweichtouren.jpg)
+3. [Rückfrage „Feldberg“: Dorf, Gipfel oder Gemeinde?](showcase/03-unerfuellbar-chat.jpg)
+4. [Ehrlich benannte Unerfüllbarkeit und Ausweichtouren mit der einen verletzten Bedingung](showcase/04-unerfuellbar-ausweichtouren.jpg)
 5. [Mehrtagesplan mit Unterkünften und Ankunftszeiten](showcase/05-mehrtagesplan.jpg)
 6. [Karte mit Tagesabschnitten](showcase/06-tagesabschnitte-karte.jpg)
 7. [Routenseite mit Fotos, Lizenzen und Gruppen in der Nähe](showcase/07-routenseite-fotos.jpg)
