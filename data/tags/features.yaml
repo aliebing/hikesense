@@ -60,7 +60,7 @@
   rule: {type: share_at_least, field: way_type, keys: [path], share: 0.4}
 - id: "surface:gut_laufbar"
   label: Gut laufbar
-  label_en: Good for running
+  label_en: Good paths
   category: surface
   synonyms: [gut begehbar, bequem, fester Untergrund, festen Untergrund, guter Untergrund, guten Untergrund, gutem Untergrund, gute Wege, gut ausgebaute Wege, befestigte Wege, kinderwagentauglich, leicht zu gehen]
   synonyms_en: [easy walking, easy going, comfortable, firm ground, good ground, good surface, good paths, good trails, well-made paths, pushchair friendly, buggy friendly, stroller friendly, pram friendly, easy to walk]
