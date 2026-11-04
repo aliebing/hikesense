@@ -649,22 +649,24 @@ def test_sign_in_failures_are_named(respx_mock, kw, status, match):
         sm.sign_in(http, auth_settings(**kw))
 
 
-def test_create_user_signs_up_or_finds_the_existing_user(respx_mock):
-    signup = respx_mock.post(f"{AUTH}/signup").mock(
-        return_value=httpx.Response(200, json={"access_token": "t", "user": {"id": "u"}})
+def test_create_user_uses_admin_api_confirmed_or_finds_the_existing_user(respx_mock):
+    create = respx_mock.post(f"{AUTH}/admin/users").mock(
+        return_value=httpx.Response(200, json={"id": "u"})
     )
     respx_mock.post(f"{AUTH}/token").mock(
         return_value=httpx.Response(200, json={"access_token": "tok"})
     )
+    st = auth_settings(supabase_service_role_key="service")
     with httpx.Client() as http:
-        assert sm.create_user(http, auth_settings()) == "angelegt"
-        assert json.loads(signup.calls.last.request.content)["email"] == sm.SMOKE_EMAIL
-        signup.mock(
+        assert sm.create_user(http, st) == "angelegt"
+        body = json.loads(create.calls.last.request.content)
+        assert body["email"] == sm.SMOKE_EMAIL and body["email_confirm"] is True
+        create.mock(
             return_value=httpx.Response(
-                422, json={"code": "user_already_exists", "msg": "User already registered"}
+                422, json={"code": "email_exists", "msg": "A user with this email address has already been registered"}
             )
         )
-        assert sm.create_user(http, auth_settings()) == "vorhanden"
+        assert sm.create_user(http, st) == "vorhanden"
 
 
 def test_smoke_cmd_checks_the_token_like_chat(monkeypatch, capsys):

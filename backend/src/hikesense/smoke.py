@@ -591,15 +591,22 @@ def sign_in(http: httpx.Client, settings: Settings) -> str:
 
 
 def create_user(http: httpx.Client, settings: Settings) -> str:
-    """Signs the smoke user up ("angelegt") or confirms an existing one can sign in
-    ("vorhanden"). Local Supabase confirms e-mail addresses automatically."""
-    r = _auth_call(http, settings, "signup")
-    if r.status_code == 200:
+    """Creates the smoke user already confirmed through the Auth Admin API ("angelegt"; the
+    sign-up endpoint gives no session while e-mail confirmation is on) or confirms an existing one
+    can sign in ("vorhanden")."""
+    from hikesense.supabase_admin import SupabaseAdmin, SupabaseAdminError
+
+    if settings.hikesense_smoke_password is None:
+        raise SmokeAuthError("HIKESENSE_SMOKE_PASSWORD in .env eintragen")
+    try:
+        admin = SupabaseAdmin(settings, http)
+        admin.create_confirmed_user(SMOKE_EMAIL, settings.hikesense_smoke_password.get_secret_value())
         return "angelegt"
-    if r.status_code in (400, 422) and "already" in r.text:
-        sign_in(http, settings)  # an existing user with a different password fails here
-        return "vorhanden"
-    raise SmokeAuthError(f"Konto {SMOKE_EMAIL} nicht angelegt (HTTP {r.status_code})")
+    except SupabaseAdminError as exc:
+        if exc.status not in (400, 422):
+            raise SmokeAuthError(f"Konto {SMOKE_EMAIL} nicht angelegt ({exc})") from exc
+    sign_in(http, settings)  # an existing user with a different password fails here
+    return "vorhanden"
 
 
 def authorize(settings: Settings) -> str:

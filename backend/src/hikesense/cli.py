@@ -578,6 +578,25 @@ def admin_user_cmd() -> int:
     return 0
 
 
+def users_migrate_cmd() -> int:
+    from hikesense.supabase_admin import SupabaseAdmin, SupabaseAdminError
+    from hikesense.users import migrate_accounts
+
+    settings = _settings()
+    if settings is None:
+        return 2
+    try:
+        with make_http_client(10.0) as http, connect(settings.supabase_db_url) as conn:
+            lines = migrate_accounts(conn, SupabaseAdmin(settings, http))
+    except (SupabaseAdminError, psycopg.Error) as e:
+        print(f"Konten-Umstellung – {e}", file=sys.stderr)
+        return 2
+    for line in lines:
+        print(line)
+    print(f"Konten-Umstellung fertig ({len(lines)} Änderungen)")
+    return 0
+
+
 def prune_photos_cmd() -> int:
     from hikesense.ingest.photos import prune_rejected_photos
 
@@ -621,6 +640,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--temperature", type=float, help="Temperatur für alle Aufrufe (Standard: fest)")
     sub.add_parser("smoke-user", help="Testkonto smoke@hikesense.local in der lokalen Supabase-Auth")
     sub.add_parser("prune-photos", help="Unpassende Commons-Fotos (Bankkarte, ISS, Bahnhof, …) aus der DB entfernen")
+    sub.add_parser(
+        "users-migrate", help="Einmalig: bestehende Konten bestätigen, altes Admin-Konto löschen"
+    )
     sub.add_parser("admin-user", help="Admin admin@hikesense.local mit Hash aus HIKESENSE_ADMIN_PASSWORD_HASH")
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
@@ -656,6 +678,8 @@ def main(argv: list[str] | None = None) -> int:
         return smoke_user_cmd()
     if args.command == "prune-photos":
         return prune_photos_cmd()
+    if args.command == "users-migrate":
+        return users_migrate_cmd()
     if args.command == "admin-user":
         return admin_user_cmd()
     if args.command == "build-tags":

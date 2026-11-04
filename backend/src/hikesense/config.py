@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None  # smoke run: sign-in at the local Supabase auth
     hikesense_smoke_password: SecretStr | None = None  # smoke user smoke@hikesense.local
     hikesense_admin_password_hash: SecretStr | None = None  # bcrypt hash, admin@hikesense.local
+    # Auth Admin API (ban, confirm, create users); server only, never in the browser
+    supabase_service_role_key: SecretStr | None = None
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     dem_cache_dir: Path = Path("data/dem")
     openrouter_api_key: str | None = None

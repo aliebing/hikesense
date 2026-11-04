@@ -936,6 +936,7 @@ name = "hikesense"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bcrypt" },
     { name = "beautifulsoup4" },
     { name = "chromadb" },
     { name = "fastapi" },
@@ -968,6 +969,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bcrypt", specifier = ">=4.0" },
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "chromadb", specifier = ">=1.5.9" },
     { name = "fastapi", specifier = ">=0.115" },
