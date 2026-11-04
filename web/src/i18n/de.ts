@@ -59,6 +59,7 @@ export const de: Messages = {
     preference: (name: string, weight: number) =>
       weight <= 2 ? `${name} (wäre schön)` : weight === 3 ? name : weight === 4 ? `${name} (wichtig)` : `${name} (unbedingt)`,
     avoid: (name: string) => `Ohne ${name}`,
+    fromSaved: (text: string) => `${text} · Vorliebe`,
     notCheckable: (what: string) => `Nicht prüfbar: ${what}`,
     noTour: "Keine passende Tour gefunden.",
     toursFound: (n: number) => (n === 1 ? "1 Tour gefunden" : `${n} Touren gefunden`),
@@ -320,6 +321,7 @@ export const de: Messages = {
   account: {
     signIn: "Anmelden",
     myPlans: "Meine Pläne",
+    preferences: "Vorlieben",
     signOut: "Abmelden",
     account: "Konto",
     login: {
@@ -419,6 +421,32 @@ export const de: Messages = {
     prompt: (step: string) => `Prompt: ${step}`,
     output: "Ausgabe",
   },
+  prefs: {
+    title: "Vorlieben",
+    backChat: "← Zurück zum Chat",
+    intro:
+      "Merkmale, die du grundsätzlich magst oder lieber meidest. Sie ändern nur die Reihenfolge der Tagestouren, sie blenden keine Tour aus. Was du im Chat schreibst, zählt zuerst.",
+    signInBefore: "Um deine Vorlieben einzustellen, bitte ",
+    signIn: "anmelden",
+    none: "Egal",
+    prefer: "Bevorzugen",
+    avoid: "Meiden",
+    weight: "Wie stark",
+    weights: { 1: "etwas", 2: "mittel", 3: "deutlich" },
+    saved: "Gespeichert",
+    applied: "Gespeicherte Vorlieben stehen im Chat mit „· Vorliebe“ bei dem, was verstanden wurde.",
+    tags: {
+      "feature:aussicht": ["Aussicht", "Ein Aussichtspunkt höchstens 300 m vom Weg (OpenStreetMap)."],
+      "feature:gipfel": ["Gipfel", "Ein Gipfel höchstens 300 m vom Weg."],
+      "feature:wasserfall": ["Wasserfall", "Ein Wasserfall höchstens 300 m vom Weg."],
+      "feature:einkehr": ["Einkehr", "Ein Gasthaus, Café, Restaurant oder eine Hütte höchstens 300 m vom Weg."],
+      "feature:bahnhof": ["Bahnhof", "Ein Bahnhof oder Haltepunkt höchstens 300 m vom Weg."],
+      "feature:rundweg": ["Rundweg", "Start und Ziel am selben Ort."],
+      "surface:wenig_asphalt": ["Wenig Asphalt", "Höchstens 20 % der Strecke sind asphaltiert."],
+      "surface:naturweg": ["Naturweg", "Mindestens 40 % der Strecke verlaufen auf schmalen Pfaden."],
+      "surface:gut_laufbar": ["Gut laufbar", "Mindestens 60 % Asphalt oder Schotter – fester Untergrund, auch für Kinderwagen."],
+    },
+  },
   plans: {
     title: "Meine Pläne",
     backChat: "← Zum Chat",
@@ -482,6 +510,10 @@ export const de: Messages = {
     metaDescription: "Wanderungen im Schwarzwald, am Bodensee und im Pfälzerwald im Gespräch planen: Fernweg-Etappen (z. B. Westweg, Pfälzer Weinsteig, SeeGang) und Tagestouren.",
   },
   errors: {
+    prefs: {
+      load: "Deine Vorlieben konnten nicht geladen werden",
+      save: "Speichern hat nicht geklappt – bitte noch einmal versuchen",
+    },
     plans: {
       save: "Das Merken hat nicht geklappt – bitte versuche es noch einmal",
       load: "Die Pläne konnten nicht geladen werden",

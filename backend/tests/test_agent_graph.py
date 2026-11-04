@@ -22,7 +22,7 @@ from hikesense.agent.prompts import (
     PLAN_SYSTEM,
     TOOL_LIMIT,
 )
-from hikesense.agent.request import RawRequest, RawWish
+from hikesense.agent.request import Preference, RawRequest, RawWish
 from hikesense.agent.tools import (
     DayHikeResult,
     KnowledgeHit,
@@ -111,6 +111,11 @@ class FakeTools:
         self.series = series  # forecast_range: list of DayWeather per point, or NoForecast
         self.calls: Counter[str] = Counter()
         self.requests = []
+        self.saved = {}  # user_id -> list[Preference] ("Vorlieben")
+
+    def saved_preferences(self, user_id):
+        self.calls["saved_preferences"] += 1
+        return self.saved.get(user_id, [])
 
     def search_day_hikes(self, req, lang="de"):
         self.calls["search_day_hikes"] += 1
@@ -652,6 +657,42 @@ def test_log_user_id(vocab, settings):
     list(run_chat(deps, "t", FELDBERG_MSG, "hash", user_id="u-1"))
     line = log_lines(settings)[-1]
     assert line["user_id"] == "u-1" and line["user_hash"] == "hash"
+
+
+def test_saved_preferences_join_a_signed_in_users_day_hike_search(vocab, settings):
+    tools = FakeTools()
+    tools.saved = {
+        "u-1": [
+            Preference(tag_id="feature:aussicht", mode="prefer", weight=4, saved=True),
+            Preference(tag_id="feature:rundweg", mode="prefer", weight=2, saved=True),
+        ]
+    }
+    deps = make(vocab, settings, tools=tools, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    events = list(run_chat(deps, "t", FELDBERG_MSG, "hash", user_id="u-1"))
+    prefs = tools.requests[-1].preferences
+    # the round-walk condition from the chat makes the saved round-walk preference moot
+    assert [(p.tag_id, p.weight, p.saved) for p in prefs] == [("feature:aussicht", 4, True)]
+    understood = one(events, "understood")
+    assert understood.labels["feature:aussicht"]
+
+
+def test_guests_get_no_saved_preferences(vocab, settings):
+    tools = FakeTools()
+    deps = make(vocab, settings, tools=tools, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    run(deps, FELDBERG_MSG)
+    assert tools.calls["saved_preferences"] == 0
+
+
+def test_a_failing_preference_lookup_does_not_stop_the_search(vocab, settings):
+    class Broken(FakeTools):
+        def saved_preferences(self, user_id):
+            raise RuntimeError("db down")
+
+    tools = Broken()
+    deps = make(vocab, settings, tools=tools, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
+    events = list(run_chat(deps, "t", FELDBERG_MSG, "hash", user_id="u-1"))
+    assert tools.calls["search_day_hikes"] == 1
+    assert "results" in types(events)
 
 
 def test_error_log_keeps_trace_but_no_exception_text(vocab, settings):

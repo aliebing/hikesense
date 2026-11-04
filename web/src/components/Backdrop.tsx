@@ -13,13 +13,14 @@ const MASK = `${SIDES}, ${BOTTOM}`;
 /**
  * A landscape photo behind the page: opaque in the middle, softened into the dark green towards
  * the edges. Decorative only (aria-hidden); the caller shows the photo's credit.
- * Sits in the PageFrame's `relative isolate` box, never fixed to the viewport.
+ * Sits in the PageFrame's `relative isolate` box, never fixed to the viewport; never taller than
+ * that box, so a short page does not get a scrollbar from the photo alone.
  */
 export default function Backdrop({ photo }: { photo: Photo | null }) {
   const [broken, setBroken] = useState<string | null>(null);
   if (!photo || broken === photo.url) return null;
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[115vh] overflow-hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[115vh] max-h-full overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.url}

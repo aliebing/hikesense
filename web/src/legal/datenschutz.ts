@@ -46,7 +46,7 @@ export function datenschutz(locale: LegalLocale): LegalDoc {
         {
           h: "6. Account",
           body: [
-            "To save plans and searches or to add your own photos you need an account. We store: email address, password (only as a hash), time of registration, confirmation and last sign-in, account status, your saved plans and searches, and photos you upload. Your photos are visible only to you.",
+            "To save plans, searches and preferences or to add your own photos you need an account. We store: email address, password (only as a hash), time of registration, confirmation and last sign-in, account status, your saved plans and searches, the preferences you set (/vorlieben; they re-sort your day-hike results) and photos you upload. Your photos are visible only to you.",
             "Confirmation and password-reset mails are sent through GMX (1&1 Mail & Media GmbH, Brauerstraße 48, 76135 Karlsruhe, Germany).",
             "Legal basis: Art. 6 (1) (b) GDPR (the account and its functions). The data is kept until you ask for your account to be deleted; write to the address above.",
           ],
@@ -123,7 +123,7 @@ export function datenschutz(locale: LegalLocale): LegalDoc {
       {
         h: "6. Benutzerkonto",
         body: [
-          "Zum Merken von Plänen und Suchen und für eigene Fotos brauchen Sie ein Konto. Gespeichert werden: E-Mail-Adresse, Passwort (nur als Hashwert), Zeitpunkt von Registrierung, Bestätigung und letzter Anmeldung, Kontostatus, Ihre gemerkten Pläne und Suchen sowie von Ihnen hochgeladene Fotos. Ihre Fotos sehen nur Sie.",
+          "Zum Merken von Plänen, Suchen und Vorlieben und für eigene Fotos brauchen Sie ein Konto. Gespeichert werden: E-Mail-Adresse, Passwort (nur als Hashwert), Zeitpunkt von Registrierung, Bestätigung und letzter Anmeldung, Kontostatus, Ihre gemerkten Pläne und Suchen, die von Ihnen eingestellten Vorlieben (/vorlieben; sie sortieren Ihre Tagestouren-Ergebnisse) sowie von Ihnen hochgeladene Fotos. Ihre Fotos sehen nur Sie.",
           "Bestätigungs- und Passwort-Mails werden über GMX versandt (1&1 Mail & Media GmbH, Brauerstraße 48, 76135 Karlsruhe).",
           "Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Konto und seine Funktionen). Die Daten bleiben gespeichert, bis Sie die Löschung Ihres Kontos verlangen; schreiben Sie dazu an die oben genannte Adresse.",
         ],

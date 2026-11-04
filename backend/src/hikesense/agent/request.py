@@ -44,6 +44,7 @@ class Preference(BaseModel):
     tag_id: str
     mode: Mode
     weight: int = Field(default=3, ge=1, le=5)
+    saved: bool = False  # from the user's standing preferences ("Vorlieben"), not from the chat
 
 
 class ResolvedStart(BaseModel):

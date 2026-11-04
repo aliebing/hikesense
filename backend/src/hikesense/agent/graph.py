@@ -120,6 +120,7 @@ from hikesense.guard import leaks_system_prompt, looks_like_injection, sanitize_
 from hikesense.llm.gateway import LLMGateway
 from hikesense.llm.usage import BudgetExceeded, LLMError, LLMUsage, metered
 from hikesense.numfmt import de, fmt
+from hikesense.preferences import with_saved
 from hikesense.tags.vocabulary import TagVocabulary, fold
 from hikesense.trace import Trace, TracedTools, traced
 
@@ -1246,6 +1247,7 @@ def _events_text(found: EventsResult, lang: Lang = "de") -> str:
 
 def build_graph(deps: AgentDeps) -> Any:
     tools = TracedTools(deps.tools)
+    known_tags = {t.id for t in deps.vocab.all() if t.category in ("feature", "surface")}
     gw, vocab, settings = deps.gateway, deps.vocab, deps.settings
 
     def guard(state: State) -> State:
@@ -1337,7 +1339,7 @@ def build_graph(deps: AgentDeps) -> Any:
             days += list(range(int(a), int(b) + 1)) if dash else [int(a)]
         return list(dict.fromkeys(days))[:MAX_DAYS]
 
-    def understand(state: State) -> State:
+    def understand(state: State, config: RunnableConfig) -> State:
         message = state["message"]
         lang = state.get("lang", "de")
         previous = HikeRequest.model_validate(state["request"]) if state.get("request") else None
@@ -1371,6 +1373,9 @@ def build_graph(deps: AgentDeps) -> Any:
             }
             return out | {"pending": pending, "clarify": res.model_dump(), "route": "clarify"}
         req = res
+        user_id = config["configurable"]["user_id"].value
+        if user_id and req.intent in TOUR_INTENTS and not (req.trail_id and req.intent == "change"):
+            req = _with_saved_preferences(req, user_id)
         if req.intent != "other":
             _emit(
                 UnderstoodEvent(
@@ -1397,6 +1402,16 @@ def build_graph(deps: AgentDeps) -> Any:
         if req.intent == "events":
             return out | {"route": "events"}
         return out | {"reply": texts(lang).other_reply, "route": "reply"}
+
+    def _with_saved_preferences(req: HikeRequest, user_id: str) -> HikeRequest:
+        """The user's standing preferences on top of the chat's wishes; a failing lookup costs
+        only the personal sorting, never the search."""
+        try:
+            saved = tools.saved_preferences(user_id)
+        except Exception:  # optional sorting: the search goes on without it
+            logging.getLogger(__name__).warning("saved preferences not loaded", exc_info=True)
+            return req
+        return with_saved(req, saved, known_tags)
 
     def clarify(state: State) -> State:
         c = state["clarify"] or {}

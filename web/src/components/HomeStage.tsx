@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useT } from "../i18n";
 import { pickBackdrop } from "../lib/backdrop";
 import { coverOf } from "../lib/chatState";
@@ -20,6 +21,12 @@ export default function HomeStage({ landscapes = [] }: { /** background pool for
   const { state, hydrated } = useChat();
   const t = useT().home;
   const hasResults = hydrated && ((state.last && state.last.cards.length > 0) || !!state.plan);
+  // a new search or plan starts at the top of the results column
+  const results = useRef<HTMLDivElement>(null);
+  const shownFor = state.plan ? state.plan.plan.trail_id : state.last?.cards.map((c) => c.trail_id).join();
+  useEffect(() => {
+    results.current?.scrollTo?.({ top: 0 });
+  }, [shownFor]);
 
   if (hasResults) {
     // behind the middle: the first tour's photo if it is a landscape, else one from the pool
@@ -35,7 +42,9 @@ export default function HomeStage({ landscapes = [] }: { /** background pool for
           <h1 className="schrift-feld text-sm font-medium tracking-wide">{t.title}</h1>
           <ChatShell intro={t.intro} />
         </div>
-        <div className="flex min-w-0 flex-col gap-4">
+        {/* the results scroll inside their column like the chat history, so two rows of tiles
+            or a long plan do not make the page taller than the window */}
+        <div ref={results} data-results-scroll className="scrollbar-sense flex min-w-0 flex-col gap-4 md:sticky md:top-4 md:-mr-3 md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto md:pr-3">
           <ResultsPane />
           {backdrop && (
             <div className="flex flex-wrap items-baseline gap-1 text-[11px] text-papier schrift-feld">

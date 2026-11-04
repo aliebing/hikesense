@@ -47,6 +47,9 @@ export default function AccountMenu() {
       <Link href="/meine-plaene" className="whitespace-nowrap underline-offset-4 hover:underline">
         {t.myPlans}
       </Link>
+      <Link href="/vorlieben" className="whitespace-nowrap underline-offset-4 hover:underline">
+        {t.preferences}
+      </Link>
       <span title={session.user.email ?? undefined} className="hidden sm:inline">{shorten(session.user.email ?? t.account)}</span>
       <button type="button" onClick={() => void signOut(locale).finally(() => resetChat?.())} className="whitespace-nowrap underline-offset-4 hover:underline">
         {t.signOut}

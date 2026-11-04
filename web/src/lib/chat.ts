@@ -13,7 +13,8 @@ export type Constraint = {
   approx?: number | null;
 };
 
-export type Preference = { tag_id: string; mode: "prefer" | "avoid"; weight: number };
+/** `saved`: from the user's standing preferences (/vorlieben), not from the chat. */
+export type Preference = { tag_id: string; mode: "prefer" | "avoid"; weight: number; saved?: boolean };
 
 export type HikeRequest = {
   intent: string;

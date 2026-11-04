@@ -73,7 +73,8 @@ export function chipsFor(r: HikeRequest, labels: Labels, locale: Locale): { text
     ...constraintChips(r, locale).map((text) => ({ text })),
     ...r.preferences.map((p) => {
       const name = labels[p.tag_id] ?? p.tag_id;
-      return { text: p.mode === "prefer" ? t.preference(name, p.weight) : t.avoid(name) };
+      const text = p.mode === "prefer" ? t.preference(name, p.weight) : t.avoid(name);
+      return { text: p.saved ? t.fromSaved(text) : text };
     }),
     ...r.unmatched.map((u) => ({ text: t.notCheckable(u), warn: true })),
   ];

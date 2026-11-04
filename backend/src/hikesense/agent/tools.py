@@ -33,6 +33,7 @@ from hikesense.agent.request import (
     DEFAULT_START_TIME,
     DayChange,
     HikeRequest,
+    Preference,
     ResolvedStart,
 )
 from hikesense.agent.weather import REASON_DOWN, NoForecast, forecast_range, weather_for_days
@@ -42,6 +43,7 @@ from hikesense.ingest.photos import cover_score
 from hikesense.knowledge.models import KnowledgeHit, KnowledgeIndex
 from hikesense.models import HikingTime
 from hikesense.numfmt import Lang
+from hikesense.preferences import load_saved
 
 MAX_SEARCH_KM = 50.0
 SEARCH_FACTOR = 3.0
@@ -626,6 +628,10 @@ class AgentTools(Protocol):
 
     def sources(self, ids: list[str]) -> list[SourceBrief]: ...
 
+    def saved_preferences(self, user_id: str) -> list[Preference]:
+        """The signed-in user's standing preferences ("Vorlieben"), marked `saved`."""
+        ...
+
     def find_events(self, query: str, today: date, max_calls: int = 8) -> EventsResult:
         """Official running events, searched live; calendar links when none is verified."""
         ...
@@ -655,6 +661,10 @@ class DbTools:
     def search_day_hikes(self, req: HikeRequest, lang: Lang = "de") -> DayHikeResult:
         with self._conn_factory() as conn:
             return search_day_hikes(conn, req, lang)
+
+    def saved_preferences(self, user_id: str) -> list[Preference]:
+        with self._conn_factory() as conn:
+            return load_saved(conn, user_id)
 
     def get_trail_details(self, trail_id: str) -> TrailDetails | None:
         with self._conn_factory() as conn:

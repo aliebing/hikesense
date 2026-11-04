@@ -57,6 +57,7 @@ export const en = {
     preference: (name: string, weight: number) =>
       weight <= 2 ? `${name} (nice to have)` : weight === 3 ? name : weight === 4 ? `${name} (important)` : `${name} (must)`,
     avoid: (name: string) => `Without ${name}`,
+    fromSaved: (text: string) => `${text} · preference`,
     notCheckable: (what: string) => `Can’t check: ${what}`,
     noTour: "No matching tour found.",
     toursFound: (n: number) => (n === 1 ? "1 tour found" : `${n} tours found`),
@@ -325,6 +326,7 @@ export const en = {
   account: {
     signIn: "Sign in",
     myPlans: "My plans",
+    preferences: "Preferences",
     signOut: "Sign out",
     account: "Account",
     login: {
@@ -424,6 +426,32 @@ export const en = {
     prompt: (step: string) => `Prompt: ${step}`,
     output: "Output",
   },
+  prefs: {
+    title: "Preferences",
+    backChat: "← Back to chat",
+    intro:
+      "Features you generally like or would rather avoid. They only change the order of day-hike results, they never hide a tour. What you write in the chat counts first.",
+    signInBefore: "To set your preferences, please ",
+    signIn: "Sign in",
+    none: "No preference",
+    prefer: "Prefer",
+    avoid: "Avoid",
+    weight: "How much",
+    weights: { 1: "a little", 2: "somewhat", 3: "clearly" } as Record<number, string>,
+    saved: "Saved",
+    applied: "Saved preferences appear in the chat as “· preference” next to what was understood.",
+    tags: {
+      "feature:aussicht": ["Viewpoint", "A viewpoint at most 300 m from the route (OpenStreetMap)."],
+      "feature:gipfel": ["Summit", "A summit at most 300 m from the route."],
+      "feature:wasserfall": ["Waterfall", "A waterfall at most 300 m from the route."],
+      "feature:einkehr": ["Inn", "An inn, café, restaurant or mountain hut at most 300 m from the route."],
+      "feature:bahnhof": ["Railway station", "A railway station or halt at most 300 m from the route."],
+      "feature:rundweg": ["Round walk", "Start and finish at the same place."],
+      "surface:wenig_asphalt": ["Little tarmac", "At most 20 % of the route is paved."],
+      "surface:naturweg": ["Natural path", "At least 40 % of the route runs on narrow paths."],
+      "surface:gut_laufbar": ["Good paths", "At least 60 % paved or gravel – firm ground, also for pushchairs."],
+    } as Record<string, [string, string]>,
+  },
   plans: {
     title: "My plans",
     backChat: "← Back to chat",
@@ -487,6 +515,10 @@ export const en = {
     metaDescription: "Plan hikes in the Black Forest, at Lake Constance and in the Palatinate Forest in conversation: long-distance trail stages (e.g. Westweg, Pfälzer Weinsteig, SeeGang) and day hikes.",
   },
   errors: {
+    prefs: {
+      load: "Your preferences could not be loaded",
+      save: "Saving did not work – please try again",
+    },
     plans: {
       save: "Saving did not work – please try again",
       load: "Your plans could not be loaded",
