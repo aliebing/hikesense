@@ -19,13 +19,14 @@ function checkNote(groups: GroupBrief[], t: Messages["tour"]): { text: string; p
  * and the check date ("Stand: …", given by the backend). No persons, no event dates; entries
  * checked more than 180 days ago are marked „veraltet“ (the backend decides: `stale`).
  */
-export default function GroupList({ groups, note }: { groups: GroupBrief[]; note: string }) {
+/** `inBlock`: inside a Block on the tour page, which already gives the light background. */
+export default function GroupList({ groups, note, inBlock = false }: { groups: GroupBrief[]; note: string; inBlock?: boolean }) {
   const { locale } = useLocale();
   const t = useT().tour;
   if (groups.length === 0) return null;
   const check = checkNote(groups, t);
   return (
-    <div className="flex flex-col gap-1 rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">
+    <div className={`flex flex-col gap-1 text-sm text-wald-dunkel ${inBlock ? "" : "rounded-xl bg-papier/90 px-3 py-2"}`}>
       <ul aria-label={t.groups} className="flex flex-col gap-1">
         {groups.map((g) => (
           <li key={`${g.name}|${g.url}`} className="flex flex-wrap items-baseline gap-x-2">

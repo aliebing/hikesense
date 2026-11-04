@@ -187,6 +187,7 @@ export default async function TrailPage({
           {groups.length > 0 && (
             <Block title={t.groupsTitle}>
               <GroupList
+                inBlock
                 groups={groups}
                 note={t.groupsNote(dateIn(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`), locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }), GROUP_RADIUS_KM)}
               />
