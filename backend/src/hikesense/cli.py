@@ -559,22 +559,24 @@ def smoke_user_cmd() -> int:
     return 0
 
 
-def admin_user_cmd() -> int:
-    from hikesense import admin
+def admin_secrets_cmd() -> int:
+    """Prints the two .env lines for the /backend sign-in; writes nothing anywhere."""
+    import getpass
+    import secrets
 
-    settings = _settings()
-    if settings is None:
+    import bcrypt
+
+    pw = getpass.getpass("Neues Backend-Passwort: ")
+    if len(pw) < 8:
+        print("Admin – mindestens 8 Zeichen", file=sys.stderr)
         return 2
-    if settings.hikesense_admin_password_hash is None:
-        print("Admin – HIKESENSE_ADMIN_PASSWORD_HASH in .env eintragen (siehe .env.example)", file=sys.stderr)
+    if getpass.getpass("Noch einmal: ") != pw:
+        print("Admin – die Eingaben stimmen nicht überein", file=sys.stderr)
         return 2
-    try:
-        with connect(settings.supabase_db_url) as conn:
-            state = admin.ensure_admin(conn, settings.hikesense_admin_password_hash.get_secret_value())
-    except (ValueError, psycopg.Error) as e:
-        print(f"Admin – {e}", file=sys.stderr)
-        return 2
-    print(f"Admin {admin.ADMIN_EMAIL} {state}, Rolle admin (Anmeldename: admin)")
+    hashed = bcrypt.hashpw(pw.encode(), bcrypt.gensalt(rounds=12)).decode()
+    print("In .env eintragen (einfache Anführungszeichen wegen der $-Zeichen):")
+    print(f"HIKESENSE_ADMIN_PASSWORD_HASH='{hashed}'")
+    print(f"HIKESENSE_ADMIN_SESSION_SECRET='{secrets.token_urlsafe(32)}'")
     return 0
 
 
@@ -638,12 +640,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--cases", type=Path, help="Fall-Datei (Standard: data/eval/cases.yaml)")
     p.add_argument("--model", help="Modell statt HIKESENSE_MODEL (OpenRouter-Slug)")
     p.add_argument("--temperature", type=float, help="Temperatur für alle Aufrufe (Standard: fest)")
-    sub.add_parser("smoke-user", help="Testkonto smoke@hikesense.local in der lokalen Supabase-Auth")
-    sub.add_parser("prune-photos", help="Unpassende Commons-Fotos (Bankkarte, ISS, Bahnhof, …) aus der DB entfernen")
+    sub.add_parser(
+        "smoke-user", help="Testkonto smoke@hikesense.local in der lokalen Supabase-Auth"
+    )
+    sub.add_parser(
+        "prune-photos",
+        help="Unpassende Commons-Fotos (Bankkarte, ISS, Bahnhof, …) aus der DB entfernen",
+    )
     sub.add_parser(
         "users-migrate", help="Einmalig: bestehende Konten bestätigen, altes Admin-Konto löschen"
     )
-    sub.add_parser("admin-user", help="Admin admin@hikesense.local mit Hash aus HIKESENSE_ADMIN_PASSWORD_HASH")
+    sub.add_parser(
+        "admin-secrets", help="Passwort-Hash und Sitzungsgeheimnis für /backend erzeugen"
+    )
     sub.add_parser("build-tags", help="Merkmal- und Belag-Tags je Tour berechnen")
     p = sub.add_parser("import-photos", help="Wikimedia-Commons-Bilder mit Attribution importieren")
     p.add_argument("--only", metavar="ID", help="nur diesen Weg importieren")
@@ -680,8 +689,8 @@ def main(argv: list[str] | None = None) -> int:
         return prune_photos_cmd()
     if args.command == "users-migrate":
         return users_migrate_cmd()
-    if args.command == "admin-user":
-        return admin_user_cmd()
+    if args.command == "admin-secrets":
+        return admin_secrets_cmd()
     if args.command == "build-tags":
         return build_tags_cmd()
     if args.command == "import-photos":

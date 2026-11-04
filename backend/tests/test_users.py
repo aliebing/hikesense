@@ -93,3 +93,48 @@ def test_migrate_without_old_admin_deletes_nothing(conn):
     fake = FakeAdmin(admin_id=None)
     migrate_accounts(conn, fake)
     assert fake.deleted == []
+
+
+class FakeBanner:
+    def __init__(self, fail=False):
+        self.calls, self.fail = [], fail
+
+    def ban(self, uid):
+        if self.fail:
+            from hikesense.supabase_admin import SupabaseAdminError
+
+            raise SupabaseAdminError(500)
+        self.calls.append(("ban", uid))
+
+    def unban(self, uid):
+        self.calls.append(("unban", uid))
+
+
+def test_apply_block_bans_then_sets_status(conn):
+    from hikesense.users import apply_block
+
+    a = _user(conn)
+    fake = FakeBanner()
+    assert apply_block(conn, fake, a, True) is True
+    assert fake.calls == [("ban", a)] and status_of(conn, a) == "gesperrt"
+    assert apply_block(conn, fake, a, False) is True
+    assert fake.calls[-1] == ("unban", a) and status_of(conn, a) == "aktiv"
+
+
+def test_apply_block_api_failure_keeps_status(conn):
+    from hikesense.supabase_admin import SupabaseAdminError
+    from hikesense.users import apply_block
+
+    a = _user(conn)
+    with pytest.raises(SupabaseAdminError):
+        apply_block(conn, FakeBanner(fail=True), a, True)
+    assert status_of(conn, a) == "aktiv"
+
+
+def test_apply_block_unknown_user_calls_nothing(conn):
+    from hikesense.users import apply_block
+
+    fake = FakeBanner()
+    assert apply_block(conn, fake, str(uuid.uuid4()), True) is False
+    assert apply_block(conn, fake, "not-a-uuid", True) is False
+    assert fake.calls == []

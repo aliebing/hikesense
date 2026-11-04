@@ -14,14 +14,15 @@ from starlette.concurrency import run_in_threadpool
 
 from hikesense.adapters.open_meteo import weather_source
 from hikesense.admin_log import LogReader
-from hikesense.api.admin import make_admin_router
+from hikesense.admin_session import LoginThrottle
+from hikesense.api.backend import make_backend_router
 from hikesense.api.chat import default_deps_factory, make_router
 from hikesense.config import Settings, export_langsmith_env
 from hikesense.db import upsert_source
 from hikesense.guest_quota import DbGuestQuota, GuestQuota
 from hikesense.rate_limit import RateLimiter
-from hikesense.roles import Profile, Role, list_profiles, role_of
-from hikesense.users import status_of
+from hikesense.supabase_admin import SupabaseAdmin
+from hikesense.users import AppUser, apply_block, list_app_users, status_of
 
 log = logging.getLogger(__name__)
 
@@ -52,20 +53,23 @@ def _register_sources(settings: Settings) -> None:
         log.warning("could not register the open-meteo source", exc_info=True)
 
 
-def _default_role_lookup(settings: Settings) -> Callable[[str], Role]:
-    def lookup(user_id: str) -> Role:
+def _default_users_lookup(settings: Settings) -> Callable[[], list[AppUser]]:
+    def lookup() -> list[AppUser]:
         with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
-            return role_of(conn, user_id)
+            return list_app_users(conn)
 
     return lookup
 
 
-def _default_profiles_lookup(settings: Settings) -> Callable[[], list[Profile]]:
-    def lookup() -> list[Profile]:
+def _default_set_blocked(settings: Settings) -> Callable[[str, bool], bool]:
+    def set_blocked(user_id: str, block: bool) -> bool:
+        admin = SupabaseAdmin(settings)
         with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
-            return list_profiles(conn)
+            found = apply_block(conn, admin, user_id, block)
+            conn.commit()
+            return found
 
-    return lookup
+    return set_blocked
 
 
 def _default_status_lookup(settings: Settings) -> Callable[[str], str]:
@@ -79,8 +83,8 @@ def _default_status_lookup(settings: Settings) -> Callable[[str], str]:
 def create_app(
     settings: Settings | None = None,
     deps_factory: Callable[[], Any] | None = None,
-    role_lookup: Callable[[str], Role] | None = None,
-    profiles_lookup: Callable[[], list[Profile]] | None = None,
+    users_lookup: Callable[[], list[AppUser]] | None = None,
+    set_blocked: Callable[[str, bool], bool] | None = None,
     guest_quota: GuestQuota | None = None,
     status_lookup: Callable[[str], str] | None = None,
 ) -> FastAPI:
@@ -125,11 +129,12 @@ def create_app(
             )
         )
         app.include_router(
-            make_admin_router(
+            make_backend_router(
                 cfg,
-                role_lookup or _default_role_lookup(cfg),
-                profiles_lookup or _default_profiles_lookup(cfg),
+                users_lookup or _default_users_lookup(cfg),
+                set_blocked or _default_set_blocked(cfg),
                 LogReader(cfg.chat_log_path),
+                LoginThrottle(),
             )
         )
 

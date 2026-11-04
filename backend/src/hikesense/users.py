@@ -95,3 +95,28 @@ def migrate_accounts(conn: psycopg.Connection, admin: _AccountAdmin) -> list[str
         admin.delete_user(old)
         lines.append(f"gelöscht: {OLD_ADMIN_EMAIL}")
     return lines
+
+
+class _Banner(Protocol):
+    def ban(self, user_id: str) -> None: ...
+    def unban(self, user_id: str) -> None: ...
+
+
+def apply_block(conn: psycopg.Connection, admin: _Banner, user_id: str, block: bool) -> bool:
+    """Blocks or unblocks an app user: Supabase first (no sign-in, no token refresh), then the
+    status that RLS and /chat check. False (and nothing called) for an unknown user. If the
+    Admin API fails, the status stays as it was. Does not commit; the caller does."""
+    try:
+        with conn.transaction():
+            exists = conn.execute(
+                "select 1 from app_users where user_id = %s::uuid", (user_id,)
+            ).fetchone()
+    except psycopg.errors.InvalidTextRepresentation:
+        return False
+    if not exists:
+        return False
+    if block:
+        admin.ban(user_id)
+    else:
+        admin.unban(user_id)
+    return set_status(conn, user_id, "gesperrt" if block else "aktiv")

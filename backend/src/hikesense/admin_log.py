@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 
 from hikesense.chatlog import hash_user
-from hikesense.roles import Profile
+from hikesense.users import AppUser
 
 UNKNOWN = "unknown"
+GUEST = "guest"  # all guest requests (user_hash "gast:…") form one owner
 
 
 class LogReader:
@@ -42,17 +43,21 @@ class LogReader:
                 continue
             if isinstance(obj, dict) and obj.get("request_id"):
                 rows.append(obj)
-        order = sorted(range(len(rows)), key=lambda i: (str(rows[i].get("ts") or ""), i), reverse=True)
+        order = sorted(
+            range(len(rows)), key=lambda i: (str(rows[i].get("ts") or ""), i), reverse=True
+        )
         return [rows[i] for i in order]
 
 
-def owner_of(entry: dict, profiles: list[Profile]) -> str:
+def owner_of(entry: dict, accounts: list[AppUser]) -> str:
+    if str(entry.get("user_hash") or "").startswith("gast:"):
+        return GUEST
     uid = entry.get("user_id")
-    if uid and any(p.user_id == uid for p in profiles):
+    if uid and any(p.user_id == uid for p in accounts):
         return uid
     h = entry.get("user_hash")
     if h:
-        for p in profiles:
+        for p in accounts:
             if hash_user(p.user_id) == h:
                 return p.user_id
     return UNKNOWN
@@ -94,32 +99,49 @@ def summary(entry: dict, owner: str, email: str | None) -> dict:
     }
 
 
-def _email_map(profiles: list[Profile]) -> dict[str, str | None]:
-    return {p.user_id: p.email for p in profiles}
+def _email_map(accounts: list[AppUser]) -> dict[str, str | None]:
+    return {p.user_id: p.email for p in accounts}
 
 
-def users(entries: list[dict], profiles: list[Profile]) -> list[dict]:
+def users(entries: list[dict], accounts: list[AppUser]) -> list[dict]:
     counts: dict[str, int] = {}
     for e in entries:
-        o = owner_of(e, profiles)
+        o = owner_of(e, accounts)
         counts[o] = counts.get(o, 0) + 1
     rows = [
-        {"user_id": p.user_id, "email": p.email, "role": p.role, "searches": counts.get(p.user_id, 0)}
-        for p in profiles
+        {
+            "user_id": p.user_id,
+            "email": p.email,
+            "status": p.status,
+            "created_at": p.created_at.isoformat(),
+            "last_sign_in_at": p.last_sign_in_at.isoformat() if p.last_sign_in_at else None,
+            "searches": counts.get(p.user_id, 0),
+        }
+        for p in accounts
     ]
     rows.sort(key=lambda r: (-r["searches"], r["email"] or ""))
-    if counts.get(UNKNOWN, 0) > 0:
-        rows.append({"user_id": UNKNOWN, "email": None, "role": None, "searches": counts[UNKNOWN]})
+    for owner, status in ((GUEST, "gast"), (UNKNOWN, None)):
+        if counts.get(owner, 0) > 0:
+            rows.append(
+                {
+                    "user_id": owner,
+                    "email": None,
+                    "status": status,
+                    "created_at": None,
+                    "last_sign_in_at": None,
+                    "searches": counts[owner],
+                }
+            )
     return rows
 
 
 def searches(
-    entries: list[dict], profiles: list[Profile], owner: str | None, offset: int, limit: int
+    entries: list[dict], accounts: list[AppUser], owner: str | None, offset: int, limit: int
 ) -> dict:
-    emails = _email_map(profiles)
+    emails = _email_map(accounts)
     selected = []
     for e in entries:
-        o = owner_of(e, profiles)
+        o = owner_of(e, accounts)
         if owner is None or o == owner:
             selected.append((e, o))
     costs = [c for c in (_cost(e) for e, _ in selected) if c is not None]
@@ -136,9 +158,9 @@ def searches(
     }
 
 
-def detail(entries: list[dict], profiles: list[Profile], request_id: str) -> dict | None:
+def detail(entries: list[dict], accounts: list[AppUser], request_id: str) -> dict | None:
     for e in entries:
         if e.get("request_id") == request_id:
-            o = owner_of(e, profiles)
-            return {**e, "owner": o, "email": _email_map(profiles).get(o)}
+            o = owner_of(e, accounts)
+            return {**e, "owner": o, "email": _email_map(accounts).get(o)}
     return None

@@ -1,11 +1,23 @@
 import json
+from datetime import UTC, datetime
 
-from hikesense.admin_log import UNKNOWN, LogReader, detail, owner_of, searches, summary, users
+from hikesense.admin_log import (
+    GUEST,
+    UNKNOWN,
+    LogReader,
+    detail,
+    owner_of,
+    searches,
+    summary,
+    users,
+)
 from hikesense.chatlog import hash_user
-from hikesense.roles import Profile
+from hikesense.guest_quota import guest_owner
+from hikesense.users import AppUser
 
-P1 = Profile(user_id="11111111-1111-1111-1111-111111111111", email="a@x.de", role="admin")
-P2 = Profile(user_id="22222222-2222-2222-2222-222222222222", email="b@x.de", role="user")
+T0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
+P1 = AppUser("11111111-1111-1111-1111-111111111111", "a@x.de", "aktiv", T0, None)
+P2 = AppUser("22222222-2222-2222-2222-222222222222", "b@x.de", "gesperrt", T0, T0)
 
 OLD = {
     "ts": "2026-10-29T17:25:17+00:00", "request_id": "old1", "intent": "day_hike",
@@ -96,7 +108,9 @@ def test_users_counts_and_unknown_row():
     es = [_row(1, user_id=P2.user_id), _row(2, user_id=P2.user_id), _row(3, user_id=P1.user_id), _row(4)]
     got = users(es, [P1, P2])
     assert [(u["email"], u["searches"]) for u in got] == [("b@x.de", 2), ("a@x.de", 1), (None, 1)]
-    assert got[-1]["user_id"] == UNKNOWN and got[-1]["role"] is None
+    assert got[-1]["user_id"] == UNKNOWN and got[-1]["status"] is None
+    assert got[0]["status"] == "gesperrt" and got[0]["created_at"] == T0.isoformat()
+    assert got[0]["last_sign_in_at"] == T0.isoformat() and got[1]["last_sign_in_at"] is None
     assert users([], [P1])[-1]["user_id"] == P1.user_id
 
 
@@ -128,3 +142,13 @@ def test_sum_cost_is_none_when_no_cost_reported():
     es = [_row(1, cost_usd=0.0, calls_without_cost=1), _row(2, cost_usd=None)]
     assert searches(es, [], None, 0, 10)["sums"]["cost_usd"] is None
     assert searches([*es, _row(3, cost_usd=0.0)], [], None, 0, 10)["sums"]["cost_usd"] == 0.0
+
+
+def test_guest_entries_grouped_as_one_row():
+    es = [_row(1, user_hash=guest_owner("1.2.3.4")), _row(2, user_hash=guest_owner("5.6.7.8")), _row(3)]
+    assert owner_of(es[0], [P1]) == GUEST
+    got = users(es, [P1])
+    guest = next(u for u in got if u["user_id"] == GUEST)
+    assert guest == {"user_id": GUEST, "email": None, "status": "gast", "created_at": None,
+                     "last_sign_in_at": None, "searches": 2}
+    assert [i["request_id"] for i in searches(es, [P1], GUEST, 0, 10)["items"]] == ["r1", "r2"]

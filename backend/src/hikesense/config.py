@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     supabase_url: str | None = None  # JWKS: {supabase_url}/auth/v1/.well-known/jwks.json
     supabase_anon_key: str | None = None  # smoke run: sign-in at the local Supabase auth
     hikesense_smoke_password: SecretStr | None = None  # smoke user smoke@hikesense.local
-    hikesense_admin_password_hash: SecretStr | None = None  # bcrypt hash, admin@hikesense.local
+    # /backend sign-in (name "admin"): bcrypt hash of the password and the cookie signing secret
+    hikesense_admin_password_hash: SecretStr | None = None
+    hikesense_admin_session_secret: SecretStr | None = None
     # Auth Admin API (ban, confirm, create users); server only, never in the browser
     supabase_service_role_key: SecretStr | None = None
     # chat without an account: per IP (/64) and for all guests together, sliding 24 h

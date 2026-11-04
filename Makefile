@@ -1,4 +1,4 @@
-.PHONY: test lint up down import scan knowledge tags smoke smoke-user admin-user eval osm-extract places groups
+.PHONY: test lint up down import scan knowledge tags smoke smoke-user admin-secrets users-migrate eval osm-extract places groups
 
 test:
 	cd backend && uv run pytest -q
@@ -46,14 +46,16 @@ eval:
 	cd backend && uv run hikesense eval
 
 # Testkonto smoke@hikesense.local in der lokalen Supabase-Auth (Passwort: HIKESENSE_SMOKE_PASSWORD).
+users-migrate:
+	cd backend && uv run hikesense users-migrate
+
 smoke-user:
 	cd backend && uv run hikesense smoke-user
 
-# Lokaler Admin (Anmeldename „admin“ = admin@hikesense.local). In .env steht nur der bcrypt-Hash
-# des Passworts (HIKESENSE_ADMIN_PASSWORD_HASH), nie das Passwort selbst. Setzt auch die Rolle admin
-# in profiles.
-admin-user:
-	cd backend && uv run hikesense admin-user
+# Backend-Anmeldung (/backend, Name „admin“): fragt ein Passwort und gibt Hash und
+# Sitzungsgeheimnis zum Eintragen in .env aus. Schreibt nichts in die Datenbank.
+admin-secrets:
+	cd backend && uv run hikesense admin-secrets
 
 # Geofabrik-Extrakte für alle Regionen (ODbL, zusammen ~2 GB): Baden-Württemberg (Schwarzwald,
 # Bodensee DE, Rand der Pfalz-Box), Rheinland-Pfalz, Schwaben (Lindau), Schweiz, Österreich.
