@@ -1,0 +1,21 @@
+# HikeSense web (Next.js production build) for the server. The browser talks to one origin: Caddy sends
+# /api/* to the FastAPI service and /sb/* to the Supabase gateway, everything else here.
+# NEXT_PUBLIC_* values are inlined into the browser bundle at build time: only the public anon key.
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SUPABASE_URL="" NEXT_PUBLIC_API_URL="" NEXT_TELEMETRY_DISABLED=1
+RUN test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" && npm run build && npm prune --omit=dev
+
+FROM node:22-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /app/package.json /app/next.config.ts ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+EXPOSE 3000
+CMD ["npx", "next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
