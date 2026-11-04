@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({ push: vi.fn(), signIn: vi.fn(), signUp: vi.fn() })
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push, refresh: () => {} }) }));
 vi.mock("../../lib/auth", async (orig) => ({
   loginEmail: (await orig<typeof import("../../lib/auth")>()).loginEmail,
+  safeNext: (await orig<typeof import("../../lib/auth")>()).safeNext,
   signIn: h.signIn,
   signUp: h.signUp,
   signOut: vi.fn(),
@@ -68,4 +69,38 @@ it("English: texts, and the language is passed to sign-in", async () => {
   await userEvent.type(screen.getByLabelText("Password"), "secret12");
   await userEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
   await waitFor(() => expect(h.signIn).toHaveBeenCalledWith("a@b.de", "secret12", "en"));
+});
+
+describe("return path and notices", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  it("redirects to next after sign-in", async () => {
+    window.history.replaceState(null, "", "/anmelden?next=%2Fgemerkt");
+    h.signIn.mockResolvedValue({ error: null });
+    render(<Anmelden />);
+    await fill();
+    await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
+    await waitFor(() => expect(h.push).toHaveBeenCalledWith("/gemerkt"));
+  });
+
+  it("ignores absolute next urls", async () => {
+    window.history.replaceState(null, "", "/anmelden?next=https%3A%2F%2Fevil.example");
+    h.signIn.mockResolvedValue({ error: null });
+    render(<Anmelden />);
+    await fill();
+    await userEvent.click(screen.getAllByRole("button", { name: "Anmelden" })[0]);
+    await waitFor(() => expect(h.push).toHaveBeenCalledWith("/"));
+  });
+
+  it("shows the blocked notice with ?gesperrt=1", async () => {
+    window.history.replaceState(null, "", "/anmelden?gesperrt=1");
+    render(<Anmelden />);
+    expect(await screen.findByText("Dein Konto ist gesperrt.")).toBeInTheDocument();
+  });
+
+  it("shows a hint when sent here to save something", async () => {
+    window.history.replaceState(null, "", "/anmelden?next=%2F");
+    render(<Anmelden />);
+    expect(await screen.findByText("Melde dich an, um Touren zu speichern.")).toBeInTheDocument();
+  });
 });

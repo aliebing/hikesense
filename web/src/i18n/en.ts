@@ -45,8 +45,6 @@ export const en = {
     cancel: "Stop",
     cancelled: "Stopped.",
     newSearch: "New search",
-    signInBefore: "To start planning, please ",
-    signInLink: "sign in",
     sessionExpired: "Session expired – please sign in again.",
     signIn: "Sign in",
     roundWalk: "Round walk",
@@ -69,6 +67,7 @@ export const en = {
   results: {
     save: "Save result",
     saveOne: "Save",
+    signInToSave: "Sign in to save",
     saved: "Saved",
     tooMany: "Too many? Try writing e.g. “with a pub stop” or “under 300 m ascent”.",
     savedSearch: "Saved search",
@@ -336,6 +335,8 @@ export const en = {
       password: "Password",
       submit: "Sign in",
       create: "Create account",
+      blocked: "Your account has been blocked.",
+      saveHint: "Sign in to save tours.",
     },
   },
   admin: {

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useLocale, useT } from "../i18n";
-import { signOut, useSession } from "../lib/auth";
+import { checkBlocked, onBlocked, signOut, useSession } from "../lib/auth";
 import { useResetChat } from "./ChatProvider";
 
 const shorten = (email: string) => (email.length > 22 ? `${email.slice(0, 20)}…` : email);
@@ -13,6 +15,25 @@ export default function AccountMenu() {
   const resetChat = useResetChat();
   const { locale } = useLocale();
   const t = useT().account;
+  const router = useRouter();
+  const userId = session?.user?.id ?? session?.user?.email ?? null;
+  // a blocked account (checked when the session appears, or reported by the chat / a failed
+  // save) is signed out at once; the chat starts over like after Abmelden
+  useEffect(() => {
+    if (!userId) return;
+    let done = false;
+    const out = () => {
+      if (done) return;
+      done = true;
+      void signOut(locale).finally(() => {
+        resetChat?.();
+        router.push("/anmelden?gesperrt=1");
+      });
+    };
+    const off = onBlocked(out);
+    void checkBlocked().then((b) => b && out());
+    return off;
+  }, [userId, locale, resetChat, router]);
   if (loading) return null;
   if (!session) {
     return (

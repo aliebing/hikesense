@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getAccessToken, onSignedOut } from "../lib/auth";
+import { getAccessToken, onSignedOut, reportBlocked } from "../lib/auth";
 import { isAuthUnavailable, streamChat } from "../lib/chat";
 import { messagesFor, useLocale } from "../i18n";
 import { addNotice, addUser, initialState, loadState, reduceEventIn, saveState, STORAGE_KEY, type ChatState } from "../lib/chatState";
@@ -88,6 +88,7 @@ export function ChatProvider({ children, apiUrl = API_URL }: { children: React.R
         (e) => {
           if (generation.current !== gen) return;
           if (e.type === "auth") auth = true;
+          if (e.type === "blocked") reportBlocked();
           if (e.type === "error" && isAuthUnavailable(e.message)) unavailable = true;
           setState((s) => reduceEventIn(s, e, localeRef.current));
         },

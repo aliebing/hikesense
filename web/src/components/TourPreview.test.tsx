@@ -14,7 +14,10 @@ vi.mock("../lib/data", async (orig) => ({
   getTrailTags: h.getTags,
 }));
 vi.mock("./TrailMap", () => ({ default: (p: { embedded?: boolean }) => <p>map {p.embedded ? "embedded" : ""}</p> }));
-vi.mock("../lib/auth", () => ({ useSession: () => ({ session: null, loading: false }) }));
+vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {}, useSession: () => ({ session: null, loading: false }) }));
 
 import TourPreview from "./TourPreview";
 

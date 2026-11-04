@@ -2,6 +2,9 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 const auth = vi.hoisted(() => ({ signedOut: null as null | (() => void) }));
 vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
   getAccessToken: async () => null,
   onSignedOut: (cb: () => void) => {
     auth.signedOut = cb;

@@ -108,3 +108,28 @@ it("web error texts follow the language, in both languages", async () => {
   expect(isAuthUnavailable(chatError("authUnavailable", "de"))).toBe(true);
   expect(isAuthUnavailable("anything else")).toBe(false);
 });
+
+it("sends no authorization header without a token", async () => {
+  const fetchMock = vi.fn().mockRejectedValue(new TypeError("x"));
+  vi.stubGlobal("fetch", fetchMock);
+  await streamChat("http://x", "t", "hi", () => {}, undefined, null, "de");
+  expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+  vi.unstubAllGlobals();
+});
+
+it("a 403 account_blocked becomes a blocked event", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"detail":"account_blocked"}', { status: 403 })));
+  const got: ChatEvent[] = [];
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, "tok", "de");
+  expect(got).toEqual([{ type: "blocked" }]);
+  vi.unstubAllGlobals();
+});
+
+it("keeps the code of a guest-limit error event", async () => {
+  const body = `event: error\ndata: {"type":"error","message":"aufgebraucht","code":"guest_limit"}\n\n`;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(streamOf(body), { status: 429 })));
+  const got: ChatEvent[] = [];
+  await streamChat("http://x", "t", "hi", (e) => got.push(e), undefined, null, "de");
+  expect(got).toEqual([{ type: "error", message: "aufgebraucht", code: "guest_limit" }]);
+  vi.unstubAllGlobals();
+});

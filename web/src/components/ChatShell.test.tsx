@@ -290,16 +290,46 @@ it("flags a source without name and URL instead of 'unbekannt'; same id twice is
   errors.mockRestore();
 });
 
-it("shows login hint without session", () => {
+it("guest sees the input without session and chats without a token", async () => {
   auth.session = null;
   try {
+    mockStream(sse([{ type: "token", text: "Hallo Gast" }, DONE]));
     renderChat();
-    expect(screen.getByText(/Zum Planen bitte/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "anmelden" })).toHaveAttribute("href", "/anmelden");
-    expect(screen.queryByLabelText("Nachricht")).toBeNull();
+    expect(screen.queryByText(/Zum Planen bitte/)).toBeNull();
+    await ask();
+    expect(await screen.findByText("Hallo Gast")).toBeInTheDocument();
+    const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
   } finally {
     auth.session = { access_token: "tok", user: { email: "a@b.de" } };
   }
+});
+
+it("the guest limit shows the message with a sign-in link", async () => {
+  auth.session = null;
+  try {
+    const body = sse([{ type: "error", message: "Du hast die Gast-Anfragen für heute aufgebraucht.", code: "guest_limit" }]);
+    const bytes = new TextEncoder().encode(body);
+    const stream = new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream, { status: 429 })));
+    renderChat();
+    await ask();
+    expect(await screen.findByText(/Gast-Anfragen für heute aufgebraucht/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/anmelden");
+  } finally {
+    auth.session = { access_token: "tok", user: { email: "a@b.de" } };
+  }
+});
+
+it("a blocked account is reported, not shown as an error", async () => {
+  const seen: string[] = [];
+  const off = (await import("../lib/auth")).onBlocked(() => seen.push("blocked"));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: "account_blocked" }), { status: 403 })));
+  renderChat();
+  await ask();
+  await waitFor(() => expect(seen).toEqual(["blocked"]));
+  expect(screen.queryByRole("alert")).toBeNull();
+  off();
 });
 
 it("sends bearer token", async () => {

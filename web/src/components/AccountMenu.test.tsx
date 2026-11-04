@@ -1,15 +1,21 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const h = vi.hoisted(() => ({ session: null as null | { user: { email: string } }, signOut: vi.fn() }));
-vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }), signOut: h.signOut }));
+const h = vi.hoisted(() => ({ session: null as null | { user: { email: string } }, signOut: vi.fn(), blocked: false, listeners: [] as (() => void)[], push: vi.fn() }));
+vi.mock("../lib/auth", () => ({
+  useSession: () => ({ session: h.session, loading: false }),
+  signOut: h.signOut,
+  checkBlocked: async () => h.blocked,
+  onBlocked: (cb: () => void) => { h.listeners.push(cb); return () => { h.listeners = h.listeners.filter((x) => x !== cb); }; },
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push, refresh: () => {} }) }));
 const chat = vi.hoisted(() => ({ reset: vi.fn() }));
 vi.mock("./ChatProvider", () => ({ useResetChat: () => chat.reset }));
 
 
 import AccountMenu from "./AccountMenu";
 
-beforeEach(() => { vi.restoreAllMocks(); });
+beforeEach(() => { vi.restoreAllMocks(); h.blocked = false; h.listeners = []; h.push.mockReset(); h.signOut.mockReset(); h.signOut.mockResolvedValue({ error: null }); chat.reset.mockReset(); });
 
 it("offers sign-in without a session", () => {
   h.session = null;
@@ -56,3 +62,29 @@ it("never links to the backend and never asks it", () => {
   expect(f.mock.calls.some((c) => String(c[0]).includes("backend"))).toBe(false);
 });
 
+
+it("a blocked session is signed out, the chat reset and the page sent to the sign-in notice", async () => {
+  h.session = { user: { email: "a@b.de" } };
+  h.blocked = true;
+  render(<AccountMenu />);
+  await waitFor(() => expect(h.push).toHaveBeenCalledWith("/anmelden?gesperrt=1"));
+  expect(h.signOut).toHaveBeenCalled();
+  expect(chat.reset).toHaveBeenCalled();
+});
+
+it("a block reported later (chat, saving) does the same", async () => {
+  h.session = { user: { email: "a@b.de" } };
+  render(<AccountMenu />);
+  await waitFor(() => expect(h.listeners.length).toBe(1));
+  expect(h.push).not.toHaveBeenCalled();
+  h.listeners[0]();
+  await waitFor(() => expect(h.push).toHaveBeenCalledWith("/anmelden?gesperrt=1"));
+});
+
+it("an active session stays signed in", async () => {
+  h.session = { user: { email: "a@b.de" } };
+  render(<AccountMenu />);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(h.signOut).not.toHaveBeenCalled();
+  expect(h.push).not.toHaveBeenCalled();
+});

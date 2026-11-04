@@ -6,7 +6,7 @@ const sb = vi.hoisted(() => ({
 }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth: sb }) }));
 
-import { getAccessToken, signIn, signOut, signUp } from "./auth";
+import { checkBlocked, getAccessToken, onBlocked, reportBlocked, safeNext, signIn, signOut, signUp } from "./auth";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://sb");
@@ -37,4 +37,44 @@ it("signs in and out, and reads the token", async () => {
   expect(await getAccessToken()).toBe("t");
   sb.getSession.mockRejectedValue(new Error("x"));
   expect(await getAccessToken()).toBeNull();
+});
+
+it("safeNext keeps only relative paths of this site", () => {
+  expect(safeNext("/gemerkt")).toBe("/gemerkt");
+  expect(safeNext("/t/abc?x=1")).toBe("/t/abc?x=1");
+  expect(safeNext(null)).toBe("/");
+  expect(safeNext("https://evil.example")).toBe("/");
+  expect(safeNext("//evil.example")).toBe("/");
+  expect(safeNext("/\\evil.example")).toBe("/");
+  expect(safeNext("gemerkt")).toBe("/");
+});
+
+it("checkBlocked asks /api/account with the token", async () => {
+  sb.getSession.mockResolvedValue({ data: { session: { access_token: "tok" } } });
+  const f = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response('{"detail":"account_blocked"}', { status: 403 }));
+  expect(await checkBlocked()).toBe(true);
+  expect(f.mock.calls[0][0]).toBe("/api/account");
+  expect((f.mock.calls[0][1] as RequestInit).headers).toEqual({ Authorization: "Bearer tok" });
+  f.mockResolvedValue(new Response('{"status":"aktiv"}', { status: 200 }));
+  expect(await checkBlocked()).toBe(false);
+  f.mockRejectedValue(new TypeError("offline"));
+  expect(await checkBlocked()).toBe(false);
+  f.mockRestore();
+});
+
+it("checkBlocked without a session asks nothing", async () => {
+  sb.getSession.mockResolvedValue({ data: { session: null } });
+  const f = vi.spyOn(globalThis, "fetch");
+  expect(await checkBlocked()).toBe(false);
+  expect(f).not.toHaveBeenCalled();
+  f.mockRestore();
+});
+
+it("reportBlocked reaches every listener until it unsubscribes", () => {
+  const seen: number[] = [];
+  const off = onBlocked(() => seen.push(1));
+  reportBlocked();
+  off();
+  reportBlocked();
+  expect(seen).toEqual([1]);
 });

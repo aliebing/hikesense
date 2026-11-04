@@ -7,7 +7,10 @@ import type { TrailDetail } from "../../lib/data";
 
 const h = vi.hoisted(() => ({ row: { data: null, error: null } as { data: unknown; error: unknown }, id: null as string | null, session: null as null | object, getTrail: vi.fn(), getLodgings: vi.fn() }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }), useRouter: () => ({ refresh() {} }) }));
-vi.mock("../../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }), getBrowserSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => h.row }) }) }) }), onSignedOut: () => () => {} }));
+vi.mock("../../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {}, useSession: () => ({ session: h.session, loading: false }), getBrowserSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => h.row }) }) }) }), onSignedOut: () => () => {} }));
 vi.mock("../../lib/data", async (orig) => ({ ...(await orig<typeof import("../../lib/data")>()), getTrail: h.getTrail, getLodgings: h.getLodgings }));
 vi.mock("../../components/PlanMap", () => ({ default: (p: { embedded?: boolean }) => <p data-testid="plan-map">{p.embedded ? "embedded" : "button"}</p> }));
 vi.mock("../../components/AccountMenu", () => ({ default: () => null }));

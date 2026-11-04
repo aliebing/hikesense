@@ -22,7 +22,8 @@ export type ChatItem =
   | { kind: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { kind: "sources"; sources: SourceBrief[] }
   | { kind: "notice"; text: string }
-  | { kind: "error"; text: string }
+  /** `signIn`: the guest limit; the message gets a sign-in link */
+  | { kind: "error"; text: string; signIn?: boolean }
   | { kind: "auth" };
 
 const formatters = new Map<Locale, Intl.NumberFormat>();
@@ -327,6 +328,14 @@ export default function ChatMessages({
             {it.kind === "error" && (
               <p role="alert" className={`${alertBox} bg-red-100 text-red-900`}>
                 {it.text}
+                {it.signIn && (
+                  <>
+                    {" "}
+                    <Link href="/anmelden" className="underline">
+                      {t.chat.signIn}
+                    </Link>
+                  </>
+                )}
               </p>
             )}
             {it.kind === "auth" && (

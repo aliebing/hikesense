@@ -8,6 +8,9 @@ const h = vi.hoisted(() => ({
   deletePlan: vi.fn(),
 }));
 vi.mock("../../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
   useSession: () => ({ session: h.session, loading: h.loading }),
   signOut: vi.fn(),
 }));

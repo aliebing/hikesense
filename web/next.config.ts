@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: "/api/chat", destination: `${API_INTERNAL_URL}/chat` },
+      { source: "/api/account", destination: `${API_INTERNAL_URL}/account` },
       { source: "/api/backend/:path*", destination: `${API_INTERNAL_URL}/backend/:path*` },
       { source: "/sb/:path*", destination: `${SUPABASE_URL}/:path*` },
     ];

@@ -4,7 +4,10 @@ import { renderWithLocale } from "../test-utils";
 import type { DayPlan, PlanData } from "../lib/chat";
 
 const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
-vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }) }));
+vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {}, useSession: () => ({ session: h.session, loading: false }) }));
 vi.mock("../lib/plans", () => ({ savePlan: h.savePlan }));
 
 import PlanDays, { planTitle } from "./PlanDays";

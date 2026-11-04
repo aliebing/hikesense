@@ -61,10 +61,11 @@ it("start page: English heading and chat placeholder", () => {
   expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
 });
 
-it("signed out: English sign-in hint", () => {
+it("signed out: a guest gets the English input, no sign-in gate", () => {
   auth.session = null;
   renderWithLocale(<ChatProvider><ChatShell intro="Hi" /></ChatProvider>, "en");
-  expect(screen.getByRole("link", { name: "sign in" })).toHaveAttribute("href", "/anmelden");
+  expect(screen.getByLabelText("Message")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "sign in" })).toBeNull();
 });
 
 it("result tile: round walk, ascent, Near miss and Save result", () => {

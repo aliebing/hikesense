@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 import type { TourCard } from "../lib/chat";
 
 const h = vi.hoisted(() => ({ session: null as null | object, savePlan: vi.fn() }));
-vi.mock("../lib/auth", () => ({ useSession: () => ({ session: h.session, loading: false }) }));
+vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {}, useSession: () => ({ session: h.session, loading: false }) }));
 vi.mock("../lib/plans", async (orig) => ({ ...(await orig<typeof import("../lib/plans")>()), savePlan: h.savePlan }));
 
 import { renderWithLocale } from "../test-utils";

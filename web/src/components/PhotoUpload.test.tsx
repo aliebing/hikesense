@@ -7,6 +7,9 @@ const h = vi.hoisted(() => ({
   uploadOwnPhoto: vi.fn(),
 }));
 vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({}),
 }));

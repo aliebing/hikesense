@@ -216,9 +216,12 @@ export type ChatEvent =
       unsupported_names?: string[];
       unsat_claims_removed?: number;
     }
-  | { type: "error"; message: string }
+  /** `code` "guest_limit": a guest used up the requests without an account */
+  | { type: "error"; message: string; code?: string | null }
   /** 401 from /chat: no or expired session */
-  | { type: "auth"; message: string };
+  | { type: "auth"; message: string }
+  /** 403 from /chat: the signed-in account is blocked */
+  | { type: "blocked" };
 
 type ChatErrorKey = keyof ReturnType<typeof messagesFor>["errors"]["chat"];
 
@@ -281,6 +284,10 @@ export async function streamChat(
     // no or expired session (JSON answer): the chat asks to sign in again; the JWKS being unreachable is not the user's fault
     if (res.status === 401) return onEvent({ type: "auth", message: chatError("sessionExpired", lang) });
     if (res.status === 503) return onEvent({ type: "error", message: chatError("authUnavailable", lang) });
+    if (res.status === 403) {
+      const body = (await res.json().catch(() => null)) as { detail?: string } | null;
+      if (body?.detail === "account_blocked") return onEvent({ type: "blocked" });
+    }
     // a rejected request (e.g. 422, 413) answers with JSON, not with events
     const rejected = res.status >= 400 && res.status < 500 ? chatError("rejected", lang) : chatError("unreachable", lang);
     if (!res.body) {

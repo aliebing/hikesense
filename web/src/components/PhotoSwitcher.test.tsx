@@ -65,6 +65,9 @@ test("PhotoSwitcher thumbnails pick the shown photo", async () => {
 describe("own photos", () => {
   const h = vi.hoisted(() => ({ session: null as null | { user: { id: string } }, list: vi.fn(), del: vi.fn() }));
   vi.mock("../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
     useSession: () => ({ session: h.session, loading: false }),
     getBrowserSupabase: () => ({}),
   }));

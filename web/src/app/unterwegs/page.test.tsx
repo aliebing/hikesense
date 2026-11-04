@@ -12,6 +12,9 @@ const h = vi.hoisted(() => ({
   lifecycle: { mounts: 0, unmounts: 0 },
 }));
 vi.mock("../../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => h.row }) }) }) }),
 }));

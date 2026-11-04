@@ -113,3 +113,36 @@ export function loginEmail(input: string): string {
   const v = input.trim();
   return v.includes("@") ? v : `${v}@hikesense.local`;
 }
+
+/** A `?next=` target only when it is a path of this site; anything else goes home. */
+export function safeNext(raw: string | null | undefined): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/";
+  return raw;
+}
+
+const BLOCKED_EVENT = "hikesense:blocked";
+
+/** True when the backend says the signed-in account is blocked; false without session or on any failure. */
+export async function checkBlocked(): Promise<boolean> {
+  const token = await getAccessToken();
+  if (!token) return false;
+  try {
+    const res = await fetch("/api/account", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status !== 403) return false;
+    const body = (await res.json().catch(() => null)) as { detail?: string } | null;
+    return body?.detail === "account_blocked";
+  } catch {
+    return false;
+  }
+}
+
+/** Announces a blocked account (chat 403, failed save); the account menu signs out. */
+export function reportBlocked(): void {
+  window.dispatchEvent(new Event(BLOCKED_EVENT));
+}
+
+/** Calls `cb` on every reportBlocked(); returns the unsubscribe. */
+export function onBlocked(cb: () => void): () => void {
+  window.addEventListener(BLOCKED_EVENT, cb);
+  return () => window.removeEventListener(BLOCKED_EVENT, cb);
+}

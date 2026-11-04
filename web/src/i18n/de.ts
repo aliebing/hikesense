@@ -47,8 +47,6 @@ export const de: Messages = {
     cancel: "Stopp",
     cancelled: "Gestoppt.",
     newSearch: "Neue Suche",
-    signInBefore: "Zum Planen bitte ",
-    signInLink: "anmelden",
     sessionExpired: "Sitzung abgelaufen – bitte erneut anmelden.",
     signIn: "Anmelden",
     roundWalk: "Rundweg",
@@ -71,6 +69,7 @@ export const de: Messages = {
   results: {
     save: "Ergebnis merken",
     saveOne: "Merken",
+    signInToSave: "Zum Merken anmelden",
     saved: "Gemerkt",
     tooMany: "Zu viele? Schreib z. B. „mit Einkehr“ oder „unter 300 Hm“.",
     savedSearch: "Gemerkte Suche",
@@ -331,6 +330,8 @@ export const de: Messages = {
       password: "Passwort",
       submit: "Anmelden",
       create: "Konto anlegen",
+      blocked: "Dein Konto ist gesperrt.",
+      saveHint: "Melde dich an, um Touren zu speichern.",
     },
   },
   admin: {

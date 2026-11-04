@@ -4,6 +4,9 @@ import { render, screen } from "@testing-library/react";
 const h = vi.hoisted(() => ({ maybeSingle: vi.fn(), id: "" as string | null, session: null as null | object, row: null as unknown, error: null as unknown }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => ({ get: () => h.id }), useRouter: () => ({ refresh: () => {} }) }));
 vi.mock("../../lib/auth", () => ({
+  checkBlocked: async () => false,
+  onBlocked: () => () => {},
+  reportBlocked: () => {},
   useSession: () => ({ session: h.session, loading: false }),
   getBrowserSupabase: () => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (h.maybeSingle(), { data: h.row, error: h.error }) }) }) }),

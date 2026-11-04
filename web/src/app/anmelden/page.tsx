@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useT } from "../../i18n";
 import PageFrame from "../../components/PageFrame";
-import { loginEmail, signIn, signUp } from "../../lib/auth";
+import { loginEmail, safeNext, signIn, signUp } from "../../lib/auth";
 
 const field = "rounded-full border border-white/25 bg-wald-dunkel px-4 py-2 text-sm text-papier placeholder:text-papier/70";
 
@@ -18,6 +18,12 @@ export default function Anmelden() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // read after mounting (no useSearchParams: the page stays static); `next` is only a local path
+  const [query, setQuery] = useState<{ next: string; blocked: boolean; save: boolean }>({ next: "/", blocked: false, save: false });
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setQuery({ next: safeNext(p.get("next")), blocked: p.get("gesperrt") === "1", save: p.has("next") });
+  }, []);
 
   const go = async (action: typeof signIn) => {
     setBusy(true);
@@ -27,13 +33,15 @@ export default function Anmelden() {
     setBusy(false);
     if (r.error) setError(r.error);
     else if (r.notice) setNotice(r.notice);
-    else router.push("/");
+    else router.push(query.next);
   };
 
   return (
     <PageFrame back={{ href: "/", label: t.back }}>
       <main className="flex flex-1 flex-col items-center gap-5 pb-4">
         <h1 className="font-serif text-3xl sm:text-4xl">{t.title}</h1>
+        {query.blocked && <p role="status" className="max-w-sm rounded-xl bg-red-100 px-3 py-2 text-sm text-red-900">{t.blocked}</p>}
+        {!query.blocked && query.save && <p className="max-w-sm rounded-xl bg-papier/90 px-3 py-2 text-sm text-wald-dunkel">{t.saveHint}</p>}
         <form
           className="flex w-full max-w-sm flex-col gap-3 rounded-2xl bg-wald-flaeche p-4 ring-1 ring-white/10"
           onSubmit={(ev) => {
