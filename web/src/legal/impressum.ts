@@ -1,7 +1,7 @@
 import { OPERATOR, UPDATED, type LegalDoc, type LegalLocale } from "./site";
 
-/** Impressum (§ 5 DDG, § 18 Abs. 2 MStV). `app` is the site's name, e.g. "HikeSense". */
-export function impressum(locale: LegalLocale, app: string): LegalDoc {
+/** Impressum (§ 5 DDG, § 18 Abs. 2 MStV). `app` is the site's name, `note` its own caveat about automatic answers. */
+export function impressum(locale: LegalLocale, app: string, note: { de: string; en: string }): LegalDoc {
   const address = [OPERATOR.name, OPERATOR.street, OPERATOR.city, OPERATOR.country[locale]];
   if (locale === "en") {
     return {
@@ -16,7 +16,7 @@ export function impressum(locale: LegalLocale, app: string): LegalDoc {
           h: "About this site",
           body: [
             `${app} is a private, non-commercial project (final project of a Turing College course). There is no advertising and nothing is sold.`,
-            "Answers of the planning assistant are generated automatically and can be wrong. Check routes, conditions, opening hours and weather on site before you set off.",
+            note.en,
           ],
         },
         {
@@ -37,7 +37,7 @@ export function impressum(locale: LegalLocale, app: string): LegalDoc {
         h: "Über diese Seite",
         body: [
           `${app} ist ein privates, nicht kommerzielles Projekt (Abschlussprojekt eines Turing-College-Kurses). Es gibt keine Werbung und es wird nichts verkauft.`,
-          "Antworten des Planungs-Assistenten werden automatisch erzeugt und können Fehler enthalten. Wege, Zustand, Öffnungszeiten und Wetter bitte vor dem Aufbruch vor Ort prüfen.",
+          note.de,
         ],
       },
       {

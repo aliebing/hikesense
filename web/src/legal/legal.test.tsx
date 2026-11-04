@@ -9,6 +9,7 @@ import CreditsLine from "../components/CreditsLine";
 import { renderWithLocale } from "../test-utils";
 import { datenschutz } from "./datenschutz";
 import { impressum } from "./impressum";
+import { APP_NOTE } from "./site";
 
 it("Impressum names provider, address and a mail link (German default)", () => {
   render(<ImpressumPage />);
@@ -34,8 +35,8 @@ it("privacy notice states the retention times the code uses", () => {
 });
 
 it("both languages have the same sections", () => {
-  for (const doc of [impressum, (l: "de" | "en") => datenschutz(l)]) {
-    const de = doc("de", "HikeSense"), en = doc("en", "HikeSense");
+  for (const doc of [(l: "de" | "en") => impressum(l, "HikeSense", APP_NOTE), (l: "de" | "en") => datenschutz(l)]) {
+    const de = doc("de"), en = doc("en");
     expect(en.sections.length).toBe(de.sections.length);
   }
 });
@@ -53,4 +54,9 @@ it("every page frame links Impressum and privacy notice; the credit line does to
   );
   expect(document.querySelector("footer[data-legal]")).toBeNull();
   expect(screen.getByRole("link", { name: "Impressum" })).toBeInTheDocument();
+});
+
+it("a full stop after a link stays outside it", () => {
+  render(<DatenschutzPage />);
+  expect(screen.getByRole("link", { name: "https://www.baden-wuerttemberg.datenschutz.de" })).toHaveAttribute("href", "https://www.baden-wuerttemberg.datenschutz.de");
 });

@@ -1,6 +1,7 @@
 import type { Block, LegalDoc } from "./site";
 
-const LINKABLE = /([\w.+-]+@[\w-]+\.[\w.]+|https:\/\/[^\s,)]+)/g;
+// a full stop at the end of a sentence is not part of the address or link
+const LINKABLE = /([\w.+-]+@[\w-]+(?:\.[\w-]+)+|https:\/\/[^\s,)]*[^\s,).])/g;
 
 /** Text with email addresses and https links turned into links. */
 function Linked({ text }: { text: string }) {
