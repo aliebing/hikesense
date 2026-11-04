@@ -489,6 +489,7 @@ export const de: Messages = {
     },
     auth: {
       resent: "Bestätigungsmail ist unterwegs.",
+      banned: "Dein Konto ist gesperrt.",
       resetSent: "Wenn es ein Konto mit dieser Adresse gibt, haben wir dir einen Link geschickt.",
       badCredentials: "E-Mail oder Passwort falsch",
       confirmEmail: "Bitte bestätige deine E-Mail-Adresse",

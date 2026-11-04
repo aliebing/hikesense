@@ -63,7 +63,7 @@ def make_backend_router(
             log.error("backend login: HIKESENSE_ADMIN_PASSWORD_HASH or _SESSION_SECRET missing")
             return JSONResponse(NOT_SET_UP, status_code=503)
         ip = client_ip(request, settings.hikesense_trusted_proxy_hops)
-        wait = throttle.blocked(ip)
+        wait = throttle.try_acquire(ip)  # counted before bcrypt: parallel tries cannot pass the cap
         if wait:
             return JSONResponse(
                 {"detail": "Zu viele Versuche"}, status_code=429, headers={"Retry-After": str(wait)}
@@ -72,7 +72,6 @@ def make_backend_router(
             admin_session.check_password, body.password, sec[0]
         )
         if not ok:
-            throttle.failed(ip)
             return JSONResponse({"detail": "Anmeldung fehlgeschlagen"}, status_code=401)
         throttle.succeeded(ip)
         r = JSONResponse({"name": admin_session.ADMIN_NAME})

@@ -124,7 +124,7 @@ export function reduceEventIn(s: ChatState, e: ChatEvent, locale: Locale): ChatS
     case "sources":
       return e.sources.length > 0 ? add(s, { kind: "sources", sources: e.sources }) : s;
     case "error":
-      return add(s, e.code === "guest_limit" ? { kind: "error", text: e.message, signIn: true } : { kind: "error", text: e.message });
+      return add(s, e.code === "guest_limit" ? { kind: "signInHint", text: e.message } : { kind: "error", text: e.message });
     case "auth":
       return add(s, { kind: "auth" });
     case "blocked": // the account menu signs out and resets the chat

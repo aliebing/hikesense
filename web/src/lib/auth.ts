@@ -72,6 +72,7 @@ function localized(message: string | undefined, locale: Locale): string {
   const e = messagesFor(locale).errors.auth;
   if (m.includes("Invalid login credentials")) return e.badCredentials;
   if (m.includes("Email not confirmed")) return e.confirmEmail;
+  if (m.includes("banned")) return e.banned;
   if (m.includes("already registered")) return e.alreadyRegistered;
   if (m.includes("at least")) return e.tooShort;
   if (m.includes("valid email") || m.includes("invalid format")) return e.invalidEmail;

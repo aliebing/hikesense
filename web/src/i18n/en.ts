@@ -494,6 +494,7 @@ export const en = {
     },
     auth: {
       resent: "The confirmation email is on its way.",
+      banned: "Your account has been blocked.",
       resetSent: "If an account exists for this address, we've sent you a link.",
       badCredentials: "E-mail or password is wrong",
       confirmEmail: "Please confirm your e-mail address",

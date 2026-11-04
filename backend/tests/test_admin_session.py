@@ -53,3 +53,19 @@ def test_throttle_success_resets():
     t.succeeded("ip")
     t.failed("ip")
     assert t.blocked("ip") == 0
+
+
+def test_try_acquire_reserves_before_the_password_check():
+    # parallel wrong logins: each attempt is counted when it starts, not after bcrypt
+    t = LoginThrottle(clock=lambda: 0.0)
+    granted = [t.try_acquire("ip") for _ in range(8)]
+    assert granted[:5] == [0] * 5
+    assert all(w > 0 for w in granted[5:])
+
+
+def test_try_acquire_success_frees_the_ip():
+    t = LoginThrottle(clock=lambda: 0.0)
+    for _ in range(4):
+        t.try_acquire("ip")
+    t.succeeded("ip")
+    assert t.try_acquire("ip") == 0

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -13,6 +14,9 @@ from starlette.requests import Request
 
 from hikesense.config import Settings
 from hikesense.db import connect
+
+log = logging.getLogger(__name__)
+_warned = False
 
 WINDOW = "24 hours"
 _LOCK_ID = 7_340_001  # pg_advisory_xact_lock key: one guest decision at a time
@@ -36,12 +40,19 @@ def client_ip(request: Request, trusted_hops: int = 0) -> str:
     entry `trusted_hops` from the end is the address the outermost trusted proxy saw. Otherwise
     (default, local setup) the peer address counts; behind Next that is Next itself, so all
     guests share one key. Safe, never forgeable; the total cap applies either way."""
+    global _warned
+    forwarded = request.headers.get("x-forwarded-for", "")
     if trusted_hops > 0:
-        parts = [
-            p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()
-        ]
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
         if len(parts) >= trusted_hops:
             return parts[-trusted_hops]
+    elif forwarded and not _warned:
+        _warned = True
+        log.warning(
+            "X-Forwarded-For is ignored (HIKESENSE_TRUSTED_PROXY_HOPS=0): all guests and backend "
+            "logins share one key. Behind a reverse proxy or cloudflared tunnel that is the only "
+            "way in, set HIKESENSE_TRUSTED_PROXY_HOPS=1."
+        )
     return request.client.host if request.client else "unknown"
 
 

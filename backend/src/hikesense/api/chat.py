@@ -205,9 +205,9 @@ def make_router(
                 return JSONResponse({"detail": AUTH_MESSAGES["unavailable"]}, status_code=503)
             if not guest.allowed:
                 lang = await _peek_lang(request)
-                return await refused(
-                    texts(lang).guest_limit_reply, guest.retry_after_s, "guest_limit"
-                )
+                t = texts(lang)
+                text = t.guest_total_reply if guest.reason == "total" else t.guest_limit_reply
+                return await refused(text, guest.retry_after_s, "guest_limit")
             user_hash, user_id = guest_owner(key), None
         else:
             denied = await blocked(user.user_id)

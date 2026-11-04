@@ -22,8 +22,9 @@ export type ChatItem =
   | { kind: "events"; events: VerifiedRace[]; fallback: CalendarLink[]; note: string }
   | { kind: "sources"; sources: SourceBrief[] }
   | { kind: "notice"; text: string }
-  /** `signIn`: the guest limit; the message gets a sign-in link */
-  | { kind: "error"; text: string; signIn?: boolean }
+  | { kind: "error"; text: string }
+  /** the guest limit: an ordinary assistant line with a sign-in link, not an error */
+  | { kind: "signInHint"; text: string }
   | { kind: "auth" };
 
 const formatters = new Map<Locale, Intl.NumberFormat>();
@@ -328,14 +329,14 @@ export default function ChatMessages({
             {it.kind === "error" && (
               <p role="alert" className={`${alertBox} bg-red-100 text-red-900`}>
                 {it.text}
-                {it.signIn && (
-                  <>
-                    {" "}
-                    <Link href="/anmelden" className="underline">
-                      {t.chat.signIn}
-                    </Link>
-                  </>
-                )}
+              </p>
+            )}
+            {it.kind === "signInHint" && (
+              <p className="text-sm leading-relaxed">
+                {it.text}{" "}
+                <Link href="/anmelden" className="font-semibold text-sense underline underline-offset-2">
+                  {t.chat.signIn}
+                </Link>
               </p>
             )}
             {it.kind === "auth" && (

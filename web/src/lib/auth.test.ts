@@ -116,3 +116,9 @@ it("setNewPassword updates the password and maps errors", async () => {
   sb.updateUser.mockResolvedValueOnce({ data: {}, error: { message: "Password should be at least 6 characters" } });
   expect((await setNewPassword("x", "de")).error).toMatch(/zu kurz/);
 });
+
+it("a blocked account signing in is told so", async () => {
+  sb.signInWithPassword.mockResolvedValue({ data: {}, error: { message: "User is banned" } });
+  expect(await signIn("a@b.de", "x", "de")).toEqual({ error: "Dein Konto ist gesperrt." });
+  expect(await signIn("a@b.de", "x", "en")).toEqual({ error: "Your account has been blocked." });
+});

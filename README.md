@@ -128,7 +128,7 @@ Open http://localhost:3000 and try it as a guest, or create an account: the conf
 - "Round walk in the Palatinate Forest with a place to eat"
 - "How is the Westweg waymarked?"
 
-Tests: `make test` (backend + web). Smoke test against the real model: `make smoke-user && make smoke` (about $0.01). On a phone: `cloudflared tunnel --url http://localhost:3000` gives an HTTPS address for location and installation.
+Tests: `make test` (backend + web). Smoke test against the real model: `make smoke-user && make smoke` (about $0.01). On a phone: `cloudflared tunnel --url http://localhost:3000` gives an HTTPS address for location and installation; set `HIKESENSE_TRUSTED_PROXY_HOPS=1` in `.env` while the tunnel is the only way in, otherwise all guests (and backend sign-in attempts) share one count.
 
 **LangSmith (optional):** with `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com` and `LANGSMITH_PROJECT=hikesense` in `.env`, every chat turn appears in LangSmith as a tree of graph nodes, LLM calls and tool calls, tagged with the `request_id` of the `/backend` log line. Off by default; when on, messages and prompts are stored by LangChain Inc. (EU region) – the user id and e-mail are never sent.
 

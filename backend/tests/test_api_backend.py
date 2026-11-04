@@ -214,3 +214,13 @@ def test_old_admin_paths_are_gone(settings):
     login(c)
     assert c.get("/admin/me").status_code == 404
     assert c.get("/admin/users").status_code == 404
+
+
+def test_parallel_wrong_logins_get_at_most_five_tries(settings):
+    from concurrent.futures import ThreadPoolExecutor
+
+    c = backend(settings)
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        codes = list(pool.map(lambda _: login(c, "falsch").status_code, range(20)))
+    assert codes.count(401) <= 5
+    assert codes.count(429) >= 15

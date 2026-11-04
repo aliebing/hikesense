@@ -54,6 +54,7 @@ class Texts:
     injection_reply: str
     rate_limit_reply: str
     guest_limit_reply: str
+    guest_total_reply: str
     # words the code puts into the placeholders of the events and groups sentences
     word_run: str
     word_runs: str
@@ -172,6 +173,7 @@ DE = Texts(
         "Du hast die Gast-Anfragen für heute aufgebraucht. Melde dich an oder registriere dich, "
         "um weiterzumachen."
     ),
+    guest_total_reply="Bitte melde dich an oder registriere dich, um weiterzumachen.",
     word_run="Lauf",
     word_runs="Läufe",
     word_page="Seite",
@@ -293,6 +295,7 @@ EN = Texts(
     ),
     rate_limit_reply="Too many requests – please try again in {s} seconds.",
     guest_limit_reply="You've used up today's guest requests. Sign in or create an account to keep going.",
+    guest_total_reply="Please sign in or create an account to keep going.",
     word_run="run",
     word_runs="runs",
     word_page="page",
@@ -309,9 +312,7 @@ EN = Texts(
     wish_snow="snow",
     weather_unavailable="Weather currently unavailable.",
     weather_found="Days that fit ‘{wish}’ near {place}: {days}.",
-    weather_none=(
-        "No day in the next 14 days fits ‘{wish}’ near {place}; closest: {days}."
-    ),
+    weather_none=("No day in the next 14 days fits ‘{wish}’ near {place}; closest: {days}."),
     weather_day_fits="{day} fits ‘{wish}’ near {place}: {detail}.",
     weather_day_misses="{day} does not fit ‘{wish}’ near {place}: {detail}.",
     weather_day_unknown=(

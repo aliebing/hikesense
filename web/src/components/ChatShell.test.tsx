@@ -316,6 +316,7 @@ it("the guest limit shows the message with a sign-in link", async () => {
     await ask();
     expect(await screen.findByText(/Gast-Anfragen für heute aufgebraucht/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/anmelden");
+    expect(screen.queryByRole("alert")).toBeNull(); // a normal assistant message, not a crash
   } finally {
     auth.session = { access_token: "tok", user: { email: "a@b.de" } };
   }

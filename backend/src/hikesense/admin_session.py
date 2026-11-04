@@ -75,6 +75,18 @@ class LoginThrottle:
                 return 0
             return max(1, math.ceil(q[0] + self._window - now))
 
+    def try_acquire(self, ip: str) -> int:
+        """Reserves one attempt before the password check (0 = go ahead, else Retry-After
+        seconds). Counting at the start keeps parallel requests from slipping past the cap;
+        a successful sign-in clears the IP with `succeeded`."""
+        with self._lock:
+            now = self._clock()
+            q = self._prune(ip, now)
+            if len(q) >= self._max:
+                return max(1, math.ceil(q[0] + self._window - now))
+            self._fails[ip].append(now)
+            return 0
+
     def failed(self, ip: str) -> None:
         with self._lock:
             self._fails[ip].append(self._clock())

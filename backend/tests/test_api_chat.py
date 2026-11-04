@@ -187,15 +187,18 @@ def test_guest_without_token_can_chat(settings, seen):
 def test_guest_limit_returns_429_with_guest_text(settings, seen):
     from hikesense.agent.texts import texts
 
-    for reason in ("ip", "total"):
+    for reason, text in (("ip", texts("en").guest_limit_reply), ("total", texts("en").guest_total_reply)):
         client = TestClient(create_app(settings, quota=FakeQuota(False, reason), deps_factory=lambda: "deps"))
         body = {"thread_id": str(uuid.uuid4()), "message": "Hi", "lang": "en"}
         r = client.post("/chat", json=body)
         assert r.status_code == 429 and int(r.headers["retry-after"]) == 3600
         ((name, data),) = parse_sse(r.text)
         assert name == "error"
-        assert data["message"] == texts("en").guest_limit_reply
+        assert data["message"] == text
         assert data["code"] == "guest_limit"
+    # the total cap must not tell a guest who never asked that they used anything up
+    assert "used up" not in texts("en").guest_total_reply
+    assert "aufgebraucht" not in texts("de").guest_total_reply
     assert seen == []
 
 
@@ -409,3 +412,16 @@ def test_lang_is_passed_on_to_run_chat(client, seen):
     assert client.post("/chat", json=body, headers=bearer()).status_code == 200
     assert post(client).status_code == 200
     assert langs == ["en", "de"]
+
+
+def test_ignored_forwarded_header_is_warned_once(settings, seen, caplog, monkeypatch):
+    from hikesense import guest_quota
+
+    monkeypatch.setattr(guest_quota, "_warned", False)  # once per process; earlier tests may have warned
+    client = TestClient(create_app(settings, deps_factory=lambda: "deps"))
+    with caplog.at_level(logging.WARNING, logger="hikesense.guest_quota"):
+        for _ in range(3):
+            body = {"thread_id": str(uuid.uuid4()), "message": "x"}
+            client.post("/chat", json=body, headers={"X-Forwarded-For": "203.0.113.9"})
+    warnings = [r for r in caplog.records if "HIKESENSE_TRUSTED_PROXY_HOPS" in r.getMessage()]
+    assert len(warnings) == 1
