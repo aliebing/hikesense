@@ -175,6 +175,7 @@ _T = {
         "weather": {"fine": "schön", "dry": "trocken", "snow": "Schnee"},
         "min": "mindestens {v} {unit}",
         "max": "höchstens {v} {unit}",
+        "near": "bei",
         "kinds": {
             "peak": "Gipfel",
             "town": "Ort",
@@ -266,6 +267,7 @@ _T = {
         "weather": {"fine": "fine", "dry": "dry", "snow": "snow"},
         "min": "at least {v} {unit}",
         "max": "at most {v} {unit}",
+        "near": "near",
         "kinds": {
             "peak": "peak",
             "town": "town",
@@ -969,6 +971,11 @@ def _resolve_start(vocab: TagVocabulary, text: str, lang: Lang = "de") -> Resolv
     when the text as given resolves to nothing unique."""
     text = _EXONYMS.get(_strip(text), text)
     first = _resolve_start_once(vocab, text, lang)
+    if isinstance(first, Clarify) and (near := _BEI.match(text)):
+        # "Neukirch bei Furtwangen": the place of that name whose nearest town is the one named
+        hit = _near_town_match(vocab, near["name"], near["town"])
+        if hit is not None:
+            return _to_start(hit)
     rest = text
     while isinstance(first, Clarify) and _EN_PREFIX.match(rest):
         rest = _EN_PREFIX.sub("", rest, count=1)
@@ -979,6 +986,22 @@ def _resolve_start(vocab: TagVocabulary, text: str, lang: Lang = "de") -> Resolv
             # the bare name is ambiguous ("Mount Feldberg" -> which Feldberg): ask about it
             first = again
     return first
+
+
+_BEI = re.compile(r"^(?P<name>.+?)\s+(?:bei|near)\s+(?P<town>.+)$", re.IGNORECASE)
+
+
+def _near_town_match(vocab: TagVocabulary, name: str, town: str) -> Tag | None:
+    """The one place called `name` whose display name names `town` as its nearest town."""
+    cands = [t for t in vocab.all() if t.category in ("place", "area")]
+    shown = _display_names(cands, "de")
+    needle = fold(f"bei {town}")
+    hits = [
+        t
+        for t in cands
+        if _strip(t.label) == _strip(name) and fold(shown[t.id]).rstrip(")").endswith(needle)
+    ]
+    return hits[0] if len(hits) == 1 else None
 
 
 def _resolve_start_once(vocab: TagVocabulary, text: str, lang: Lang) -> ResolvedStart | Clarify:
@@ -1092,7 +1115,9 @@ def _options(tags: list[Tag], shown: dict[str, str], lang: Lang = "de") -> list[
 
 
 def _display_names(tags: list[Tag], lang: Lang = "de") -> dict[str, str]:
-    """Label per tag id; identical labels get the kind in parentheses to stay distinct."""
+    """Label per tag id; identical labels get the kind in parentheses to stay distinct, and places
+    that share label and kind (three villages "Neukirch") also the nearest town:
+    "Neukirch (Ort bei Furtwangen)"."""
     counts: dict[str, int] = {}
     for t in tags:
         counts[t.label] = counts.get(t.label, 0) + 1
@@ -1102,7 +1127,37 @@ def _display_names(tags: list[Tag], lang: Lang = "de") -> dict[str, str]:
         if counts[t.label] > 1:
             kind = t.rule.kind if isinstance(t.rule, NearPlace) else None
             out[t.id] = f"{t.label} ({_T[lang]['kinds'].get(kind or '', t.id)})"
+    same: dict[str, list[Tag]] = {}
+    for t in tags:
+        if out[t.id] != t.label:
+            same.setdefault(out[t.id], []).append(t)
+    towns = None
+    for name, group in same.items():
+        if len(group) < 2:
+            continue
+        if towns is None:
+            towns = [
+                t
+                for t in tags
+                if isinstance(t.rule, NearPlace) and t.rule.kind == "town" and t.rule.lat is not None
+            ]
+        for t in group:
+            town = _nearest_town(t, towns)
+            if town is not None:
+                out[t.id] = f"{name[:-1]} {_T[lang]['near']} {town})"
     return out
+
+
+def _nearest_town(t: Tag, towns: list[Tag]) -> str | None:
+    """Name (without "(…)") of the town closest to `t`, not `t` itself; None without coordinates."""
+    if not isinstance(t.rule, NearPlace) or t.rule.lat is None:
+        return None
+    others = [o for o in towns if o.id != t.id and _strip(o.label) != _strip(t.label)]
+    if not others:
+        return None
+    here = (t.rule.lat, t.rule.lon)
+    best = min(others, key=lambda o: haversine_km(here, (o.rule.lat, o.rule.lon)))
+    return _PAREN.sub("", best.label).strip()
 
 
 def _to_start(tag: Tag) -> ResolvedStart:

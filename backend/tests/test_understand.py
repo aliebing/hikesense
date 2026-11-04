@@ -12,7 +12,7 @@ from hikesense.agent.request import (
     RawWish,
     ResolvedStart,
 )
-from hikesense.agent.understand import echo, start_of, understand
+from hikesense.agent.understand import echo, resolve_option, start_of, understand
 from hikesense.llm.gateway import FakeGateway
 from hikesense.tags.vocabulary import FEATURES_YAML, Attribute, NearPlace, Tag, TagVocabulary
 
@@ -255,6 +255,45 @@ def _dup_vocab(vocab):
     return TagVocabulary(
         vocab.all() + [tag("place:dupberg", "peak", 7), tag("place:dupberg-n8", "town", 8)]
     )
+
+
+def _neukirch_vocab(vocab):
+    def place(tid, label, kind, lat, lon, pid):
+        return Tag(
+            id=tid,
+            label=label,
+            category="place",
+            rule=NearPlace(place_id=pid, radius_km=15, lat=lat, lon=lon, kind=kind),
+        )
+
+    return TagVocabulary(
+        vocab.all()
+        + [
+            place("place:neukirch-1", "Neukirch", "village", 48.197, 8.698, 901),
+            place("place:neukirch-2", "Neukirch", "village", 48.025, 8.173, 902),
+            place("place:neukirch-3", "Neukirch", "village", 47.657, 9.703, 903),
+            place("place:schoemberg", "Schömberg", "town", 48.21, 8.76, 904),
+            place("place:furtwangen", "Furtwangen", "town", 48.05, 8.21, 905),
+            place("place:lindau", "Lindau (Bodensee)", "town", 47.55, 9.68, 906),
+        ]
+    )
+
+
+def test_same_name_and_kind_options_name_the_nearest_town(vocab):
+    v = _neukirch_vocab(vocab)
+    res = understand(gw_of(start_text="Neukirch"), v, "x", None)
+    assert isinstance(res, Clarify)
+    assert set(res.options) == {
+        "Neukirch (Ort bei Schömberg)",
+        "Neukirch (Ort bei Furtwangen)",
+        "Neukirch (Ort bei Lindau)",
+    }
+    assert resolve_option(v, "Neukirch (Ort bei Furtwangen)").tag_id == "place:neukirch-2"
+    assert resolve_option(v, "Neukirch (village near Lindau)").tag_id == "place:neukirch-3"
+    req = understand(gw_of(start_text="Neukirch (Ort bei Schömberg)"), v, "x", None)
+    assert req.start.tag_id == "place:neukirch-1"
+    for text in ("Neukirch bei Furtwangen", "Neukirch near furtwangen"):
+        assert understand(gw_of(start_text=text), v, "x", None).start.tag_id == "place:neukirch-2"
 
 
 def test_same_tag_same_mode_keeps_max_weight(vocab):
