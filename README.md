@@ -29,7 +29,7 @@ The predecessor HikeAI (Sprint 2) was criticised for three things, and this proj
 - **Weather day finder:** "a round walk near Titisee in fine weather" finds the matching days in the 14-day Open-Meteo forecast.
 - **Knowledge questions** ("How is the Westweg waymarked?") are answered only from an indexed source (Wikipedia, Wikivoyage, own texts), always with source and licence.
 - **On the trail (PWA):** your position on today's stage, remaining km and estimated arrival – computed in the browser, nothing is sent.
-- **Accounts and roles:** saved plans and saved searches, private photo uploads; an admin backend (`/admin`) shows every search with the model's prompts, tool calls, costs and timings.
+- **Guests and accounts:** guests chat without an account (10 requests a day per IP, 200 for all guests together); sign-up with e-mail confirmation and "forgot password" for saved plans, saved searches and private photo uploads. A separate admin backend at `/backend` (not linked, own sign-in) shows every search with the model's prompts, tool calls, costs and timings, and blocks or unblocks accounts.
 - **Hiking groups and races:** a curated club list and a live race search where every field needs a verbatim quote from the organiser's page.
 
 ## How it works
@@ -53,7 +53,7 @@ One chat message runs through a LangGraph graph (`backend/src/hikesense/agent/gr
 3. **search / multiday / react / groups / events** – the code does the work: PostGIS search and condition checks, day planning, weather. Only knowledge questions (`react`) use classic tool calling: the model gets JSON function specs and asks for `get_trail_details`, `find_accommodation`, `hiking_time` or `search_knowledge`; the code runs them and returns JSON (max. 8 calls).
 4. **answer** – the model words the reply from the data the code prepared.
 5. **ground** – every number and tour name in the reply is checked against the tool results; unsupported numbers are replaced by "?". The code's own honest sentences ("No tour meets all your wishes, because …") come first, verbatim.
-6. **log** – one JSON line per turn, shown in `/admin`.
+6. **log** – one JSON line per turn, shown in `/backend`.
 
 **The code decides, the model words it.** A step-by-step explanation with real JSON examples is in [docs/presentation/ki-ablauf.md](docs/presentation/ki-ablauf.md) (German and English).
 
@@ -101,7 +101,7 @@ npx supabase start            # local Supabase (Postgres + PostGIS, Auth, Storag
 npx supabase status           # copy the anon key into SUPABASE_ANON_KEY in .env
 ```
 
-In `.env` also set `OPENROUTER_API_KEY`, a random `HIKESENSE_SMOKE_PASSWORD` and `HIKESENSE_ADMIN_PASSWORD_HASH` (bcrypt hash, the command is in `.env.example`).
+In `.env` also set `OPENROUTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (from `npx supabase status`; server only, never `NEXT_PUBLIC_*`), a random `HIKESENSE_SMOKE_PASSWORD`, and the two backend lines printed by `make admin-secrets` (`HIKESENSE_ADMIN_PASSWORD_HASH`, `HIKESENSE_ADMIN_SESSION_SECRET`).
 
 Import the data (takes a few hours; trails come from the public Overpass API, places and lodgings from local Geofabrik extracts):
 
@@ -117,10 +117,10 @@ Start the app:
 
 ```sh
 make up            # Supabase + API (:8000) + web app (:3000) in Docker
-make admin-user    # local admin: sign in as "admin"
+make users-migrate # once after upgrading: confirms existing accounts, removes the old admin account
 ```
 
-Open http://localhost:3000, create an account (no e-mail confirmation locally) and try:
+Open http://localhost:3000 and try it as a guest, or create an account: the confirmation mail lands in the local Mailpit inbox at http://127.0.0.1:54324. The admin backend is at http://localhost:3000/backend (name `admin`). Try:
 
 - "A round walk near Titisee, about 10 km"
 - "Round walk, under 200 m ascent, over 15 km, Feldberg"
@@ -130,7 +130,7 @@ Open http://localhost:3000, create an account (no e-mail confirmation locally) a
 
 Tests: `make test` (backend + web). Smoke test against the real model: `make smoke-user && make smoke` (about $0.01). On a phone: `cloudflared tunnel --url http://localhost:3000` gives an HTTPS address for location and installation.
 
-**LangSmith (optional):** with `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com` and `LANGSMITH_PROJECT=hikesense` in `.env`, every chat turn appears in LangSmith as a tree of graph nodes, LLM calls and tool calls, tagged with the `request_id` of the `/admin` log line. Off by default; when on, messages and prompts are stored by LangChain Inc. (EU region) – the user id and e-mail are never sent.
+**LangSmith (optional):** with `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com` and `LANGSMITH_PROJECT=hikesense` in `.env`, every chat turn appears in LangSmith as a tree of graph nodes, LLM calls and tool calls, tagged with the `request_id` of the `/backend` log line. Off by default; when on, messages and prompts are stored by LangChain Inc. (EU region) – the user id and e-mail are never sent.
 
 Costs are capped at $0.05 and 8 tool calls per message, and at 10 messages per minute / 100 per day per account.
 

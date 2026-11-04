@@ -53,7 +53,7 @@ HikeSense ist deshalb neu gebaut. Im Vordergrund steht das Planen, der Chat ist 
 5. **Wissensfragen mit Quelle:** beantwortet Fragen wie „Wie ist der Westweg markiert?“ aus einem Index mit Wikipedia, Wikivoyage und eigenen Texten, immer mit Quelle und Lizenz. Ohne Quelle gibt es keine Antwort.
 6. **Unterwegs (PWA):** zeigt auf dem Handy die eigene Position auf dem Tagesabschnitt, die Restkilometer und die geschätzte Ankunft. Alles wird im Browser berechnet, nichts wird aufgezeichnet.
 7. **Bilder:** Touren und Etappen haben Bilder von Wikimedia Commons mit Urheber und Lizenz. Man kann sie durchblättern, als Hintergrund wählen und eigene, private Fotos hinzufügen.
-8. **Konten:** Anmeldung über Supabase Auth. Gemerkte Pläne erscheinen unter „Meine Pläne“, auch auf dem Handy. Planen im Chat und Fotos hochladen gehen nur angemeldet.
+8. **Gäste und Konten:** Chatten geht ohne Konto (Gast). Merken, „Meine Pläne“ und Fotos hochladen brauchen ein Konto (Supabase Auth mit E-Mail-Bestätigung). Gemerkte Pläne erscheinen unter „Meine Pläne“, auch auf dem Handy.
 
 Dazu kommen eine kuratierte Liste von Wandervereinen und eine Suche nach Laufveranstaltungen mit Quellenpflicht (siehe [Gruppen und Läufe](#gruppen-und-läufe)).
 
@@ -175,7 +175,7 @@ Was die Zahlen **nicht** zeigen:
 - **Herkunft und Lizenz sind sichtbar.** Jede importierte Zeile hat eine Quelle mit Lizenz. Die Karte nennt OSM (ODbL) und BKG (CC BY 4.0), jedes Bild Urheber und Lizenz, jede Wissensantwort ihre Quelle mit Lizenz. Der Wetterhinweis nennt Open-Meteo (CC BY 4.0). Die Etappeneinteilungen sind als Fakten mit Link übernommen, ohne Texte.
 - **Der Standort bleibt im Browser.** „Unterwegs“ rechnet Restkilometer und Ankunft auf dem Gerät. Die Position wird weder gesendet noch gespeichert noch protokolliert. Die Ortung läuft nur, solange die Seite offen und gestartet ist. Es gibt keine Hintergrundortung und keine Aufzeichnung.
 - **Eigene Fotos sind privat.** Nur der Eigentümer sieht sie (Row Level Security). Vor dem Hochladen kodiert der Browser sie neu als JPEG. Dabei fallen EXIF- und GPS-Daten weg.
-- **Keine Kontodaten an das Modell.** E-Mail und Nutzer-ID gehen nicht an das Modell und nicht an LangSmith (dort nur ein gekürzter SHA-256). Das lokale Chat-Protokoll (`data/logs/chat.jsonl`) enthält für den Admin-Bereich Suchtext, Antwort und Nutzer-ID, also persönliche Daten: Es bleibt lokal, ist git-ignoriert und nur für Konten mit Rolle `admin` sichtbar (siehe [Backend (Admin)](#backend-admin)).
+- **Keine Kontodaten an das Modell.** E-Mail und Nutzer-ID gehen nicht an das Modell und nicht an LangSmith (dort nur ein gekürzter SHA-256). Das lokale Chat-Protokoll (`data/logs/chat.jsonl`) enthält für den Admin-Bereich Suchtext, Antwort und Nutzer-ID, also persönliche Daten: Es bleibt lokal, ist git-ignoriert und nur im Admin-Backend `/backend` sichtbar (siehe [Backend (Admin)](#backend-admin)).
 - **Prompt-Injection:** Der Eingabeschutz beantwortet bekannte Injection-Muster und themenfremde Fragen mit einer festen Antwort, ohne das Modell aufzurufen. Antworten, die den Systemprompt wiedergeben würden, werden ersetzt.
 - **Sicherheitshinweis:** Wetter, Sperrungen und Gelände bitte vor Ort selbst prüfen. Die App ersetzt keine Ortskenntnis. Gehzeiten sind Richtwerte nach DIN 33466 ohne Pausen.
 - **Gruppen:** Die Liste enthält nur Name, Art, Ort, Link und Prüfdatum, keine Personen und keine Termine. Sie sagt offen, ob ein Eintrag von Hand oder nur automatisch geprüft ist.
@@ -215,7 +215,7 @@ Der Chat nutzt ein Sprachmodell über [OpenRouter](https://openrouter.ai) (Stand
 
    Die API lädt Merkmale und Orte beim ersten Chat; nach `make tags` oder einem neuen Orts-Import die API neu starten (`make up`).
 
-3. API und Web-App starten (`make up`), auf http://localhost:3000 anmelden (siehe „Konto anlegen“) und den Chat in der Mitte der Startseite nutzen. Ohne Anmeldung zeigt der Chat statt des Eingabefelds „Zum Planen bitte anmelden“. Hat der Chat Touren gefunden, stehen sie als Kacheln rechts neben dem Chat; ein Klick auf eine Kachel öffnet die Tourseite mit eingebetteter Karte, Beschreibung, Unterkünften, Einkehr und Aussicht. Bei genau einer Tour zeigt die Startseite gleich Beschreibung und Karte, bei einem Mehrtagesplan die Tage und den Weg zur Planansicht `/plan` mit Karte. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag (gezählt je Nutzer-ID, nicht je IP-Adresse).
+3. API und Web-App starten (`make up`), http://localhost:3000 öffnen und den Chat in der Mitte der Startseite nutzen, als Gast oder angemeldet (siehe „Konto anlegen“). Hat der Chat Touren gefunden, stehen sie als Kacheln rechts neben dem Chat; ein Klick auf eine Kachel öffnet die Tourseite mit eingebetteter Karte, Beschreibung, Unterkünften, Einkehr und Aussicht. Bei genau einer Tour zeigt die Startseite gleich Beschreibung und Karte, bei einem Mehrtagesplan die Tage und den Weg zur Planansicht `/plan` mit Karte. Je Konto gelten höchstens 10 Nachrichten pro Minute und 100 pro Tag (gezählt je Nutzer-ID). Gäste haben 10 Anfragen in 24 Stunden je IP-Adresse (IPv6 je /64) und alle Gäste zusammen 200 (`HIKESENSE_GUEST_PER_DAY`, `HIKESENSE_GUEST_TOTAL_PER_DAY`); beide Zählungen liegen in der Datenbank (`guest_requests`) und überstehen einen Neustart. Danach antwortet der Chat „Melde dich an oder registriere dich, um weiterzumachen“ mit Anmelde-Link.
 
 Beispiel-Fragen:
 
@@ -234,26 +234,27 @@ Erfüllt keine Tour alle Wünsche, beginnt die Antwort mit „Keine Tour erfüll
 
 ```sh
 make smoke-user   # Passwort aus HIKESENSE_SMOKE_PASSWORD in .env (zufällig wählen, nie einchecken)
-make admin-user   # lokaler Admin: Anmeldename „admin“, in .env nur der bcrypt-Hash (HIKESENSE_ADMIN_PASSWORD_HASH)
+make admin-secrets   # Backend-Anmeldung: fragt ein Passwort, gibt Hash und Sitzungsgeheimnis für .env aus
 ```
 
-in der lokalen Supabase-Auth an. Ergebnis: `data/smoke/result-<Datum>.csv` (je Fall ok, unbelegte Zahlen, Kosten) und die Gesamtkosten (zuletzt etwa 0,01 USD); Exit-Code 1, wenn eine Erwartung nicht erfüllt ist. Erwartungen werden nie gelockert, um einen Fall grün zu machen.
+in der lokalen Supabase-Auth an (der Smoke-Nutzer wird über die Admin-API gleich bestätigt angelegt, dafür braucht es `SUPABASE_SERVICE_ROLE_KEY`). Ergebnis: `data/smoke/result-<Datum>.csv` (je Fall ok, unbelegte Zahlen, Kosten) und die Gesamtkosten (zuletzt etwa 0,01 USD); Exit-Code 1, wenn eine Erwartung nicht erfüllt ist. Erwartungen werden nie gelockert, um einen Fall grün zu machen.
 
 ## Konto anlegen
 
-Planen im Chat, Pläne merken und eigene Fotos brauchen ein Konto. Auf http://localhost:3000/anmelden E-Mail und Passwort (mindestens 6 Zeichen) eingeben und „Konto anlegen“ wählen; die lokale Supabase bestätigt E-Mail-Adressen automatisch (`enable_confirmations = false` in `supabase/config.toml`), es wird keine Mail verschickt. Danach steht im Kopf neben „Fernwege“ das Kontomenü mit „Meine Pläne“ und „Abmelden“.
+Pläne merken, „Meine Pläne“ und eigene Fotos brauchen ein Konto; Chatten geht auch als Gast. Auf http://localhost:3000/anmelden E-Mail und Passwort (mindestens 6 Zeichen) eingeben und „Konto anlegen“ wählen. Supabase schickt eine Bestätigungsmail (`enable_confirmations = true` in `supabase/config.toml`); lokal landet sie im Test-Postfach Mailpit unter http://127.0.0.1:54324. Der Link führt auf `/anmelden/bestaetigt`, erst danach ist die Anmeldung möglich („Bestätigungsmail erneut senden“ steht auf der Anmeldeseite). „Passwort vergessen?“ schickt einen Link auf `/passwort-neu`; die Meldung ist immer dieselbe, ob es die Adresse gibt oder nicht. Die Mailtexte sind die Standardtexte von Supabase; echter Versand (SMTP) kommt erst mit dem Online-Gang. Danach steht im Kopf neben „Fernwege“ das Kontomenü mit „Meine Pläne“ und „Abmelden“. Meldet sich ein Gast mitten im Gespräch an, bleibt der sichtbare Verlauf stehen, das Gedächtnis des Assistenten beginnt aber neu.
 
-- Die API nimmt `/chat` nur mit gültigem Supabase-Access-Token an (`Authorization: Bearer …`). Läuft die Sitzung mitten im Gespräch ab, zeigt der Chat „Sitzung abgelaufen – bitte erneut anmelden“, der getippte Text bleibt im Eingabefeld.
+- Die API nimmt `/chat` ohne `Authorization`-Header als Gast an. Ein mitgeschicktes, aber ungültiges oder abgelaufenes Token gibt 401 (kein stiller Wechsel zum Gast). Läuft die Sitzung mitten im Gespräch ab, zeigt der Chat „Sitzung abgelaufen – bitte erneut anmelden“, der getippte Text bleibt im Eingabefeld.
 - Das Backend prüft das Token über die JWKS der lokalen Supabase (`SUPABASE_URL`); ältere Projekte mit HS256 brauchen `SUPABASE_JWT_SECRET` in `.env`.
 - An das Modell gehen weder E-Mail noch Nutzer-ID. Das Protokoll (`data/logs/chat.jsonl`) enthält die Nutzer-ID für das Backend (siehe „Backend (Admin)“); ältere Zeilen haben nur einen gekürzten SHA-256 der ID (12 Zeichen).
 - Gemerkte Pläne und hochgeladene Fotos sieht nur ihr Eigentümer (Row Level Security). Fotos werden vor dem Hochladen im Browser neu als JPEG kodiert, dabei fallen EXIF- und GPS-Daten weg; erlaubt sind JPEG, PNG und WebP bis 10 MB.
-- **Rollen:** Jedes Konto hat eine Zeile in `profiles` mit Rolle `user` (Standard) oder `admin`; sie entsteht per Trigger bei der Registrierung, Clients können sie nur lesen. `make admin-user` setzt für `admin@hikesense.local` auch die Rolle `admin`. `GET /admin/me` (mit Bearer-Token, über Next als `/api/admin/me`) antwortet für Admins mit 200 und `{user_id, role}`, für normale Konten mit 403 „Kein Zugriff“, ohne gültiges Token mit 401 und bei ausgefallener Datenbank mit 503.
-- **Vor dem Freigeben (Tunnel):** `make admin-user` muss gelaufen sein, bevor die App von außen erreichbar ist: Die Registrierung braucht keine E-Mail-Bestätigung, sonst könnte jemand zuerst `admin@hikesense.local` anlegen und wäre Admin.
+- **Konten (`app_users`):** Jedes Konto hat eine Zeile in `app_users` mit Status `aktiv` oder `gesperrt`; sie entsteht per Trigger bei der Registrierung, Clients können nur ihre eigene lesen. Rollen gibt es nicht mehr: Der Admin ist kein App-Konto. `make users-migrate` bestätigt nach dem Umstieg einmalig alle bestehenden Konten und löscht das alte `admin@hikesense.local`.
+- **Sperren:** Im Backend sperrt der Admin ein Konto. Das Backend setzt über die Supabase-Admin-API (`SUPABASE_SERVICE_ROLE_KEY`) eine Sperre (keine Anmeldung, keine Token-Erneuerung) und den Status `gesperrt`. Das noch bis zu einer Stunde gültige Access-Token bewirkt nichts mehr: `/chat` antwortet 403, und RLS lässt in `saved_plans`, `photos` und dem Upload-Bucket nichts mehr schreiben oder löschen. Die Web-App fragt beim Start `/api/account` und meldet ein gesperrtes Konto ab (Chat leer, Hinweis „Dein Konto ist gesperrt.“). Abgemeldet kann die Person wie jeder Gast weiterchatten.
+- **Gast-IP:** Next reicht `X-Forwarded-For` nur durch, deshalb glaubt die API den Header erst mit `HIKESENSE_TRUSTED_PROXY_HOPS` > 0 (Anzahl der Reverse-Proxys vor der Web-App, die ihn ergänzen; online z. B. 1). Lokal (0) teilen sich alle Gäste eine Zählung. Im Protokoll steht für Gäste nur `gast:` plus ein Hash, nie die IP.
 - **Ergebnis merken:** Auf der Startseite speichert „Ergebnis merken“ (erst nach Ende der Antwort aktiv) eine Suche als Momentaufnahme: Nachrichten, Antwort, Hinweis und Kacheln. Sie steht unter „Meine Pläne“ im Abschnitt „Gemerkte Suchen“; `/gemerkt?id=…` zeigt sie so, wie sie war, ohne die Suche neu zu starten.
 
 ### Backend (Admin)
 
-`/admin` zeigt Benutzer und ihre Suchen mit Details und Summen. Der Zugang gilt nur für Konten mit Rolle `admin` (z. B. `admin@hikesense.local` nach `make admin-user`); alle anderen sehen „Kein Zugriff“. Admins haben im Kopf zusätzlich den Link „Backend“.
+`/backend` (nirgends verlinkt, `noindex`) zeigt Benutzer und ihre Suchen mit Details und Summen und unten die Benutzerverwaltung (Status unbestätigt/aktiv/gesperrt, Registrierung, letzte Anmeldung, Sperren/Entsperren mit Rückfrage). Es hat eine eigene Anmeldung: Name `admin`, Passwort gegen `HIKESENSE_ADMIN_PASSWORD_HASH` (bcrypt), danach ein signiertes HttpOnly-Cookie (`HIKESENSE_ADMIN_SESSION_SECRET`, 8 Stunden). Supabase-Tokens zählen dort nicht. Nach 5 Fehlversuchen in 15 Minuten ist die Anmeldung gesperrt (429). Fehlt Hash oder Geheimnis, ist das Backend aus. Gäste erscheinen als eine Zeile „Gäste“. `/admin` gibt es nicht mehr.
 
 Das Protokoll enthält je Anfrage:
 
@@ -271,7 +272,7 @@ Nie im Protokoll stehen Passwörter, Tokens oder Fehlermeldungen von Ausnahmen. 
 
 ### LangSmith (optional)
 
-With tracing on, every chat turn shows up in [LangSmith](https://eu.smith.langchain.com) as one run named `chat`: the LangGraph nodes, below them each LLM call (structured output, tool rounds, answer, the events web search) and each tool call (`search_day_hikes`, `plan_multiday`, the knowledge tools), with tokens, cost and duration. The run metadata carries the `request_id` of the matching `/admin` log line, `lang` and hashes of user and thread; tool inputs and outputs are cut at 20,000 characters.
+With tracing on, every chat turn shows up in [LangSmith](https://eu.smith.langchain.com) as one run named `chat`: the LangGraph nodes, below them each LLM call (structured output, tool rounds, answer, the events web search) and each tool call (`search_day_hikes`, `plan_multiday`, the knowledge tools), with tokens, cost and duration. The run metadata carries the `request_id` of the matching `/backend` log line, `lang` and hashes of user and thread; tool inputs and outputs are cut at 20,000 characters.
 
 Off by default. To enable, set in `.env` (also passed to the `api` service by `docker compose`) and restart the API:
 
