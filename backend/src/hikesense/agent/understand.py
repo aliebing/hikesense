@@ -906,6 +906,8 @@ def _tier(needle: str, terms: list[str]) -> int | None:
 
 
 SAME_PLACE_KM = 5.0
+# a municipality's centre point can lie a few km from its town's (Konstanz 5.6 km, Bad Dürkheim 6.2 km)
+SAME_MUNICIPALITY_KM = 10.0
 
 
 _MERGE_RANK = {"town": 0, "village": 1, "municipality": 2, "lake": 3}  # peaks never merge
@@ -913,7 +915,8 @@ _MERGE_RANK = {"town": 0, "village": 1, "municipality": 2, "lake": 3}  # peaks n
 
 def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
     """R25/R26: same-name (ignoring "(…)") town, village, municipality and lake within 5 km are
-    one place; keep the highest-priority one (town > village > municipality > lake; cities are towns)."""
+    one place (a municipality and its town or village within 10 km); keep the highest-priority one
+    (town > village > municipality > lake; cities are towns)."""
     ranked = [
         (t, _MERGE_RANK[t.rule.kind])
         for t in tags
@@ -924,7 +927,8 @@ def _drop_shadowed_places(tags: list[Tag]) -> list[Tag]:
         return any(
             r < rank
             and _strip(t.label) == _strip(o.label)
-            and haversine_km((t.rule.lat, t.rule.lon), (o.rule.lat, o.rule.lon)) <= SAME_PLACE_KM
+            and haversine_km((t.rule.lat, t.rule.lon), (o.rule.lat, o.rule.lon))
+            <= (SAME_MUNICIPALITY_KM if "municipality" in (t.rule.kind, o.rule.kind) else SAME_PLACE_KM)
             for o, r in ranked
         )
 
@@ -953,7 +957,31 @@ def _city_for(tags: list[Tag], needle: str) -> list[Tag] | None:
     return towns if len(towns) == 1 else None
 
 
+# English names of places in the regions whose OSM name is German; matched on the whole text only
+# ("Lake Constance" is the region's own synonym and must not become the town)
+_EXONYMS = {"constance": "Konstanz"}
+# English words in front of a name: "Lake Titisee", "Mount Feldberg", "the Black Forest"
+_EN_PREFIX = re.compile(r"^(?:the|lake|mount|mt\.?)\s+", re.IGNORECASE)
+
+
 def _resolve_start(vocab: TagVocabulary, text: str, lang: Lang = "de") -> ResolvedStart | Clarify:
+    """Resolves the start; English inputs get a second try without "the"/"Lake"/"Mount" in front
+    when the text as given resolves to nothing unique."""
+    text = _EXONYMS.get(_strip(text), text)
+    first = _resolve_start_once(vocab, text, lang)
+    rest = text
+    while isinstance(first, Clarify) and _EN_PREFIX.match(rest):
+        rest = _EN_PREFIX.sub("", rest, count=1)
+        again = _resolve_start_once(vocab, _EXONYMS.get(_strip(rest), rest), lang)
+        if not isinstance(again, Clarify) or (again.options and not first.options):
+            return again
+        if again.options and set(again.options) != set(first.options):
+            # the bare name is ambiguous ("Mount Feldberg" -> which Feldberg): ask about it
+            first = again
+    return first
+
+
+def _resolve_start_once(vocab: TagVocabulary, text: str, lang: Lang) -> ResolvedStart | Clarify:
     tr = _T[lang]
     cands = [t for t in vocab.all() if t.category in ("place", "area")]
     best: list[Tag] = []

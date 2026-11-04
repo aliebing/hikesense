@@ -31,18 +31,24 @@ STORED_CATEGORIES = ("feature", "surface")
 # Latitude bands from HikeAI data/regions.yaml (boundaries 48.30 and 47.95).
 _BF = (BLACK_FOREST_BBOX.west, BLACK_FOREST_BBOX.east)
 AREAS = (
-    ("area:nord", "Nordschwarzwald", ["Nordschwarzwald", "Nord", "Norden"], 48.30, 48.95),
+    (
+        "area:nord",
+        "Nordschwarzwald",
+        ["Nordschwarzwald", "Nord", "Norden", "Northern Black Forest", "North Black Forest"],
+        48.30,
+        48.95,
+    ),
     (
         "area:mitte",
         "Mittelschwarzwald",
-        ["Mittelschwarzwald", "Mitte", "Mittlerer Schwarzwald"],
+        ["Mittelschwarzwald", "Mitte", "Mittlerer Schwarzwald", "Central Black Forest", "Middle Black Forest"],
         47.95,
         48.30,
     ),
     (
         "area:sued",
         "Südschwarzwald",
-        ["Südschwarzwald", "Süden", "Südlicher Schwarzwald"],
+        ["Südschwarzwald", "Süden", "Südlicher Schwarzwald", "Southern Black Forest", "South Black Forest"],
         47.55,
         47.95,
     ),
@@ -191,10 +197,15 @@ class TagVocabulary:
 
 
 # Region-wide area tags: id, extra synonyms (the label is searched anyway)
+# (English names too: the app is bilingual and the model passes them through, e.g. "Lake Constance";
+# never plain "Constance", which is the town Konstanz)
 _REGION_AREAS = {
-    "black_forest": ("area:schwarzwald", []),
-    "palatinate": ("area:pfaelzerwald", ["Pfälzer Wald", "Pfalz"]),
-    "lake_constance": ("area:bodensee", ["am Bodensee", "Schwäbisches Meer"]),
+    "black_forest": ("area:schwarzwald", ["Black Forest"]),
+    "palatinate": (
+        "area:pfaelzerwald",
+        ["Pfälzer Wald", "Pfalz", "Palatinate Forest", "Palatinate", "Palatine Forest"],
+    ),
+    "lake_constance": ("area:bodensee", ["am Bodensee", "Schwäbisches Meer", "Lake Constance"]),
 }
 REGION_LABELS = frozenset(fold(r.name) for r in REGIONS)
 

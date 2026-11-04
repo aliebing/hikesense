@@ -12,7 +12,7 @@ from hikesense.agent.request import (
     RawWish,
     ResolvedStart,
 )
-from hikesense.agent.understand import echo, understand
+from hikesense.agent.understand import echo, start_of, understand
 from hikesense.llm.gateway import FakeGateway
 from hikesense.tags.vocabulary import FEATURES_YAML, Attribute, NearPlace, Tag, TagVocabulary
 
@@ -35,6 +35,8 @@ def vocab() -> TagVocabulary:
         _place("place:titisee-neustadt", "Titisee-Neustadt", 47.9, 8.2, 4),
         _place("place:hinterzarten", "Hinterzarten", 47.9, 8.1, 5),
         _place("place:hausach", "Hausach", 48.2836, 8.175, 6),
+        _place("place:titisee", "Titisee", 47.89, 8.15, 7),
+        _place("place:konstanz", "Konstanz", 47.66, 9.17, 8),
     ]
     return TagVocabulary(TagVocabulary.from_features(FEATURES_YAML).all() + places)
 
@@ -1732,3 +1734,54 @@ def test_a_wish_phrase_in_the_message_counts_even_if_the_model_missed_it(vocab, 
 def test_a_negated_wish_phrase_is_not_taken(vocab):
     req = understand(gw_of(start_text="Hinterzarten"), vocab, "Rundweg ab Hinterzarten, kein fester Untergrund nötig", None)
     assert isinstance(req, HikeRequest) and req.preferences == []
+
+
+@pytest.mark.parametrize(
+    ("text", "tag_id"),
+    [
+        ("Lake Constance", "area:bodensee"),
+        ("lake constance", "area:bodensee"),
+        ("Black Forest", "area:schwarzwald"),
+        ("Palatinate Forest", "area:pfaelzerwald"),
+        ("Palatinate", "area:pfaelzerwald"),
+        ("Northern Black Forest", "area:nord"),
+        ("Central Black Forest", "area:mitte"),
+        ("Southern Black Forest", "area:sued"),
+    ],
+)
+def test_english_region_names_resolve(vocab, text, tag_id):
+    # live on hikesense.de "Loop hike near Lake Constance" asked "Konstanz or Blankenstein?"
+    for lang in ("en", "de"):
+        start = start_of(vocab, text, lang)
+        assert start is not None and start.tag_id == tag_id, (text, lang, start)
+
+
+@pytest.mark.parametrize(
+    ("text", "tag_id"),
+    [
+        ("Constance", "place:konstanz"),  # the town, not "Lake Constance"
+        ("Lake Titisee", "place:titisee"),
+        ("lake Titisee", "place:titisee"),
+        ("Mount Feldberg (Schwarzwald)", "place:feldberg-schwarzwald"),
+        ("the Black Forest", "area:schwarzwald"),
+        ("Lake Constance", "area:bodensee"),  # a full synonym is never cut down to "Constance"
+    ],
+)
+def test_english_prefixes_and_exonyms(vocab, text, tag_id):
+    start = start_of(vocab, text, "en")
+    assert start is not None and start.tag_id == tag_id, (text, start)
+
+
+def test_town_and_its_municipality_6_km_apart_are_one_place():
+    # Konstanz: the municipality's centre point is 5.6 km from the town's (also Bad Dürkheim, Baiersbronn …)
+    from hikesense.agent.understand import _drop_shadowed_places
+
+    def p(tid, kind, lat, lon):
+        return Tag(id=tid, label="Konstanz", category="place", rule=NearPlace(place_id=1, radius_km=15, lat=lat, lon=lon, kind=kind))
+
+    town, muni = p("place:konstanz", "town", 47.659, 9.175), p("place:konstanz-r1", "municipality", 47.707, 9.150)
+    assert _drop_shadowed_places([town, muni]) == [town]
+    far = p("place:konstanz-r2", "municipality", 47.80, 9.30)  # 18 km: a different place of that name
+    assert _drop_shadowed_places([town, far]) == [town, far]
+    village = p("place:konstanz-v", "village", 47.707, 9.150)  # two settlements 5.6 km apart stay two
+    assert _drop_shadowed_places([town, village]) == [town, village]
