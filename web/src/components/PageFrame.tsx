@@ -3,20 +3,25 @@
 import Link from "next/link";
 import { useT } from "../i18n";
 import LanguageFlags from "./LanguageFlags";
+import LegalLinks from "./LegalLinks";
 import AccountMenu from "./AccountMenu";
 import { LogoMark, Wordmark } from "./Logo";
 
-/** Page frame: near-black ground (#070808), header with logo, optional „Fernwege“ menu and back link. No photo backdrop. */
+/** Page frame: near-black ground (#070808), header with logo, optional „Fernwege“ menu and back link. No photo backdrop.
+ * A small footer links Impressum and privacy notice; pages with their own CreditsLine (which
+ * carries those links) pass `legalFooter={false}`. */
 export default function PageFrame({
   children,
   back,
   longDistance = [],
   wide = false,
+  legalFooter = true,
 }: {
   children: React.ReactNode;
   back?: { href: string; label: string };
   longDistance?: { id: string; name: string }[];
   wide?: boolean;
+  legalFooter?: boolean;
 }) {
   const t = useT().frame;
   return (
@@ -53,6 +58,11 @@ export default function PageFrame({
           </nav>
         </header>
         {children}
+        {legalFooter && (
+          <footer data-legal className="schrift-feld mt-auto flex min-h-10 flex-wrap items-center gap-x-4 text-xs text-papier/70">
+            <LegalLinks />
+          </footer>
+        )}
       </div>
     </div>
   );

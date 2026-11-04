@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     max_tool_calls: int = 8
     max_cost_usd: float = 0.05
     chat_log_path: Path = Path("logs/chat.jsonl")
+    # chat log entries older than this are deleted (privacy notice: 30 days)
+    hikesense_log_retention_days: int = 30
     chroma_dir: Path = Path("chroma")
     hikesense_user_agent: str | None = None  # own User-Agent for event pages (None: neutral default)
     # optional LangSmith tracing: on only with LANGSMITH_TRACING=true and an API key

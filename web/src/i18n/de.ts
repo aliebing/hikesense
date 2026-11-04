@@ -468,6 +468,9 @@ export const de: Messages = {
   },
   frame: {
     tagline: "Plan. Hike. Stay. Explore.",
+    imprint: "Impressum",
+    privacy: "Datenschutz",
+    legalUpdated: "Stand",
     longDistance: "Fernwege",
     toHome: "← Zur Startseite",
     errorTitle: "Etwas ist schiefgelaufen.",

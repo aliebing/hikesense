@@ -113,7 +113,7 @@ export default async function TrailPage({
   const backdrop = pickBackdrop([...(trail.cover ? [trail.cover] : []), ...trail.photos], pool ?? [], trailId);
 
   return (
-    <PageFrame wide>
+    <PageFrame wide legalFooter={false}>
       <Backdrop photo={backdrop} />
       <Link
         href={back.href}

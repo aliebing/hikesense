@@ -58,7 +58,7 @@ export default async function Home() {
   });
 
   return (
-    <PageFrame wide longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
+    <PageFrame wide legalFooter={false} longDistance={longDistance.map(({ id, name }) => ({ id, name }))}>
       <HomeStage landscapes={landscapes.slice(0, 40)} />
       <CreditsLine />
     </PageFrame>

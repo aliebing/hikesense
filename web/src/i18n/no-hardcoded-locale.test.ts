@@ -4,7 +4,8 @@ import { join } from "node:path";
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
-    if (statSync(p).isDirectory()) return n === "i18n" ? [] : sources(p);
+    // i18n/ is the catalog; legal/ holds the legal texts in both languages (German is binding)
+    if (statSync(p).isDirectory()) return n === "i18n" || n === "legal" ? [] : sources(p);
     return /\.(ts|tsx)$/.test(n) && !/\.test\.tsx?$/.test(n) ? [p] : [];
   });
 }

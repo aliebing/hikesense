@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useT } from "../i18n";
+import LegalLinks from "./LegalLinks";
 
 /** The short, readable credit line under a page: OSM and elevation (both must be named),
  * then a link to all sources and licences. `lead` goes first (e.g. a trail's own sources),
@@ -31,6 +32,7 @@ export default function CreditsLine({
         <Link href="/quellen" className="whitespace-nowrap underline-offset-4 hover:underline">
           {t.link}
         </Link>
+        <LegalLinks />
       </p>
       {children}
     </footer>

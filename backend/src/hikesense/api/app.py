@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from hikesense import chatlog
 from hikesense.adapters.open_meteo import weather_source
 from hikesense.admin_log import LogReader
 from hikesense.admin_session import LoginThrottle
@@ -72,6 +74,28 @@ def _register_sources(settings: Settings) -> None:
         log.warning("could not register the open-meteo source", exc_info=True)
 
 
+PRUNE_EVERY_S = 6 * 3600
+
+
+def _prune_chat_log(settings: Settings) -> None:
+    try:
+        gone = chatlog.prune(settings.chat_log_path, settings.hikesense_log_retention_days)
+        if gone:
+            log.info(
+                "chat log: %d entries older than %d days deleted",
+                gone,
+                settings.hikesense_log_retention_days,
+            )
+    except Exception:
+        log.exception("chat log prune failed")
+
+
+async def _prune_every(settings: Settings, seconds: float) -> None:
+    while True:
+        await asyncio.sleep(seconds)
+        await run_in_threadpool(_prune_chat_log, settings)
+
+
 def _default_users_lookup(settings: Settings) -> Callable[[], list[AppUser]]:
     def lookup() -> list[AppUser]:
         with psycopg.connect(settings.supabase_db_url, connect_timeout=5) as conn:
@@ -107,9 +131,14 @@ def create_app(
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        pruner = None
         if cfg is not None:
             await run_in_threadpool(_register_sources, cfg)
+            await run_in_threadpool(_prune_chat_log, cfg)
+            pruner = asyncio.create_task(_prune_every(cfg, PRUNE_EVERY_S))
         yield
+        if pruner is not None:
+            pruner.cancel()
 
     app = FastAPI(title="HikeSense", lifespan=lifespan)
     app.add_middleware(

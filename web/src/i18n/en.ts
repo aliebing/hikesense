@@ -473,6 +473,9 @@ export const en = {
   },
   frame: {
     tagline: "Plan. Hike. Stay. Explore.",
+    imprint: "Legal notice",
+    privacy: "Privacy",
+    legalUpdated: "Last updated",
     longDistance: "Long-distance trails",
     toHome: "← Home",
     errorTitle: "Something went wrong.",

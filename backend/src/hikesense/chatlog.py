@@ -4,7 +4,10 @@ backend; never passwords, tokens or exception texts."""
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+import json
+import os
+import threading
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -48,7 +51,36 @@ def hash_user(user_id: str) -> str:
     return hashlib.sha256(user_id.encode()).hexdigest()[:12]
 
 
+_LOCK = threading.Lock()  # write and prune of this process never interleave
+
+
 def write(path: Path, entry: ChatLogEntry) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as fh:
+    with _LOCK, path.open("a", encoding="utf-8") as fh:
         fh.write(entry.model_dump_json() + "\n")
+
+
+def _ts(line: str) -> datetime | None:
+    try:
+        ts = datetime.fromisoformat(json.loads(line)["ts"])
+    except (ValueError, KeyError, TypeError):
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=UTC)  # older lines: UTC without zone
+
+
+def prune(path: Path, days: int, now: datetime | None = None) -> int:
+    """Deletes entries older than `days` (privacy notice: chat logs are kept 30 days) and
+    unreadable lines; returns how many lines went. Rewrites the file atomically."""
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=days)
+    with _LOCK:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except FileNotFoundError:
+            return 0
+        kept = [line for line in lines if (ts := _ts(line)) is not None and ts > cutoff]
+        if len(kept) == len(lines):
+            return 0
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text("".join(line + "\n" for line in kept), encoding="utf-8")
+        os.replace(tmp, path)
+        return len(lines) - len(kept)
