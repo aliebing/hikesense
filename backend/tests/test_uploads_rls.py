@@ -88,3 +88,19 @@ def test_anon_cannot_insert_or_delete_photos(conn):
     _as(conn, "anon")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         conn.execute("insert into photos (source, url, author, license) values ('upload', 'p', 'x', 'privat')")
+
+
+def test_blocked_user_cannot_insert_photo_row(conn):
+    a = _user(conn)
+    conn.execute("update app_users set status = 'gesperrt', blocked_at = now() where user_id = %s", (a,))
+    _as(conn, "authenticated", a)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("insert into photos (source, url, author, license) values ('upload', %s, 'x', 'privat')", (f"{a}/t/x.jpg",))
+
+
+def test_blocked_user_cannot_upload_object(conn):
+    a = _user(conn)
+    conn.execute("update app_users set status = 'gesperrt', blocked_at = now() where user_id = %s", (a,))
+    _as(conn, "authenticated", a)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("insert into storage.objects (bucket_id, name, owner_id) values ('uploads', %s, %s)", (f"{a}/t/x.jpg", str(a)))

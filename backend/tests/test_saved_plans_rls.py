@@ -94,3 +94,25 @@ def test_search_kind_allowed(conn):
     _as(conn, "authenticated", a)
     conn.execute("insert into saved_plans (kind, title, payload) values ('search', 'x', '{}'::jsonb)")
     assert conn.execute("select count(*) from saved_plans where kind = 'search'").fetchone()[0] == 1
+
+
+def _block(conn, uid):
+    _reset(conn)
+    conn.execute("update app_users set status = 'gesperrt', blocked_at = now() where user_id = %s", (uid,))
+
+
+def test_blocked_user_cannot_insert_saved_plan(conn):
+    a = _user(conn)
+    _block(conn, a)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        _save(conn, a)
+
+
+def test_blocked_user_cannot_delete_saved_plan(conn):
+    a = _user(conn)
+    pid, _ = _save(conn, a)
+    _block(conn, a)
+    _as(conn, "authenticated", a)
+    assert conn.execute("delete from saved_plans where id = %s", (pid,)).rowcount == 0
+    _reset(conn)
+    assert conn.execute("select count(*) from saved_plans where id = %s", (pid,)).fetchone()[0] == 1
