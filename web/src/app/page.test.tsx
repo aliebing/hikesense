@@ -90,7 +90,7 @@ test("home footer: one short line with OSM and elevation credits and a link to a
   render(<ChatProvider>{await Home()}</ChatProvider>);
   const footer = screen.getByRole("contentinfo");
   expect(footer).toHaveTextContent(/© OpenStreetMap-Mitwirkende\s*Höhen: Copernicus DEM\s*Quellen & Lizenzen/);
-  expect(footer).toHaveClass("min-h-12", "text-sm", "font-normal"); // like the header navigation
+  expect(footer).toHaveClass("min-h-12", "w-full", "text-xs", "font-normal", "text-papier/70"); // header width, quiet text
   expect(within(footer).getByRole("link", { name: "© OpenStreetMap-Mitwirkende" })).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
   expect(within(footer).getByRole("link", { name: "Quellen & Lizenzen" })).toHaveAttribute("href", "/quellen");
 });
