@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import weakref
 from datetime import date, time, timedelta
 from typing import Protocol
 
@@ -993,8 +994,8 @@ _BEI = re.compile(r"^(?P<name>.+?)\s+(?:bei|near)\s+(?P<town>.+)$", re.IGNORECAS
 
 def _near_town_match(vocab: TagVocabulary, name: str, town: str) -> Tag | None:
     """The one place called `name` whose display name names `town` as its nearest town."""
-    cands = [t for t in vocab.all() if t.category in ("place", "area")]
-    shown = _display_names(cands, "de")
+    cands = _places(vocab)
+    shown = _shown(vocab, "de")
     needle = fold(f"bei {town}")
     hits = [
         t
@@ -1006,12 +1007,12 @@ def _near_town_match(vocab: TagVocabulary, name: str, town: str) -> Tag | None:
 
 def _resolve_start_once(vocab: TagVocabulary, text: str, lang: Lang) -> ResolvedStart | Clarify:
     tr = _T[lang]
-    cands = [t for t in vocab.all() if t.category in ("place", "area")]
+    cands = _places(vocab)
     best: list[Tag] = []
-    shown = _display_names(cands, lang)
+    shown = _shown(vocab, lang)
     if "(" in text or " – " in text:  # user gave the disambiguating suffix: full label first
         full = fold(text)
-        shown_all = [_display_names(cands, x) for x in LANGS]  # a clicked option of either language
+        shown_all = [_shown(vocab, x) for x in LANGS]  # a clicked option of either language
         best = [
             t
             for t in cands
@@ -1067,9 +1068,9 @@ def start_of(vocab: TagVocabulary, text: str, lang: Lang = "de") -> ResolvedStar
 def resolve_option(vocab: TagVocabulary, option: str) -> ResolvedStart | None:
     """The start behind one clarify option (exact display name or label, in either language),
     if unique."""
-    cands = [t for t in vocab.all() if t.category in ("place", "area")]
+    cands = _places(vocab)
     needle = fold(option)
-    names = {lang: _display_names(cands, lang) for lang in LANGS}  # once per language
+    names = {lang: _shown(vocab, lang) for lang in LANGS}
     hits = [t for lang in LANGS for t in cands if fold(names[lang][t.id]) == needle]
     hits = list({t.id: t for t in hits}.values())
     if not hits:
@@ -1112,6 +1113,34 @@ def _options(tags: list[Tag], shown: dict[str, str], lang: Lang = "de") -> list[
             name = _with_kind(t, lang)
         out.append(name)
     return out
+
+
+# Places and their display names per vocabulary: the vocabulary is loaded once per process and never
+# changes, while computing the names (nearest town for every same-name place) takes about a second.
+_PLACE_CACHE: weakref.WeakKeyDictionary[
+    TagVocabulary, tuple[list[Tag], dict[str, dict[str, str]]]
+] = weakref.WeakKeyDictionary()
+
+
+def _place_entry(vocab: TagVocabulary) -> tuple[list[Tag], dict[str, dict[str, str]]]:
+    entry = _PLACE_CACHE.get(vocab)
+    if entry is None:
+        entry = ([t for t in vocab.all() if t.category in ("place", "area")], {})
+        _PLACE_CACHE[vocab] = entry
+    return entry
+
+
+def _places(vocab: TagVocabulary) -> list[Tag]:
+    """Every place and area tag of the vocabulary (cached)."""
+    return _place_entry(vocab)[0]
+
+
+def _shown(vocab: TagVocabulary, lang: Lang) -> dict[str, str]:
+    """`_display_names` of all places in `lang`, computed once per vocabulary and language."""
+    cands, names = _place_entry(vocab)
+    if lang not in names:
+        names[lang] = _display_names(cands, lang)
+    return names[lang]
 
 
 def _display_names(tags: list[Tag], lang: Lang = "de") -> dict[str, str]:
@@ -1445,6 +1474,12 @@ def _check_multiday_start(
     one known place within 2 km of the line are offered: an option must work when the user
     clicks it (a village centre can lie further from the line than its stage end)."""
     trail_id = trail.rule.trail_id if isinstance(trail.rule, LongTrail) else ""
+    if start is None or start.lat is None or start.lon is None:
+        question = _T[lang]["start_question"]
+    elif trails is None or trails.start_km(trail_id, start.lat, start.lon) is not None:
+        return None  # on the trail: the options are never shown, so they are not built
+    else:
+        question = _T[lang]["off_trail"].format(label=start.label, trail=_trail_name(trail))
     places = trails.stage_places(trail_id) if trails is not None else []
     options = []
     for p in places:
@@ -1453,12 +1488,7 @@ def _check_multiday_start(
             continue
         if trails is None or trails.start_km(trail_id, res.lat, res.lon) is not None:
             options.append(p)
-    if start is None or start.lat is None or start.lon is None:
-        return Clarify(question=_T[lang]["start_question"], options=options)
-    if trails is not None and trails.start_km(trail_id, start.lat, start.lon) is None:
-        question = _T[lang]["off_trail"].format(label=start.label, trail=_trail_name(trail))
-        return Clarify(question=question, options=options)
-    return None
+    return Clarify(question=question, options=options)
 
 
 def _is_point(res: ResolvedStart | Clarify) -> bool:

@@ -832,6 +832,47 @@ def test_bare_westweg_takes_the_variant_the_start_lies_on(vocab):
     assert req.trail_assumed  # still only the bare name: the echo names the variant
 
 
+def test_a_start_on_the_trail_skips_the_stage_place_options(vocab):
+    """The clickable stage places are only built when they are shown: a start on the trail
+    needs one lookup, not one per stage place (live: 13 lookups, ~40 s)."""
+
+    class Counting(FakeTrails):
+        calls = 0
+        listed = 0
+
+        def start_km(self, trail_id, lat, lon):
+            Counting.calls += 1
+            return super().start_km(trail_id, lat, lon)
+
+        def stage_places(self, trail_id):
+            Counting.listed += 1
+            return super().stage_places(trail_id)
+
+    req = understand(
+        gw_of(intent="multiday", trail_text="Westweg Westvariante", start_text="Hausach", days=3),
+        vocab,
+        "3 Tage Westweg Westvariante ab Hausach",
+        None,
+        today=TODAY,
+        trails=Counting(),
+    )
+    assert isinstance(req, HikeRequest)
+    assert Counting.listed == 0 and Counting.calls == 1
+
+
+def test_place_display_names_are_computed_once_per_vocabulary(vocab, monkeypatch):
+    from hikesense.agent import understand as u
+
+    u._resolve_start(vocab, "Hausach")  # warm
+    calls = []
+    real = u._display_names
+    monkeypatch.setattr(u, "_display_names", lambda *a, **k: calls.append(1) or real(*a, **k))
+    for _ in range(3):
+        u._resolve_start(vocab, "Hausach")
+        u._resolve_start(vocab, "Hinterzarten")
+    assert calls == []
+
+
 def test_multiday_round_walk_says_it_becomes_stages(vocab):
     req = multi(
         vocab,
