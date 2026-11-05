@@ -71,6 +71,7 @@ from hikesense.agent.prompts import (
     plan_system,
     react_system,
 )
+from hikesense.agent.reply_lang import reply_lang
 from hikesense.agent.request import (
     MAX_DAYS,
     Clarify,
@@ -1963,6 +1964,22 @@ class _Private:
     value: str | None = field(repr=False)
 
 
+def _graph_thread(thread_id: str, user_hash: str | None) -> str:
+    # keyed by user as well: a thread id alone never continues another user's chat
+    return f"{user_hash or ''}:{thread_id}"
+
+
+def _turn_lang(deps: AgentDeps, thread_id: str, user_hash: str | None, message: str, page: Lang) -> Lang:
+    """Reply language of this turn: the message's own, else the conversation's so far, else the
+    page's (agent/reply_lang.py)."""
+    try:
+        state = deps.graph.get_state({"configurable": {"thread_id": _graph_thread(thread_id, user_hash)}})
+        previous = (state.values or {}).get("lang")
+    except Exception:  # noqa: BLE001 - no saved state is no reason to fail the turn
+        previous = None
+    return reply_lang(message, previous if previous in ("de", "en") else None, page)
+
+
 def _run_config(
     thread_id: str,
     request_id: str,
@@ -1975,8 +1992,7 @@ def _run_config(
     """Config of one chat turn. run_name/tags/metadata only matter with LangSmith tracing on:
     request_id matches the chat log line (/admin); thread and user only as hashes, never the
     raw user id or an e-mail."""
-    # keyed by user as well: a thread id alone never continues another user's chat
-    graph_thread = f"{user_hash or ''}:{thread_id}"
+    graph_thread = _graph_thread(thread_id, user_hash)
     return {
         "run_name": "chat",
         "tags": ["chat", f"lang:{lang}"],
@@ -2007,6 +2023,7 @@ def _run(
     lang: Lang = "de",
 ) -> Iterator[ChatEvent]:
     request_id = uuid.uuid4().hex
+    lang = _turn_lang(deps, thread_id, user_hash, message, lang)
     with metered(max_cost_usd=deps.settings.max_cost_usd) as usage, traced() as tr:
         config = _run_config(thread_id, request_id, user_hash, user_id, lang, usage, tr)
         stream = deps.graph.stream(_turn(message, lang), config, stream_mode="custom")

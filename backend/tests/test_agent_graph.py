@@ -1850,8 +1850,7 @@ def test_english_events_and_plan_texts(vocab, settings):
         },
         answers=["Plan."],
     )
-    # (English day counts are understood from Task 4 on: the message uses the German digits form)
-    list(run_chat(deps, "p-en", "5 Tage Westweg ab Hausach", lang="en"))
+    list(run_chat(deps, "p-en", "5 days on the Westweg from Hausach", lang="en"))
     data = deps.gateway.answer_users[-1]
     assert data.startswith(
         "Multi-day plan Westweg (Westvariante) from Hausach, 4 day(s), daily target "
@@ -1863,7 +1862,9 @@ def test_english_events_and_plan_texts(vocab, settings):
     assert text_of(events) == "The plan has 4 day(s) – there is no day 5 in it."
 
 
-def test_german_day_change_under_english_reply_is_understood(vocab, settings):
+def test_german_day_change_in_an_english_conversation_is_understood_and_answered_in_german(
+    vocab, settings
+):
     deps = make(
         vocab,
         settings,
@@ -1877,7 +1878,8 @@ def test_german_day_change_under_english_reply_is_understood(vocab, settings):
     )
     list(run_chat(deps, "p-de-en", "Westweg from Hausach, 5 days", lang="en"))
     events = list(run_chat(deps, "p-de-en", "Tag 5 kürzer", lang="en"))
-    assert text_of(events) == "The plan has 4 day(s) – there is no day 5 in it."
+    # the reply follows the message's language (agent/reply_lang.py), not the page's
+    assert text_of(events) == "Der Plan hat 4 Tag(e) – einen Tag 5 gibt es darin nicht."
 
 
 def test_english_react_data_and_system(vocab, settings):
@@ -1913,7 +1915,8 @@ def test_leak_check_replaces_a_prompt_fragment_per_language(vocab, settings, lan
 
     leaked = answer_system(lang)[:200]
     deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=[leaked])
-    events = list(run_chat(deps, f"leak-{lang}", FELDBERG_MSG, lang=lang))
+    msg = FELDBERG_MSG if lang == "de" else "Round walk from Feldberg, under 200 m ascent, over 15 km"
+    events = list(run_chat(deps, f"leak-{lang}", msg, lang=lang))
     assert texts(lang).leak_reply in text_of(events)
     assert leaked not in text_of(events)
 
@@ -2033,7 +2036,7 @@ def test_english_plan_with_weather_rain_variant_and_missing_forecast(vocab, sett
         answers=["Plan."],
         tools=FakeTools(weather={DRY.date: DRY, light.date: light}),
     )
-    events = run_en(deps, "3 Tage Westweg ab Hausach am 2.11.2026")
+    events = run_en(deps, "3 days on the Westweg from Hausach on 2.11.2026")
     plan = one(events, "plan")
     assert plan.plan.lang == "en"
     assert plan.weather[1].text == "Partly cloudy" and plan.weather[2].text == "Light rain"
@@ -2054,7 +2057,7 @@ def test_english_no_forecast_beyond_14_days_and_no_date(vocab, settings):
         structured={RawRequest: [westweg_raw(days=2, start_date="2026-11-20")]},
         answers=["Plan."],
     )
-    events = run_en(deps, "2 Tage Westweg ab Hausach am 20.11.2026")
+    events = run_en(deps, "2 days on the Westweg from Hausach on 20.11.2026")
     plan = one(events, "plan")
     assert all(w.code == "not_yet" for w in plan.weather.values())
     assert text_of(events).count("No forecast yet (more than 14 days ahead)") == 1
@@ -2465,7 +2468,8 @@ def test_run_config_carries_request_id_but_no_user_id(vocab, settings, monkeypat
     real = graph_mod._run_config
     monkeypatch.setattr(graph_mod, "_run_config", lambda *a: seen.append(real(*a)) or seen[-1])
     deps = make(vocab, settings, structured={RawRequest: [feldberg_raw()]}, answers=["Gut."])
-    list(run_chat(deps, "thread-x", FELDBERG_MSG, "hash123", user_id="u-secret-1", lang="en"))
+    msg = "Round walk from Feldberg, under 200 m ascent, over 15 km"
+    list(run_chat(deps, "thread-x", msg, "hash123", user_id="u-secret-1", lang="en"))
     (config,) = seen
     line = log_lines(settings)[-1]
     assert config["run_name"] == "chat" and "lang:en" in config["tags"]
@@ -2478,3 +2482,36 @@ def test_run_config_carries_request_id_but_no_user_id(vocab, settings, monkeypat
     sent = json.dumps([config["run_name"], config["tags"], md, derived], default=str)
     assert "u-secret-1" not in sent and "user_id" not in derived and "thread-x" not in sent
     assert "u-secret-1" not in repr(config["configurable"]["user_id"])
+
+
+FELDBERG_EN = "Round walk over 15 km at Feldberg"
+
+
+def clarify_text(events) -> str:
+    return next(e.question for e in events if e.type == "clarify")
+
+
+def ambiguous_feldberg() -> RawRequest:
+    return raw(start_text="Feldberg", roundtrip=True, length_km_min=15)
+
+
+def test_the_reply_follows_the_language_of_the_message_not_the_page(vocab, settings):
+    deps = make(
+        vocab, settings, structured={RawRequest: [ambiguous_feldberg(), ambiguous_feldberg()]}
+    )
+    english = list(run_chat(deps, "t-en", FELDBERG_EN, lang="de"))
+    german = list(run_chat(deps, "t-de", "Rundweg über 15 km am Feldberg", lang="en"))
+    assert clarify_text(english).startswith("Did you mean")
+    assert not clarify_text(german).startswith("Did you mean")
+
+
+def test_an_unclear_message_keeps_the_language_of_the_conversation(vocab, settings):
+    deps = make(
+        vocab,
+        settings,
+        structured={RawRequest: [ambiguous_feldberg(), ambiguous_feldberg()]},
+        answers=["Answer."],
+    )
+    list(run_chat(deps, "t1", FELDBERG_EN, lang="de"))  # asks back in English
+    events = list(run_chat(deps, "t1", "Feldberg", lang="de"))  # a bare name says nothing
+    assert one(events, "understood").text.startswith("Understood:")
