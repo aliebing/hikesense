@@ -114,7 +114,7 @@ export default async function TrailPage({
 
   return (
     <PageFrame wide legalFooter={false}>
-      <Backdrop photo={backdrop} full />
+      <Backdrop photo={backdrop} />
       <Link
         href={back.href}
         className="self-start rounded-full bg-papier px-5 py-2 text-sm font-semibold text-wald-dunkel shadow-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-papier"
@@ -187,7 +187,6 @@ export default async function TrailPage({
           {groups.length > 0 && (
             <Block title={t.groupsTitle}>
               <GroupList
-                inBlock
                 groups={groups}
                 note={t.groupsNote(dateIn(new Date(`${groups.map((g) => g.checked_at).sort()[0]}T00:00:00Z`), locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }), GROUP_RADIUS_KM)}
               />

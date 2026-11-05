@@ -70,7 +70,7 @@ export default function TourPreview({ card, runWithoutPace, fallback = false }: 
   const href = `/t/${card.trail_id}?von=chat`;
 
   return (
-    <article className="flex flex-col gap-4 rounded-md bg-papier/70 p-4 text-tinte">
+    <article className="flex flex-col gap-4 rounded-md bg-papier/90 p-4 backdrop-blur-sm text-tinte">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-wald-dunkel/70">{fallback ? t.previewFallback : t.previewFits}</p>
