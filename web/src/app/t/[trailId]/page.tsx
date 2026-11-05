@@ -114,7 +114,7 @@ export default async function TrailPage({
 
   return (
     <PageFrame wide legalFooter={false}>
-      <Backdrop photo={backdrop} />
+      <Backdrop photo={backdrop} full />
       <Link
         href={back.href}
         className="self-start rounded-full bg-papier px-5 py-2 text-sm font-semibold text-wald-dunkel shadow-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-papier"
