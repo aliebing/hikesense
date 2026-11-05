@@ -77,6 +77,8 @@ Unlike HikeAI2, which picked about 2,000 OSM routes by a tag-based "popularity s
 
 The app never queries OSM at runtime; the import commands produce a fixed state.
 
+**Why two stores (Supabase/PostGIS and ChromaDB):** trails, stages, places, lodgings and accounts live in Supabase, because the search joins them in one query (distance to the line, conditions, nearest room). The knowledge index never needs such a join: its texts answer questions on their own and are searched by meaning and by keyword. It therefore lives in an embedded ChromaDB next to the API, with local embeddings (fastembed, no API cost) and a BM25 index, fused by rank (RRF). If the texts ever had to be filtered by trail or region in the same query, pgvector inside Supabase would be the better place.
+
 ## Evaluation
 
 A fixed test set (`data/eval/cases.yaml`) runs against the real agent with `make eval` and is checked by code. SMART targets: 0 % invented tours, ≤ 2 % unsupported numbers, 100 % openly named unsatisfiable requests, Recall@5 ≥ 0.8. Results, repeated runs and the model comparison: [docs/evaluation/](docs/evaluation/README.md).
