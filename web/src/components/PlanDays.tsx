@@ -86,7 +86,7 @@ function DayCard({ d, from, place, weather, asOf, rain, unterwegsHref }: { d: Da
   const link = stop ? lodgingLink(stop, place, locale) : null;
   const end = stop ? (stop.name ?? lodgingKind(stop.kind, locale)) : t.trailEnd;
   return (
-    <li className="flex flex-col gap-1.5 rounded-xl bg-papier/95 p-3 text-sm text-wald-dunkel shadow">
+    <li className="flex flex-col gap-1.5 rounded-xl bg-papier/70 p-3 text-sm text-wald-dunkel shadow">
       <h3 className="font-serif text-base leading-snug">
         {t.day(d.day)}
         {date && ` · ${date}`}

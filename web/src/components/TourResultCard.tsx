@@ -91,7 +91,7 @@ export default function TourResultCard({
       className={`flex flex-col gap-1 rounded-md p-3 text-sm text-tinte ${
         card.near_miss ? "ring-2 ring-amber-400 focus-within:ring-4 focus-within:ring-amber-600 " : ""
       }${
-        from ? `relative bg-papier/80 backdrop-blur-sm shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl${card.near_miss ? "" : " focus-within:ring-2 focus-within:ring-amber-400"}` : "bg-papier/95"
+        from ? `relative bg-papier/70 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl${card.near_miss ? "" : " focus-within:ring-2 focus-within:ring-amber-400"}` : "bg-papier/70"
       }`}
     >
       {!photo && large && (

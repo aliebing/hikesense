@@ -40,7 +40,7 @@ export default function PlanPreview({ data }: { data: PlanData }) {
         <>
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {days.map((d, i) => (
-              <li key={d.day} className="flex flex-col gap-1 rounded-md bg-papier p-3 text-sm text-tinte">
+              <li key={d.day} className="flex flex-col gap-1 rounded-md bg-papier/70 p-3 text-sm text-tinte">
                 {photos[i] && (
                   <div className="flex flex-col gap-0.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -31,7 +31,7 @@ type CardProps = {
 /** Image card: photo (with attribution) or gradient, title and key figures. */
 export function ImageCard({ eyebrow, title, href, photo, facts }: CardProps) {
   return (
-    <article className="relative flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-papier text-wald-dunkel shadow-lg sm:w-72">
+    <article className="relative flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-papier/70 text-wald-dunkel shadow-lg sm:w-72">
       <div className="wald-verlauf relative aspect-[16/9]">
         {photo && (
           // eslint-disable-next-line @next/next/no-img-element
