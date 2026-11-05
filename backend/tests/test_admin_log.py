@@ -5,6 +5,7 @@ from hikesense.admin_log import (
     GUEST,
     UNKNOWN,
     LogReader,
+    account_label,
     detail,
     owner_of,
     searches,
@@ -70,7 +71,7 @@ def test_owner_by_user_id_then_hash_then_unknown():
 
 
 def test_old_line_summary_has_dashes():
-    s = summary(OLD, UNKNOWN, None)
+    s = summary(OLD, UNKNOWN)
     assert s["message"] is None and s["hits"] is None and s["detailed"] is False
     assert s["tokens"] == 1513 + 327
     assert s["fallback"] is False
@@ -80,16 +81,16 @@ def test_new_line_summary_hits_and_fallback():
     e = _row(1, message="hi", intent="day_hike", candidates=[
         {"status": "shown"}, {"status": "fallback"}, {"status": "rejected"}], duration_ms=7,
         llm_calls=[], tools=[{"name": "search_day_hikes"}])
-    s = summary(e, P1.user_id, P1.email)
+    s = summary(e, P1.user_id)
     assert s["hits"] == 2 and s["fallback"] is True and s["detailed"] is True
     assert s["duration_ms"] == 7
-    assert summary({**e, "intent": "knowledge", "tools": []}, "o", None)["hits"] is None
-    assert summary({**e, "candidates": [], "fallback_reason": "x"}, "o", None)["fallback"] is True
+    assert summary({**e, "intent": "knowledge", "tools": []}, "o")["hits"] is None
+    assert summary({**e, "candidates": [], "fallback_reason": "x"}, "o")["fallback"] is True
 
 
 def test_cost_unknown_when_not_reported():
     e = _row(1, cost_usd=0.0, calls_without_cost=2)
-    assert summary(e, "o", None)["cost_usd"] is None
+    assert summary(e, "o")["cost_usd"] is None
     res = searches([e, _row(2, cost_usd=0.25)], [], None, 0, 10)
     assert res["sums"]["cost_usd"] == 0.25
 
@@ -117,25 +118,41 @@ def test_users_counts_and_unknown_row():
 def test_detail_unknown_id_is_none():
     assert detail([_row(1)], [], "nope") is None
     d = detail([_row(1, user_id=P1.user_id)], [P1], "r1")
-    assert d["owner"] == P1.user_id and d["email"] == "a@x.de" and d["request_id"] == "r1"
+    assert d["owner"] == P1.user_id and d["request_id"] == "r1"
+    assert d["account"] == account_label(P1.user_id)
+
+
+def test_search_views_name_accounts_by_a_short_label_never_by_email():
+    """Data minimisation: the search log shows who searched only as "#3f9a2c"; the e-mail stays in
+    the account list, which also shows the label, for the rare case it is needed."""
+    es = [_row(1, user_id=P1.user_id), _row(2, user_hash="gast:abc")]
+    item, guest = searches(es, [P1], None, 0, 10)["items"]
+    d = detail(es, [P1], "r1")
+    for shown in (item, d):
+        assert "a@x.de" not in json.dumps(shown) and "email" not in shown and "user_id" not in shown
+    label = account_label(P1.user_id)
+    assert item["account"] == label and label.startswith("#") and len(label) == 7
+    assert guest["account"] is None and account_label(GUEST) is None and account_label(UNKNOWN) is None
+    row = next(u for u in users(es, [P1]) if u["user_id"] == P1.user_id)
+    assert row["email"] == "a@x.de" and row["account"] == label
 
 
 def test_hits_only_when_a_day_hike_search_ran():
     cands = [{"status": "shown"}, {"status": "fallback"}]
     ran = _row(1, message="m", intent="day_hike", candidates=cands, tools=[{"name": "search_day_hikes"}])
-    assert summary(ran, "o", None)["hits"] == 2
+    assert summary(ran, "o")["hits"] == 2
     clarify = _row(2, message="m", intent="day_hike", candidates=[], tools=[])
-    assert summary(clarify, "o", None)["hits"] is None
+    assert summary(clarify, "o")["hits"] is None
     trail = _row(3, message="m", intent="day_hike", candidates=cands, tools=[{"name": "get_trail"}])
-    assert summary(trail, "o", None)["hits"] is None
+    assert summary(trail, "o")["hits"] is None
     none_found = _row(4, message="m", intent="day_hike", candidates=[], tools=[{"name": "search_day_hikes"}])
-    assert summary(none_found, "o", None)["hits"] == 0
+    assert summary(none_found, "o")["hits"] == 0
 
 
 def test_detailed_follows_llm_calls_key():
     error_line = _row(1, message="Hallo", error="ValueError", llm_calls=[], tools=[])
-    assert summary(error_line, "o", None)["detailed"] is True
-    assert summary(_row(2), "o", None)["detailed"] is False
+    assert summary(error_line, "o")["detailed"] is True
+    assert summary(_row(2), "o")["detailed"] is False
 
 
 def test_sum_cost_is_none_when_no_cost_reported():
@@ -149,6 +166,6 @@ def test_guest_entries_grouped_as_one_row():
     assert owner_of(es[0], [P1]) == GUEST
     got = users(es, [P1])
     guest = next(u for u in got if u["user_id"] == GUEST)
-    assert guest == {"user_id": GUEST, "email": None, "status": "gast", "created_at": None,
+    assert guest == {"user_id": GUEST, "account": None, "email": None, "status": "gast", "created_at": None,
                      "last_sign_in_at": None, "searches": 2}
     assert [i["request_id"] for i in searches(es, [P1], GUEST, 0, 10)["items"]] == ["r1", "r2"]

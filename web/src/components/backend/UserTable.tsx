@@ -37,7 +37,7 @@ export default function UserTable({ users, onExpired }: { users: BackendUser[]; 
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-wald-dunkel/20">
-            {[t.userCols.email, t.userCols.status, t.userCols.created, t.userCols.lastSignIn, t.userCols.searches, t.userCols.action].map((h) => (
+            {[t.userCols.account, t.userCols.email, t.userCols.status, t.userCols.created, t.userCols.lastSignIn, t.userCols.searches, t.userCols.action].map((h) => (
               <th key={h} className="px-2 py-1 font-semibold">{h}</th>
             ))}
           </tr>
@@ -48,6 +48,7 @@ export default function UserTable({ users, onExpired }: { users: BackendUser[]; 
             const block = u.status !== "gesperrt";
             return (
               <tr key={u.user_id} className="border-b border-wald-dunkel/10">
+                <td className="px-2 py-1 font-mono">{u.account ?? MISSING}</td>
                 <td className="px-2 py-1">{guest ? t.guests : (u.email ?? u.user_id)}</td>
                 <td className={`px-2 py-1 ${u.status === "gesperrt" ? "font-semibold text-red-800" : ""}`}>{u.status ? t.accountStatus[u.status] : MISSING}</td>
                 <td className="px-2 py-1">{u.created_at ? when(u.created_at, locale) : MISSING}</td>

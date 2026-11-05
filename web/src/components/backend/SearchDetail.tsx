@@ -1,7 +1,7 @@
 import type { Candidate, DetailConstraint, DetailRequest, SearchDetail as Detail } from "../../lib/backend";
 import { messagesFor, type Locale } from "../../i18n/locale";
 import { useLocale, useT } from "../../i18n";
-import { ms, usd, when } from "../../lib/backend";
+import { ms, usd, when, whoSearched } from "../../lib/backend";
 import { dayLabel, MISSING, num } from "../../lib/format";
 import ChatText from "../ChatText";
 
@@ -140,7 +140,7 @@ export default function SearchDetail({ d }: { d: Detail }) {
     <div className="flex flex-col gap-4 text-sm">
       <div className="flex flex-col gap-1">
         <p className="text-xs text-wald-dunkel/70">
-          {t.meta(d.email ?? (d.owner === "unknown" ? t.unknown : d.owner), when(d.ts, locale), d.intent ?? MISSING, d.activity ?? MISSING)}
+          {t.meta(whoSearched(d.owner, d.account, t), when(d.ts, locale), d.intent ?? MISSING, d.activity ?? MISSING)}
         </p>
         {detailed && d.message && <p className="font-bold">{d.message}</p>}
         {(d.previous_messages?.length ?? 0) > 0 && (

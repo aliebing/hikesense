@@ -72,7 +72,16 @@ def _cost(entry: dict) -> float | None:
     return float(cost)
 
 
-def summary(entry: dict, owner: str, email: str | None) -> dict:
+def account_label(owner: str) -> str | None:
+    """Short pseudonym of an account for the search views ("#3f9a2c"): who searched is visible
+    without the e-mail address (data minimisation). The account list shows label and e-mail side by
+    side, for the rare case the person is needed. None for guests and unknown owners."""
+    if owner in (GUEST, UNKNOWN):
+        return None
+    return "#" + hash_user(owner)[:6]
+
+
+def summary(entry: dict, owner: str) -> dict:
     detailed = "llm_calls" in entry  # present in every new line, even error lines
     candidates = entry.get("candidates") or []
     hits = None
@@ -85,7 +94,7 @@ def summary(entry: dict, owner: str, email: str | None) -> dict:
         "request_id": entry.get("request_id"),
         "ts": entry.get("ts"),
         "owner": owner,
-        "email": email,
+        "account": account_label(owner),
         "message": entry.get("message"),
         "intent": entry.get("intent"),
         "hits": hits,
@@ -99,10 +108,6 @@ def summary(entry: dict, owner: str, email: str | None) -> dict:
     }
 
 
-def _email_map(accounts: list[AppUser]) -> dict[str, str | None]:
-    return {p.user_id: p.email for p in accounts}
-
-
 def users(entries: list[dict], accounts: list[AppUser]) -> list[dict]:
     counts: dict[str, int] = {}
     for e in entries:
@@ -111,6 +116,7 @@ def users(entries: list[dict], accounts: list[AppUser]) -> list[dict]:
     rows = [
         {
             "user_id": p.user_id,
+            "account": account_label(p.user_id),
             "email": p.email,
             "status": p.status,
             "created_at": p.created_at.isoformat(),
@@ -125,6 +131,7 @@ def users(entries: list[dict], accounts: list[AppUser]) -> list[dict]:
             rows.append(
                 {
                     "user_id": owner,
+                    "account": None,
                     "email": None,
                     "status": status,
                     "created_at": None,
@@ -138,7 +145,6 @@ def users(entries: list[dict], accounts: list[AppUser]) -> list[dict]:
 def searches(
     entries: list[dict], accounts: list[AppUser], owner: str | None, offset: int, limit: int
 ) -> dict:
-    emails = _email_map(accounts)
     selected = []
     for e in entries:
         o = owner_of(e, accounts)
@@ -148,7 +154,7 @@ def searches(
     durations = [e["duration_ms"] for e, _ in selected if e.get("duration_ms") is not None]
     page = selected[offset : offset + limit]
     return {
-        "items": [summary(e, o, emails.get(o)) for e, o in page],
+        "items": [summary(e, o) for e, o in page],
         "total": len(selected),
         "sums": {
             "count": len(selected),
@@ -162,5 +168,6 @@ def detail(entries: list[dict], accounts: list[AppUser], request_id: str) -> dic
     for e in entries:
         if e.get("request_id") == request_id:
             o = owner_of(e, accounts)
-            return {**e, "owner": o, "email": _email_map(accounts).get(o)}
+            shown = {k: v for k, v in e.items() if k != "user_id"}  # the owner field says whose it is
+            return {**shown, "owner": o, "account": account_label(o)}
     return None

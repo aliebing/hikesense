@@ -363,7 +363,7 @@ export const en = {
     signOut: "Sign out",
     accounts: "User accounts",
     guests: "Guests",
-    userCols: { email: "Email", status: "Status", created: "Registered", lastSignIn: "Last sign-in", searches: "Searches", action: "Action" },
+    userCols: { account: "Label", email: "Email", status: "Status", created: "Registered", lastSignIn: "Last sign-in", searches: "Searches", action: "Action" },
     accountStatus: { "unbestätigt": "unconfirmed", aktiv: "active", gesperrt: "blocked", gast: "guest" },
     block: "Block",
     unblock: "Unblock",

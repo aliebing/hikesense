@@ -10,10 +10,10 @@ import { renderWithLocale } from "../../test-utils";
 
 const json = (status: number, body: unknown) => ({ ok: status < 300, status, json: async () => body }) as Response;
 const item = (id: string, owner: string, msg: string, over = {}) => ({
-  request_id: id, ts: "2026-11-02T13:02:00Z", owner, email: "a@x.de", message: msg, intent: "day_hike", hits: 3, fallback: false,
+  request_id: id, ts: "2026-11-02T13:02:00Z", owner, account: `#${owner}aaaa`, message: msg, intent: "day_hike", hits: 3, fallback: false,
   tool_calls: 2, tokens: 3530, cost_usd: 0.0021, duration_ms: 4200, error: null, detailed: true, ...over,
 });
-const users = { users: [{ user_id: "u1", email: "anna@x.de", status: "aktiv", created_at: "2026-11-01T09:00:00Z", last_sign_in_at: null, searches: 2 }, { user_id: "u2", email: "ali@x.de", status: "gesperrt", created_at: "2026-11-01T09:00:00Z", last_sign_in_at: null, searches: 1 }, { user_id: "unknown", email: null, status: null, created_at: null, last_sign_in_at: null, searches: 1 }], total: 3 };
+const users = { users: [{ user_id: "u1", account: "#u1aaaa", email: "anna@x.de", status: "aktiv", created_at: "2026-11-01T09:00:00Z", last_sign_in_at: null, searches: 2 }, { user_id: "u2", account: "#u2aaaa", email: "ali@x.de", status: "gesperrt", created_at: "2026-11-01T09:00:00Z", last_sign_in_at: null, searches: 1 }, { user_id: "unknown", email: null, status: null, created_at: null, last_sign_in_at: null, searches: 1 }], total: 3 };
 const sums = { count: 4, cost_usd: 0.41, avg_duration_ms: 3600 };
 
 let calls: string[];
@@ -34,7 +34,7 @@ function route(me: Response, extra: Record<string, (u: string) => Response> = {}
     if (u.endsWith("/backend/me")) return signedIn ? json(200, { name: "admin" }) : me.ok ? json(401, { detail: "Bitte anmelden" }) : me;
     if (u.endsWith("/backend/users")) return json(200, users);
     for (const [k, f] of Object.entries(extra)) if (u.includes(k)) return f(u);
-    if (u.includes("/backend/searches/")) return json(200, { request_id: "x", ts: "2026-11-02T13:02:00Z", owner: "u1", email: "a@x.de", message: "Detailtext", llm_calls: [], tools: [] });
+    if (u.includes("/backend/searches/")) return json(200, { request_id: "x", ts: "2026-11-02T13:02:00Z", owner: "u1", account: "#u1aaaa", message: "Detailtext", llm_calls: [], tools: [] });
     if (u.includes("user=u2")) return json(200, { items: [item("s9", "u2", "Von Ali")], total: 1, sums: { count: 1, cost_usd: 0.002, avg_duration_ms: 1000 } });
     if (u.includes("offset=50")) return json(200, { items: [item("s2", "u1", "Zweite Seite")], total: 4, sums });
     return json(200, { items: [item("s1", "u1", "Rundtour Feldberg")], total: 4, sums });
@@ -98,7 +98,7 @@ it("lists users, selects another one and shows summary row", async () => {
   expect(await screen.findByText("Alle (4)")).toBeInTheDocument();
   expect(screen.getByText("Unbekannt (1)")).toBeInTheDocument();
   expect(await screen.findByText("Summe: 4 Suchen · 0,4100 $ · Ø 3,6 s")).toBeInTheDocument();
-  fireEvent.click(screen.getByText("ali@x.de (1)"));
+  fireEvent.click(screen.getByText("#u2aaaa (1)"));
   await waitFor(() => expect(calls.some((c) => c.includes("/backend/searches?user=u2"))).toBe(true));
   expect((await screen.findAllByText("Von Ali")).length).toBeGreaterThan(0);
   await waitFor(() => expect(calls.some((c) => c.includes("/backend/searches/s9"))).toBe(true));
@@ -110,6 +110,20 @@ it("loads more with offset=50", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Mehr laden" }));
   await waitFor(() => expect(calls.some((c) => c.includes("offset=50"))).toBe(true));
   expect((await screen.findAllByText("Zweite Seite")).length).toBeGreaterThan(0);
+});
+
+it("names accounts in the search views by their label; the e-mail only in the account list", async () => {
+  route(json(200, ME));
+  render(<AdminPage />);
+  expect(await screen.findByText("#u1aaaa (2)")).toBeInTheDocument(); // filter list
+  expect(screen.queryByText("anna@x.de (2)")).not.toBeInTheDocument();
+  expect(await screen.findByText("Letzte Suchen · alle")).toBeInTheDocument();
+  const accounts = screen.getByRole("heading", { name: "Benutzerverwaltung" }).parentElement!;
+  expect(accounts).toHaveTextContent("anna@x.de");
+  expect(accounts).toHaveTextContent("#u1aaaa");
+  const outside = document.body.textContent!.replace(accounts.textContent!, "");
+  expect(outside).not.toContain("anna@x.de");
+  expect(outside).not.toContain("ali@x.de");
 });
 
 it("shows details of a clicked row", async () => {

@@ -358,7 +358,7 @@ export const de: Messages = {
     signOut: "Abmelden",
     accounts: "Benutzerverwaltung",
     guests: "Gäste",
-    userCols: { email: "E-Mail", status: "Status", created: "Registriert", lastSignIn: "Letzte Anmeldung", searches: "Suchen", action: "Aktion" },
+    userCols: { account: "Kürzel", email: "E-Mail", status: "Status", created: "Registriert", lastSignIn: "Letzte Anmeldung", searches: "Suchen", action: "Aktion" },
     accountStatus: { "unbestätigt": "unbestätigt", aktiv: "aktiv", gesperrt: "gesperrt", gast: "Gast" },
     block: "Sperren",
     unblock: "Entsperren",

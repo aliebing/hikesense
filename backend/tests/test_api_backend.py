@@ -171,7 +171,8 @@ def test_searches_and_detail(settings):
     assert [i["request_id"] for i in c.get("/backend/searches?user=guest").json()["items"]] == [
         "r2"
     ]
-    assert c.get("/backend/searches/r1").json()["email"] == "a@x.de"
+    one = c.get("/backend/searches/r1").json()
+    assert "email" not in one and "a@x.de" not in str(one) and one["account"].startswith("#")
     assert c.get("/backend/searches/nope").status_code == 404
     assert c.get("/backend/searches?limit=201").status_code == 422
 

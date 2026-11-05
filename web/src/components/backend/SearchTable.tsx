@@ -2,7 +2,7 @@
 
 import { useLocale, useT } from "../../i18n";
 import type { SearchPage, SearchSummary } from "../../lib/backend";
-import { ms, usd, when } from "../../lib/backend";
+import { ms, usd, when, whoSearched } from "../../lib/backend";
 import { MISSING, num } from "../../lib/format";
 
 export default function SearchTable({
@@ -41,7 +41,7 @@ export default function SearchTable({
               className={`cursor-pointer border-b border-wald-dunkel/10 hover:bg-wald-dunkel/5 ${selected === s.request_id ? "bg-wald-dunkel/10" : ""}`}
             >
               <td className="py-1 pr-2 whitespace-nowrap">{when(s.ts, locale)}</td>
-              <td className="pr-2">{s.email ?? (s.owner === "unknown" ? t.unknown : s.owner)}</td>
+              <td className="pr-2">{whoSearched(s.owner, s.account, t)}</td>
               <td className="max-w-64 truncate pr-2">{s.message ?? t.olderSearch}</td>
               <td className="pr-2">{s.intent ?? "–"}</td>
               <td className="pr-2">{hits(s)}</td>

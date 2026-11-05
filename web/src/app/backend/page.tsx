@@ -7,7 +7,7 @@ import SearchDetail from "../../components/backend/SearchDetail";
 import SearchTable from "../../components/backend/SearchTable";
 import UserTable from "../../components/backend/UserTable";
 import { useLocale, useT } from "../../i18n";
-import { adminErrorText, backendGet, backendLogout, ms, usd, when, type BackendUser, type SearchDetail as Detail, type SearchPage } from "../../lib/backend";
+import { adminErrorText, backendGet, backendLogout, ms, usd, when, whoSearched, type BackendUser, type SearchDetail as Detail, type SearchPage } from "../../lib/backend";
 
 const LIMIT = 50;
 const ALL = "all";
@@ -89,7 +89,7 @@ function Admin() {
   const total = users.reduce((a, u) => a + u.searches, 0);
   const row = (active: boolean) => `block w-full rounded-lg px-2 py-1 text-left text-sm hover:bg-wald-dunkel/10 ${active ? "bg-wald-dunkel/15 font-bold" : ""}`;
   const list = page?.items.slice(0, LIMIT) ?? [];
-  const label = owner === ALL ? t.allLower : owner === "guest" ? t.guests : (users.find((u) => u.user_id === owner)?.email ?? t.unknown);
+  const label = owner === ALL ? t.allLower : owner === "guest" ? t.guests : whoSearched(owner, users.find((u) => u.user_id === owner)?.account, t);
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4">
@@ -114,7 +114,7 @@ function Admin() {
           <button type="button" className={row(owner === ALL)} onClick={() => setOwner(ALL)}>{`${t.all} (${total})`}</button>
           {users.map((u) => (
             <button key={u.user_id} type="button" className={row(owner === u.user_id)} onClick={() => setOwner(u.user_id)}>
-              {u.user_id === "unknown" ? `${t.unknown} (${u.searches})` : u.user_id === "guest" ? `${t.guests} (${u.searches})` : `${u.email ?? u.user_id} (${u.searches})`}
+              {u.user_id === "unknown" ? `${t.unknown} (${u.searches})` : u.user_id === "guest" ? `${t.guests} (${u.searches})` : `${u.account ?? u.user_id} (${u.searches})`}
             </button>
           ))}
         </section>

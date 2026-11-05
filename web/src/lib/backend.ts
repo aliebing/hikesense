@@ -4,6 +4,8 @@ import { dateIn, MISSING, num } from "./format";
 /** One row of /backend/users; "guest" and "unknown" are summary rows without an account. */
 export type BackendUser = {
   user_id: string;
+  /** short pseudonym ("#3f9a2c") that the search views show instead of the e-mail; null for guests */
+  account?: string | null;
   email: string | null;
   status: "unbestätigt" | "aktiv" | "gesperrt" | "gast" | null;
   created_at?: string | null;
@@ -15,7 +17,7 @@ export type SearchSummary = {
   request_id: string;
   ts: string;
   owner: string;
-  email: string | null;
+  account: string | null;
   message: string | null;
   intent: string | null;
   hits: number | null;
@@ -89,7 +91,7 @@ export type SearchDetail = {
   request_id: string;
   ts: string;
   owner: string;
-  email: string | null;
+  account: string | null;
   intent?: string | null;
   activity?: string | null;
   tool_calls?: number;
@@ -173,3 +175,7 @@ export function when(ts: string, locale: Locale, now: Date = new Date()): string
   if (day === dayFmt.format(new Date(now.getTime() - 86_400_000))) return `${a.yesterday} ${time}`;
   return `${dateIn(d, locale, { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" })} ${time}`;
 }
+
+/** Who made a search, without the e-mail address: the account's short label, else "Guests"/"Unknown". */
+export const whoSearched = (owner: string, account: string | null | undefined, t: { guests: string; unknown: string }): string =>
+  account ?? (owner === "guest" ? t.guests : t.unknown);
