@@ -38,11 +38,11 @@ The predecessor HikeAI (Sprint 2) was criticised for three things, and this proj
 flowchart LR
     web["Web app<br/>Next.js PWA"] -->|"POST /api/chat + Supabase token"| api["API<br/>FastAPI"]
     web <-->|"sign-in, plans, photos"| sb[("Supabase<br/>Postgres + PostGIS")]
-    api --> graph["LangGraph agent"]
-    graph -->|"SQL"| sb
-    graph -->|"structured output,<br/>tool calls, answer"| llm["LLM via OpenRouter<br/>gpt-4o-mini"]
-    graph --> idx[("Knowledge index<br/>ChromaDB + BM25")]
-    graph --> meteo["Open-Meteo"]
+    api --> agent["LangGraph agent"]
+    agent -->|"SQL"| sb
+    agent -->|"structured output,<br/>tool calls, answer"| llm["LLM via OpenRouter<br/>gpt-4o-mini"]
+    agent --> idx[("Knowledge index<br/>ChromaDB + BM25")]
+    agent --> meteo["Open-Meteo"]
     api -->|"Server-Sent Events (JSON)"| web
 ```
 
