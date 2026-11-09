@@ -186,92 +186,117 @@ async function icon(name, color) {
   }
   s.addNotes("This is what the app offers. Day hikes in three regions, 577 tours that passed strict rules, and every card shows a tick or a cross for each condition. When nothing fits, as in the upper screenshot, the code says so with the reason and shows tours that miss exactly one condition. Multi-day plans on eight long-distance trails split the trail into days with lodging at most one kilometre from the trail, walking times after DIN 33466, the weather and a rain variant. You change the plan in the chat, for example 'day 3 shorter'. Knowledge questions are answered from sources with links, and the 'On the way' page shows the remaining kilometres on the phone without sending the position anywhere.");
 
-  // ---------- 4. Technical 1: the whole flow ----------
+  const PALETTE = { fill: "#FFFFFF", stroke: "#9AA89D", modelFill: "#FBEFD2", model: "#C68A1C", fg: "#1C2A20", muted: "#5A6B5E", edge: "#7D8B80" };
+  const HEAD_COLOR = C.accent1;
+  // ---------- technical slides: diagrams in the style of the comparison video (docs/video/compare_slides.html) ----------
+  // A spec is drawn as SVG and rasterised with sharp: nodes ("model" = a language model, marked ✦; "ext" = a service or store,
+  // dashed), edges as SVG paths ("back" = dashed, "both" = arrow at both ends, "plain" = no arrow), edge labels and end points.
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const diagramPng = async (spec) => {
+    const P = PALETTE;
+    const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${spec.w}" height="${spec.h}" viewBox="0 0 ${spec.w} ${spec.h}">`,
+      `<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${P.edge}"/></marker></defs>`];
+    for (const e of spec.edges) {
+      const [d, kind = ""] = e;
+      const dash = kind.includes("back") || kind.includes("link") ? ' stroke-dasharray="8 7"' : "";
+      const head = kind.includes("plain") || kind.includes("link") ? "" : ' marker-end="url(#a)"';
+      const tail = kind.includes("both") ? ' marker-start="url(#a)"' : "";
+      out.push(`<path d="${d}" fill="none" stroke="${P.edge}" stroke-width="3"${dash}${head}${tail}/>`);
+    }
+    for (const [x, y, w, h, name, sub, kind = ""] of spec.nodes) {
+      const model = kind === "model", ext = kind === "ext";
+      out.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="${model ? P.modelFill : P.fill}" stroke="${model ? P.model : P.stroke}" stroke-width="${model ? 2.5 : 2}"${ext ? ' stroke-dasharray="7 6"' : ""}/>`);
+      const cx = x + w / 2, cy = y + h / 2;
+      const label = model ? `${esc(name)} <tspan fill="${P.model}">✦</tspan>` : esc(name);
+      out.push(`<text x="${cx}" y="${sub ? cy - 4 : cy + 9}" fill="${P.fg}" font-family="Ubuntu Sans Mono, DejaVu Sans Mono, monospace" font-weight="600" font-size="26" text-anchor="middle">${label}</text>`);
+      if (sub) out.push(`<text x="${cx}" y="${cy + 26}" fill="${P.muted}" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" font-size="19" text-anchor="middle">${esc(sub)}</text>`);
+    }
+    for (const [x, y, t, anchor = "middle"] of spec.labels || [])
+      out.push(`<text x="${x}" y="${y}" fill="${P.muted}" font-family="Ubuntu Sans Mono, DejaVu Sans Mono, monospace" font-size="21" text-anchor="${anchor}">${esc(t)}</text>`);
+    for (const [x, y] of spec.terms || []) out.push(`<circle cx="${x}" cy="${y}" r="12" fill="${P.edge}"/>`);
+    out.push("</svg>");
+    const png = await sharp(Buffer.from(out.join("")), { density: 160 }).png().toBuffer();
+    return "image/png;base64," + png.toString("base64");
+  };
+  // three short columns of technical description under a diagram
+  const describe = (slide, y, cols) => {
+    const cw = (12.1 - 2 * 0.3) / 3;
+    cols.forEach(([head, body], i) => {
+      const x = 0.6 + i * (cw + 0.3);
+      card(slide, x, y, cw, 6.88 - y, "Description " + head);
+      text(slide, [{ text: head, options: { bold: true, color: HEAD_COLOR, fontSize: 14, breakLine: true } }, { text: body, options: { fontSize: 12 } }],
+        { x: x + 0.2, y: y + 0.1, w: cw - 0.4, h: 6.88 - y - 0.24, paraSpaceAfter: 4, objectName: "Description text " + head });
+    });
+  };
+
+  // the system flow: the main row, the model above, stores and services below, the stream back to the client
+  const SYS = { w: 1800, h: 560, y: 150, hh: 90 };
+  const sysFlow = (main, top, bottom, terms, back) => {
+    const cy = SYS.y + SYS.hh / 2, nodes = [], edges = [["M36," + cy + " H58"]];
+    main.forEach(([x, w, name, sub, kind], i) => {
+      nodes.push([x, SYS.y, w, SYS.hh, name, sub, kind]);
+      if (i < main.length - 1) edges.push([`M${x + w},${cy} H${main[i + 1][0] - 2}`]);
+    });
+    top.forEach(([x, w, name, links]) => {
+      nodes.push([x, 20, w, 64, name, "", "ext"]);
+      links.forEach((lx) => edges.push([`M${lx},${SYS.y} V86`, "link"]));
+    });
+    bottom.forEach((n) => nodes.push([n[0], 380, n[1], 80, n[2], n[3], "ext"]));
+    const labels = [];
+    terms.forEach(([x, t, anchor]) => { edges.push([`M${x},${SYS.y + SYS.hh} V298`]); labels.push([x + (anchor === "end" ? 15 : anchor === "start" ? -15 : 0), 352, t, anchor]); });
+    const last = main[main.length - 1], first = main[0];
+    edges.push([`M${last[0] + last[1] / 2},${SYS.y + SYS.hh} V490 Q${last[0] + last[1] / 2},505 ${last[0] + last[1] / 2 - 15},505 H${first[0] + first[1] / 2 + 15} Q${first[0] + first[1] / 2},505 ${first[0] + first[1] / 2},490 V${SYS.y + SYS.hh + 4}`, "back"]);
+    labels.push([900, 545, back]);
+    return { w: SYS.w, h: SYS.h, nodes, edges, labels, terms: [[24, cy], ...terms.map(([x]) => [x, 312])] };
+  };
+
+  // ---------- 4. Technical 1: system flow ----------
   pres.addSection({ title: "Technical" });
   s = pres.addSlide({ masterName: "Content", sectionTitle: "Technical" });
-  head(s, "03 · TECHNICAL 1/2", "Technical 1/2: the whole flow of a request");
+  head(s, "03 · TECHNICAL 1/2", "System flow: from a wish to the answer");
   {
-    const cw = 2.2, cg = 0.275, cx = (i) => 0.6 + i * (cw + cg);
-    const y1 = 1.55, h1 = 1.3, y2 = 3.3, h2 = 1.4, y3 = 5.15;
-    const lane = [
-      ["Web app", "Next.js PWA: chat, cards, map, plans; English / German", "code"],
-      ["API", "FastAPI: POST /chat, token check, rate limit; SSE stream", "code"],
-      ["LangGraph agent", "guard, understand, one branch, answer, ground", "llm"],
-      ["Tools and rules", "PostGIS search, ✓ / ✗ checks, day planner, DIN times", "code"],
-      ["Knowledge index", "ChromaDB + BM25 fused by RRF; local embeddings", "code"],
-    ];
-    lane.forEach(([h1t, sub, kind], i) => {
-      node(s, cx(i), y1, cw, h1, h1t, sub, kind, { valign: "top" });
-      if (i < lane.length - 1) arrow(s, cx(i) + cw + 0.03, y1 + h1 / 2, cx(i + 1) - 0.03, y1 + h1 / 2);
-    });
-    const below = [
-      ["Supabase Auth", "sign-in (JWT), saved plans, own photos; guests with a quota", "ext"],
-      ["LangSmith", "opt-in tracing, EU; the user only as a hash", "ext"],
-      ["OpenRouter LLM", "gpt-4o-mini: understand, tool rounds, answer", "llm"],
-      ["Open-Meteo", "14-day forecast, fetched per request; web search for races", "ext"],
-      ["Postgres + PostGIS", "trails, stages, lodgings, POIs, sources with licence", "code"],
-    ];
-    below.forEach(([h1t, sub, kind], i) => node(s, cx(i), y2, cw, h2, h1t, sub, kind, { valign: "top" }));
-    arrow(s, cx(0) + cw / 2, y1 + h1 + 0.03, cx(0) + cw / 2, y2 - 0.03, { both: true });
-    arrow(s, cx(2) + 0.35, y1 + h1 + 0.03, cx(1) + cw - 0.35, y2 - 0.03, { dash: "dash" });
-    arrow(s, cx(2) + cw / 2, y1 + h1 + 0.03, cx(2) + cw / 2, y2 - 0.03, { both: true });
-    arrow(s, cx(3) + cw / 2, y1 + h1 + 0.03, cx(3) + cw / 2, y2 - 0.03, { both: true });
-    arrow(s, cx(3) + cw - 0.35, y1 + h1 + 0.03, cx(4) + 0.35, y2 - 0.03, { both: true });
-    node(s, cx(3), y3, 2 * cw + cg, 1.0, "Offline: import pipeline",
-      "4,014 OSM relations → rules → review → 577 day hikes; 8 long-distance trails, lodgings, DEM, photos", "code", { valign: "top" });
-    arrow(s, cx(4) + cw / 2, y3 - 0.03, cx(4) + cw / 2, y2 + h2 + 0.03);
-    legend(s, cx(3), y3 + 1.15, true);
-    compare(s, 0.6, y3, cx(3) - cg - 0.6, 1.7,
-      ["HikeSense: filters hard conditions", "PostGIS finds tours near the start; code ticks every condition ✓ / ✗ and plans the days. Only the weather is live. Supabase sign-in."],
-      ["CineSense: ranks the whole catalogue", "One weighted score over moods, plot, people, rating and taste. Streaming is fetched live under a monthly budget. No accounts."]);
+    const spec = sysFlow(
+      [[60, 190, "client", "Next.js PWA"], [300, 190, "api", "FastAPI · JWT · SSE"], [540, 170, "guard", "9 patterns"],
+        [760, 200, "understand", "structured output", "model"], [1010, 210, "search · plan", "PostGIS · ✓ / ✗"],
+        [1270, 190, "answer", "words the reply", "model"], [1510, 220, "ground", "numbers checked"]],
+      [[60, 430, "Supabase Auth · JWT", [155, 395]], [760, 700, "OpenRouter · gpt-4o-mini", [860, 1365]]],
+      [[760, 200, "import", "offline: OSM, DEM"], [1010, 210, "Postgres", "PostGIS · 577 tours"], [1270, 190, "Open-Meteo", "forecast, live"]],
+      [[625, "injection → fixed reply", "end"], [860, "unclear → asks back", "start"]],
+      "reply, tour cards and plans stream back (SSE)");
+    spec.edges.push(["M960,420 H1008"], ["M1115,244 V376", "both"], ["M1200,240 C1200,320 1365,300 1365,376"]);
+    s.addImage({ data: await diagramPng(spec), x: 0.6, y: 1.45, w: 12.1, h: 12.1 * spec.h / spec.w, altText: "System flow of HikeSense: client, API, guard, understand (LLM), search and plan, answer (LLM), ground; Supabase Auth and OpenRouter above, import, Postgres with PostGIS and Open-Meteo below; the reply streams back to the client" });
+    describe(s, 5.28, [
+      ["Request", "The Next.js PWA posts the message with a Supabase JWT; FastAPI checks token and quota and streams JSON events (SSE). 9 injection patterns run before any model call."],
+      ["Model ✦", "gpt-4o-mini via OpenRouter, twice: understand fills a Pydantic schema (code keeps only what was written), answer words the reply."],
+      ["Code", "PostGIS search with ✓ / ✗ per condition, the day planner and the Open-Meteo forecast. Grounding checks every number and tour name against the tool results."],
+    ]);
   }
-  s.addNotes("The whole flow on one slide. The web app is a Next.js PWA; sign-in, saved plans and own photos go through Supabase. For the chat it calls the FastAPI backend, which checks the token and the rate limit and runs the LangGraph graph; every update comes back as JSON events over Server-Sent Events. Inside the graph the model, gpt-4o-mini via OpenRouter, reads the message and words the answer. Everything that decides is code: the PostGIS search, the condition checks, the day planner and the walking times, plus the knowledge index. The data is a fixed import from OpenStreetMap and other open sources; only the weather is fetched live. The difference to CineSense is at the bottom: HikeSense filters, a tour either meets a condition or not. CineSense ranks, every film gets one weighted score, it fetches streaming availability live and has no accounts.");
+  s.addNotes("The whole system on one diagram; the sparkle marks where a language model works. The Next.js PWA, signed in with Supabase, posts the message to FastAPI, which checks the token and the quota and streams JSON events back. The guard checks nine injection patterns before any model call. Understand makes one structured-output call through OpenRouter; if the place is unclear, the app asks back. Then plain code searches PostGIS and checks every condition, or plans the days with the forecast from Open-Meteo. The data in Postgres was imported offline from OpenStreetMap and other open sources. Answer words the reply, and ground checks every number and tour name. Reply, cards and plans stream back to the client.");
 
   // ---------- 5. Technical 2: the LangGraph graph ----------
   s = pres.addSlide({ masterName: "Content", sectionTitle: "Technical" });
-  head(s, "04 · TECHNICAL 2/2", "Technical 2/2: the LangGraph flow of one message");
+  head(s, "04 · TECHNICAL 2/2 · LANGGRAPH", "Workflow-first: the code drives");
   {
-    const rowH = 0.42, rowG = 0.1, top = 1.55, bx = 5.0, bw = 2.95;
-    const ry = (i) => top + i * (rowH + rowG), rc = (i) => ry(i) + rowH / 2;
-    const midY = rc(3), nh = 0.95, ny = midY - nh / 2;
-    const G = { x: 0.6, w: 1.75 }, U = { x: 2.75, w: 1.85 }, A = { x: 8.4, w: 1.4 }, R = { x: 10.1, w: 1.3 }, L = { x: 11.6, w: 1.1 };
-    node(s, G.x, ny, G.w, nh, "guard", "injection patterns → fixed reply", "code", { subSize: 11 });
-    node(s, U.x, ny, U.w, nh, "understand", "1 structured call; code keeps what you wrote", "llm", { subSize: 11 });
-    const branches = [
-      ["clarify", "asks back, no guessing", "code"],
-      ["reply", "fixed text", "code"],
-      ["search", "PostGIS, ✓ / ✗ checks", "code"],
-      ["multiday", "days, lodging, DIN times", "code"],
-      ["react", "knowledge: tool loop ≤ 8", "llm"],
-      ["groups", "curated clubs", "code"],
-      ["events", "races, fields quoted", "llm"],
-    ];
-    branches.forEach(([n, sub, kind], i) => node(s, bx, ry(i), bw, rowH, n, sub, kind, { inline: true, headSize: 13, subSize: 11.5, pad: 0.1 }));
-    node(s, A.x, ny, A.w, nh, "answer", "words the reply from the data", "llm", { subSize: 11 });
-    node(s, R.x, ny, R.w, nh, "ground", "numbers + tour names checked", "code", { subSize: 11 });
-    node(s, L.x, ny, L.w, nh, "log", "1 JSON line → END", "code", { subSize: 11 });
-    const g = 0.03;
-    arrow(s, G.x + G.w + g, midY, U.x - g, midY);                                     // guard -> understand
-    branches.forEach((_, i) => arrow(s, U.x + U.w + g, midY, bx - g, rc(i)));          // understand -> branch
-    for (let i = 2; i < branches.length; i++) arrow(s, bx + bw + g, rc(i), A.x - g, midY); // branch -> answer
-    arrow(s, A.x + A.w + g, midY, R.x - g, midY);                                     // answer -> ground
-    arrow(s, R.x + R.w + g, midY, L.x - g, midY);                                     // ground -> log
-    const lx = L.x + L.w / 2;
-    polyline(s, [[bx + bw + g, rc(0)], [lx, rc(0)], [lx, ny - g]]);                   // clarify -> log
-    arrow(s, bx + bw + g, rc(1), lx, rc(1), { noHead: true });                        // reply joins it
-    polyline(s, [[G.x + G.w / 2, ny - g], [G.x + G.w / 2, rc(1)], [U.x + U.w + 0.1, rc(1)]], { noHead: true }); // guard -> reply
-    arrow(s, U.x + U.w + 0.1, rc(1), bx - g, rc(1));
-    label(s, "injection", G.x + G.w / 2 + 0.08, rc(1) + 0.02, 1.2, 0.3);
-    label(s, "straight to log", 8.4, rc(0) - 0.33, 2.0, 0.3);
-    label(s, "state[\"route\"]: exactly one branch", U.x, ny + nh + 0.1, 2.2, 0.5, { valign: "top" });
-    legend(s, 0.6, 5.2);
-    text(s, "State: a MemorySaver per user hash + thread id keeps request, open question, last tours and plan.",
-      { x: 8.4, y: 5.05, w: 4.3, h: 0.55, fontSize: 12, color: C.text2, objectName: "State note" });
-    compare(s, 0.6, 5.7, 12.1, 1.2,
-      ["HikeSense · workflow-first: the code steers", "At most one structured-output call, then code routes to exactly one of 7 branches, no loop back. The graph calls the day-hike search itself; a tool loop only for knowledge questions."],
-      ["CineSense · agent-first: the model steers", "A ReAct loop: the model picks among 13 tools for up to 6 rounds, and the graph loops back (verify → agent) when fewer than 3 films match."]);
+    const br = ["clarify", "reply", "search", "multiday", "react", "groups", "events"];
+    const by = (i) => 40 + i * 82, bc = (i) => by(i) + 31;
+    const nodes = [[70, 285, 170, 70, "guard"], [320, 285, 240, 70, "understand", "", "model"],
+      ...br.map((n, i) => [700, by(i), 210, 62, n, "", n === "react" ? "model" : ""]),
+      [1010, 285, 200, 70, "answer", "", "model"], [1270, 285, 170, 70, "ground"], [1480, 285, 130, 70, "log"]];
+    const edges = [["M28,320 H68"], ["M240,320 H318"],
+      ...br.map((_, i) => [bc(i) === 317 ? "M560,320 H698" : `M560,320 C630,320 630,${bc(i)} 698,${bc(i)}`]),
+      ["M155,285 C155,150 600,153 698,153", "back"],
+      ...[2, 3, 4, 5, 6].map((i) => [bc(i) === 317 ? "M910,317 H1008" : `M910,${bc(i)} C960,${bc(i)} 960,320 1008,320`]),
+      ["M1210,320 H1268"], ["M1440,320 H1478"], ["M1610,320 H1630"],
+      ["M910,71 C1545,71 1545,71 1545,283", "back"], ["M910,153 C1500,153 1530,160 1540,283", "back"]];
+    const spec = { w: 1660, h: 640, nodes, edges, labels: [[650, 22, "state[\"route\"]"], [430, 250, "injection"]], terms: [[14, 320], [1648, 320]] };
+    s.addImage({ data: await diagramPng(spec), x: 1.45, y: 1.4, w: 10.4, h: 10.4 * spec.h / spec.w, altText: "HikeSense LangGraph graph: guard, understand (LLM), then exactly one of clarify, reply, search, multiday, react (LLM), groups, events; then answer (LLM), ground, log; clarify and reply go straight to log" });
+    describe(s, 5.55, [
+      ["✦ One model call", "understand fills a Pydantic schema; resolve() in code keeps only what was written and sets state[\"route\"]."],
+      ["Code routes", "A conditional edge runs exactly one of 7 branches, with no loop back. Only react ✦ calls tools (4 tools, at most 8 calls)."],
+      ["Checked output", "answer ✦ words the reply from the data, ground checks numbers and tour names, log writes one JSON line. State: a MemorySaver per user and thread."],
+    ]);
   }
-  s.addNotes("This is build_graph in graph.py. guard checks for injection patterns; a match goes straight to a fixed reply without calling the model. understand makes exactly one structured-output call: the model fills a Pydantic schema, and resolve, plain code, keeps only the numbers and conditions that are really in the message. It writes one field, route, and a conditional edge sends the message to exactly one branch. clarify asks back, for example when Feldberg is ambiguous, and reply is a fixed text; both go straight to log. search, multiday and groups are pure code. react is the only real tool loop, for knowledge questions, with at most eight tool calls; events reads race pages and keeps a field only if its quote is on the page. answer lets the model word the reply from the data, ground checks every number and tour name, and log writes one JSON line. The difference to CineSense: here the code steers and the model fills in a form; in CineSense the model steers a tool loop, and the graph loops back when too few films match.");
+  s.addNotes("This is build_graph in graph.py. HikeSense is workflow-first: the code drives. guard checks the injection patterns; a match goes straight to reply. understand makes exactly one structured-output call, and plain code turns it into a request and writes the route into the state. The conditional edge then runs exactly one of seven branches. search, multiday and groups are pure code; react is the only branch where the model calls tools, for knowledge questions; events reads race pages. clarify and reply go straight to log; the others go through answer, where the model words the reply, and ground, which checks numbers and tour names. There is no loop back: the model never decides how often to go round, unlike CineSense's agent-first graph.");
 
   // ---------- 6. Guard ----------
   pres.addSection({ title: "Safety and quality" });
