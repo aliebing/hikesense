@@ -186,7 +186,7 @@ async function icon(name, color) {
   }
   s.addNotes("This is what the app offers. Day hikes in three regions, 577 tours that passed strict rules, and every card shows a tick or a cross for each condition. When nothing fits, as in the upper screenshot, the code says so with the reason and shows tours that miss exactly one condition. Multi-day plans on eight long-distance trails split the trail into days with lodging at most one kilometre from the trail, walking times after DIN 33466, the weather and a rain variant. You change the plan in the chat, for example 'day 3 shorter'. Knowledge questions are answered from sources with links, and the 'On the way' page shows the remaining kilometres on the phone without sending the position anywhere.");
 
-  const PALETTE = { fill: "#FFFFFF", stroke: "#9AA89D", modelFill: "#FBEFD2", model: "#C68A1C", fg: "#1C2A20", muted: "#5A6B5E", edge: "#7D8B80" };
+  const PALETTE = { fill: "#FFFFFF", stroke: "#9AA89D", modelFill: "#FBEFD2", model: "#C68A1C", groupFill: "#FAF6EC", fg: "#1C2A20", muted: "#5A6B5E", edge: "#7D8B80" };
   const HEAD_COLOR = C.accent1;
   // ---------- technical slides: diagrams in the style of the comparison video (docs/video/compare_slides.html) ----------
   // A spec is drawn as SVG and rasterised with sharp: nodes ("model" = a language model, marked ✦; "ext" = a service or store,
@@ -196,6 +196,11 @@ async function icon(name, color) {
     const P = PALETTE;
     const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${spec.w}" height="${spec.h}" viewBox="0 0 ${spec.w} ${spec.h}">`,
       `<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${P.edge}"/></marker></defs>`];
+    // a dashed frame around the part that runs as the LangGraph graph
+    for (const [x, y, w, h, t] of spec.groups || []) {
+      out.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="${P.groupFill}" stroke="${P.model}" stroke-width="2" stroke-dasharray="10 8"/>`);
+      out.push(`<text x="${x + w - 16}" y="${y - 12}" fill="${P.model}" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" font-weight="600" font-size="22" text-anchor="end">${esc(t)}</text>`);
+    }
     for (const e of spec.edges) {
       const [d, kind = ""] = e;
       const dash = kind.includes("back") || kind.includes("link") ? ' stroke-dasharray="8 7"' : "";
@@ -264,6 +269,7 @@ async function icon(name, color) {
       [[625, "injection → fixed reply", "end"], [860, "unclear → asks back", "start"]],
       "reply, tour cards and plans stream back (SSE)");
     spec.edges.push(["M960,420 H1008"], ["M1115,244 V376", "both"], ["M1200,240 C1200,320 1365,300 1365,376"]);
+    spec.groups = [[522, 130, 1226, 130, "LangGraph graph · next slide"]];
     s.addImage({ data: await diagramPng(spec), x: 0.6, y: 1.45, w: 12.1, h: 12.1 * spec.h / spec.w, altText: "System flow of HikeSense: client, API, guard, understand (LLM), search and plan, answer (LLM), ground; Supabase Auth and OpenRouter above, import, Postgres with PostGIS and Open-Meteo below; the reply streams back to the client" });
     describe(s, 5.28, [
       ["Request", "The Next.js PWA posts the message with a Supabase JWT; FastAPI checks token and quota and streams JSON events (SSE). 9 injection patterns run before any model call."],
